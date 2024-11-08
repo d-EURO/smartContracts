@@ -1,8 +1,8 @@
 # dEURO
 
-This is the source code repository for the smart contracts of the oracle-free, collateralized stablecoin Frankencoin.
+This is the source code repository for the smart contracts of the oracle-free, collateralized stablecoin dEURO.
 
-There also is a [public frontend](https://frankencoin.com), a [documentation page](https://docs.frankencoin.com), an outdated [Frankencoin Research Paper](https://www.snb.ch/n/mmr/reference/sem_2022_06_03_maire/source/sem_2022_06_03_maire.n.pdf), and a more recent chapter of a [pending phd thesis](https://frankencoin.com/thesis-preprint-frankencoin.pdf).
+There also is a [public frontend](https://dEURO.com), a [documentation page](https://docs.dEURO.com), an outdated [dEURO Research Paper](https://www.snb.ch/n/mmr/reference/sem_2022_06_03_maire/source/sem_2022_06_03_maire.n.pdf), and a more recent chapter of a [pending phd thesis](https://dEURO.com/thesis-preprint-dEURO.pdf).
 
 ## Source Code
 
@@ -10,8 +10,8 @@ The source code can be found in the [contracts](contracts) folder. The following
 
 | Contract             | Description                                     |
 | -------------------- | ----------------------------------------------- |
-| Frankencoin.sol      | The Frankencoin (ZCHF) ERC20 token              |
-| Equity.sol           | The Frankencoin Pool Shares (FPS) ERC20 token   |
+| dEURO.sol            | The dEURO (ZCHF) ERC20 token              |
+| Equity.sol           | The native dEURO Protocol Share (nDEPS) ERC20 token   |
 | MintingHub.sol       | Plugin for oracle-free collateralized minting   |
 | Position.sol         | A borrowed minting position holding collateral  |
 | StablecoinBridge.sol | Plugin for 1:1 swaps with other CHF stablecoins |
@@ -48,7 +48,7 @@ Recommanded commands for `sepolia` network.
 
 ```shell
 hh deploy --network sepolia --tags MockTokens
-hh deploy --network sepolia --tags Frankencoin
+hh deploy --network sepolia --tags dEURO
 hh deploy --network sepolia --tags PositionFactory
 hh deploy --network sepolia --tags MintingHub
 hh deploy --network sepolia --tags MockCHFToken
