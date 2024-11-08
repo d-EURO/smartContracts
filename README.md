@@ -4,6 +4,9 @@ This is the source code repository for the smart contracts of the oracle-free, c
 
 There also is a [public frontend](https://d-euro.io) and a [documentation page](https://docs.d-euro.io/positions/open).
 
+This code is a friendly fork of Frankencoin-ZCHF. The fundamental mechanisms have not been changed. Frankencoin originated from the doctoral thesis of Dr. Luzius Meisser, which can be viewed at https://app.frankencoin.com/thesis-frankencoin.pdf.
+
+
 ## Source Code
 
 The source code can be found in the [contracts](contracts) folder. The following are the most important contracts.
