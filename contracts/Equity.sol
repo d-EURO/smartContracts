@@ -13,7 +13,7 @@ import "./interface/IERC677Receiver.sol";
  * Like with a corporation, the owners of the equity capital are the shareholders, or in this case the holders
  * of Frankencoin Pool Shares (FPS) tokens. Anyone can mint additional FPS tokens by adding Frankencoins to the
  * reserve pool. Also, FPS tokens can be redeemed for Frankencoins again after a minimum holding period.
- * Furthermore, the FPS shares come with some voting power. Anyone that held at least 3% of the holding-period-
+ * Furthermore, the FPS shares come with some voting power. Anyone that held at least 2% of the holding-period-
  * weighted reserve pool shares gains veto power and can veto new proposals.
  */
 contract Equity is ERC20PermitLight, MathUtil, IReserve {
