@@ -3,10 +3,10 @@
 pragma solidity ^0.8.0;
 
 import "./EuroCoin.sol";
-import "./utils/MathUtil.sol";
-import "./interface/IReserve.sol";
 import "./interface/IERC677Receiver.sol";
-import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import "./interface/IReserve.sol";
+import "./utils/MathUtil.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 /**
  * @title Equity
@@ -89,16 +89,11 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
     event Delegation(address indexed from, address indexed to); // indicates a delegation
     event Trade(address who, int amount, uint totPrice, uint newprice); // amount pos or neg for mint or redemption
 
-    constructor(EuroCoin zeur_) ERC20(18) {
+    constructor(EuroCoin zeur_)
+        ERC20("EuroCoin Pool Share", "EPS")
+        ERC20Permit("EuroCoin Pool Share")
+    {
         zeur = zeur_;
-    }
-
-    function name() external pure override returns (string memory) {
-        return "EuroCoin Pool Share";
-    }
-
-    function symbol() external pure override returns (string memory) {
-        return "EPS";
     }
 
     /**
@@ -114,8 +109,7 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
         }
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal override {
-        super._beforeTokenTransfer(from, to, amount);
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal {
         if (amount > 0) {
             // No need to adjust the sender votes. When they send out 10% of their shares, they also lose 10% of
             // their votes so everything falls nicely into place. Recipient votes should stay the same, but grow
@@ -124,6 +118,11 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
             // The total also must be adjusted and kept accurate by taking into account the rounding error.
             _adjustTotalVotes(from, amount, roundingLoss);
         }
+    }
+
+    function _update(address from, address to, uint256 value) internal override {
+        _beforeTokenTransfer(from, to, value);
+        super._update(from, to, value);
     }
 
     /**
@@ -375,7 +374,7 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
         uint256 shares,
         uint256 expectedProceeds
     ) external returns (uint256) {
-        _useAllowance(owner, msg.sender, shares);
+        _spendAllowance(owner, msg.sender, shares);
         uint256 proceeds = _redeemFrom(owner, target, shares);
         require(proceeds >= expectedProceeds);
         return proceeds;
@@ -425,15 +424,5 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
             address current = addressesToWipe[i];
             _burn(current, balanceOf(current));
         }
-    }
-
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
-        return
-            interfaceId == type(IERC20).interfaceId ||
-            interfaceId == type(ERC20PermitLight).interfaceId ||
-            super.supportsInterface(interfaceId);
     }
 }

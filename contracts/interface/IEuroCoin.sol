@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./IERC20.sol";
 import "./IReserve.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IEuroCoin is IERC20 {
     function suggestMinter(address _minter, uint256 _applicationPeriod, uint256 _applicationFee, string calldata _message) external;

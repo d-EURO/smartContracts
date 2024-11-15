@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./utils/Ownable.sol";
-import "./utils/MathUtil.sol";
+import "./interface/IEuroCoin.sol";
 
-import "./interface/IERC20.sol";
 import "./interface/IPosition.sol";
 import "./interface/IReserve.sol";
-import "./interface/IEuroCoin.sol";
+import "./utils/MathUtil.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title Position
@@ -151,9 +151,8 @@ contract Position is Ownable, IPosition, MathUtil {
         uint32 _annualInterestPPM,
         uint256 _liqPrice,
         uint32 _reservePPM
-    ) {
+    ) Ownable(_owner) {
         require(_initPeriod >= 3 days); // must be at least three days, recommended to use higher values
-        _setOwner(_owner);
         original = address(this);
         hub = _hub;
         zchf = IEuroCoin(_zchf);
@@ -184,7 +183,7 @@ contract Position is Ownable, IPosition, MathUtil {
         uint256 impliedPrice = (_initialMint * ONE_DEC18) / _coll;
         _initialMint = (impliedPrice * _coll) / ONE_DEC18; // to cancel potential rounding errors
         if (impliedPrice > _price) revert InsufficientCollateral();
-        _setOwner(owner);
+        _transferOwnership(owner);
         limit = _initialMint;
         expiration = expirationTime;
         _setPrice(impliedPrice);
@@ -463,6 +462,6 @@ contract Position is Ownable, IPosition, MathUtil {
         
         _withdrawCollateral(_bidder, _size); // transfer collateral to the bidder and emit update
 
-        return (owner, _size, repayment, reserveContribution);
+        return (owner(), _size, repayment, reserveContribution);
     }
 }

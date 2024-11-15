@@ -8,12 +8,12 @@ import "../contracts/test/TestToken.sol";
 import "../contracts/Equity.sol";
 import "../contracts/StablecoinBridge.sol";
 import "../contracts/Equity.sol";
-import "../contracts/Frankencoin.sol";
-import "../contracts/utils/FPSwrapper.sol";
+import "../contracts/EuroCoin.sol";
+import "../contracts/utils/EPSwrapper.sol";
 
 contract FPSWrapperTest is Test {
     
-    Frankencoin zchf;
+    EuroCoin zchf;
     Equity fps;
     StablecoinBridge swap;
     TestToken xchf;
@@ -22,7 +22,7 @@ contract FPSWrapperTest is Test {
     error General(uint256 val);
 
     constructor() {
-        zchf = new Frankencoin(0);
+        zchf = new EuroCoin(0);
         fps = Equity(address(zchf.reserve()));
         wfps = new FPSWrapper(fps);
         xchf = new TestToken("Base Franc", "BCHF", uint8(18));
