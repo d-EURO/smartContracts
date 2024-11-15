@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { floatToDec18 } from "../scripts/math";
 import { ethers } from "hardhat";
-import { Frankencoin, StablecoinBridge, TestToken } from "../typechain";
+import { EuroCoin, StablecoinBridge, TestToken } from "../typechain";
 import { evm_increaseTime } from "./helper";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -11,15 +11,15 @@ describe("Plugin Veto Tests", () => {
 
   let bridge: StablecoinBridge;
   let secondBridge: StablecoinBridge;
-  let zchf: Frankencoin;
+  let zchf: EuroCoin;
   let mockXCHF: TestToken;
   let mockDCHF: TestToken;
 
   before(async () => {
     [owner, alice] = await ethers.getSigners();
     // create contracts
-    const frankenCoinFactory = await ethers.getContractFactory("Frankencoin");
-    zchf = await frankenCoinFactory.deploy(10 * 86400);
+    const coinFactory = await ethers.getContractFactory("EuroCoin");
+    zchf = await coinFactory.deploy(10 * 86400);
 
     // mocktoken
     const xchfFactory = await ethers.getContractFactory("TestToken");
@@ -35,10 +35,10 @@ describe("Plugin Veto Tests", () => {
     await zchf.initialize(await bridge.getAddress(), "");
     // wait for 1 block
     await evm_increaseTime(60);
-    // now we are ready to bootstrap ZCHF with Mock-XCHF
+    // now we are ready to bootstrap ZEUR with Mock-XCHF
     await mockXCHF.mint(owner.address, limit / 2n);
     await mockXCHF.mint(alice.address, limit / 2n);
-    // mint some ZCHF to block bridges without veto
+    // mint some ZEUR to block bridges without veto
     let amount = floatToDec18(20_000);
     await mockXCHF.connect(alice).approve(await bridge.getAddress(), amount);
     await bridge.connect(alice).mint(amount);

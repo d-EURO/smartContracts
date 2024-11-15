@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { floatToDec18 } from "../scripts/math";
 import { ethers } from "hardhat";
 import { evm_increaseTime, evm_mine_blocks } from "./helper";
-import { Equity, Frankencoin, StablecoinBridge, TestToken } from "../typechain";
+import { Equity, EuroCoin, StablecoinBridge, TestToken } from "../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Equity Tests", () => {
@@ -12,7 +12,7 @@ describe("Equity Tests", () => {
 
   let equity: Equity;
   let bridge: StablecoinBridge;
-  let zchf: Frankencoin;
+  let zchf: EuroCoin;
   let xchf: TestToken;
 
   before(async () => {
@@ -23,8 +23,8 @@ describe("Equity Tests", () => {
   });
 
   beforeEach(async () => {
-    const frankenCoinFactory = await ethers.getContractFactory("Frankencoin");
-    zchf = await frankenCoinFactory.deploy(10 * 86400);
+    const coinFactory = await ethers.getContractFactory("EuroCoin");
+    zchf = await coinFactory.deploy(10 * 86400);
 
     let supply = floatToDec18(1000_000);
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
@@ -43,19 +43,19 @@ describe("Equity Tests", () => {
   });
 
   describe("basic initialization", () => {
-    it("should have symbol ZCHF", async () => {
+    it("should have symbol ZEUR", async () => {
       let symbol = await zchf.symbol();
-      expect(symbol).to.be.equal("ZCHF");
+      expect(symbol).to.be.equal("ZEUR");
     });
-    it("should have symbol FPS", async () => {
+    it("should have symbol EPS", async () => {
       let symbol = await equity.symbol();
-      expect(symbol).to.be.equal("FPS");
+      expect(symbol).to.be.equal("EPS");
     });
     it("should have the right name", async () => {
       let symbol = await equity.name();
-      expect(symbol).to.be.equal("Frankencoin Pool Share");
+      expect(symbol).to.be.equal("EuroCoin Pool Share");
     });
-    it("should have inital price 1 ZCHF / FPS", async () => {
+    it("should have inital price 1 ZEUR / EPS", async () => {
       let price = await equity.price();
       expect(price).to.be.equal(BigInt(1e18));
     });

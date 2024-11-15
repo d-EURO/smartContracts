@@ -4,14 +4,12 @@ pragma solidity ^0.8.0;
 import "./Strings.sol";
 import "./TestToken.sol";
 import "../Equity.sol";
-import "../utils/Ownable.sol";
 import "../Position.sol";
 import "../MintingHub.sol";
 import "../StablecoinBridge.sol";
 import "../interface/IPosition.sol";
 import "../interface/IReserve.sol";
-import "../interface/IFrankencoin.sol";
-import "../interface/IERC20.sol";
+import "../interface/IEuroCoin.sol";
 
 contract MintingHubTest {
     MintingHub hub;
@@ -19,7 +17,7 @@ contract MintingHubTest {
 
     IERC20 xchf;
     TestToken col;
-    IFrankencoin zchf;
+    IEuroCoin zchf;
 
     User alice;
     User bob;
@@ -223,9 +221,9 @@ contract MintingHubTest {
 }
 
 contract User {
-    IFrankencoin zchf;
+    IEuroCoin zchf;
 
-    constructor(IFrankencoin zchf_) {
+    constructor(IEuroCoin zchf_) {
         zchf = zchf_;
     }
 

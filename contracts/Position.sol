@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./utils/Ownable.sol";
-import "./utils/MathUtil.sol";
+import "./interface/IEuroCoin.sol";
 
-import "./interface/IERC20.sol";
 import "./interface/IPosition.sol";
 import "./interface/IReserve.sol";
-import "./interface/IFrankencoin.sol";
+import "./utils/MathUtil.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @title Position
@@ -74,7 +74,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice The Frankencoin contract.
      */
-    IFrankencoin public immutable zchf;
+    IEuroCoin public immutable zchf;
 
     /**
      * @notice The collateral token.
@@ -151,12 +151,11 @@ contract Position is Ownable, IPosition, MathUtil {
         uint32 _annualInterestPPM,
         uint256 _liqPrice,
         uint32 _reservePPM
-    ) {
+    ) Ownable(_owner) {
         require(_initPeriod >= 3 days); // must be at least three days, recommended to use higher values
-        _setOwner(_owner);
         original = address(this);
         hub = _hub;
-        zchf = IFrankencoin(_zchf);
+        zchf = IEuroCoin(_zchf);
         collateral = IERC20(_collateral);
         annualInterestPPM = _annualInterestPPM;
         reserveContribution = _reservePPM;
@@ -184,7 +183,7 @@ contract Position is Ownable, IPosition, MathUtil {
         uint256 impliedPrice = (_initialMint * ONE_DEC18) / _coll;
         _initialMint = (impliedPrice * _coll) / ONE_DEC18; // to cancel potential rounding errors
         if (impliedPrice > _price) revert InsufficientCollateral();
-        _setOwner(owner);
+        _transferOwnership(owner);
         limit = _initialMint;
         expiration = expirationTime;
         _setPrice(impliedPrice);
@@ -339,7 +338,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function repay(uint256 amount) public {
         IERC20(zchf).transferFrom(msg.sender, address(this), amount);
-        uint256 actuallyRepaid = IFrankencoin(zchf).burnWithReserve(amount, reserveContribution);
+        uint256 actuallyRepaid = IEuroCoin(zchf).burnWithReserve(amount, reserveContribution);
         _notifyRepaid(actuallyRepaid);
         emit MintingUpdate(_collateralBalance(), price, minted, limit);
     }
@@ -463,6 +462,6 @@ contract Position is Ownable, IPosition, MathUtil {
         
         _withdrawCollateral(_bidder, _size); // transfer collateral to the bidder and emit update
 
-        return (owner, _size, repayment, reserveContribution);
+        return (owner(), _size, repayment, reserveContribution);
     }
 }

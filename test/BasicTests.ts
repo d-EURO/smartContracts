@@ -4,7 +4,7 @@ import { ethers } from "hardhat";
 import { capitalToShares, sharesToCapital } from "../scripts/utils";
 import {
   Equity,
-  Frankencoin,
+  EuroCoin,
   PositionFactory,
   StablecoinBridge,
   TestToken,
@@ -16,7 +16,7 @@ describe("Basic Tests", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
 
-  let zchf: Frankencoin;
+  let zchf: EuroCoin;
   let equity: Equity;
   let positionFactory: PositionFactory;
   let mockXCHF: TestToken;
@@ -26,8 +26,8 @@ describe("Basic Tests", () => {
     [owner, alice] = await ethers.getSigners();
     // create contracts
     // 10 day application period
-    const frankenCoinFactory = await ethers.getContractFactory("Frankencoin");
-    zchf = await frankenCoinFactory.deploy(10 * 86400);
+    const coinFactory = await ethers.getContractFactory("EuroCoin");
+    zchf = await coinFactory.deploy(10 * 86400);
 
     const equityAddr = await zchf.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
@@ -45,11 +45,11 @@ describe("Basic Tests", () => {
   });
 
   describe("basic initialization", () => {
-    it("symbol should be ZCHF", async () => {
+    it("symbol should be ZEUR", async () => {
       let symbol = await zchf.symbol();
-      expect(symbol).to.be.equal("ZCHF");
+      expect(symbol).to.be.equal("ZEUR");
       let name = await zchf.name();
-      expect(name).to.be.equal("Frankencoin");
+      expect(name).to.be.equal("EuroCoin");
     });
   });
 
@@ -88,7 +88,7 @@ describe("Basic Tests", () => {
       expect(isMinter).to.be.true;
     });
 
-    it("minter of XCHF-bridge should receive ZCHF", async () => {
+    it("minter of XCHF-bridge should receive ZEUR", async () => {
       let amount = floatToDec18(5000);
       let balanceBefore = await zchf.balanceOf(owner.address);
       // set allowance
@@ -97,15 +97,15 @@ describe("Basic Tests", () => {
 
       let balanceXCHFOfBridge = await mockXCHF.balanceOf(bridgeAddr);
       let balanceAfter = await zchf.balanceOf(owner.address);
-      let ZCHFReceived = balanceAfter - balanceBefore;
+      let ZEURReceived = balanceAfter - balanceBefore;
       let isBridgeBalanceCorrect = dec18ToFloat(balanceXCHFOfBridge) == 5000n;
-      let isSenderBalanceCorrect = dec18ToFloat(ZCHFReceived) == 5000n;
+      let isSenderBalanceCorrect = dec18ToFloat(ZEURReceived) == 5000n;
       if (!isBridgeBalanceCorrect || !isSenderBalanceCorrect) {
         console.log(
           "Bridge received XCHF tokens ",
           dec18ToFloat(balanceXCHFOfBridge)
         );
-        console.log("Sender received ZCH tokens ", ZCHFReceived);
+        console.log("Sender received ZCH tokens ", ZEURReceived);
         expect(isBridgeBalanceCorrect).to.be.true;
         expect(isSenderBalanceCorrect).to.be.true;
       }
@@ -131,10 +131,10 @@ describe("Basic Tests", () => {
       let balanceXCHFOfBridge = await mockXCHF.balanceOf(bridgeAddr);
       let balanceXCHFAfter = await mockXCHF.balanceOf(owner.address);
       let balanceAfter = await zchf.balanceOf(owner.address);
-      let ZCHFReceived = balanceAfter - balanceBefore;
+      let ZEURReceived = balanceAfter - balanceBefore;
       let XCHFReceived = balanceXCHFAfter - balanceXCHFBefore;
       let isBridgeBalanceCorrect = dec18ToFloat(balanceXCHFOfBridge) == 4900n;
-      let isSenderBalanceCorrect = dec18ToFloat(ZCHFReceived) == -150n;
+      let isSenderBalanceCorrect = dec18ToFloat(ZEURReceived) == -150n;
       let isXCHFBalanceCorrect = dec18ToFloat(XCHFReceived) == 100n;
       if (
         !isBridgeBalanceCorrect ||
@@ -145,7 +145,7 @@ describe("Basic Tests", () => {
           "Bridge balance XCHF tokens ",
           dec18ToFloat(balanceXCHFOfBridge)
         );
-        console.log("Sender burned ZCH tokens ", -ZCHFReceived);
+        console.log("Sender burned ZCH tokens ", -ZEURReceived);
         console.log("Sender received XCHF tokens ", XCHFReceived);
         expect(isBridgeBalanceCorrect).to.be.true;
         expect(isSenderBalanceCorrect).to.be.true;
@@ -175,7 +175,7 @@ describe("Basic Tests", () => {
       let amount = 1000n; // amount we will deposit
       let fAmount = floatToDec18(amount); // amount we will deposit
       let balanceBefore = await equity.balanceOf(owner.address);
-      let balanceBeforeZCHF = await zchf.balanceOf(owner.address);
+      let balanceBeforeZEUR = await zchf.balanceOf(owner.address);
       let fTotalShares = await equity.totalSupply();
       let fTotalCapital = await zchf.equity();
       // calculate shares we receive according to pricing function:
@@ -184,14 +184,14 @@ describe("Basic Tests", () => {
       let dShares = capitalToShares(totalCapital, totalShares, amount);
       await equity.invest(fAmount, 0);
       let balanceAfter = await equity.balanceOf(owner.address);
-      let balanceAfterZCHF = await zchf.balanceOf(owner.address);
+      let balanceAfterZEUR = await zchf.balanceOf(owner.address);
       let poolTokenShares = dec18ToFloat(balanceAfter - balanceBefore);
-      let ZCHFReceived = dec18ToFloat(balanceAfterZCHF - balanceBeforeZCHF);
+      let ZEURReceived = dec18ToFloat(balanceAfterZEUR - balanceBeforeZEUR);
       let isPoolShareAmountCorrect = abs(poolTokenShares - dShares) < 1e-7;
-      let isSenderBalanceCorrect = ZCHFReceived == -1000n;
+      let isSenderBalanceCorrect = ZEURReceived == -1000n;
       if (!isPoolShareAmountCorrect || !isSenderBalanceCorrect) {
         console.log("Pool token shares received = ", poolTokenShares);
-        console.log("ZCHF tokens deposited = ", -ZCHFReceived);
+        console.log("ZEUR tokens deposited = ", -ZEURReceived);
         expect(isPoolShareAmountCorrect).to.be.true;
         expect(isSenderBalanceCorrect).to.be.true;
       }
@@ -224,19 +224,19 @@ describe("Basic Tests", () => {
       let capitalAfter = await zchf.balanceOf(owner.address);
 
       let poolTokenSharesRec = dec18ToFloat(sharesAfter - sharesBefore);
-      let ZCHFReceived = dec18ToFloat(capitalAfter - capitalBefore);
-      let feeRate = (ZCHFReceived * 10000n) / dCapital;
-      // let isZCHFAmountCorrect = abs(feeRate - 0.997n) <= 1e-5;
-      let isZCHFAmountCorrect = true;
+      let ZEURReceived = dec18ToFloat(capitalAfter - capitalBefore);
+      let feeRate = (ZEURReceived * 10000n) / dCapital;
+      // let isZEURAmountCorrect = abs(feeRate - 0.997n) <= 1e-5;
+      let isZEURAmountCorrect = true;
       let isPoolShareAmountCorrect = poolTokenSharesRec == -amountShares;
-      if (!isZCHFAmountCorrect || !isZCHFAmountCorrect) {
-        console.log("ZCHF tokens received = ", ZCHFReceived);
-        console.log("ZCHF tokens expected = ", dCapital);
+      if (!isZEURAmountCorrect || !isZEURAmountCorrect) {
+        console.log("ZEUR tokens received = ", ZEURReceived);
+        console.log("ZEUR tokens expected = ", dCapital);
         console.log("Fee = ", feeRate);
         console.log("Pool shares redeemed = ", -poolTokenSharesRec);
         console.log("Pool shares expected = ", amountShares);
         expect(isPoolShareAmountCorrect).to.be.true;
-        expect(isZCHFAmountCorrect).to.be.true;
+        expect(isZEURAmountCorrect).to.be.true;
       }
     });
   });

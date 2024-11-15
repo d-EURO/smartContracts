@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { floatToDec18, dec18ToFloat } from "../scripts/math";
 import { ethers } from "hardhat";
-import { Frankencoin, StablecoinBridge, TestToken } from "../typechain";
+import { EuroCoin, StablecoinBridge, TestToken } from "../typechain";
 import { evm_increaseTime } from "./helper";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -10,7 +10,7 @@ describe("FrankenCoin", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
 
-  let zchf: Frankencoin;
+  let zchf: EuroCoin;
   let mockXCHF: TestToken;
   let bridge: StablecoinBridge;
 
@@ -18,16 +18,16 @@ describe("FrankenCoin", () => {
     [owner, alice] = await ethers.getSigners();
     // create contracts
     // 10 day application period
-    const frankenCoinFactory = await ethers.getContractFactory("Frankencoin");
-    zchf = await frankenCoinFactory.deploy(10 * 86400);
+    const coinFactory = await ethers.getContractFactory("EuroCoin");
+    zchf = await coinFactory.deploy(10 * 86400);
   });
 
   describe("Basic initialization", () => {
-    it("symbol should be ZCHF", async () => {
+    it("symbol should be ZEUR", async () => {
       let symbol = await zchf.symbol();
-      expect(symbol).to.be.equal("ZCHF");
+      expect(symbol).to.be.equal("ZEUR");
       let name = await zchf.name();
-      expect(name).to.be.equal("Frankencoin");
+      expect(name).to.be.equal("EuroCoin");
     });
     it("create mock token", async () => {
       const xchfFactory = await ethers.getContractFactory("TestToken");
@@ -101,8 +101,8 @@ describe("FrankenCoin", () => {
 
   describe("Minting & Burning", () => {
     before(async () => {
-      const frankenCoinFactory = await ethers.getContractFactory("Frankencoin");
-      zchf = await frankenCoinFactory.deploy(10 * 86400);
+      const coinFactory = await ethers.getContractFactory("EuroCoin");
+      zchf = await coinFactory.deploy(10 * 86400);
       const xchfFactory = await ethers.getContractFactory("TestToken");
       mockXCHF = await xchfFactory.deploy("CryptoFranc", "XCHF", 18);
       const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
@@ -123,7 +123,7 @@ describe("FrankenCoin", () => {
       await zchf.initialize(await bridge.getAddress(), "Bridge");
       expect(await zchf.isMinter(await bridge.getAddress())).to.be.true;
     });
-    it("minter of XCHF-bridge should receive ZCHF", async () => {
+    it("minter of XCHF-bridge should receive ZEUR", async () => {
       let amount = floatToDec18(5000);
       let balanceBefore = await zchf.balanceOf(owner.address);
       // set allowance
@@ -134,15 +134,15 @@ describe("FrankenCoin", () => {
         await bridge.getAddress()
       );
       let balanceAfter = await zchf.balanceOf(owner.address);
-      let ZCHFReceived = dec18ToFloat(balanceAfter - balanceBefore);
+      let ZEURReceived = dec18ToFloat(balanceAfter - balanceBefore);
       let isBridgeBalanceCorrect = dec18ToFloat(balanceXCHFOfBridge) == 5000n;
-      let isSenderBalanceCorrect = ZCHFReceived == 5000n;
+      let isSenderBalanceCorrect = ZEURReceived == 5000n;
       if (!isBridgeBalanceCorrect || !isSenderBalanceCorrect) {
         console.log(
           "Bridge received XCHF tokens ",
           dec18ToFloat(balanceXCHFOfBridge)
         );
-        console.log("Sender received ZCH tokens ", ZCHFReceived);
+        console.log("Sender received ZCH tokens ", ZEURReceived);
         expect(isBridgeBalanceCorrect).to.be.true;
         expect(isSenderBalanceCorrect).to.be.true;
       }
@@ -168,10 +168,10 @@ describe("FrankenCoin", () => {
       );
       let balanceXCHFAfter = await mockXCHF.balanceOf(owner.address);
       let balanceAfter = await zchf.balanceOf(owner.address);
-      let ZCHFReceived = dec18ToFloat(balanceAfter - balanceBefore);
+      let ZEURReceived = dec18ToFloat(balanceAfter - balanceBefore);
       let XCHFReceived = dec18ToFloat(balanceXCHFAfter - balanceXCHFBefore);
       let isBridgeBalanceCorrect = dec18ToFloat(balanceXCHFOfBridge) == 4900n;
-      let isSenderBalanceCorrect = ZCHFReceived == -150n;
+      let isSenderBalanceCorrect = ZEURReceived == -150n;
       let isXCHFBalanceCorrect = XCHFReceived == 100n;
       if (
         !isBridgeBalanceCorrect ||
@@ -182,7 +182,7 @@ describe("FrankenCoin", () => {
           "Bridge balance XCHF tokens ",
           dec18ToFloat(balanceXCHFOfBridge)
         );
-        console.log("Sender burned ZCH tokens ", -ZCHFReceived);
+        console.log("Sender burned ZCH tokens ", -ZEURReceived);
         console.log("Sender received XCHF tokens ", XCHFReceived);
         expect(isBridgeBalanceCorrect).to.be.true;
         expect(isSenderBalanceCorrect).to.be.true;
@@ -247,8 +247,8 @@ describe("FrankenCoin", () => {
 
   describe("view func", () => {
     before(async () => {
-      const frankenCoinFactory = await ethers.getContractFactory("Frankencoin");
-      zchf = await frankenCoinFactory.deploy(10 * 86400);
+      const coinFactory = await ethers.getContractFactory("EuroCoin");
+      zchf = await coinFactory.deploy(10 * 86400);
 
       const xchfFactory = await ethers.getContractFactory("TestToken");
       mockXCHF = await xchfFactory.deploy("CryptoFranc", "XCHF", 18);
