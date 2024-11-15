@@ -341,6 +341,7 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve {
         uint256 investmentExFees = (investment * 997) / 1000; // remove 0.3% fee
         // Assign 1000 FPS for the initial deposit, calculate the amount otherwise
         uint256 newTotalShares = capitalBefore < MINIMUM_EQUITY || totalShares == 0
+            ? totalShares + 1_000_000 * ONE_DEC18
             : _mulD18(totalShares, _cubicRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
         return newTotalShares - totalShares;
     }
