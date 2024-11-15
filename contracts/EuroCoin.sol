@@ -8,11 +8,11 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 /**
  * @title EuroCoin
- * @notice The EuroCoin (ZEUR) is an ERC-20 token that is designed to track the value of the Swiss franc.
+ * @notice The EuroCoin (ZEUR) is an ERC-20 token that is designed to track the value of the Euro.
  * It is not upgradable, but open to arbitrary minting plugins. These are automatically accepted if none of the
  * qualified pool share holders casts a veto, leading to a flexible but conservative governance.
  */
-contract EuroCoin is ERC20Permit, IEuroCoin {
+contract EuroCoin is ERC20PermitLight, IEuroCoin, ERC165 {
     /**
      * @notice Minimal fee and application period when suggesting a new minter.
      */
