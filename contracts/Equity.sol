@@ -12,9 +12,9 @@ import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * @title Equity
  * @notice If the EuroCoin system was a bank, this contract would represent the equity on its balance sheet.
  * Like with a corporation, the owners of the equity capital are the shareholders, or in this case the holders
- * of EuroCoin Pool Shares (EPS) tokens. Anyone can mint additional EPS tokens by adding EuroCoins to the
- * reserve pool. Also, EPS tokens can be redeemed for EuroCoins again after a minimum holding period.
- * Furthermore, the EPS shares come with some voting power. Anyone that held at least 2% of the holding-period-
+ * of Native Decentralized Euro Protocol Share (nDEPS) tokens. Anyone can mint additional nDEPS tokens by adding EuroCoins to the
+ * reserve pool. Also, nDEPS tokens can be redeemed for EuroCoins again after a minimum holding period.
+ * Furthermore, the nDEPS shares come with some voting power. Anyone that held at least 2% of the holding-period-
  * weighted reserve pool shares gains veto power and can veto new proposals.
  */
 contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
@@ -22,7 +22,7 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
      * The VALUATION_FACTOR determines the market cap of the reserve pool shares relative to the equity reserves.
      * The following always holds: Market Cap = Valuation Factor * Equity Reserve = Price * Supply
      *
-     * In the absence of profits and losses, the variables grow as follows when EPS tokens are minted:
+     * In the absence of profits and losses, the variables grow as follows when nDEPS tokens are minted:
      *
      * |   Reserve     |   Market Cap  |     Price     |     Supply   |
      * |          1000 |          3000 |         0.003 |      1000000 |
@@ -102,7 +102,7 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice Returns the price of one EPS in dEURO with 18 decimals precision.
+     * @notice Returns the price of one nDEPS in dEURO with 18 decimals precision.
      */
     function price() public view returns (uint256) {
         uint256 equity = dEURO.equity();
@@ -127,7 +127,7 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice Returns whether the given address is allowed to redeem EPS, which is the
+     * @notice Returns whether the given address is allowed to redeem nDEPS, which is the
      * case after their average holding duration is larger than the required minimum.
      */
     function canRedeem(address owner) public view returns (bool) {
@@ -189,7 +189,7 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice How long the holder already held onto their average EPS in seconds.
+     * @notice How long the holder already held onto their average nDEPS in seconds.
      */
     function holdingDuration(address holder) public view returns (uint256) {
         return (_anchorTime() - voteAnchor[holder]) >> TIME_RESOLUTION_BITS;
@@ -340,7 +340,7 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
     function _calculateShares(uint256 capitalBefore, uint256 investment) internal view returns (uint256) {
         uint256 totalShares = totalSupply();
         uint256 investmentExFees = (investment * 997) / 1000; // remove 0.3% fee
-        // Assign 1000 EPS for the initial deposit, calculate the amount otherwise
+        // Assign 1000 nDEPS for the initial deposit, calculate the amount otherwise
         uint256 newTotalShares = capitalBefore < MINIMUM_EQUITY || totalShares == 0
             ? totalShares + 1_000_000 * ONE_DEC18
             : _mulD18(totalShares, _cubicRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
@@ -366,7 +366,7 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice Redeem EPS based on an allowance from the owner to the caller.
+     * @notice Redeem nDEPS based on an allowance from the owner to the caller.
      * See also redeemExpected(...).
      */
     function redeemFrom(
@@ -407,16 +407,16 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
 
     /**
      * @notice If there is less than 1000 dEURO in equity left (maybe even negative), the system is at risk
-     * and we should allow qualified EPS holders to restructure the system.
+     * and we should allow qualified nDEPS holders to restructure the system.
      *
      * Example: there was a devastating loss and equity stands at -1'000'000. Most shareholders have lost hope in the
-     * EuroCoin system except for a group of small EPS holders who still believes in it and is willing to provide
+     * EuroCoin system except for a group of small nDEPS holders who still believes in it and is willing to provide
      * 2'000'000 dEURO to save it. These brave souls are essentially donating 1'000'000 to the minter reserve and it
-     * would be wrong to force them to share the other million with the passive EPS holders. Instead, they will get
-     * the possibility to bootstrap the system again owning 100% of all EPS shares.
+     * would be wrong to force them to share the other million with the passive nDEPS holders. Instead, they will get
+     * the possibility to bootstrap the system again owning 100% of all nDEPS shares.
      *
      * @param helpers          A list of addresses that delegate to the caller in incremental order
-     * @param addressesToWipe  A list of addresses whose EPS will be burned to zero
+     * @param addressesToWipe  A list of addresses whose nDEPS will be burned to zero
      */
     function restructureCapTable(address[] calldata helpers, address[] calldata addressesToWipe) external {
         require(dEURO.equity() < MINIMUM_EQUITY);

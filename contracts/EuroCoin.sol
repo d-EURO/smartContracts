@@ -145,7 +145,7 @@ contract EuroCoin is ERC20PermitLight, IEuroCoin, ERC165 {
     }
 
     /**
-     * @notice The amount of equity of the EuroCoin system in dEURO, owned by the holders of EuroCoin Pool Shares.
+     * @notice The amount of equity of the EuroCoin system in dEURO, owned by the holders of Native Decentralized Euro Protocol Shares.
      * @dev Note that the equity contract technically holds both the minter reserve as well as the equity, so the minter
      * reserve must be subtracted. All fees and other kind of income is added to the Equity contract and essentially
      * constitutes profits attributable to the pool share holders.
