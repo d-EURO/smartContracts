@@ -16,7 +16,7 @@ contract nDEPSWrapperTest is Test {
     EuroCoin dEURO;
     Equity nDEPS;
     StablecoinBridge swap;
-    TestToken xchf;
+    TestToken XEUR;
     nDEPSWrapper wnDEPS;
 
     error General(uint256 val);
@@ -25,11 +25,11 @@ contract nDEPSWrapperTest is Test {
         dEURO = new EuroCoin(0);
         nDEPS = Equity(address(dEURO.reserve()));
         wnDEPS = new nDEPSWrapper(nDEPS);
-        xchf = new TestToken("Base Franc", "BCHF", uint8(18));
-        swap = new StablecoinBridge(address(xchf), address(dEURO), 100000 ether);
+        XEUR = new TestToken("Base Franc", "BEUR", uint8(18));
+        swap = new StablecoinBridge(address(XEUR), address(dEURO), 100000 ether);
         dEURO.initialize(address(swap), "");
-        xchf.mint(address(this), 100000 ether);
-        xchf.approve(address(swap), 100000 ether);
+        XEUR.mint(address(this), 100000 ether);
+        XEUR.approve(address(swap), 100000 ether);
         swap.mint(100000 ether);
         nDEPS.invest(100000 ether, 0);
     }

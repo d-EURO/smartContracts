@@ -11,7 +11,7 @@ describe("EuroCoin", () => {
   let alice: HardhatEthersSigner;
 
   let dEURO: EuroCoin;
-  let mockXCHF: TestToken;
+  let mockXEUR: TestToken;
   let bridge: StablecoinBridge;
 
   before(async () => {
@@ -36,27 +36,27 @@ describe("EuroCoin", () => {
     });
 
     it("create mock token", async () => {
-      const xchfFactory = await ethers.getContractFactory("TestToken");
-      mockXCHF = await xchfFactory.deploy("CryptoFranc", "XCHF", 18);
-      let symbol = await mockXCHF.symbol();
-      expect(symbol).to.be.equal("XCHF");
+      const XEURFactory = await ethers.getContractFactory("TestToken");
+      mockXEUR = await XEURFactory.deploy("CryptoFranc", "XEUR", 18);
+      let symbol = await mockXEUR.symbol();
+      expect(symbol).to.be.equal("XEUR");
     });
   });
 
   describe("Initializing Minters", () => {
     before(async () => {
-      const xchfFactory = await ethers.getContractFactory("TestToken");
-      mockXCHF = await xchfFactory.deploy("CryptoFranc", "XCHF", 18);
+      const XEURFactory = await ethers.getContractFactory("TestToken");
+      mockXEUR = await XEURFactory.deploy("CryptoFranc", "XEUR", 18);
       const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
       bridge = await bridgeFactory.deploy(
-        await mockXCHF.getAddress(),
+        await mockXEUR.getAddress(),
         await dEURO.getAddress(),
         limit
       );
     });
 
     it("bootstrap suggestMinter", async () => {
-      let msg = "XCHF Bridge";
+      let msg = "XEUR Bridge";
       await dEURO.initialize(await bridge.getAddress(), msg);
       let isMinter = await dEURO.isMinter(await bridge.getAddress());
       expect(isMinter).to.be.true;
@@ -64,7 +64,7 @@ describe("EuroCoin", () => {
 
     it("should revert initialization when there is supply", async () => {
       let amount = floatToDec18(10000);
-      await mockXCHF.approve(await bridge.getAddress(), amount);
+      await mockXEUR.approve(await bridge.getAddress(), amount);
       await bridge.mint(amount);
       await expect(
         dEURO.initialize(await bridge.getAddress(), "Bridge")
@@ -116,11 +116,11 @@ describe("EuroCoin", () => {
     before(async () => {
       const euroCoinFactory = await ethers.getContractFactory("EuroCoin");
       dEURO = await euroCoinFactory.deploy(10 * 86400);
-      const xchfFactory = await ethers.getContractFactory("TestToken");
-      mockXCHF = await xchfFactory.deploy("CryptoFranc", "XCHF", 18);
+      const XEURFactory = await ethers.getContractFactory("TestToken");
+      mockXEUR = await XEURFactory.deploy("CryptoFranc", "XEUR", 18);
       const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
       bridge = await bridgeFactory.deploy(
-        await mockXCHF.getAddress(),
+        await mockXEUR.getAddress(),
         await dEURO.getAddress(),
         limit
       );
@@ -128,8 +128,8 @@ describe("EuroCoin", () => {
 
     it("should revert minting if minter is not whitelisted", async () => {
       let amount = floatToDec18(10000);
-      await mockXCHF.mint(owner.address, amount);
-      await mockXCHF.approve(await bridge.getAddress(), amount);
+      await mockXEUR.mint(owner.address, amount);
+      await mockXEUR.approve(await bridge.getAddress(), amount);
       await expect(bridge.mint(amount)).to.be.revertedWithCustomError(
         dEURO,
         "NotMinter"
@@ -138,24 +138,24 @@ describe("EuroCoin", () => {
       expect(await dEURO.isMinter(await bridge.getAddress())).to.be.true;
     });
 
-    it("minter of XCHF-bridge should receive dEURO", async () => {
+    it("minter of XEUR-bridge should receive dEURO", async () => {
       let amount = floatToDec18(5000);
       let balanceBefore = await dEURO.balanceOf(owner.address);
       // set allowance
-      await mockXCHF.approve(await bridge.getAddress(), amount);
+      await mockXEUR.approve(await bridge.getAddress(), amount);
       await bridge.mint(amount);
 
-      let balanceXCHFOfBridge = await mockXCHF.balanceOf(
+      let balanceXEUROfBridge = await mockXEUR.balanceOf(
         await bridge.getAddress()
       );
       let balanceAfter = await dEURO.balanceOf(owner.address);
       let dEUROReceived = dec18ToFloat(balanceAfter - balanceBefore);
-      let isBridgeBalanceCorrect = dec18ToFloat(balanceXCHFOfBridge) == 5000n;
+      let isBridgeBalanceCorrect = dec18ToFloat(balanceXEUROfBridge) == 5000n;
       let isSenderBalanceCorrect = dEUROReceived == 5000n;
       if (!isBridgeBalanceCorrect || !isSenderBalanceCorrect) {
         console.log(
-          "Bridge received XCHF tokens ",
-          dec18ToFloat(balanceXCHFOfBridge)
+          "Bridge received XEUR tokens ",
+          dec18ToFloat(balanceXEUROfBridge)
         );
         console.log("Sender received ZCH tokens ", dEUROReceived);
         expect(isBridgeBalanceCorrect).to.be.true;
@@ -163,10 +163,10 @@ describe("EuroCoin", () => {
       }
     });
 
-    it("burner of XCHF-bridge should receive XCHF", async () => {
+    it("burner of XEUR-bridge should receive XEUR", async () => {
       let amount = floatToDec18(50);
       let balanceBefore = await dEURO.balanceOf(owner.address);
-      let balanceXCHFBefore = await mockXCHF.balanceOf(owner.address);
+      let balanceXEURBefore = await mockXEUR.balanceOf(owner.address);
       await dEURO.approve(await bridge.getAddress(), amount);
       let allowance1 = await dEURO.allowance(
         owner.address,
@@ -179,36 +179,36 @@ describe("EuroCoin", () => {
       await bridge.burn(amount);
       await bridge.burnAndSend(owner.address, amount);
 
-      let balanceXCHFOfBridge = await mockXCHF.balanceOf(
+      let balanceXEUROfBridge = await mockXEUR.balanceOf(
         await bridge.getAddress()
       );
-      let balanceXCHFAfter = await mockXCHF.balanceOf(owner.address);
+      let balanceXEURAfter = await mockXEUR.balanceOf(owner.address);
       let balanceAfter = await dEURO.balanceOf(owner.address);
       let dEUROReceived = dec18ToFloat(balanceAfter - balanceBefore);
-      let XCHFReceived = dec18ToFloat(balanceXCHFAfter - balanceXCHFBefore);
-      let isBridgeBalanceCorrect = dec18ToFloat(balanceXCHFOfBridge) == 4900n;
+      let XEURReceived = dec18ToFloat(balanceXEURAfter - balanceXEURBefore);
+      let isBridgeBalanceCorrect = dec18ToFloat(balanceXEUROfBridge) == 4900n;
       let isSenderBalanceCorrect = dEUROReceived == -150n;
-      let isXCHFBalanceCorrect = XCHFReceived == 100n;
+      let isXEURBalanceCorrect = XEURReceived == 100n;
       if (
         !isBridgeBalanceCorrect ||
         !isSenderBalanceCorrect ||
-        !isXCHFBalanceCorrect
+        !isXEURBalanceCorrect
       ) {
         console.log(
-          "Bridge balance XCHF tokens ",
-          dec18ToFloat(balanceXCHFOfBridge)
+          "Bridge balance XEUR tokens ",
+          dec18ToFloat(balanceXEUROfBridge)
         );
         console.log("Sender burned ZCH tokens ", -dEUROReceived);
-        console.log("Sender received XCHF tokens ", XCHFReceived);
+        console.log("Sender received XEUR tokens ", XEURReceived);
         expect(isBridgeBalanceCorrect).to.be.true;
         expect(isSenderBalanceCorrect).to.be.true;
-        expect(isXCHFBalanceCorrect).to.be.true;
+        expect(isXEURBalanceCorrect).to.be.true;
       }
     });
 
     it("should revert minting when exceed limit", async () => {
       let amount = limit + 100n;
-      await mockXCHF.approve(await bridge.getAddress(), amount);
+      await mockXEUR.approve(await bridge.getAddress(), amount);
       await expect(bridge.mint(amount)).to.be.revertedWithCustomError(
         bridge,
         "Limit"
@@ -218,7 +218,7 @@ describe("EuroCoin", () => {
     it("should revert minting when bridge is expired", async () => {
       let amount = floatToDec18(1);
       await evm_increaseTime(60 * 60 * 24 * 7 * 53); // pass 53 weeks
-      await mockXCHF.approve(await bridge.getAddress(), amount);
+      await mockXEUR.approve(await bridge.getAddress(), amount);
       await expect(bridge.mint(amount)).to.be.revertedWithCustomError(
         bridge,
         "Expired"
@@ -275,12 +275,12 @@ describe("EuroCoin", () => {
       const euroCoinFactory = await ethers.getContractFactory("EuroCoin");
       dEURO = await euroCoinFactory.deploy(10 * 86400);
 
-      const xchfFactory = await ethers.getContractFactory("TestToken");
-      mockXCHF = await xchfFactory.deploy("CryptoFranc", "XCHF", 18);
+      const XEURFactory = await ethers.getContractFactory("TestToken");
+      mockXEUR = await XEURFactory.deploy("CryptoFranc", "XEUR", 18);
 
       const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
       bridge = await bridgeFactory.deploy(
-        await mockXCHF.getAddress(),
+        await mockXEUR.getAddress(),
         await dEURO.getAddress(),
         limit
       );

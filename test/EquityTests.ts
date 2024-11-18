@@ -13,13 +13,13 @@ describe("Equity Tests", () => {
   let equity: Equity;
   let bridge: StablecoinBridge;
   let dEURO: EuroCoin;
-  let xchf: TestToken;
+  let s: TestToken;
 
   before(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
-    const xchfFactory = await ethers.getContractFactory("TestToken");
-    xchf = await xchfFactory.deploy("CryptoFranc", "XCHF", 18);
+    const XEURFactory = await ethers.getContractFactory("TestToken");
+    XEUR = await XEURFactory.deploy("CryptoFranc", "XEUR", 18);
   });
 
   beforeEach(async () => {
@@ -29,14 +29,14 @@ describe("Equity Tests", () => {
     let supply = floatToDec18(1000_000);
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
     bridge = await bridgeFactory.deploy(
-      await xchf.getAddress(),
+      await XEUR.getAddress(),
       await dEURO.getAddress(),
       floatToDec18(100_000_000_000)
     );
     await dEURO.initialize(await bridge.getAddress(), "");
 
-    await xchf.mint(owner.address, supply);
-    await xchf.approve(await bridge.getAddress(), supply);
+    await XEUR.mint(owner.address, supply);
+    await XEUR.approve(await bridge.getAddress(), supply);
     await bridge.mint(supply);
     await dEURO.transfer(bob.address, floatToDec18(5000));
     equity = await ethers.getContractAt("Equity", await dEURO.reserve());
@@ -90,8 +90,8 @@ describe("Equity Tests", () => {
     // it("should revert minting when total supply exceeds max of uint96", async () => {
     //   await equity.invest(floatToDec18(1000), 0);
     //   const amount = floatToDec18(80_000_000_000);
-    //   await xchf.mint(owner.address, amount);
-    //   await xchf.approve(await bridge.getAddress(), amount);
+    //   await XEUR.mint(owner.address, amount);
+    //   await XEUR.approve(await bridge.getAddress(), amount);
     //   await bridge.mint(amount);
     //   await equity.invest(amount, 0);
     //   await expect(equity.invest(amount, 0)).to.be.revertedWith(

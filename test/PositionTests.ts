@@ -12,7 +12,7 @@ import {
 } from "../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
-let mockXCHF;
+let mockX;
 
 describe("Position Tests", () => {
   let owner: HardhatEthersSigner;
@@ -47,32 +47,32 @@ describe("Position Tests", () => {
     );
     // mocktoken
     const testTokenFactory = await ethers.getContractFactory("TestToken");
-    mockXCHF = await testTokenFactory.deploy("CryptoFranc", "XCHF", 18);
+    mockXEUR = await testTokenFactory.deploy("CryptoFranc", "XEUR", 18);
     // mocktoken bridge to bootstrap
     limit = floatToDec18(1_000_000);
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
     bridge = await bridgeFactory.deploy(
-      await mockXCHF.getAddress(),
+      await mockXEUR.getAddress(),
       await dEURO.getAddress(),
       limit
     );
-    await dEURO.initialize(await bridge.getAddress(), "XCHF Bridge");
+    await dEURO.initialize(await bridge.getAddress(), "XEUR Bridge");
     // create a minting hub too while we have no dEURO supply
     await dEURO.initialize(await mintingHub.getAddress(), "Minting Hub");
 
     // wait for 1 block
     await evm_increaseTime(60);
-    // now we are ready to bootstrap dEURO with Mock-XCHF
-    await mockXCHF.mint(owner.address, limit / 3n);
-    await mockXCHF.mint(alice.address, limit / 3n);
-    await mockXCHF.mint(bob.address, limit / 3n);
+    // now we are ready to bootstrap dEURO with Mock-XEUR
+    await mockXEUR.mint(owner.address, limit / 3n);
+    await mockXEUR.mint(alice.address, limit / 3n);
+    await mockXEUR.mint(bob.address, limit / 3n);
     // mint some dEURO to block bridges without veto
     let amount = floatToDec18(20_000);
-    await mockXCHF.connect(alice).approve(await bridge.getAddress(), amount);
+    await mockXEUR.connect(alice).approve(await bridge.getAddress(), amount);
     await bridge.connect(alice).mint(amount);
-    await mockXCHF.connect(owner).approve(await bridge.getAddress(), amount);
+    await mockXEUR.connect(owner).approve(await bridge.getAddress(), amount);
     await bridge.connect(owner).mint(amount);
-    await mockXCHF.connect(bob).approve(await bridge.getAddress(), amount);
+    await mockXEUR.connect(bob).approve(await bridge.getAddress(), amount);
     await bridge.connect(bob).mint(amount);
     // vol tokens
     mockVOL = await testTokenFactory.deploy("Volatile Token", "VOL", 18);
@@ -887,7 +887,7 @@ describe("Position Tests", () => {
       const challenge = await mintingHub.challenges(challengeNumber);
       let challengerAddress = challenge.challenger;
       let positionsAddress = challenge.position;
-      // await mockXCHF.connect(alice).mint(alice.address, floatToDec18(bidSize));
+      // await mockXEUR.connect(alice).mint(alice.address, floatToDec18(bidSize));
 
       // console.log("Challenging challenge " + challengeNumber + " at price " + price + " instead of " + liqPrice);
       // Challenging challenge 3 at price 24999903549382556050 instead of 25

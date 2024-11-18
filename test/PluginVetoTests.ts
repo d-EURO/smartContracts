@@ -12,8 +12,8 @@ describe("Plugin Veto Tests", () => {
   let bridge: StablecoinBridge;
   let secondBridge: StablecoinBridge;
   let dEURO: EuroCoin;
-  let mockXCHF: TestToken;
-  let mockDCHF: TestToken;
+  let mockXEUR: TestToken;
+  let mockAEUR: TestToken;
 
   before(async () => {
     [owner, alice] = await ethers.getSigners();
@@ -22,41 +22,41 @@ describe("Plugin Veto Tests", () => {
     dEURO = await EuroCoinFactory.deploy(10 * 86400);
 
     // mocktoken
-    const xchfFactory = await ethers.getContractFactory("TestToken");
-    mockXCHF = await xchfFactory.deploy("CryptoFranc", "XCHF", 18);
+    const XEURFactory = await ethers.getContractFactory("TestToken");
+    mockXEUR = await XEURFactory.deploy("CryptoFranc", "XEUR", 18);
     // mocktoken bridge to bootstrap
     let limit = floatToDec18(100_000);
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
     bridge = await bridgeFactory.deploy(
-      await mockXCHF.getAddress(),
+      await mockXEUR.getAddress(),
       await dEURO.getAddress(),
       limit
     );
     await dEURO.initialize(await bridge.getAddress(), "");
     // wait for 1 block
     await evm_increaseTime(60);
-    // now we are ready to bootstrap dEURO with Mock-XCHF
-    await mockXCHF.mint(owner.address, limit / 2n);
-    await mockXCHF.mint(alice.address, limit / 2n);
+    // now we are ready to bootstrap dEURO with Mock-XEUR
+    await mockXEUR.mint(owner.address, limit / 2n);
+    await mockXEUR.mint(alice.address, limit / 2n);
     // mint some dEURO to block bridges without veto
     let amount = floatToDec18(20_000);
-    await mockXCHF.connect(alice).approve(await bridge.getAddress(), amount);
+    await mockXEUR.connect(alice).approve(await bridge.getAddress(), amount);
     await bridge.connect(alice).mint(amount);
     // owner also mints some to be able to veto
-    await mockXCHF.approve(await bridge.getAddress(), amount);
+    await mockXEUR.approve(await bridge.getAddress(), amount);
     await bridge.mint(amount);
   });
 
   describe("create secondary bridge plugin", () => {
-    it("create mock DCHF token&bridge", async () => {
+    it("create mock AEUR token&bridge", async () => {
       let limit = floatToDec18(100_000);
-      const xchfFactory = await ethers.getContractFactory("TestToken");
-      mockDCHF = await xchfFactory.deploy("Test Name", "Symbol", 18);
-      await mockDCHF.mint(alice.address, floatToDec18(100_000));
+      const XEURFactory = await ethers.getContractFactory("TestToken");
+      mockAEUR = await XEURFactory.deploy("Test Name", "Symbol", 18);
+      await mockAEUR.mint(alice.address, floatToDec18(100_000));
 
       const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
       secondBridge = await bridgeFactory.deploy(
-        await mockDCHF.getAddress(),
+        await mockAEUR.getAddress(),
         await dEURO.getAddress(),
         limit
       );
@@ -64,8 +64,8 @@ describe("Plugin Veto Tests", () => {
     it("Participant suggests minter", async () => {
       let applicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
       let applicationFee = await dEURO.MIN_FEE();
-      let msg = "DCHF Bridge";
-      await mockXCHF
+      let msg = "AEUR Bridge";
+      await mockXEUR
         .connect(alice)
         .approve(await dEURO.getAddress(), applicationFee);
       let balance = await dEURO.balanceOf(alice.address);
@@ -83,7 +83,7 @@ describe("Plugin Veto Tests", () => {
     });
     it("can't mint before min period", async () => {
       let amount = floatToDec18(1_000);
-      await mockDCHF
+      await mockAEUR
         .connect(alice)
         .approve(await secondBridge.getAddress(), amount);
       // set allowance
