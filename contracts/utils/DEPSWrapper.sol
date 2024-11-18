@@ -19,7 +19,7 @@ contract DEPSWrapper is ERC20 {
     }
 
     function symbol() external pure override returns (string memory) {
-        return "WFPS";
+        return "nDEPS";
     }
 
     // requires allowance
