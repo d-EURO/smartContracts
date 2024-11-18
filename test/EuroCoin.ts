@@ -138,7 +138,7 @@ describe("EuroCoin", () => {
       expect(await zeur.isMinter(await bridge.getAddress())).to.be.true;
     });
 
-    it("minter of XCHF-bridge should receive ZCHF", async () => {
+    it("minter of XCHF-bridge should receive dEURO", async () => {
       let amount = floatToDec18(5000);
       let balanceBefore = await zeur.balanceOf(owner.address);
       // set allowance
@@ -149,15 +149,15 @@ describe("EuroCoin", () => {
         await bridge.getAddress()
       );
       let balanceAfter = await zeur.balanceOf(owner.address);
-      let ZCHFReceived = dec18ToFloat(balanceAfter - balanceBefore);
+      let dEUROReceived = dec18ToFloat(balanceAfter - balanceBefore);
       let isBridgeBalanceCorrect = dec18ToFloat(balanceXCHFOfBridge) == 5000n;
-      let isSenderBalanceCorrect = ZCHFReceived == 5000n;
+      let isSenderBalanceCorrect = dEUROReceived == 5000n;
       if (!isBridgeBalanceCorrect || !isSenderBalanceCorrect) {
         console.log(
           "Bridge received XCHF tokens ",
           dec18ToFloat(balanceXCHFOfBridge)
         );
-        console.log("Sender received ZCH tokens ", ZCHFReceived);
+        console.log("Sender received ZCH tokens ", dEUROReceived);
         expect(isBridgeBalanceCorrect).to.be.true;
         expect(isSenderBalanceCorrect).to.be.true;
       }
@@ -184,10 +184,10 @@ describe("EuroCoin", () => {
       );
       let balanceXCHFAfter = await mockXCHF.balanceOf(owner.address);
       let balanceAfter = await zeur.balanceOf(owner.address);
-      let ZCHFReceived = dec18ToFloat(balanceAfter - balanceBefore);
+      let dEUROReceived = dec18ToFloat(balanceAfter - balanceBefore);
       let XCHFReceived = dec18ToFloat(balanceXCHFAfter - balanceXCHFBefore);
       let isBridgeBalanceCorrect = dec18ToFloat(balanceXCHFOfBridge) == 4900n;
-      let isSenderBalanceCorrect = ZCHFReceived == -150n;
+      let isSenderBalanceCorrect = dEUROReceived == -150n;
       let isXCHFBalanceCorrect = XCHFReceived == 100n;
       if (
         !isBridgeBalanceCorrect ||
@@ -198,7 +198,7 @@ describe("EuroCoin", () => {
           "Bridge balance XCHF tokens ",
           dec18ToFloat(balanceXCHFOfBridge)
         );
-        console.log("Sender burned ZCH tokens ", -ZCHFReceived);
+        console.log("Sender burned ZCH tokens ", -dEUROReceived);
         console.log("Sender received XCHF tokens ", XCHFReceived);
         expect(isBridgeBalanceCorrect).to.be.true;
         expect(isSenderBalanceCorrect).to.be.true;

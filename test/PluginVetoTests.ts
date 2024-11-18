@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { floatToDec18 } from "../scripts/math";
 import { ethers } from "hardhat";
-import { Frankencoin, StablecoinBridge, TestToken } from "../typechain";
+import { EuroCoin, StablecoinBridge, TestToken } from "../typechain";
 import { evm_increaseTime } from "./helper";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -11,15 +11,15 @@ describe("Plugin Veto Tests", () => {
 
   let bridge: StablecoinBridge;
   let secondBridge: StablecoinBridge;
-  let zchf: Frankencoin;
+  let dEURO: EuroCoin;
   let mockXCHF: TestToken;
   let mockDCHF: TestToken;
 
   before(async () => {
     [owner, alice] = await ethers.getSigners();
     // create contracts
-    const frankenCoinFactory = await ethers.getContractFactory("Frankencoin");
-    zchf = await frankenCoinFactory.deploy(10 * 86400);
+    const EuroCoinFactory = await ethers.getContractFactory("EuroCoin");
+    dEURO = await EuroCoinFactory.deploy(10 * 86400);
 
     // mocktoken
     const xchfFactory = await ethers.getContractFactory("TestToken");
@@ -29,16 +29,16 @@ describe("Plugin Veto Tests", () => {
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
     bridge = await bridgeFactory.deploy(
       await mockXCHF.getAddress(),
-      await zchf.getAddress(),
+      await dEURO.getAddress(),
       limit
     );
-    await zchf.initialize(await bridge.getAddress(), "");
+    await dEURO.initialize(await bridge.getAddress(), "");
     // wait for 1 block
     await evm_increaseTime(60);
-    // now we are ready to bootstrap ZCHF with Mock-XCHF
+    // now we are ready to bootstrap dEURO with Mock-XCHF
     await mockXCHF.mint(owner.address, limit / 2n);
     await mockXCHF.mint(alice.address, limit / 2n);
-    // mint some ZCHF to block bridges without veto
+    // mint some dEURO to block bridges without veto
     let amount = floatToDec18(20_000);
     await mockXCHF.connect(alice).approve(await bridge.getAddress(), amount);
     await bridge.connect(alice).mint(amount);
@@ -57,21 +57,21 @@ describe("Plugin Veto Tests", () => {
       const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
       secondBridge = await bridgeFactory.deploy(
         await mockDCHF.getAddress(),
-        await zchf.getAddress(),
+        await dEURO.getAddress(),
         limit
       );
     });
     it("Participant suggests minter", async () => {
-      let applicationPeriod = await zchf.MIN_APPLICATION_PERIOD();
-      let applicationFee = await zchf.MIN_FEE();
+      let applicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
+      let applicationFee = await dEURO.MIN_FEE();
       let msg = "DCHF Bridge";
       await mockXCHF
         .connect(alice)
-        .approve(await zchf.getAddress(), applicationFee);
-      let balance = await zchf.balanceOf(alice.address);
+        .approve(await dEURO.getAddress(), applicationFee);
+      let balance = await dEURO.balanceOf(alice.address);
       expect(balance).to.be.greaterThan(applicationFee);
       await expect(
-        zchf
+        dEURO
           .connect(alice)
           .suggestMinter(
             await secondBridge.getAddress(),
@@ -79,7 +79,7 @@ describe("Plugin Veto Tests", () => {
             applicationFee,
             msg
           )
-      ).to.emit(zchf, "MinterApplied");
+      ).to.emit(dEURO, "MinterApplied");
     });
     it("can't mint before min period", async () => {
       let amount = floatToDec18(1_000);
@@ -89,15 +89,15 @@ describe("Plugin Veto Tests", () => {
       // set allowance
       await expect(
         secondBridge.connect(alice).mint(amount)
-      ).to.be.revertedWithCustomError(zchf, "NotMinter");
+      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
     it("deny minter", async () => {
       await expect(
-        zchf.denyMinter(await secondBridge.getAddress(), [], "other denied")
-      ).to.emit(zchf, "MinterDenied");
+        dEURO.denyMinter(await secondBridge.getAddress(), [], "other denied")
+      ).to.emit(dEURO, "MinterDenied");
       await expect(
         secondBridge.connect(alice).mint(floatToDec18(1_000))
-      ).to.be.revertedWithCustomError(zchf, "NotMinter");
+      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
   });
 });
