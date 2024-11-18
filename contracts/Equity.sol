@@ -94,7 +94,7 @@ contract Equity is ERC20PermitLight, MathUtil, IReserve, ERC165 {
     }
 
     function name() external pure override returns (string memory) {
-        return "EuroCoin Pool Share";
+        return "Native Decentralized Euro Protocol Share";
     }
 
     function symbol() external pure override returns (string memory) {
