@@ -10,7 +10,7 @@ describe("EuroCoin", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
 
-  let zeur: EuroCoin;
+  let dEURO: EuroCoin;
   let mockXCHF: TestToken;
   let bridge: StablecoinBridge;
 
@@ -19,19 +19,19 @@ describe("EuroCoin", () => {
     // create contracts
     // 10 day application period
     const euroCoinFactory = await ethers.getContractFactory("EuroCoin");
-    zeur = await euroCoinFactory.deploy(10 * 86400);
+    dEURO = await euroCoinFactory.deploy(10 * 86400);
   });
 
   describe("Basic initialization", () => {
-    it("symbol should be ZEUR", async () => {
-      let symbol = await zeur.symbol();
-      expect(symbol).to.be.equal("ZEUR");
-      let name = await zeur.name();
+    it("symbol should be dEURO", async () => {
+      let symbol = await dEURO.symbol();
+      expect(symbol).to.be.equal("dEURO");
+      let name = await dEURO.name();
       expect(name).to.be.equal("EuroCoin");
     });
 
     it("should support permit interface", async () => {
-      let supportsInterface = await zeur.supportsInterface("0x9d8ff7da");
+      let supportsInterface = await dEURO.supportsInterface("0x9d8ff7da");
       expect(supportsInterface).to.be.true;
     });
 
@@ -50,15 +50,15 @@ describe("EuroCoin", () => {
       const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
       bridge = await bridgeFactory.deploy(
         await mockXCHF.getAddress(),
-        await zeur.getAddress(),
+        await dEURO.getAddress(),
         limit
       );
     });
 
     it("bootstrap suggestMinter", async () => {
       let msg = "XCHF Bridge";
-      await zeur.initialize(await bridge.getAddress(), msg);
-      let isMinter = await zeur.isMinter(await bridge.getAddress());
+      await dEURO.initialize(await bridge.getAddress(), msg);
+      let isMinter = await dEURO.isMinter(await bridge.getAddress());
       expect(isMinter).to.be.true;
     });
 
@@ -67,61 +67,61 @@ describe("EuroCoin", () => {
       await mockXCHF.approve(await bridge.getAddress(), amount);
       await bridge.mint(amount);
       await expect(
-        zeur.initialize(await bridge.getAddress(), "Bridge")
+        dEURO.initialize(await bridge.getAddress(), "Bridge")
       ).to.be.revertedWithoutReason();
     });
 
     it("should revert minter suggestion when application period is too short", async () => {
       await expect(
-        zeur.suggestMinter(owner.address, 9 * 86400, floatToDec18(1000), "")
-      ).to.be.revertedWithCustomError(zeur, "PeriodTooShort");
+        dEURO.suggestMinter(owner.address, 9 * 86400, floatToDec18(1000), "")
+      ).to.be.revertedWithCustomError(dEURO, "PeriodTooShort");
     });
 
     it("should revert minter suggestion when application fee is too low", async () => {
       await expect(
-        zeur.suggestMinter(owner.address, 10 * 86400, floatToDec18(900), "")
-      ).to.be.revertedWithCustomError(zeur, "FeeTooLow");
+        dEURO.suggestMinter(owner.address, 10 * 86400, floatToDec18(900), "")
+      ).to.be.revertedWithCustomError(dEURO, "FeeTooLow");
     });
 
     it("should revert when minter is already registered", async () => {
       await expect(
-        zeur.suggestMinter(
+        dEURO.suggestMinter(
           await bridge.getAddress(),
           10 * 86400,
           floatToDec18(1000),
           ""
         )
-      ).to.be.revertedWithCustomError(zeur, "AlreadyRegistered");
+      ).to.be.revertedWithCustomError(dEURO, "AlreadyRegistered");
     });
 
     it("should revert registering position when not from minters", async () => {
-      expect(await zeur.isMinter(owner.address)).to.be.false;
+      expect(await dEURO.isMinter(owner.address)).to.be.false;
       await expect(
-        zeur.registerPosition(owner.address)
-      ).to.be.revertedWithCustomError(zeur, "NotMinter");
+        dEURO.registerPosition(owner.address)
+      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
     it("should revert denying minters when exceed application period", async () => {
       await expect(
-        zeur.suggestMinter(owner.address, 10 * 86400, floatToDec18(1000), "")
-      ).to.emit(zeur, "MinterApplied");
+        dEURO.suggestMinter(owner.address, 10 * 86400, floatToDec18(1000), "")
+      ).to.emit(dEURO, "MinterApplied");
       await evm_increaseTime(86400 * 11);
       await expect(
-        zeur.denyMinter(owner.address, [], "")
-      ).to.be.revertedWithCustomError(zeur, "TooLate");
+        dEURO.denyMinter(owner.address, [], "")
+      ).to.be.revertedWithCustomError(dEURO, "TooLate");
     });
   });
 
   describe("Minting & Burning", () => {
     before(async () => {
       const euroCoinFactory = await ethers.getContractFactory("EuroCoin");
-      zeur = await euroCoinFactory.deploy(10 * 86400);
+      dEURO = await euroCoinFactory.deploy(10 * 86400);
       const xchfFactory = await ethers.getContractFactory("TestToken");
       mockXCHF = await xchfFactory.deploy("CryptoFranc", "XCHF", 18);
       const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
       bridge = await bridgeFactory.deploy(
         await mockXCHF.getAddress(),
-        await zeur.getAddress(),
+        await dEURO.getAddress(),
         limit
       );
     });
@@ -131,16 +131,16 @@ describe("EuroCoin", () => {
       await mockXCHF.mint(owner.address, amount);
       await mockXCHF.approve(await bridge.getAddress(), amount);
       await expect(bridge.mint(amount)).to.be.revertedWithCustomError(
-        zeur,
+        dEURO,
         "NotMinter"
       );
-      await zeur.initialize(await bridge.getAddress(), "Bridge");
-      expect(await zeur.isMinter(await bridge.getAddress())).to.be.true;
+      await dEURO.initialize(await bridge.getAddress(), "Bridge");
+      expect(await dEURO.isMinter(await bridge.getAddress())).to.be.true;
     });
 
     it("minter of XCHF-bridge should receive dEURO", async () => {
       let amount = floatToDec18(5000);
-      let balanceBefore = await zeur.balanceOf(owner.address);
+      let balanceBefore = await dEURO.balanceOf(owner.address);
       // set allowance
       await mockXCHF.approve(await bridge.getAddress(), amount);
       await bridge.mint(amount);
@@ -148,7 +148,7 @@ describe("EuroCoin", () => {
       let balanceXCHFOfBridge = await mockXCHF.balanceOf(
         await bridge.getAddress()
       );
-      let balanceAfter = await zeur.balanceOf(owner.address);
+      let balanceAfter = await dEURO.balanceOf(owner.address);
       let dEUROReceived = dec18ToFloat(balanceAfter - balanceBefore);
       let isBridgeBalanceCorrect = dec18ToFloat(balanceXCHFOfBridge) == 5000n;
       let isSenderBalanceCorrect = dEUROReceived == 5000n;
@@ -165,17 +165,17 @@ describe("EuroCoin", () => {
 
     it("burner of XCHF-bridge should receive XCHF", async () => {
       let amount = floatToDec18(50);
-      let balanceBefore = await zeur.balanceOf(owner.address);
+      let balanceBefore = await dEURO.balanceOf(owner.address);
       let balanceXCHFBefore = await mockXCHF.balanceOf(owner.address);
-      await zeur.approve(await bridge.getAddress(), amount);
-      let allowance1 = await zeur.allowance(
+      await dEURO.approve(await bridge.getAddress(), amount);
+      let allowance1 = await dEURO.allowance(
         owner.address,
         await bridge.getAddress()
       );
       expect(allowance1).to.be.eq(amount);
-      let allowance2 = await zeur.allowance(owner.address, alice.address);
+      let allowance2 = await dEURO.allowance(owner.address, alice.address);
       expect(allowance2).to.be.eq(floatToDec18(0));
-      await zeur.burn(amount);
+      await dEURO.burn(amount);
       await bridge.burn(amount);
       await bridge.burnAndSend(owner.address, amount);
 
@@ -183,7 +183,7 @@ describe("EuroCoin", () => {
         await bridge.getAddress()
       );
       let balanceXCHFAfter = await mockXCHF.balanceOf(owner.address);
-      let balanceAfter = await zeur.balanceOf(owner.address);
+      let balanceAfter = await dEURO.balanceOf(owner.address);
       let dEUROReceived = dec18ToFloat(balanceAfter - balanceBefore);
       let XCHFReceived = dec18ToFloat(balanceXCHFAfter - balanceXCHFBefore);
       let isBridgeBalanceCorrect = dec18ToFloat(balanceXCHFOfBridge) == 4900n;
@@ -227,44 +227,44 @@ describe("EuroCoin", () => {
 
     it("should revert minting with reserve from non minters", async () => {
       await expect(
-        zeur.mintWithReserve(owner.address, 1000, 0, 0)
-      ).to.be.revertedWithCustomError(zeur, "NotMinter");
+        dEURO.mintWithReserve(owner.address, 1000, 0, 0)
+      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
     it("should revert burning from non minters", async () => {
       await expect(
-        zeur.burnFrom(owner.address, 1000)
-      ).to.be.revertedWithCustomError(zeur, "NotMinter");
+        dEURO.burnFrom(owner.address, 1000)
+      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
     it("should revert burning without reserve from non minters", async () => {
       await expect(
-        zeur.burnWithoutReserve(owner.address, 1000)
-      ).to.be.revertedWithCustomError(zeur, "NotMinter");
+        dEURO.burnWithoutReserve(owner.address, 1000)
+      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
     it("should revert burning with reserve from non minters", async () => {
       await expect(
-        zeur.burnWithReserve(owner.address, 1000)
-      ).to.be.revertedWithCustomError(zeur, "NotMinter");
+        dEURO.burnWithReserve(owner.address, 1000)
+      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
     it("should revert burning from with reserve from non minters", async () => {
       await expect(
-        zeur.burnFromWithReserve(owner.address, 0, 0)
-      ).to.be.revertedWithCustomError(zeur, "NotMinter");
+        dEURO.burnFromWithReserve(owner.address, 0, 0)
+      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
     it("should revert covering loss from non minters", async () => {
-      await expect(zeur.coverLoss(owner.address, 0)).to.be.revertedWithCustomError(
-        zeur,
+      await expect(dEURO.coverLoss(owner.address, 0)).to.be.revertedWithCustomError(
+        dEURO,
         "NotMinter"
       );
     });
 
     it("should revert collecting profits from non minters", async () => {
-      await expect(zeur.collectProfits(owner.address, 7)).to.be.revertedWithCustomError(
-        zeur,
+      await expect(dEURO.collectProfits(owner.address, 7)).to.be.revertedWithCustomError(
+        dEURO,
         "NotMinter"
       );
     });
@@ -273,7 +273,7 @@ describe("EuroCoin", () => {
   describe("view func", () => {
     before(async () => {
       const euroCoinFactory = await ethers.getContractFactory("EuroCoin");
-      zeur = await euroCoinFactory.deploy(10 * 86400);
+      dEURO = await euroCoinFactory.deploy(10 * 86400);
 
       const xchfFactory = await ethers.getContractFactory("TestToken");
       mockXCHF = await xchfFactory.deploy("CryptoFranc", "XCHF", 18);
@@ -281,7 +281,7 @@ describe("EuroCoin", () => {
       const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
       bridge = await bridgeFactory.deploy(
         await mockXCHF.getAddress(),
-        await zeur.getAddress(),
+        await dEURO.getAddress(),
         limit
       );
     });
