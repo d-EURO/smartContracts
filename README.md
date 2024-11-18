@@ -1,8 +1,8 @@
-# EURO Coin
+# dEURO
 
 This repository is a friendly fork of Frankencoin-ZCHF.
 
-This is the source code repository for the smart contracts of the oracle-free, collateralized stablecoin Frankencoin.
+This is the source code repository for the smart contracts of the oracle-free, collateralized stablecoin dEURO.
 
 There also is a [public frontend](https://app.dEURO.com) and a [documentation page](https://docs.dEURO.com).
 
