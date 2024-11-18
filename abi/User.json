@@ -3,7 +3,7 @@
         "inputs": [
             {
                 "internalType": "contract IEuroCoin",
-                "name": "zchf_",
+                "name": "dEURO_",
                 "type": "address"
             }
         ],
