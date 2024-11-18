@@ -15,7 +15,7 @@ contract FPSWrapper is ERC20 {
     }
 
     function name() external pure override returns (string memory) {
-        return "Wrapped Frankencoin Pool Share";
+        return "Native Decentralized Euro Protocol Share";
     }
 
     function symbol() external pure override returns (string memory) {
