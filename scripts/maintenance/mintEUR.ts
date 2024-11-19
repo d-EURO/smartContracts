@@ -54,9 +54,9 @@ async function start() {
     //let address = "0x71C696acd63979B39B8eD5b7a8030c46f34Da716"; // manu
     console.log("minting for ", address);
 
-    //let dEUROContract = await getSigningManagerFromPK("0xC578aC4f81112a87FD6eec13aE6e2C4d17129D4a", FC_ABI, NODE_URL, pk);
+    //let dEuroContract = await getSigningManagerFromPK("0xC578aC4f81112a87FD6eec13aE6e2C4d17129D4a", FC_ABI, NODE_URL, pk);
     // create a minting hub too while we have no dEURO supply
-    /*let tx = await dEUROContract.suggestMinter("0x240b812F8B8E42b623E00707A12150FF7cE2d72F", 
+    /*let tx = await dEuroContract.suggestMinter("0x240b812F8B8E42b623E00707A12150FF7cE2d72F", 
         901, floatToDec18(1000), "Minting Hub",  { gasLimit: 2_000_000 });
     await tx.wait();
     console.log(tx);*/
