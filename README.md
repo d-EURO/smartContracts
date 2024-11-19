@@ -50,11 +50,11 @@ Recommanded commands for `sepolia` network.
 
 ```shell
 hh deploy --network sepolia --tags MockTokens
-hh deploy --network sepolia --tags Frankencoin
+hh deploy --network sepolia --tags EuroCoin
 hh deploy --network sepolia --tags PositionFactory
 hh deploy --network sepolia --tags MintingHub
-hh deploy --network sepolia --tags MockCHFToken
-hh deploy --network sepolia --tags XCHFBridge
+hh deploy --network sepolia --tags MockEURToken
+hh deploy --network sepolia --tags XEURBridge
 hh deploy --network sepolia --tags positions
 ```
 
