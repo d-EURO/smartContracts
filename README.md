@@ -12,7 +12,7 @@ The source code can be found in the [contracts](contracts) folder. The following
 
 | Contract             | Description                                                      |
 | -------------------- | ---------------------------------------------------------------- |
-| EuroCoin.sol         | The Euro Coin (dEURO) ERC20 token                                |
+| EuroCoin.sol         | The EuroCoin (dEURO) ERC20 token                                |
 | Equity.sol           | The Native Decentralized Euro Protocol Share (nDEPS) ERC20 token |
 | MintingHub.sol       | Plugin for oracle-free collateralized minting                    |
 | Position.sol         | A borrowed minting position holding collateral                   |

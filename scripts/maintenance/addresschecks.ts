@@ -1,5 +1,5 @@
 /*
-    Script to check Euro Coin address consistency
+    Script to check EuroCoin address consistency
     1) set private key in terminal without 0x, via export PK="123cafefefefefeCACe..."
         minting will be done for that wallet
     2) edit script: add minting hub address
@@ -25,7 +25,7 @@ async function run() {
     let dEuroAddr = await mintingHubContract.dEURO();
     let dEuroContract = await getSigningManagerFromPK(dEuroAddr, FC_ABI, NODE_URL, pk);
     console.log("Minting Hub     : \t", mintingHubAddr);
-    console.log("Euro Coin dEURO: \t", dEuroAddr);
+    console.log("EuroCoin dEURO: \t", dEuroAddr);
     let reserve = await dEuroContract.reserve();
     console.log("Reserve (=Equity): \t", reserve);
     
