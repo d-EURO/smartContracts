@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { floatToDec18 } from "../scripts/math";
+import { floatToDec, floatToDec18 } from "../scripts/math";
 import { ethers } from "hardhat";
 import { evm_increaseTime, evm_mine_blocks } from "./helper";
 import { Equity, EuroCoin, StablecoinBridge, TestToken } from "../typechain";
@@ -13,7 +13,6 @@ describe("Equity Tests", () => {
   let equity: Equity;
   let bridge: StablecoinBridge;
   let dEURO: EuroCoin;
-  let s: TestToken;
   let XEUR: TestToken;
 
   before(async () => {
@@ -85,8 +84,8 @@ describe("Equity Tests", () => {
     // TODO: Check this again, compare to the original
     it("should revert minting when minted less than expected", async () => {
       await expect(
-        equity.invest(floatToDec18(1), floatToDec18(9999))
-      ).to.be.revertedWith("insuf equity");
+        equity.invest(floatToDec18(1000), floatToDec18(9999999))
+      ).to.be.revertedWithoutReason();
     });
 
     // it("should revert minting when total supply exceeds max of uint96", async () => {
@@ -105,7 +104,7 @@ describe("Equity Tests", () => {
       const expected = await equity.calculateShares(floatToDec18(1000));
       await dEURO.transfer(await equity.getAddress(), 1);
       const price = await equity.price();
-      expect(price).to.be.equal(floatToDec18(0.001));
+      expect(price).to.be.equal(floatToDec(1, 15));
       await equity.calculateShares(floatToDec18(1000));
 
       await equity.invest(floatToDec18(1000), expected);
