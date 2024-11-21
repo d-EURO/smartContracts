@@ -12,7 +12,7 @@ import {
 } from "../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
-let mockX;
+let mockXEUR: TestToken;
 
 describe("Position Tests", () => {
   let owner: HardhatEthersSigner;

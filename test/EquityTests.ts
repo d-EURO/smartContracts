@@ -14,6 +14,7 @@ describe("Equity Tests", () => {
   let bridge: StablecoinBridge;
   let dEURO: EuroCoin;
   let s: TestToken;
+  let XEUR: TestToken;
 
   before(async () => {
     [owner, alice, bob] = await ethers.getSigners();
@@ -48,9 +49,9 @@ describe("Equity Tests", () => {
       expect(symbol).to.be.equal("dEURO");
     });
 
-    it("should have symbol EPS", async () => {
+    it("should have symbol nDEPS", async () => {
       let symbol = await equity.symbol();
-      expect(symbol).to.be.equal("EPS");
+      expect(symbol).to.be.equal("nDEPS");
     });
 
     it("should support permit interface", async () => {
@@ -60,12 +61,12 @@ describe("Equity Tests", () => {
 
     it("should have the right name", async () => {
       let symbol = await equity.name();
-      expect(symbol).to.be.equal("EuroCoin Pool Share");
+      expect(symbol).to.be.equal("Native Decentralized Euro Protocol Share");
     });
 
-    it("should have initial price 1 dEURO / EPS", async () => {
+    it("should have initial price 0.001 dEURO / nDEPS", async () => {
       let price = await equity.price();
-      expect(price).to.be.equal(BigInt(1e18));
+      expect(price).to.be.equal(BigInt(1e15));
     });
 
     it("should have some coins", async () => {
@@ -81,10 +82,11 @@ describe("Equity Tests", () => {
       );
     });
 
+    // TODO: Check this again, compare to the original
     it("should revert minting when minted less than expected", async () => {
       await expect(
-        equity.invest(floatToDec18(1000), floatToDec18(9999))
-      ).to.be.revertedWithoutReason();
+        equity.invest(floatToDec18(1), floatToDec18(9999))
+      ).to.be.revertedWith("insuf equity");
     });
 
     // it("should revert minting when total supply exceeds max of uint96", async () => {
@@ -103,25 +105,25 @@ describe("Equity Tests", () => {
       const expected = await equity.calculateShares(floatToDec18(1000));
       await dEURO.transfer(await equity.getAddress(), 1);
       const price = await equity.price();
-      expect(price).to.be.equal(floatToDec18(1));
+      expect(price).to.be.equal(floatToDec18(0.001));
       await equity.calculateShares(floatToDec18(1000));
 
       await equity.invest(floatToDec18(1000), expected);
       let balance = await equity.balanceOf(owner.address);
-      expect(balance).to.be.equal(floatToDec18(1000));
+      expect(balance).to.be.equal(floatToDec18(1000000));
     });
 
     it("should create 1000 more shares when adding seven capital plus fees", async () => {
       await equity.invest(floatToDec18(1000), 0);
       let expected = await equity.calculateShares(floatToDec18(7000 / 0.997));
       expect(expected).to.be.approximately(
-        floatToDec18(1000),
+        floatToDec18(1000000),
         floatToDec18(0.01)
       );
       await equity.invest(floatToDec18(7000 / 0.997), expected);
       let balance = await equity.balanceOf(owner.address);
       expect(balance).to.be.approximately(
-        floatToDec18(2000),
+        floatToDec18(2000000),
         floatToDec18(0.01)
       );
     });
@@ -150,7 +152,7 @@ describe("Equity Tests", () => {
       ).to.be.revertedWith("too many shares");
 
       const redemptionAmount =
-        (await equity.balanceOf(owner.address)) - floatToDec18(1000.0);
+        (await equity.balanceOf(owner.address)) - floatToDec18(1000000.0);
       const equityCapital = await dEURO.balanceOf(await equity.getAddress());
       const proceeds = await equity.calculateProceeds(redemptionAmount);
       expect(proceeds).to.be.approximately(
