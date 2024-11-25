@@ -19,7 +19,7 @@ async function getAddress() {
 }
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  let otherAddress;
+  let eursAddress;
   const limit = 5_000;
   const weeks = 30;
   const {
@@ -28,29 +28,30 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   } = hre;
   let applicationMsg;
   if (["hardhat", "localhost", "sepolia"].includes(hre.network.name)) {
-    console.log("Setting MockEURt Token Bridge");
+    console.log("\nSetting MockEURS Token Bridge");
     try {
       const mockTokenDeployment = await get("TestToken");
-      otherAddress = mockTokenDeployment.address;
+      eursAddress = mockTokenDeployment.address;
     } catch (err: unknown) {
-      otherAddress = await getAddress();
-      if (otherAddress == "") {
+      eursAddress = await getAddress();
+      if (eursAddress == "") {
         throw err;
       }
     }
 
-    applicationMsg = "MockEURt Token Bridge";
+    applicationMsg = "MockEURS Token Bridge";
   } else {
-    console.log("Deploying EURt Token Bridge");
-    otherAddress = "0xc581b735a1688071a1746c968e0798d642ede491"; // EURt address
-    applicationMsg = "EURt Bridge";
+    console.log("\nDeploying EURS Token Bridge");
+    eursAddress = "0xdb25f211ab05b1c97d595516f45794528a807ad8";
+    applicationMsg = "EURS Bridge";
   }
   const dEURODeployment = await get("EuroCoin");
 
   let dLimit = floatToDec18(limit);
-  console.log("\nDeploying StablecoinBridge with limit = ", limit, "EUR");
+  console.log("Deploying EURS StablecoinBridge with other =", eursAddress, "limit = ", limit, "EUR", "and weeks =", weeks);
+
   await deployContract(hre, "StablecoinBridge", [
-    otherAddress,
+    eursAddress,
     dEURODeployment.address,
     dLimit,
     weeks,
@@ -64,13 +65,13 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     console.log("Verifying contract on Etherscan...");
     
     console.log(
-      `Verify StablecoinBridge:\nnpx hardhat verify --network ${hre.network.name} ${bridgeAddr} ${otherAddress} ${dEURODeployment.address} ${dLimit}\n`
+      `Verify StablecoinBridge:\nnpx hardhat verify --network ${hre.network.name} ${bridgeAddr} ${eursAddress} ${dEURODeployment.address} ${dLimit}\n`
     );
   
     try {
       await run("verify:verify", {
         address: bridgeAddr,
-        constructorArguments: [otherAddress, dEURODeployment.address, dLimit, weeks],
+        constructorArguments: [eursAddress, dEURODeployment.address, dLimit, weeks],
       });
       console.log("Contract verified successfully!");
     } catch (err) {
@@ -80,4 +81,4 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 };
 
 export default deploy;
-deploy.tags = ["main", "EURtBridge"];
+deploy.tags = ["main", "EURSBridge"];
