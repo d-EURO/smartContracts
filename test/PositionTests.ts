@@ -4,7 +4,7 @@ import { ethers } from "hardhat";
 import { evm_increaseTime } from "./helper";
 import {
   Equity,
-  EuroCoin,
+  DecentralizedEURO,
   MintingHub,
   Position,
   StablecoinBridge,
@@ -18,7 +18,7 @@ describe("Position Tests", () => {
   let bob: HardhatEthersSigner;
   let charles: HardhatEthersSigner;
 
-  let dEURO: EuroCoin;
+  let dEURO: DecentralizedEURO;
   let mintingHub: MintingHub;
   let bridge: StablecoinBridge;
   let equity: Equity;
@@ -26,12 +26,13 @@ describe("Position Tests", () => {
   let mockXEUR: TestToken;
 
   let limit: bigint;
+  let weeks: number;
 
   before(async () => {
     [owner, alice, bob, charles] = await ethers.getSigners();
     // create contracts
-    const EuroCoinFactory = await ethers.getContractFactory("EuroCoin");
-    dEURO = await EuroCoinFactory.deploy(10 * 86400);
+    const DecentralizedEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
+    dEURO = await DecentralizedEUROFactory.deploy(10 * 86400);
     equity = await ethers.getContractAt("Equity", await dEURO.reserve());
 
     const positionFactoryFactory = await ethers.getContractFactory(
@@ -49,11 +50,13 @@ describe("Position Tests", () => {
     mockXEUR = await testTokenFactory.deploy("CryptoFranc", "XEUR", 18);
     // mocktoken bridge to bootstrap
     limit = floatToDec18(1_000_000);
+    weeks = 30;
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
     bridge = await bridgeFactory.deploy(
       await mockXEUR.getAddress(),
       await dEURO.getAddress(),
-      limit
+      limit,
+      weeks
     );
     await dEURO.initialize(await bridge.getAddress(), "XEUR Bridge");
     // create a minting hub too while we have no dEURO supply

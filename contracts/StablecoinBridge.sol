@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./interface/IERC677Receiver.sol";
-import "./interface/IEuroCoin.sol";
+import "./interface/IDecentralizedEURO.sol";
 
 /**
  * @title Stable Coin Bridge
@@ -11,7 +11,7 @@ import "./interface/IEuroCoin.sol";
  */
 contract StablecoinBridge {
     IERC20 public immutable eur; // the source stablecoin
-    IEuroCoin public immutable dEURO; // the dEURO
+    IDecentralizedEURO public immutable dEURO; // the dEURO
 
     /**
      * @notice The time horizon after which this bridge expires and needs to be replaced by a new contract.
@@ -28,10 +28,10 @@ contract StablecoinBridge {
     error Expired(uint256 time, uint256 expiration);
     error UnsupportedToken(address token);
 
-    constructor(address other, address dEUROAddress, uint256 limit_) {
+    constructor(address other, address dEUROAddress, uint256 limit_, uint256 weeks_) {
         eur = IERC20(other);
-        dEURO = IEuroCoin(dEUROAddress);
-        horizon = block.timestamp + 52 weeks;
+        dEURO = IDecentralizedEURO(dEUROAddress);
+        horizon = block.timestamp + weeks_ * 1 weeks;
         limit = limit_;
         minted = 0;
     }

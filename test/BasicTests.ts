@@ -4,7 +4,7 @@ import { ethers } from "hardhat";
 import { capitalToShares, sharesToCapital } from "../scripts/utils";
 import {
   Equity,
-  EuroCoin,
+  DecentralizedEURO,
   PositionFactory,
   StablecoinBridge,
   TestToken,
@@ -16,7 +16,7 @@ describe("Basic Tests", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
 
-  let dEURO: EuroCoin;
+  let dEURO: DecentralizedEURO;
   let equity: Equity;
   let positionFactory: PositionFactory;
   let mockXEUR: TestToken;
@@ -26,8 +26,8 @@ describe("Basic Tests", () => {
     [owner, alice] = await ethers.getSigners();
     // create contracts
     // 10 day application period
-    const EuroCoinFactory = await ethers.getContractFactory("EuroCoin");
-    dEURO = await EuroCoinFactory.deploy(10 * 86400);
+    const DecentralizedEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
+    dEURO = await DecentralizedEUROFactory.deploy(10 * 86400);
 
     const equityAddr = await dEURO.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
@@ -49,12 +49,13 @@ describe("Basic Tests", () => {
       let symbol = await dEURO.symbol();
       expect(symbol).to.be.equal("dEURO");
       let name = await dEURO.name();
-      expect(name).to.be.equal("EuroCoin");
+      expect(name).to.be.equal("DecentralizedEURO");
     });
   });
 
   describe("mock bridge", () => {
     const limit = 100_000n * DECIMALS;
+    const weeks = 30;
     let bridgeAddr: string;
 
     before(async () => {
@@ -64,7 +65,8 @@ describe("Basic Tests", () => {
       bridge = await bridgeFactory.deploy(
         await mockXEUR.getAddress(),
         await dEURO.getAddress(),
-        limit
+        limit,
+        weeks
       );
       bridgeAddr = await bridge.getAddress();
     });

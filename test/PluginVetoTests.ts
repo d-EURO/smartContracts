@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { floatToDec18 } from "../scripts/math";
 import { ethers } from "hardhat";
-import { EuroCoin, StablecoinBridge, TestToken } from "../typechain";
+import { DecentralizedEURO, StablecoinBridge, TestToken } from "../typechain";
 import { evm_increaseTime } from "./helper";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -11,26 +11,28 @@ describe("Plugin Veto Tests", () => {
 
   let bridge: StablecoinBridge;
   let secondBridge: StablecoinBridge;
-  let dEURO: EuroCoin;
+  let dEURO: DecentralizedEURO;
   let mockXEUR: TestToken;
   let mockAEUR: TestToken;
 
   before(async () => {
     [owner, alice] = await ethers.getSigners();
     // create contracts
-    const EuroCoinFactory = await ethers.getContractFactory("EuroCoin");
-    dEURO = await EuroCoinFactory.deploy(10 * 86400);
+    const DecentralizedEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
+    dEURO = await DecentralizedEUROFactory.deploy(10 * 86400);
 
     // mocktoken
     const XEURFactory = await ethers.getContractFactory("TestToken");
     mockXEUR = await XEURFactory.deploy("CryptoFranc", "XEUR", 18);
     // mocktoken bridge to bootstrap
     let limit = floatToDec18(100_000);
+    let weeks = 30;
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
     bridge = await bridgeFactory.deploy(
       await mockXEUR.getAddress(),
       await dEURO.getAddress(),
-      limit
+      limit,
+      weeks
     );
     await dEURO.initialize(await bridge.getAddress(), "");
     // wait for 1 block
@@ -50,6 +52,7 @@ describe("Plugin Veto Tests", () => {
   describe("create secondary bridge plugin", () => {
     it("create mock AEUR token&bridge", async () => {
       let limit = floatToDec18(100_000);
+      let weeks = 30;
       const XEURFactory = await ethers.getContractFactory("TestToken");
       mockAEUR = await XEURFactory.deploy("Test Name", "Symbol", 18);
       await mockAEUR.mint(alice.address, floatToDec18(100_000));
@@ -58,7 +61,8 @@ describe("Plugin Veto Tests", () => {
       secondBridge = await bridgeFactory.deploy(
         await mockAEUR.getAddress(),
         await dEURO.getAddress(),
-        limit
+        limit,
+        weeks
       );
     });
     it("Participant suggests minter", async () => {
