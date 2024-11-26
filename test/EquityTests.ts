@@ -396,7 +396,7 @@ describe("Equity Tests", () => {
   
       it("should correctly convert when sourceDecimals > targetDecimals", async () => {
         const dEUROFactory = await ethers.getContractFactory("TestToken");
-        const newDEURO = await dEUROFactory.deploy("Decentralized EURO", "dEUR", 6);
+        const newDEURO = await dEUROFactory.deploy("Decentralized EURO", "dEUR", 2);
   
         const StablecoinBridgeFactory = await ethers.getContractFactory("StablecoinBridge");
         const newBridge = await StablecoinBridgeFactory.deploy(
@@ -408,7 +408,7 @@ describe("Equity Tests", () => {
   
         await newDEURO.mint(newBridge.getAddress(), ethers.parseUnits("1000", 2));
   
-        const amount = ethers.parseUnits("1000", 2);
+        const amount = ethers.parseUnits("1000", 6);
         await eur.mint(owner.address, amount);
   
         await eur.approve(await newBridge.getAddress(), amount);
