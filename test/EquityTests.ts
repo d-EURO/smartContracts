@@ -357,4 +357,90 @@ describe("Equity Tests", () => {
       await equity.restructureCapTable([], [alice.address, bob.address]);
     });
   });
+
+  describe("StablecoinBridge Tests", () => {
+    let eur: TestToken;
+    let bridge: StablecoinBridge;
+  
+    beforeEach(async () => {
+      const dEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
+      dEURO = await dEUROFactory.deploy(10 * 86400);
+
+      const TokenFactory = await ethers.getContractFactory("TestToken");
+      eur = await TokenFactory.deploy("Euro Stablecoin", "EUR", 6);
+  
+      const StablecoinBridgeFactory = await ethers.getContractFactory("StablecoinBridge");
+      bridge = await StablecoinBridgeFactory.deploy(
+        await eur.getAddress(),
+        await dEURO.getAddress(),
+        ethers.parseEther("5000"),
+        30
+      );
+  
+      await dEURO.initialize(await bridge.getAddress(), "");
+    });
+  
+    describe("Decimal conversion in mintTo", () => {
+      it("should correctly convert when sourceDecimals < targetDecimals", async () => {
+        const amount = ethers.parseUnits("1000", 6);
+        await eur.mint(owner.address, amount);
+  
+        await eur.approve(await bridge.getAddress(), amount);
+        await bridge.mintTo(alice.address, amount);
+  
+        const expectedAmount = ethers.parseUnits("1000", 18);
+        const aliceBalance = await dEURO.balanceOf(alice.address);
+  
+        expect(aliceBalance).to.equal(expectedAmount);
+      });
+  
+      it("should correctly convert when sourceDecimals > targetDecimals", async () => {
+        const dEUROFactory = await ethers.getContractFactory("TestToken");
+        const newDEURO = await dEUROFactory.deploy("Decentralized EURO", "dEUR", 6);
+  
+        const StablecoinBridgeFactory = await ethers.getContractFactory("StablecoinBridge");
+        const newBridge = await StablecoinBridgeFactory.deploy(
+          await eur.getAddress(),
+          await newDEURO.getAddress(),
+          ethers.parseEther("5000"),
+          30
+        );
+  
+        await newDEURO.mint(newBridge.getAddress(), ethers.parseUnits("1000", 2));
+  
+        const amount = ethers.parseUnits("1000", 2);
+        await eur.mint(owner.address, amount);
+  
+        await eur.approve(await newBridge.getAddress(), amount);
+        await newBridge.mintTo(alice.address, amount);
+  
+        const expectedAmount = ethers.parseUnits("1000", 2);
+        const aliceBalance = await newDEURO.balanceOf(alice.address);
+  
+        expect(aliceBalance).to.equal(expectedAmount);
+      });
+  
+      it("should correctly handle identical decimals", async () => {
+        const identicalDEURO = await ethers.getContractFactory("TestToken");
+        const newDEURO = await identicalDEURO.deploy("dEURO", "dEUR", 6);
+  
+        const BridgeFactory = await ethers.getContractFactory("StablecoinBridge");
+        const identicalBridge = await BridgeFactory.deploy(
+          await eur.getAddress(),
+          await newDEURO.getAddress(),
+          ethers.parseEther("5000"),
+          30
+        );
+  
+        const amount = ethers.parseUnits("1000", 6);
+        await eur.mint(owner.address, amount);
+  
+        await eur.approve(await identicalBridge.getAddress(), amount);
+        await identicalBridge.mintTo(alice.address, amount);
+  
+        const aliceBalance = await newDEURO.balanceOf(alice.address);
+        expect(aliceBalance).to.equal(amount);
+      });
+    });
+  });
 });

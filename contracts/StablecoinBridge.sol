@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./interface/IERC677Receiver.sol";
 import "./interface/IDecentralizedEURO.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /**
  * @title Stable Coin Bridge
@@ -46,10 +47,19 @@ contract StablecoinBridge {
     /**
      * @notice Mint the target amount of dEUROs, taking the equal amount of source coins from the sender.
      * @dev This only works if an allowance for the source coins has been set and the caller has enough of them.
+     * @param amount The amount of the source stablecoin to bridge (convert).
      */
     function mintTo(address target, uint256 amount) public {
         eur.transferFrom(msg.sender, address(this), amount);
-        _mint(target, amount);
+        uint256 targetAmount;
+        uint8 sourceDecimals = IERC20Metadata(address(eur)).decimals();
+        uint8 targetDecimals = IERC20Metadata(address(dEURO)).decimals();
+        if (sourceDecimals < targetDecimals) {
+            targetAmount = amount * 10**(targetDecimals - sourceDecimals);
+        } else {
+            targetAmount = amount / 10**(sourceDecimals - targetDecimals);
+        }
+        _mint(target, targetAmount);
     }
 
     function _mint(address target, uint256 amount) internal {
