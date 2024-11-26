@@ -44,7 +44,7 @@ PK=0x123456
 APIKEY=123456
 ```
 
-### Deploy Contract (luzius)
+### Deploy Contract (manual)
 
 Then run a deployment script with tags and network params (e.g., `sepolia` that specifies the network)
 
@@ -62,7 +62,7 @@ hh deploy --network sepolia --tags positions
 
 The networks are configured in `hardhat.config.ts`.
 
-### Deploy Contract (samclassix)
+### Deploy Contract (via hardhat ignition)
 
 ```bash
 npx hardhat ignition deploy ./ignition/modules/$MODULE.ts --network polygon --deployment-id $ID
