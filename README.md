@@ -12,7 +12,7 @@ The source code can be found in the [contracts](contracts) folder. The following
 
 | Contract             | Description                                                      |
 | -------------------- | ---------------------------------------------------------------- |
-| EuroCoin.sol         | The EuroCoin (dEURO) ERC20 token                                |
+| DecentralizedEURO.sol         | The DecentralizedEURO (dEURO) ERC20 token                                |
 | Equity.sol           | The Native Decentralized Euro Protocol Share (nDEPS) ERC20 token |
 | MintingHub.sol       | Plugin for oracle-free collateralized minting                    |
 | Position.sol         | A borrowed minting position holding collateral                   |
@@ -50,7 +50,7 @@ Recommanded commands for `sepolia` network.
 
 ```shell
 hh deploy --network sepolia --tags MockTokens
-hh deploy --network sepolia --tags EuroCoin
+hh deploy --network sepolia --tags DecentralizedEURO
 hh deploy --network sepolia --tags PositionFactory
 hh deploy --network sepolia --tags MintingHub
 hh deploy --network sepolia --tags MockEURToken
