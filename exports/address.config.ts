@@ -14,8 +14,8 @@ export interface ChainAddress {
 export const ADDRESS: Record<number, ChainAddress> = {
   [mainnet.id]: {
     // natice contract addresses
-    eurocoin: zeroAddress,
-    equity: zeroAddress,
+    eurocoin: "0xd45e911843721083A2751fA9Cc9D2a8089D8C0f5",
+    equity: "0xC92aF56C354FCF641f4567a04fd7032013E8A314",
     deps: zeroAddress,
     bridge: zeroAddress,
   },
