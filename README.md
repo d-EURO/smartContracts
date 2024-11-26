@@ -10,13 +10,13 @@ There also is a [public frontend](https://app.dEURO.com) and a [documentation pa
 
 The source code can be found in the [contracts](contracts) folder. The following are the most important contracts.
 
-| Contract             | Description                                                      |
-| -------------------- | ---------------------------------------------------------------- |
-| DecentralizedEURO.sol         | The DecentralizedEURO (dEURO) ERC20 token                                |
-| Equity.sol           | The Native Decentralized Euro Protocol Share (nDEPS) ERC20 token |
-| MintingHub.sol       | Plugin for oracle-free collateralized minting                    |
-| Position.sol         | A borrowed minting position holding collateral                   |
-| StablecoinBridge.sol | Plugin for 1:1 swaps with other EUR stablecoins                  |
+| Contract              | Description                                                      |
+| --------------------  | ---------------------------------------------------------------- |
+| DecentralizedEURO.sol | The DecentralizedEURO (dEURO) ERC20 token                        |
+| Equity.sol            | The Native Decentralized Euro Protocol Share (nDEPS) ERC20 token |
+| MintingHub.sol        | Plugin for oracle-free collateralized minting                    |
+| Position.sol          | A borrowed minting position holding collateral                   |
+| StablecoinBridge.sol  | Plugin for 1:1 swaps with other EUR stablecoins                  |
 
 ## Compiling and Testing
 
