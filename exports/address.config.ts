@@ -18,6 +18,8 @@ export const ADDRESS: Record<number, ChainAddress> = {
     equity: "0xC92aF56C354FCF641f4567a04fd7032013E8A314",
     deps: zeroAddress,
     bridge: zeroAddress,
+    mintinghub: ,
+    position
   },
   [polygon.id]: {
     // For test deployment only
