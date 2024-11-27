@@ -365,7 +365,7 @@ describe("Equity Tests", () => {
     beforeEach(async () => {
       const dEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
       dEURO = await dEUROFactory.deploy(10 * 86400);
-
+  
       const TokenFactory = await ethers.getContractFactory("TestToken");
       eur = await TokenFactory.deploy("Euro Stablecoin", "EUR", 6);
   
@@ -380,21 +380,40 @@ describe("Equity Tests", () => {
       await dEURO.initialize(await bridge.getAddress(), "");
     });
   
-    describe("Decimal conversion in mintTo", () => {
-      it("should correctly convert when sourceDecimals < targetDecimals", async () => {
-        const amount = ethers.parseUnits("1000", 6);
-        await eur.mint(owner.address, amount);
-  
-        await eur.approve(await bridge.getAddress(), amount);
-        await bridge.mintTo(alice.address, amount);
-  
-        const expectedAmount = ethers.parseUnits("1000", 18);
-        const aliceBalance = await dEURO.balanceOf(alice.address);
-  
-        expect(aliceBalance).to.equal(expectedAmount);
+    describe("Decimal conversion in mintTo, burn, and burnAndSend", () => {
+      it("should correctly handle mintTo, burn, and burnAndSend when sourceDecimals < targetDecimals", async () => {
+          const amount = ethers.parseUnits("1000", 6);
+          const expectedMintAmount = ethers.parseUnits("1000", 18);
+      
+          // Mint EUR and approve
+          await eur.mint(alice.address, amount);
+          await eur.connect(alice).approve(await bridge.getAddress(), amount);
+      
+          // Mint dEURO
+          await bridge.connect(alice).mintTo(alice.address, amount);
+          const aliceBalanceAfterMint = await dEURO.balanceOf(alice.address);
+          expect(aliceBalanceAfterMint).to.equal(expectedMintAmount);
+      
+          // Approve dEURO for burning
+          await dEURO.connect(alice).approve(await bridge.getAddress(), expectedMintAmount);
+      
+          // Burn dEURO back to EUR
+          await bridge.connect(alice).burn(expectedMintAmount);
+          const aliceEURBalance = await eur.balanceOf(alice.address);
+          expect(aliceEURBalance).to.equal(amount);
+      
+          // Mint dEURO again
+          await eur.connect(alice).approve(await bridge.getAddress(), amount);
+          await bridge.connect(alice).mintTo(alice.address, amount);
+      
+          // Burn dEURO and send EUR to owner
+          const ownerEURBalanceBefore = await eur.balanceOf(owner.address);
+          await bridge.connect(alice).burnAndSend(owner.address, expectedMintAmount);
+          const ownerEURBalance = await eur.balanceOf(owner.address);
+          expect(ownerEURBalance - ownerEURBalanceBefore).to.equal(amount);
       });
   
-      it("should correctly convert when sourceDecimals > targetDecimals", async () => {
+      it("should correctly handle mintTo, burn, and burnAndSend when sourceDecimals > targetDecimals", async () => {
         const dEUROFactory = await ethers.getContractFactory("TestToken");
         const newDEURO = await dEUROFactory.deploy("Decentralized EURO", "dEUR", 2);
   
@@ -408,19 +427,32 @@ describe("Equity Tests", () => {
   
         await newDEURO.mint(newBridge.getAddress(), ethers.parseUnits("1000", 2));
   
-        const amount = ethers.parseUnits("1000", 6);
-        await eur.mint(owner.address, amount);
+        const amount = ethers.parseUnits("1000", 6); 
+        const expectedMintAmount = ethers.parseUnits("1000", 2); 
+  
+        await eur.mint(alice.address, amount);
+  
+        await eur.connect(alice).approve(await newBridge.getAddress(), amount);
+        await newBridge.connect(alice).mintTo(alice.address, amount);
+        const aliceBalanceAfterMint = await newDEURO.balanceOf(alice.address);
+        expect(aliceBalanceAfterMint).to.equal(expectedMintAmount);
+  
+        await newDEURO.connect(alice).approve(await newBridge.getAddress(), expectedMintAmount);
+        await newBridge.connect(alice).burn(expectedMintAmount);
+        const aliceEURBalance = await eur.balanceOf(alice.address);
+        expect(aliceEURBalance).to.equal(amount);
   
         await eur.approve(await newBridge.getAddress(), amount);
         await newBridge.mintTo(alice.address, amount);
-  
-        const expectedAmount = ethers.parseUnits("1000", 2);
-        const aliceBalance = await newDEURO.balanceOf(alice.address);
-  
-        expect(aliceBalance).to.equal(expectedAmount);
+        const ownerEURBalanceBefore = await eur.balanceOf(owner.address);
+
+        await newDEURO.connect(alice).approve(await newBridge.getAddress(), amount);
+        await newBridge.connect(alice).burnAndSend(owner.address, expectedMintAmount);
+        const ownerEURBalance = await eur.balanceOf(owner.address);
+        expect(ownerEURBalance - ownerEURBalanceBefore).to.equal(amount);
       });
   
-      it("should correctly handle identical decimals", async () => {
+      it("should correctly handle mintTo, burn, and burnAndSend when sourceDecimals == targetDecimals", async () => {
         const identicalDEURO = await ethers.getContractFactory("TestToken");
         const newDEURO = await identicalDEURO.deploy("dEURO", "dEUR", 6);
   
@@ -433,13 +465,25 @@ describe("Equity Tests", () => {
         );
   
         const amount = ethers.parseUnits("1000", 6);
-        await eur.mint(owner.address, amount);
+  
+        await eur.approve(await identicalBridge.getAddress(), amount);
+  
+        await identicalBridge.mintTo(alice.address, amount);
+        const aliceBalanceAfterMint = await newDEURO.balanceOf(alice.address);
+        expect(aliceBalanceAfterMint).to.equal(amount);
+  
+        await newDEURO.connect(alice).approve(await identicalBridge.getAddress(), amount);
+        await identicalBridge.connect(alice).burn(amount);
+        const aliceEURBalance = await eur.balanceOf(alice.address);
+        expect(aliceEURBalance).to.equal(amount);
   
         await eur.approve(await identicalBridge.getAddress(), amount);
         await identicalBridge.mintTo(alice.address, amount);
-  
-        const aliceBalance = await newDEURO.balanceOf(alice.address);
-        expect(aliceBalance).to.equal(amount);
+        const ownerEURBalanceBefore = await eur.balanceOf(owner.address);
+        await newDEURO.connect(alice).approve(await identicalBridge.getAddress(), amount);
+        await identicalBridge.connect(alice).burnAndSend(owner.address, amount);
+        const ownerEURBalance = await eur.balanceOf(owner.address);
+        expect(ownerEURBalance - ownerEURBalanceBefore).to.equal(amount);
       });
     });
   });
