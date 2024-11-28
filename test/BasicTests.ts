@@ -65,6 +65,39 @@ describe("Basic Tests", () => {
     });
   });
 
+  describe("savings/leadrate module init", () => {
+    it("init values", async () => {
+      let currentRatePPM = await savings.currentRatePPM();
+      expect(currentRatePPM).to.be.equal(50000n);
+      let nextRatePPM = await savings.nextRatePPM();
+      expect(nextRatePPM).to.be.equal(50000n);
+    });
+    it("tries to propose no changes", async () => {
+      await savings.proposeChange(60000n, []);
+    });
+    it("tries to apply no changes", async () => {
+      await expect(savings.applyChange()).to.be.revertedWithCustomError(
+        savings,
+        "ChangeNotReady",
+      );
+    });
+    it("ticks accumulation check ", async () => {
+      const getTimeStamp = async () => {
+        const blockNumBefore = await ethers.provider.getBlockNumber();
+        const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+        return blockBefore?.timestamp ?? null;
+      };
+      const snap1 = await savings.currentTicks();
+      const time1 = await getTimeStamp();
+      await evm_increaseTime(86_400);
+      const snap2 = await savings.currentTicks();
+      const time2 = await getTimeStamp();
+      const diff = time2! - time1!;
+
+      expect(snap2).to.be.equal(parseInt(snap1.toString()) + diff * 50000);
+    });
+  });
+
   describe("mock bridge", () => {
     const limit = 100_000n * DECIMALS;
     const weeks = 30;
