@@ -22,7 +22,6 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const reserveAddress = await deployment.reserve();
 
   if(hre.network.name === "mainnet" && process.env.ETHERSCAN_API_KEY){
-    console.log("Verifying...");
     await verify(deploymentAddress, args);
     await verify(reserveAddress, [deploymentAddress]);
   } else {

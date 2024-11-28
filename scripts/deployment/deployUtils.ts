@@ -26,7 +26,5 @@ export const deployContract = async (
     log(`Contract ${contractName} deployed to: ${deployment.address} with args: ${args}`);
   }
 
-  log("-------------------------------------------------------------------");
-
   return ethers.getContractAt(contractName, deployment.address);
 };

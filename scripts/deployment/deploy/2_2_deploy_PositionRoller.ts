@@ -1,19 +1,34 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { deployContract } from "../deployUtils";
+import { getParams } from "../../utils";
+import { verify } from "../../verify";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const {
-    deployments: { get },
-  } = hre;
+  let chainId = hre.network.config["chainId"];
+  if (chainId === undefined) {
+    throw new Error("Chain ID is undefined");
+  }
 
-  const dEURODeploydeumentAddress = "0xd45e911843721083A2751fA9Cc9D2a8089D8C0f5";
-  await deployContract(hre, "PositionRoller", [dEURODeploydeumentAddress]);
+  const params = getParams("paramsPositionRoller", chainId);
+
+  const decentralizedEURO = params.decentralizedEURO;
+
+  const args = [decentralizedEURO];
+
+  const deployment = await deployContract(hre, "PositionRoller", args);
+
+  const deploymentAddress = await deployment.getAddress();
  
-  const positionRollerDeployment = await get("PositionRoller");
-  console.log(
-    `Verify Leadrate:\nnpx hardhat verify --network sepolia ${positionRollerDeployment.address} ${dEURODeploydeumentAddress}`
-  );
+  if(hre.network.name === "mainnet" && process.env.ETHERSCAN_API_KEY){
+    await verify(deploymentAddress, args);
+  } else {
+    console.log(
+      `Verify:\nnpx hardhat verify --network ${hre.network.name} ${deploymentAddress} ${args.join(" ")}`
+    );
+  }
+
+  console.log("-------------------------------------------------------------------");
 };
 export default deploy;
 deploy.tags = ["main", "PositionRoller"];
