@@ -4,7 +4,6 @@ import { deployContract } from "../deployUtils";
 import { verify } from "../../verify";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-
   const deployment = await deployContract(hre, "PositionFactory");
 
   const deploymentAddress = await deployment.getAddress();

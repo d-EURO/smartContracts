@@ -5,7 +5,7 @@ import { getParams } from "../../utils";
 import { verify } from "../../verify";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  let chainId = hre.network.config["chainId"];
+  const chainId = hre.network.config["chainId"];
   if (chainId === undefined) {
     throw new Error("Chain ID is undefined");
   }

@@ -1,40 +1,34 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { deployContract } from "../deployUtils";
+import { getParams } from "../../utils";
+import { verify } from "../../verify";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  let nDEPSDeploymentAddress;
-  const { deployments: { get }, run } = hre;
-
-  try { 
-    const nDEPSDeployment = await get("nDEPS");
-    nDEPSDeploymentAddress = nDEPSDeployment.address;
-  } catch (err: unknown) {
-    nDEPSDeploymentAddress = "0xC92aF56C354FCF641f4567a04fd7032013E8A314";
-    // throw err;
+  const chainId = hre.network.config["chainId"];
+  if (chainId === undefined) {
+    throw new Error("Chain ID is undefined");
   }
 
-  await deployContract(hre, "DEPSWrapper", [ nDEPSDeploymentAddress ]);
+  const params = getParams("paramsDEPSWrapper", chainId);
 
-  const DEPSWrapperDeployment = await get("DEPSWrapper");
+  const decentralizedEURO = params.decentralizedEURO;
 
-  if (!["hardhat", "localhost"].includes(hre.network.name)) {
+  const args = [decentralizedEURO];
+
+  const deployment = await deployContract(hre, "DEPSWrapper", args);
+
+  const deploymentAddress = await deployment.getAddress();
+ 
+  if(hre.network.name === "mainnet" && process.env.ETHERSCAN_API_KEY){
+    await verify(deploymentAddress, args);
+  } else {
     console.log(
-      `Verify DEPSWrapper:\nnpx hardhat verify --network ${hre.network.name} ${DEPSWrapperDeployment.address} ${nDEPSDeploymentAddress}`
+      `Verify:\nnpx hardhat verify --network ${hre.network.name} ${deploymentAddress} ${args.join(" ")}`
     );
-    
-    // Automate verification
-    // console.log("Verifying contract on Etherscan...");
-    // try {
-    //   await run("verify:verify", {
-    //     address: bridgeAddr,
-    //     constructorArguments: [otherAddress, dEURODeployment.address, dLimit, weeks],
-    //   });
-    //   console.log("Contract verified successfully!");
-    // } catch (err) {
-    //   console.error("Verification failed:", err);
-    // }
   }
+
+  console.log("-------------------------------------------------------------------");
 };
 
 export default deploy;
