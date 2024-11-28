@@ -13,11 +13,11 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const params = getParams("paramsMintingHub", chainId);
 
   const decentralizedEURO = params.decentralizedEURO;
-  const positionFactory = params.positionFactory;
-  const positionRoller = params.positionRoller;
   const savings = params.savings;
+  const positionRoller = params.positionRoller;
+  const positionFactory = params.positionFactory;
 
-  const args = [decentralizedEURO, positionFactory, positionRoller, savings];
+  const args = [decentralizedEURO, savings, positionRoller, positionFactory];
 
   const deployment = await deployContract(hre, "MintingHub", args);
 
