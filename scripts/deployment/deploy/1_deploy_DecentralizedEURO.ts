@@ -1,42 +1,37 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { deployContract } from "../deployUtils";
+import { verify } from "../../verify";
+import { getParams } from "../../utils";
 
-/*
-    //see package.json
-    export PK=12...
-    // deploy according to config (see package.json), e.g., 
-    npm run redeploynotesttoken:network sepolia
-    // mint dEURO via scripts/maintenance/mintEUR.ts (adjust StableCoinBridge address in mintEUR.ts header) 
-    ts-node scripts/maintenance/mintEUR.ts
-    // verify on https://sepolia.etherscan.io/
-    // deploy positions (inspect script A_deploy_...)
-    npm run-script deployPositions:network sepolia
-*/
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const paramFile = "paramsDecentralizedEURO.json";
   let chainId = hre.network.config["chainId"];
-  let paramsArr = require(__dirname + `/../parameters/${paramFile}`);
-
-  // find config for current chain
-  for (var k = 0; k < paramsArr.length && paramsArr[k].chainId != chainId; k++);
-  let params = paramsArr[k];
-  if (chainId != params.chainId) {
-    throw new Error("ChainId doesn't match");
+  if (chainId === undefined) {
+    throw new Error("Chain ID is undefined");
   }
 
-  let minApplicationPeriod = params["minApplicationPeriod"];
-  console.log("\nMin application period =", minApplicationPeriod);
+  const params = getParams("paramsDecentralizedEURO", chainId);
 
-  let EC = await deployContract(hre, "DecentralizedEURO", [minApplicationPeriod]);
-  console.log(
-    `Verify DecentralizedEURO:\nnpx hardhat verify --network sepolia ${await EC.getAddress()} ${minApplicationPeriod}`
-  );
+  const minApplicationPeriod = params.minApplicationPeriod;
 
-  let reserve = await EC.reserve();
-  console.log(
-    `Verify Equity:\nnpx hardhat verify --network sepolia ${reserve} ${await EC.getAddress()}\n`
-  );
+  const args = [minApplicationPeriod];
+
+  const deployment = await deployContract(hre, "DecentralizedEURO", args);
+  
+  const deploymentAddress = await deployment.getAddress();
+  const reserveAddress = await deployment.reserve();
+
+  if(hre.network.name === "mainnet" && process.env.ETHERSCAN_API_KEY){
+    console.log("Verifying...");
+    await verify(deploymentAddress, args);
+    await verify(reserveAddress, [deploymentAddress]);
+  } else {
+    console.log(`Verify:\nnpx hardhat verify --network ${hre.network.name} ${deploymentAddress} ${args.join(" ")}\n`);
+    console.log(`Verify:\nnpx hardhat verify --network ${hre.network.name} ${reserveAddress} ${deploymentAddress}\n`);
+  }
+
+  console.log("-------------------------------------------------------------------");
 };
+
 export default deploy;
 deploy.tags = ["main", "DecentralizedEURO"];
