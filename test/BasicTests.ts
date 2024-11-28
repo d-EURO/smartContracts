@@ -8,6 +8,8 @@ import {
   PositionFactory,
   StablecoinBridge,
   TestToken,
+  Savings,
+  PositionRoller,
 } from "../typechain";
 import { evm_increaseTime } from "./helper";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
@@ -21,26 +23,36 @@ describe("Basic Tests", () => {
   let positionFactory: PositionFactory;
   let mockXEUR: TestToken;
   let bridge: StablecoinBridge;
+  let savings: Savings;
+  let roller: PositionRoller;
 
   before(async () => {
     [owner, alice] = await ethers.getSigners();
     // create contracts
     // 10 day application period
-    const DecentralizedEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
+    const DecentralizedEUROFactory =
+      await ethers.getContractFactory("DecentralizedEURO");
     dEURO = await DecentralizedEUROFactory.deploy(10 * 86400);
 
     const equityAddr = await dEURO.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
 
-    const positionFactoryFactory = await ethers.getContractFactory(
-      "PositionFactory"
-    );
+    const positionFactoryFactory =
+      await ethers.getContractFactory("PositionFactory");
     positionFactory = await positionFactoryFactory.deploy();
+
+    const SavingsFactory = await ethers.getContractFactory("Savings");
+    savings = await SavingsFactory.deploy(await dEURO.getAddress(), 50_000n);
+
+    const RollerFactory = await ethers.getContractFactory("PositionRoller");
+    roller = await RollerFactory.deploy(await dEURO.getAddress());
 
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     await mintingHubFactory.deploy(
       await dEURO.getAddress(),
-      await positionFactory.getAddress()
+      await savings.getAddress(),
+      await roller.getAddress(),
+      await positionFactory.getAddress(),
     );
   });
 
@@ -66,7 +78,7 @@ describe("Basic Tests", () => {
         await mockXEUR.getAddress(),
         await dEURO.getAddress(),
         limit,
-        weeks
+        weeks,
       );
       bridgeAddr = await bridge.getAddress();
     });
@@ -80,7 +92,7 @@ describe("Basic Tests", () => {
       await mockXEUR.approve(await bridge.getAddress(), amount);
       await expect(bridge.mint(amount)).to.be.revertedWithCustomError(
         dEURO,
-        "NotMinter"
+        "NotMinter",
       );
     });
     it("bootstrap suggestMinter", async () => {
@@ -105,7 +117,7 @@ describe("Basic Tests", () => {
       if (!isBridgeBalanceCorrect || !isSenderBalanceCorrect) {
         console.log(
           "Bridge received XEUR tokens ",
-          dec18ToFloat(balanceXEUROfBridge)
+          dec18ToFloat(balanceXEUROfBridge),
         );
         console.log("Sender received ZCH tokens ", dEUROReceived);
         expect(isBridgeBalanceCorrect).to.be.true;
@@ -114,7 +126,7 @@ describe("Basic Tests", () => {
     });
     it("should revert initialization when there is supply", async () => {
       await expect(
-        dEURO.initialize(bridgeAddr, "Bridge")
+        dEURO.initialize(bridgeAddr, "Bridge"),
       ).to.be.revertedWithoutReason();
     });
     it("burner of XEUR-bridge should receive XEUR", async () => {
@@ -145,7 +157,7 @@ describe("Basic Tests", () => {
       ) {
         console.log(
           "Bridge balance XEUR tokens ",
-          dec18ToFloat(balanceXEUROfBridge)
+          dec18ToFloat(balanceXEUROfBridge),
         );
         console.log("Sender burned ZCH tokens ", -dEUROReceived);
         console.log("Sender received XEUR tokens ", XEURReceived);
@@ -159,7 +171,7 @@ describe("Basic Tests", () => {
       await mockXEUR.approve(bridgeAddr, amount);
       await expect(bridge.mint(amount)).to.be.revertedWithCustomError(
         bridge,
-        "Limit"
+        "Limit",
       );
     });
     it("should revert minting when bridge is expired", async () => {
@@ -168,7 +180,7 @@ describe("Basic Tests", () => {
       await mockXEUR.approve(bridgeAddr, amount);
       await expect(bridge.mint(amount)).to.be.revertedWithCustomError(
         bridge,
-        "Expired"
+        "Expired",
       );
     });
   });
