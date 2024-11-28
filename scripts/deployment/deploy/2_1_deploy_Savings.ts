@@ -8,12 +8,12 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   } = hre;
 
   const equityDeploymentAddress = "0xC92aF56C354FCF641f4567a04fd7032013E8A314";
-  await deployContract(hre, "Leadrate", [equityDeploymentAddress, 5]);
+  await deployContract(hre, "Savings", [equityDeploymentAddress, 5]);
  
-  const leadrateDeployment = await get("Leadrate");
+  const SavingsDeployment = await get("Savings");
   console.log(
-    `Verify Leadrate:\nnpx hardhat verify --network sepolia ${leadrateDeployment.address} ${equityDeploymentAddress} 5`
+    `Verify Savings:\nnpx hardhat verify --network sepolia ${SavingsDeployment.address} ${equityDeploymentAddress} 5`
   );
 };
 export default deploy;
-deploy.tags = ["main", "Leadrate"];
+deploy.tags = ["main", "Savings"];
