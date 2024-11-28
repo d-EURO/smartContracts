@@ -11,10 +11,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - name: Install packages
-        uses: actions/setup-node@v3
+      - uses: actions/setup-node@v3
         with:
           node-version: '22.x'
-      - run: npm i
+      - name: Install packages
+        run: npm i
       - name: Run Tests
         run: npm test
