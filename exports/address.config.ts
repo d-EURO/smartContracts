@@ -11,9 +11,6 @@ export interface ChainAddress {
   roller: Address;
   mintingHubV2: Address;
   positionFactoryV2: Address;
-
-  // accept any optional key
-  [key: string]: Address | undefined;
 }
 
 export const ADDRESS: Record<number, ChainAddress> = {
