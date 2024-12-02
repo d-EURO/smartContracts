@@ -1,5 +1,7 @@
 # FrankenCoin
 
+delete
+
 This is the source code repository for the smart contracts of the oracle-free, collateralized stablecoin Frankencoin.
 
 There also is a [public frontend](https://frankencoin.com), a [documentation page](https://docs.frankencoin.com), an outdated [Frankencoin Research Paper](https://www.snb.ch/n/mmr/reference/sem_2022_06_03_maire/source/sem_2022_06_03_maire.n.pdf), and a more recent chapter of a [pending phd thesis](https://frankencoin.com/thesis-preprint-frankencoin.pdf).
