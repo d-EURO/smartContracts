@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./utils/Ownable.sol";
-import "./utils/MathUtil.sol";
+import {MathUtil} from "../utils/MathUtil.sol";
 
-import "./interface/IERC20.sol";
-import "./interface/ILeadrate.sol";
-import "./interface/IPosition.sol";
-import "./interface/IReserve.sol";
-import "./interface/IFrankencoin.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-// import "hardhat/console.sol";
+import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {IReserve} from "../interface/IReserve.sol";
+import {ILeadrate} from "../interface/ILeadrate.sol";
+
+import {IPosition} from "./interface/IPosition.sol";
 
 /**
  * @title Position
@@ -23,7 +23,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
 
     /**
-     * @notice The zchf price per unit of the collateral below which challenges succeed, (36 - collateral.decimals) decimals
+     * @notice The deuro price per unit of the collateral below which challenges succeed, (36 - collateral.decimals) decimals
      */
     uint256 public price;
 
@@ -79,9 +79,9 @@ contract Position is Ownable, IPosition, MathUtil {
     address public immutable hub;
 
     /**
-     * @notice The Frankencoin contract.
+     * @notice The Eurocoin contract.
      */
-    IFrankencoin public immutable zchf;
+    IDecentralizedEURO public immutable deuro;
 
     /**
      * @notice The collateral token.
@@ -94,7 +94,7 @@ contract Position is Ownable, IPosition, MathUtil {
     uint256 public immutable override minimumCollateral;
 
     /**
-     * @notice The interest in parts per million per year that is deducted when minting Frankencoins.
+     * @notice The interest in parts per million per year that is deducted when minting dEURO.
      * To be paid upfront.
      */
     uint24 public immutable riskPremiumPPM;
@@ -154,22 +154,31 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     modifier ownerOrRoller() {
-        if (msg.sender != address(IHub(hub).roller())) _requireOwner(msg.sender);
+        if (msg.sender != address(IHub(hub).roller())) _checkOwner();
         _;
     }
 
     /**
      * @dev See MintingHub.openPosition
      */
-    constructor(address _owner, address _hub, address _zchf, address _collateral,
-        uint256 _minCollateral, uint256 _initialLimit,
-        uint40 _initPeriod, uint40 _duration, uint40 _challengePeriod,
-        uint24 _riskPremiumPPM, uint256 _liqPrice, uint24 _reservePPM) {
+    constructor(
+        address _owner,
+        address _hub,
+        address _deuro,
+        address _collateral,
+        uint256 _minCollateral,
+        uint256 _initialLimit,
+        uint40 _initPeriod,
+        uint40 _duration,
+        uint40 _challengePeriod,
+        uint24 _riskPremiumPPM,
+        uint256 _liqPrice,
+        uint24 _reservePPM
+    ) Ownable(_owner) {
         require(_initPeriod >= 3 days); // must be at least three days, recommended to use higher values
-        _setOwner(_owner);
         original = address(this);
         hub = _hub;
-        zchf = IFrankencoin(_zchf);
+        deuro = IDecentralizedEURO(_deuro);
         collateral = IERC20(_collateral);
         riskPremiumPPM = _riskPremiumPPM;
         reserveContribution = _reservePPM;
@@ -191,7 +200,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (_expiration < block.timestamp || _expiration > Position(original).expiration()) revert InvalidExpiration(); // expiration must not be later than original
         expiration = _expiration;
         price = Position(parent).price();
-        _setOwner(hub);
+        _transferOwnership(hub);
     }
 
     /**
@@ -203,12 +212,12 @@ contract Position is Ownable, IPosition, MathUtil {
      * Notify the original that some amount has been minted.
      */
     function notifyMint(uint256 mint_) external {
-        if (zchf.getPositionParent(msg.sender) != hub) revert NotHub();
+        if (deuro.getPositionParent(msg.sender) != hub) revert NotHub();
         totalMinted += mint_;
     }
 
     function notifyRepaid(uint256 repaid_) external {
-        if (zchf.getPositionParent(msg.sender) != hub) revert NotHub();
+        if (deuro.getPositionParent(msg.sender) != hub) revert NotHub();
         totalMinted -= repaid_;
     }
 
@@ -229,7 +238,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * The amount available for minting in this position family.
-     * 
+     *
      * Does not check if positions are challenged, closed, or under cooldown.
      */
     function availableForMinting() public view returns (uint256) {
@@ -245,7 +254,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function deny(address[] calldata helpers, string calldata message) external {
         if (block.timestamp >= start) revert TooLate();
-        IReserve(zchf.reserve()).checkQualified(msg.sender, helpers);
+        IReserve(deuro.reserve()).checkQualified(msg.sender, helpers);
         _close();
         emit PositionDenied(msg.sender, message);
     }
@@ -263,7 +272,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice This is how much the minter can actually use when minting ZCHF, with the rest being used
+     * @notice This is how much the minter can actually use when minting deuro, with the rest being used
      * assigned to the minter reserve or (if applicable) fees.
      */
     function getUsableMint(uint256 totalMint, bool afterFees) public view returns (uint256) {
@@ -278,11 +287,14 @@ contract Position is Ownable, IPosition, MathUtil {
      * Returns the corresponding mint amount (disregarding the limit).
      */
     function getMintAmount(uint256 usableMint) external view returns (uint256) {
-        return usableMint == 0 ? 0 :(usableMint * 1000_000 - 1) / (1000_000 - reserveContribution - calculateCurrentFee()) + 1;
+        return
+            usableMint == 0
+                ? 0
+                : (usableMint * 1000_000 - 1) / (1000_000 - reserveContribution - calculateCurrentFee()) + 1;
     }
 
     /**
-     * @notice "All in one" function to adjust the outstanding amount of ZCHF, the collateral amount,
+     * @notice "All in one" function to adjust the outstanding amount of deuro, the collateral amount,
      * and the price in one transaction.
      */
     function adjust(uint256 newMinted, uint256 newCollateral, uint256 newPrice) external onlyOwner {
@@ -292,7 +304,7 @@ contract Position is Ownable, IPosition, MathUtil {
         }
         // Must be called after collateral deposit, but before withdrawal
         if (newMinted < minted) {
-            zchf.burnFromWithReserve(msg.sender, minted - newMinted, reserveContribution);
+            deuro.burnFromWithReserve(msg.sender, minted - newMinted, reserveContribution);
             _notifyRepaid(minted - newMinted);
         }
         if (newCollateral < colbal) {
@@ -337,7 +349,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice Mint ZCHF as long as there is no open challenge, the position is not subject to a cooldown,
+     * @notice Mint deuro as long as there is no open challenge, the position is not subject to a cooldown,
      * and there is sufficient collateral.
      */
     function mint(address target, uint256 amount) public ownerOrRoller {
@@ -347,7 +359,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * The applicable upfront fee in ppm when minting more Frankencoins based on the annual interest rate and
+     * The applicable upfront fee in ppm when minting more dEURO based on the annual interest rate and
      * the expiration of the position.
      */
     function calculateCurrentFee() public view returns (uint24) {
@@ -355,7 +367,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * The applicable interest rate in ppm when minting more Frankencoins.
+     * The applicable interest rate in ppm when minting more dEURO.
      * It consists on the globally valid interest plus an individual risk premium.
      */
     function annualInterestPPM() public view returns (uint24) {
@@ -376,7 +388,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
         if (amount > availableForMinting()) revert LimitExceeded(amount, availableForMinting());
         Position(original).notifyMint(amount);
-        zchf.mintWithReserve(target, amount, reserveContribution, calculateCurrentFee());
+        deuro.mintWithReserve(target, amount, reserveContribution, calculateCurrentFee());
         minted += amount;
         _checkCollateral(collateral_, price);
     }
@@ -389,12 +401,12 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice Repay some ZCHF. If too much is repaid, the call fails.
+     * @notice Repay some deuro. If too much is repaid, the call fails.
      * It is possible to repay while there are challenges, but the collateral is locked until all is clear again.
      *
      * The repaid amount should fulfill the following equation in order to close the position,
      * i.e. bring the minted amount to 0:
-     * minted = amount + zchf.calculateAssignedReserve(amount, reservePPM)
+     * minted = amount + deuro.calculateAssignedReserve(amount, reservePPM)
      *
      * Under normal circumstances, this implies:
      * amount = minted * (1000000 - reservePPM)
@@ -402,8 +414,8 @@ contract Position is Ownable, IPosition, MathUtil {
      * E.g. if minted is 50 and reservePPM is 200000, it is necessary to repay 40 to be able to close the position.
      */
     function repay(uint256 amount) public returns (uint256) {
-        IERC20(zchf).transferFrom(msg.sender, address(this), amount);
-        uint256 actuallyRepaid = IFrankencoin(zchf).burnWithReserve(amount, reserveContribution);
+        IERC20(deuro).transferFrom(msg.sender, address(this), amount);
+        uint256 actuallyRepaid = IDecentralizedEURO(deuro).burnWithReserve(amount, reserveContribution);
         _notifyRepaid(actuallyRepaid);
         emit MintingUpdate(_collateralBalance(), price, minted);
         return actuallyRepaid;
@@ -417,43 +429,43 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * Force the sale of some collateral after the position is expired.
-     * 
+     *
      * Can only be called by the minting hub and the minting hub is trusted to calculate the price correctly.
      * The proceeds from the sale are first used to repay the outstanding balance and then (if anything is left)
      * it is sent to the owner of the position.
-     * 
+     *
      * Do not allow a forced sale as long as there is an open challenge. Otherwise, a forced sale by the owner
-     * himself could remove any incentive to launch challenges shortly before the expiration. (CS-ZCHF2-001)
+     * himself could remove any incentive to launch challenges shortly before the expiration. (CS-deuro2-001)
      */
     function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external onlyHub expired noChallenge {
         // send collateral to buyer
         uint256 remainingCollateral = _sendCollateral(buyer, collAmount);
         if (minted > 0) {
-            uint256 availableReserve = zchf.calculateAssignedReserve(minted, reserveContribution);
+            uint256 availableReserve = deuro.calculateAssignedReserve(minted, reserveContribution);
             if (proceeds + availableReserve >= minted) {
                 // repay everything from the buyer's account
-                uint256 returnedReserve = zchf.burnFromWithReserve(buyer, minted, reserveContribution);
+                uint256 returnedReserve = deuro.burnFromWithReserve(buyer, minted, reserveContribution);
                 assert(returnedReserve == availableReserve);
                 // transfer the remaining purchase price from the buyer to the owner
-                zchf.transferFrom(buyer, owner, proceeds + returnedReserve - minted);
+                deuro.transferFrom(buyer, owner(), proceeds + returnedReserve - minted);
                 _notifyRepaid(minted);
             } else {
                 // we can only repay a part, nothing left to pay to owner
-                zchf.transferFrom(buyer, address(this), proceeds);
+                deuro.transferFrom(buyer, address(this), proceeds);
                 if (remainingCollateral == 0) {
-                    // CS-ZCHF2-002, bad debt should be properly handled. In this case, the proceeds from 
+                    // CS-deuro2-002, bad debt should be properly handled. In this case, the proceeds from
                     // the forced sale did not suffice to repay the position and there is a loss
-                    zchf.coverLoss(address(this), minted - proceeds); // more than we need, but returned again on next line
-                    zchf.burnWithoutReserve(minted, reserveContribution);
+                    deuro.coverLoss(address(this), minted - proceeds); // more than we need, but returned again on next line
+                    deuro.burnWithoutReserve(minted, reserveContribution);
                     _notifyRepaid(minted);
                 } else {
-                    uint256 repaid = zchf.burnWithReserve(proceeds, reserveContribution);
+                    uint256 repaid = deuro.burnWithReserve(proceeds, reserveContribution);
                     _notifyRepaid(repaid);
                 }
             }
         } else {
             // wire funds directly to owner
-            zchf.transferFrom(buyer, owner, proceeds);
+            deuro.transferFrom(buyer, owner(), proceeds);
         }
         emit MintingUpdate(_collateralBalance(), price, minted);
     }
@@ -508,7 +520,8 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
-        if (relevantCollateral * atPrice < minted * ONE_DEC18) revert InsufficientCollateral(relevantCollateral * atPrice, minted * ONE_DEC18);
+        if (relevantCollateral * atPrice < minted * ONE_DEC18)
+            revert InsufficientCollateral(relevantCollateral * atPrice, minted * ONE_DEC18);
     }
 
     /**
@@ -545,7 +558,7 @@ contract Position is Ownable, IPosition, MathUtil {
      *
      * @param _bidder   address of the bidder that receives the collateral
      * @param _size     amount of the collateral bid for
-     * @return (position owner, effective challenge size in ZCHF, amount to be repaid, reserve ppm)
+     * @return (position owner, effective challenge size in deuro, amount to be repaid, reserve ppm)
      */
     function notifyChallengeSucceeded(
         address _bidder,
@@ -567,11 +580,12 @@ contract Position is Ownable, IPosition, MathUtil {
 
         emit MintingUpdate(newBalance, price, minted);
 
-        return (owner, _size, repayment, reserveContribution);
+        return (owner(), _size, repayment, reserveContribution);
     }
 }
 
 interface IHub {
     function rate() external view returns (ILeadrate);
+
     function roller() external view returns (address);
 }

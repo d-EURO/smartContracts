@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./Position.sol";
-import "./interface/IFrankencoin.sol";
+import {Position} from "./Position.sol";
+import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 
 contract PositionFactory {
     /**
@@ -11,7 +11,7 @@ contract PositionFactory {
      */
     function createNewPosition(
         address _owner,
-        address _zchf,
+        address _deuro,
         address _collateral,
         uint256 _minCollateral,
         uint256 _initialLimit,
@@ -27,7 +27,7 @@ contract PositionFactory {
                 new Position(
                     _owner,
                     msg.sender,
-                    _zchf,
+                    _deuro,
                     _collateral,
                     _minCollateral,
                     _initialLimit,
