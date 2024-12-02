@@ -14,15 +14,8 @@ import {Leadrate} from "./Leadrate.sol";
  * As the interest rate changes, the speed at which 'ticks' are accumulated is
  * adjusted. The ticks counter serves as the basis for calculating the interest
  * due for the individual accoutns.
- *
- * The saved deuro are subject to a lockup of up to 14 days and only start to yield
- * an interest after the lockup ended. The purpose of this lockup is to discourage
- * short-term holdings and to avoid paying interest to transactional accounts.
- * Transactional accounts typically do not need an incentive to hold dEURO.
  */
 contract Savings is Leadrate {
-    uint64 public immutable INTEREST_DELAY = uint64(3 days);
-
     IERC20 public immutable deuro;
 
     mapping(address => Account) public savings;
@@ -122,17 +115,12 @@ contract Savings is Leadrate {
      */
     function save(address owner, uint192 amount) public {
         if (currentRatePPM == 0) revert ModuleDisabled();
-        if (nextRatePPM == 0 && (nextChange <= block.timestamp + INTEREST_DELAY)) revert ModuleDisabled();
+        if (nextRatePPM == 0 && (nextChange <= block.timestamp)) revert ModuleDisabled();
         Account storage balance = refresh(owner);
         deuro.transferFrom(msg.sender, address(this), amount);
         uint64 ticks = currentTicks();
         assert(balance.ticks >= ticks);
-        uint256 saved = balance.saved;
-        uint64 weightedAverage = uint64(
-            (saved * (balance.ticks - ticks) + uint256(amount) * currentRatePPM * INTEREST_DELAY) / (saved + amount)
-        );
         balance.saved += amount;
-        balance.ticks = ticks + weightedAverage;
         emit Saved(owner, amount);
     }
 
