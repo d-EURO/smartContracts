@@ -116,6 +116,14 @@ describe("Savings Tests", () => {
       expect(r.saved).to.be.eq(0n);
     });
 
+    it("should not pay any interest, if nothing is saved", async () => {
+      const b0 = await zchf.balanceOf(owner.address);
+      const w = await savings.withdraw(owner.address, 2n * amount);
+      const r = await savings.savings(owner.address);
+      const b1 = await zchf.balanceOf(owner.address);
+      expect(b1).to.be.eq(b0);
+    });
+
     it("any interests after 365days", async () => {
       const i0 = await zchf.balanceOf(owner.address);
       const amount = floatToDec18(10_000);

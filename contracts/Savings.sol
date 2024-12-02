@@ -110,16 +110,13 @@ contract Savings is Leadrate {
 
     /**
      * Send 'amount' to the account of the provided owner.
-     * The funds sent to the account are locked for up to 14 days, depending how much
-     * already is in there.
      */
     function save(address owner, uint192 amount) public {
         if (currentRatePPM == 0) revert ModuleDisabled();
         if (nextRatePPM == 0 && (nextChange <= block.timestamp)) revert ModuleDisabled();
         Account storage balance = refresh(owner);
         deuro.transferFrom(msg.sender, address(this), amount);
-        uint64 ticks = currentTicks();
-        assert(balance.ticks >= ticks);
+        assert(balance.ticks >= currentTicks()); // @dev: should not make a difference, since there is no shift of interests
         balance.saved += amount;
         emit Saved(owner, amount);
     }
@@ -128,8 +125,6 @@ contract Savings is Leadrate {
      * Withdraw up to 'amount' to the target address.
      * When trying to withdraw more than available, all that is available is withdrawn.
      * Returns the acutally transferred amount.
-     *
-     * Fails if the funds in the account have not been in the account for long enough.
      */
     function withdraw(address target, uint192 amount) public returns (uint256) {
         Account storage account = refresh(msg.sender);
