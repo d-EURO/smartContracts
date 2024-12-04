@@ -8,6 +8,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {ERC3009} from "./impl/ERC3009.sol";
 
 /**
  * @title DecentralizedEURO
@@ -15,7 +16,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
  * It is not upgradable, but open to arbitrary minting plugins. These are automatically accepted if none of the
  * qualified pool share holders casts a veto, leading to a flexible but conservative governance.
  */
-contract DecentralizedEURO is ERC20Permit, IDecentralizedEURO, ERC165 {
+contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     /**
      * @notice Minimal fee and application period when suggesting a new minter.
      */
@@ -211,6 +212,8 @@ contract DecentralizedEURO is ERC20Permit, IDecentralizedEURO, ERC165 {
      * and paid 10 dEURO into the reserve. Now they want to repay the debt by burning 50 dEURO. When doing so using this
      * method, 50 dEURO get burned and on top of that, 10 dEURO previously assigned to the minter's reserved are
      * reassigned to the pool share holders.
+     * 
+     * CS-ZCHF2-009: the Profit event can overstate profits in case there is no equity capital left.
      */
     function burnWithoutReserve(uint256 amount, uint32 reservePPM) public override minterOnly {
         _burn(msg.sender, amount);
@@ -269,7 +272,7 @@ contract DecentralizedEURO is ERC20Permit, IDecentralizedEURO, ERC165 {
 
     /**
      * @notice Calculates the reserve attributable to someone who minted the given amount with the given reserve requirement.
-     * Under normal circumstances, this is just the reserver requirement multiplied by the amount. However, after a
+     * Under normal circumstances, this is just the reserve requirement multiplied by the amount. However, after a
      * severe loss of capital that burned into the minter's reserve, this can also be less than that.
      */
     function calculateAssignedReserve(uint256 mintedAmount, uint32 _reservePPM) public view returns (uint256) {
@@ -350,6 +353,7 @@ contract DecentralizedEURO is ERC20Permit, IDecentralizedEURO, ERC165 {
         return
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(ERC20Permit).interfaceId ||
+            interfaceId == type(ERC3009).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

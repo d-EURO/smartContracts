@@ -2,7 +2,7 @@ export const EquityABI = [
   {
     inputs: [
       {
-        internalType: "contract EuroCoin",
+        internalType: "contract DecentralizedEURO",
         name: "dEURO_",
         type: "address",
       },
@@ -479,7 +479,7 @@ export const EquityABI = [
     name: "dEURO",
     outputs: [
       {
-        internalType: "contract EuroCoin",
+        internalType: "contract DecentralizedEURO",
         name: "",
         type: "address",
       },
