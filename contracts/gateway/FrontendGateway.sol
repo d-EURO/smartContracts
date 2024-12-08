@@ -3,34 +3,63 @@ pragma solidity ^0.8.0;
 
 import {Equity} from "../Equity.sol";
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract FrontendGateway is Context {
 
     IERC20 public immutable DEURO;
     Equity public immutable EQUITY;
+    uint256 public immutable FEE_RATE;
+
+    struct FrontendBalance {
+        uint256 outstanding;
+    }
 
     mapping(bytes32 => address) public frontendCodes;
     mapping(bytes32 => uint256) public frontendCodesBalances;
 
-    constructor(IDecentralizedEURO deuro_){
-        DEURO = deuro_;
+    constructor(address deuro_){
+        DEURO = IERC20(deuro_);
+        EQUITY = Equity(address(IDecentralizedEURO(deuro_).reserve()));
     }
 
-    function save(address owner, uint192 amount, bytes32 frontendCode) public {
-
-    }
-
+    // ToDo: Invest
     function invest(uint256 amount, uint256 expectedShares, bytes32 frontendCode) external returns (uint256) {
         DEURO.transferFrom(_msgSender(), address(this), amount);
-        EQUITY.invest(amount, expectedShares);
+        uint256 actualShares = EQUITY.invest(amount, expectedShares);
 
+        frontendCodesBalances[frontendCode] = (amount * 10) / 1000;
+        EQUITY.transfer(_msgSender(), actualShares);
+        return actualShares;
+    }
+
+    // ToDo: Redeem
+    function redeem(address target, uint256 shares, bytes32 frontendCode) external returns (uint256) {
+        uint256 expectedProceeds = EQUITY.calculateProceeds(shares);
+        uint256 actualProceeds = EQUITY.redeemFrom(_msgSender(), address(this), shares, expectedProceeds);
+
+        frontendCodesBalances[frontendCode] = (actualProceeds * 10) / 1000;
         return 0;
+    }
+
+    function registerFrontendCode(bytes32 frontendCode) external returns (bool) {
+        require(frontendCodes[frontendCode] == address(0), "Frontend code already exists");
+        frontendCodes[frontendCode] = _msgSender();
+        return true;
+    }
+
+    function withdrawRewards(bytes32 frontendCode) external returns (uint256) {
+        require(frontendCodes[frontendCode] == _msgSender(), "Only the owner can claim the rewards");
+        uint256 amount = frontendCodesBalances[frontendCode];
+        delete frontendCodesBalances[frontendCode];
+        IDecentralizedEURO(address(DEURO)).coverLoss(_msgSender(), amount);
+        return amount;
     }
 
     // ToDo: Save
     // ToDo: WithdrawSaving
     // ToDo: Mint
-    // ToDo: Invest
-    // ToDo: Redeem
+
+
 }
