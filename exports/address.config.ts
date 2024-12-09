@@ -4,6 +4,7 @@ import { Address, zeroAddress } from "viem";
 export interface ChainAddress {
   decentralizedEURO: Address;
   equity: Address;
+  frontendGateway: Address;
   DEPSwrapper: Address;
   bridgeEURT: Address;
   bridgeEURS: Address;
@@ -24,6 +25,7 @@ export const ADDRESS: Record<number, ChainAddress> = {
     // natice contract addresses
     decentralizedEURO: "0xd45e911843721083A2751fA9Cc9D2a8089D8C0f5",
     equity: "0xC92aF56C354FCF641f4567a04fd7032013E8A314",
+    frontendGateway: "0x750f9FfdEAC4Bbc427ed218C3BF3F16A3324EE50",
     DEPSwrapper: "0xE699A78B3eC44Ab013f1839305bB1a5a987A05B0",
     bridgeEURT: "0x7416E83375C7cb4D74F06F8Dc4Acd4243cEA8248",
     bridgeEURS: "0xA719b0D3f447118632fECc48c3273224D1319099",
