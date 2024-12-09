@@ -5,6 +5,7 @@ export * from "./address.config";
 export * from "./abis/core/DecentralizedEURO";
 export * from "./abis/core/Equity";
 export * from "./abis/core/Savings";
+export * from "./abis/core/FrontendGateway";
 
 export * from "./abis/MintingHubV2/PositionFactoryV2";
 export * from "./abis/MintingHubV2/MintingHubV2";
