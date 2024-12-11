@@ -35,7 +35,6 @@ contract FrontendGateway is Context {
     function redeem(address target, uint256 shares, bytes32 frontendCode) external returns (uint256) {
         uint256 expectedProceeds = EQUITY.calculateProceeds(shares);
         uint256 actualProceeds = EQUITY.redeemFrom(_msgSender(), address(this), shares, expectedProceeds);
-
         frontendCodesBalances[frontendCode] += (actualProceeds * 10) / 1000;
         return 0;
     }
