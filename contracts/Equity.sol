@@ -27,11 +27,11 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      *
      * In the absence of profits and losses, the variables grow as follows when nDEPS tokens are minted:
      *
-     * |   Reserve     |   Market Cap  |     Price     |     Supply   |
-     * |          1000 |          3000 |         0.003 |      1000000 |
-     * |       1000000 |       3000000 |           0.3 |     10000000 |
-     * |    1000000000 |    3000000000 |            30 |    100000000 |
-     * | 1000000000000 | 3000000000000 |          3000 |   1000000000 |
+     * |       Reserve     |     Market Cap    |     Price     |      Supply    |
+     * |             1_000 |             3_000 |         0.003 |      1_000_000 |
+     * |         1_000_000 |         3_000_000 |           0.3 |     10_000_000 |
+     * |     1_000_000_000 |     3_000_000_000 |            30 |    100_000_000 |
+     * | 1_000_000_000_000 | 3_000_000_000_000 |         3_000 |   1000_000_000 |
      *
      * i.e., the supply is proportional to the cubic root of the reserve and the price is proportional to the
      * squared cubic root. When profits accumulate or losses materialize, the reserve, the market cap,
@@ -108,7 +108,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         uint256 equity = dEURO.equity();
         if (equity == 0 || totalSupply() == 0) {
             // @dev: For Price, 1 = 10^18; 0.001 = 10^15
-            return 10 ** 15; // initial price is 1000 dEURO for the first 1_000_000 nDEPS
+            return 10 ** 15; // initial price is 1_000 dEURO for the first 1_000_000 nDEPS
         } else {
             return (VALUATION_FACTOR * dEURO.equity() * ONE_DEC18) / totalSupply();
         }
@@ -307,7 +307,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * No allowance required (i.e., it is hard-coded in the DecentralizedEURO token contract).
      * Make sure to invest at least 10e-12 * market cap to avoid rounding losses.
      *
-     * @dev If equity is close to zero or negative, you need to send enough dEURO to bring equity back to 1000 dEURO.
+     * @dev If equity is close to zero or negative, you need to send enough dEURO to bring equity back to 1_000 dEURO.
      *
      * @param amount            DecentralizedEUROs to invest
      * @param expectedShares    Minimum amount of expected shares for front running protection
@@ -329,7 +329,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     function _invest(address investor, uint256 amount, uint256 expectedShares) internal returns (uint256) {
         dEURO.transferFrom(investor, address(this), amount);
         uint256 equity = dEURO.equity();
-        require(equity >= MINIMUM_EQUITY, "insufficient equity"); // ensures that the initial deposit is at least 1000 dEURO
+        require(equity >= MINIMUM_EQUITY, "insufficient equity"); // ensures that the initial deposit is at least 1_000 dEURO
 
         uint256 shares = _calculateShares(equity <= amount ? 0 : equity - amount, amount);
         require(shares >= expectedShares);
@@ -352,8 +352,8 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
 
     function _calculateShares(uint256 capitalBefore, uint256 investment) internal view returns (uint256) {
         uint256 totalShares = totalSupply();
-        uint256 investmentExFees = (investment * 980) / 1000; // remove 2% fee
-        // Assign 1000000 nDEPS for the initial deposit, calculate the amount otherwise
+        uint256 investmentExFees = (investment * 980) / 1_000; // remove 2% fee
+        // Assign 1_000_000 nDEPS for the initial deposit, calculate the amount otherwise
         uint256 newTotalShares = (capitalBefore < MINIMUM_EQUITY || totalShares == 0)
             ? totalShares + 1_000_000 * ONE_DEC18
             : _mulD18(totalShares, _cubicRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
@@ -419,7 +419,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice If there is less than 1000 dEURO in equity left (maybe even negative), the system is at risk
+     * @notice If there is less than 1_000 dEURO in equity left (maybe even negative), the system is at risk
      * and we should allow qualified nDEPS holders to restructure the system.
      *
      * Example: there was a devastating loss and equity stands at -1'000'000. Most shareholders have lost hope in the
