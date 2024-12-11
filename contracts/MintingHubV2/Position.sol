@@ -435,7 +435,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * it is sent to the owner of the position.
      *
      * Do not allow a forced sale as long as there is an open challenge. Otherwise, a forced sale by the owner
-     * himself could remove any incentive to launch challenges shortly before the expiration. (CS-deuro2-001)
+     * himself could remove any incentive to launch challenges shortly before the expiration. (CS-ZCHF2-001)
      */
     function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external onlyHub expired noChallenge {
         // send collateral to buyer
@@ -453,7 +453,7 @@ contract Position is Ownable, IPosition, MathUtil {
                 // we can only repay a part, nothing left to pay to owner
                 deuro.transferFrom(buyer, address(this), proceeds);
                 if (remainingCollateral == 0) {
-                    // CS-deuro2-002, bad debt should be properly handled. In this case, the proceeds from
+                    // CS-ZCHF2-002, bad debt should be properly handled. In this case, the proceeds from
                     // the forced sale did not suffice to repay the position and there is a loss
                     deuro.coverLoss(address(this), minted - proceeds); // more than we need, but returned again on next line
                     deuro.burnWithoutReserve(minted, reserveContribution);

@@ -275,7 +275,7 @@ contract MintingHub {
     }
 
     function _avertChallenge(Challenge memory _challenge, uint32 number, uint256 liqPrice, uint256 size) internal {
-        require(block.timestamp != _challenge.start); // do not allow to avert the challenge in the same transaction, see CS-deur-037
+        require(block.timestamp != _challenge.start); // do not allow to avert the challenge in the same transaction, see CS-ZCHF-037
         if (msg.sender == _challenge.challenger) {
             // allow challenger to cancel challenge without paying themselves
         } else {
