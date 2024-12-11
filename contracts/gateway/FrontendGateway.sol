@@ -10,7 +10,7 @@ contract FrontendGateway is Context {
 
     IERC20 public immutable DEURO;
     Equity public immutable EQUITY;
-    uint256 public immutable FEE_RATE;
+    uint256 public immutable FEE_RATE; // Fee rate in PPM (parts per thousand), for example 10 = 1%
 
     struct FrontendBalance {
         uint256 outstanding;
@@ -22,12 +22,13 @@ contract FrontendGateway is Context {
     constructor(address deuro_){
         DEURO = IERC20(deuro_);
         EQUITY = Equity(address(IDecentralizedEURO(deuro_).reserve()));
+        FEE_RATE = 10; // 10/1000 = 1% fee
     }
 
     // ToDo: Invest
     function invest(uint256 amount, uint256 expectedShares, bytes32 frontendCode) external returns (uint256) {
         uint256 actualShares = EQUITY.investFor(_msgSender(), amount, expectedShares);
-        frontendCodesBalances[frontendCode] += (amount * 10) / 1000;
+        frontendCodesBalances[frontendCode] += (amount * FEE_RATE) / 1000;
         return actualShares;
     }
 
@@ -35,12 +36,12 @@ contract FrontendGateway is Context {
     function redeem(address target, uint256 shares, bytes32 frontendCode) external returns (uint256) {
         uint256 expectedProceeds = EQUITY.calculateProceeds(shares);
         uint256 actualProceeds = EQUITY.redeemFrom(_msgSender(), address(this), shares, expectedProceeds);
-        frontendCodesBalances[frontendCode] += (actualProceeds * 10) / 1000;
-        return 0;
+        frontendCodesBalances[frontendCode] += (actualProceeds * FEE_RATE) / 1000;
+        return actualProceeds;
     }
 
     function registerFrontendCode(bytes32 frontendCode) external returns (bool) {
-        require(frontendCodes[frontendCode] == address(0), "Frontend code already exists");
+        require(frontendCodes[frontendCode] == address(0), "Frontend code already registered");
         frontendCodes[frontendCode] = _msgSender();
         return true;
     }
@@ -56,6 +57,5 @@ contract FrontendGateway is Context {
     // ToDo: Save
     // ToDo: WithdrawSaving
     // ToDo: Mint
-
 
 }

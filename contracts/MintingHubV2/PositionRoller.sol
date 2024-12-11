@@ -29,15 +29,15 @@ contract PositionRoller {
     }
 
     /**
-     * Convenience method to roll and old position into a new one.
+     * Convenience method to roll an old position into a new one.
      *
-     * Pre-condition is an allowance for the roller to spend the collateral assset on behalf of the caller,
-     * i.e. one should set collateral.approve(roller, collateral.balanceOf(sourcePosition));
+     * Pre-condition: an allowance for the roller to spend the collateral asset on behalf of the caller,
+     * i.e., one should set collateral.approve(roller, collateral.balanceOf(sourcePosition)).
      *
      * The following is assumed:
-     * - If the limit of the target position permits, the user wants to roll everything
-     * - The user does not want to add additional collateral, but excess collateral is returned
-     * - If not enough can be minted in the new position, it is ok for the roller to use deuro from the msg.sender
+     * - If the limit of the target position permits, the user wants to roll everything.
+     * - The user does not want to add additional collateral, but excess collateral is returned.
+     * - If not enough can be minted in the new position, it is acceptable for the roller to use dEURO from the msg.sender.
      */
     function rollFully(IPosition source, IPosition target) external {
         rollFullyWithExpiration(source, target, target.expiration());
@@ -55,7 +55,7 @@ contract PositionRoller {
         uint256 depositAmount = (mintAmount * 10 ** 18 + targetPrice - 1) / targetPrice; // round up
         if (depositAmount > collateralToWithdraw) {
             // If we need more collateral than available from the old position, we opt for taking
-            // the missing funds from the caller instead of taking additional collateral from the caller
+            // the missing funds from the caller instead of requiring additional collateral.
             depositAmount = collateralToWithdraw;
             mintAmount = (depositAmount * target.price()) / 10 ** 18; // round down, rest will be taken from caller
         }
@@ -80,7 +80,7 @@ contract PositionRoller {
         return binarySearch(minted, reservePPM, 0, 0, minted, higherResult);
     }
 
-    // max call stack depth is 1024 in solidity. Binary search on 256 bit number takes at most 256 steps, so it should be fine.
+    // max call stack depth is 1024 in solidity. Binary search on a 256-bit number takes at most 256 steps, so it should be fine.
     function binarySearch(
         uint256 target,
         uint24 reservePPM,
@@ -91,7 +91,7 @@ contract PositionRoller {
     ) internal view returns (uint256) {
         uint256 middle = (lowerBound + higherBound) / 2;
         if (middle == lowerBound) {
-            return higherBound; // we have reached max precision without exact match, return next higher result to be on the safe side
+            return higherBound; // we have reached maximum precision without an exact match, return the next higher result to be safe
         } else {
             uint256 middleResult = deuro.calculateFreedAmount(middle, reservePPM);
             if (middleResult == target) {
@@ -109,13 +109,13 @@ contract PositionRoller {
      * Both the source and the target position must recognize this roller.
      * It is the responsibility of the caller to ensure that both positions are valid contracts.
      *
-     * @param source The source position, must be owned by the msg.sender .
+     * @param source The source position, must be owned by the msg.sender.
      * @param repay The amount to flash loan in order to repay the source position and free up some or all collateral.
-     * @param collWithdraw Collateral to move from the source position to the msg.sender .
+     * @param collWithdraw Collateral to move from the source position to the msg.sender.
      * @param target The target position. If not owned by msg.sender or if it does not have the desired expiration,
      *               it is cloned to create a position owned by the msg.sender.
      * @param mint The amount to be minted from the target position using collateral from msg.sender.
-     * @param collDeposit The amount of collateral to be send from msg.sender to the target position.
+     * @param collDeposit The amount of collateral to be sent from msg.sender to the target position.
      * @param expiration The desired expiration date for the target position.
      */
     function roll(
@@ -139,9 +139,9 @@ contract PositionRoller {
                     IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration)
                 );
             } else {
-                // We can roll into the provided existing position
-                // We do not verify whether the target position has been created by the known minting hub in order
-                // to allow positions to be rolled into future versions of the minting hub
+                // We can roll into the provided existing position.
+                // We do not verify whether the target position was created by the known minting hub in order
+                // to allow positions to be rolled into future versions of the minting hub.
                 targetCollateral.transferFrom(msg.sender, address(target), collDeposit);
                 target.mint(msg.sender, mint);
             }

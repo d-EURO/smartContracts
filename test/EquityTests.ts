@@ -88,7 +88,7 @@ describe("Equity Tests", () => {
   describe("minting shares", () => {
     it("should revert minting less than minimum equity amount", async () => {
       await expect(equity.invest(floatToDec18(999), 0)).to.be.revertedWith(
-        "insuf equity",
+        "insufficient equity",
       );
     });
 

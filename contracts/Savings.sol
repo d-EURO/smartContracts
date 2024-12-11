@@ -13,7 +13,7 @@ import {Leadrate} from "./Leadrate.sol";
  *
  * As the interest rate changes, the speed at which 'ticks' are accumulated is
  * adjusted. The ticks counter serves as the basis for calculating the interest
- * due for the individual accoutns.
+ * due for the individual accounts.
  */
 contract Savings is Leadrate {
     IERC20 public immutable deuro;
@@ -85,7 +85,7 @@ contract Savings is Leadrate {
             uint192 earnedInterest = uint192((uint256(ticks - account.ticks) * account.saved) / 1000000 / 365 days);
             uint256 equity = IDecentralizedEURO(address(deuro)).equity();
             if (earnedInterest > equity) {
-                return uint192(equity); // save conversion as equity is smaller than uint192 earnedInterest
+                return uint192(equity); // safe conversion as equity is smaller than uint192 earnedInterest
             } else {
                 return earnedInterest;
             }
@@ -116,7 +116,7 @@ contract Savings is Leadrate {
         if (nextRatePPM == 0 && (nextChange <= block.timestamp)) revert ModuleDisabled();
         Account storage balance = refresh(owner);
         deuro.transferFrom(msg.sender, address(this), amount);
-        assert(balance.ticks >= currentTicks()); // @dev: should not make a difference, since there is no shift of interests
+        assert(balance.ticks >= currentTicks()); // @dev: should not differ, since there is no shift of interests
         balance.saved += amount;
         emit Saved(owner, amount);
     }
@@ -124,7 +124,7 @@ contract Savings is Leadrate {
     /**
      * Withdraw up to 'amount' to the target address.
      * When trying to withdraw more than available, all that is available is withdrawn.
-     * Returns the acutally transferred amount.
+     * Returns the actually transferred amount.
      */
     function withdraw(address target, uint192 amount) public returns (uint256) {
         Account storage account = refresh(msg.sender);

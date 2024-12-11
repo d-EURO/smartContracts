@@ -7,7 +7,7 @@ import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 contract PositionFactory {
     /**
      * Create a completely new position in a newly deployed contract.
-     * Must be called through minting hub to be recognized as valid position.
+     * Must be called through the minting hub to be recognized as a valid position.
      */
     function createNewPosition(
         address _owner,
@@ -42,7 +42,7 @@ contract PositionFactory {
     }
 
     /**
-     * @notice clone an existing position. This can be a clone of another clone,
+     * @notice Clone an existing position. This can be a clone of another clone,
      * or an original position.
      * @param _parent address of the position we want to clone
      * @return address of the newly created clone position
@@ -59,9 +59,15 @@ contract PositionFactory {
         bytes20 targetBytes = bytes20(target);
         assembly {
             let clone := mload(0x40)
-            mstore(clone, 0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000)
+            mstore(
+                clone,
+                0x3d602d80600a3d3981f3363d3d373d3d3d363d73000000000000000000000000
+            )
             mstore(add(clone, 0x14), targetBytes)
-            mstore(add(clone, 0x28), 0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000)
+            mstore(
+                add(clone, 0x28),
+                0x5af43d82803e903d91602b57fd5bf30000000000000000000000000000000000
+            )
             result := create(0, clone, 0x37)
         }
         require(result != address(0), "ERC1167: create failed");
