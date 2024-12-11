@@ -405,4 +405,68 @@ contract MintingHub {
         emit ForcedSale(address(pos), amount, forceSalePrice);
         return amount;
     }
+
+    /**
+     * @notice Ermöglicht die vorzeitige Rückzahlung einer laufenden Position.
+     * Beim vorzeitigen Zurückzahlen wird der über die Restlaufzeit angefallene, aber noch nicht verdiente Zins zurückerstattet.
+     *
+     * Voraussetzungen:
+     * - Nur der Eigentümer der Position kann diese vorzeitig zurückzahlen.
+     * - Die Position darf noch nicht abgelaufen sein.
+     *
+     * Ablauf:
+     * - Berechnung des tatsächlich angefallenen Zinses bis zum jetzigen Zeitpunkt
+     * - Vergleich mit dem ursprünglich für die gesamte Laufzeit berechneten Zins
+     * - Rückerstattung des noch nicht angefallenen Zinses an den Positionseigentümer
+     * - Begleichung der ausstehenden Schuld
+     * - Schließen der Position
+     *
+     * Hier wird angenommen, dass die Position selbst die nötigen Informationen für Zinsberechnung und Rückerstattung
+     * über eine neue Funktion `repayEarly()` liefert. Diese Funktion gibt den Betrag zurück, den der Nutzer insgesamt 
+     * zurückzahlen muss, sowie den Betrag an noch nicht angefallenem Zins, der erstattet werden soll.
+     */
+    function repayPositionEarly(address _position) external validPos(_position) {
+        IPosition position = IPosition(_position);
+        address owner = Ownable(_position).owner();
+        require(msg.sender == owner, "Not owner");
+        require(block.timestamp < position.expiration(), "Position expired");
+
+        // Die folgende Funktion wird in der Position selbst implementiert und liefert:
+        // totalDue: Betrag der Restschuld (inkl. anteiligem Zins bis jetzt)
+        // interestRefund: Anteil des vorab berechneten Zinses, der noch nicht angefallen ist und zurückerstattet werden soll
+        // reservePPM: Reserve Ratio der Position für die Burn-Berechnung
+        (uint256 totalDue, uint256 interestRefund, uint32 reservePPM) = position.repayEarly();
+
+        // Der Eigentümer zahlt die Restschuld (ohne den nicht angefallenen Zins) an das System zurück
+        // totalDue enthält die bis jetzt angefallene Schuld + anteiligen Zins, interestRefund ist das zu erstattende Zinsguthaben
+        // Somit muss effektiv (totalDue - interestRefund) gezahlt werden
+        if (totalDue > interestRefund) {
+            uint256 toPay = totalDue - interestRefund;
+            deur.transferFrom(msg.sender, address(this), toPay);
+            // Diese Schuld wird verbrannt (entsprechend der Reserve)
+            deur.burnWithoutReserve(toPay, reservePPM);
+        } else {
+            // Falls interestRefund > totalDue ist, hat der Besitzer mehr Zinsen vorausgezahlt als nötig,
+            // es muss also nur zurückerstattet werden.
+            uint256 refundOnly = interestRefund - totalDue;
+            // Es wird kein zusätzliches Deur benötigt, da totalDue <= interestRefund
+            // Nur Rückerstattung erfolgt
+            deur.transfer(msg.sender, refundOnly);
+        }
+
+        // Sollte interestRefund größer als totalDue sein, wird oben erstattet.
+        // Ist interestRefund kleiner als totalDue, hat der Nutzer gerade toPay (= totalDue - interestRefund) beglichen,
+        // und kein weiterer Transfer an den Nutzer ist nötig. 
+        // Sollte interestRefund exakt gleich totalDue sein, gleicht sich alles aus.
+        // Falls interestRefund noch übrig ist, obwohl totalDue beglichen wurde, wird das hier ausgeglichen:
+        if (interestRefund > 0 && interestRefund <= totalDue) {
+            // Ein Teil des Zinses war vorausbezahlt, jetzt Erstattung
+            deur.transfer(msg.sender, interestRefund);
+        }
+
+        // Position wird final geschlossen (keine weiteren Aktionen möglich)
+        position.closeEarly();
+
+        emit PositionRepaidEarly(_position, msg.sender, interestRefund);
+    }
 }
