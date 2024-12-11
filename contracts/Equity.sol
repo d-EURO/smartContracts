@@ -14,7 +14,7 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 /**
  * @title Equity
  * @notice If the DecentralizedEURO system was a bank, this contract would represent the equity on its balance sheet.
- * Like with a corporation, the owners of the equity capital are the shareholders, or in this case the holders
+ * Like a corporation, the owners of the equity capital are the shareholders, or in this case the holders
  * of Native Decentralized Euro Protocol Share (nDEPS) tokens. Anyone can mint additional nDEPS tokens by adding DecentralizedEUROs to the
  * reserve pool. Also, nDEPS tokens can be redeemed for DecentralizedEUROs again after a minimum holding period.
  * Furthermore, the nDEPS shares come with some voting power. Anyone that held at least 2% of the holding-period-
@@ -33,10 +33,10 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * |    1000000000 |    3000000000 |            30 |    100000000 |
      * | 1000000000000 | 3000000000000 |          3000 |   1000000000 |
      *
-     * I.e., the supply is proporational to the cubic root of the reserve and the price is proportional to the
+     * i.e., the supply is proportional to the cubic root of the reserve and the price is proportional to the
      * squared cubic root. When profits accumulate or losses materialize, the reserve, the market cap,
-     * and the price are adjusted proportionally, with the supply staying constant. In the absence of an extreme
-     * inflation of the Euro, it is unlikely that there will ever be more than ten million nDEPS.
+     * and the price are adjusted proportionally. In the absence of extreme inflation of the Euro, it is unlikely
+     * that there will ever be more than ten million nDEPS.
      */
     uint32 public constant VALUATION_FACTOR = 3;
 
@@ -54,7 +54,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
 
     /**
      * @notice The minimum holding duration. You are not allowed to redeem your pool shares if you held them
-     * for less than the minimum holding duration at average. For example, if you have two pool shares on your
+     * for less than the minimum holding duration at average. For example, if you have two pool shares at your
      * address, one acquired 5 days ago and one acquired 105 days ago, you cannot redeem them as the average
      * holding duration of your shares is only 55 days < 90 days.
      */
@@ -66,28 +66,28 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * @dev To track the total number of votes we need to know the number of votes at the anchor time and when the
      * anchor time was. This is (hopefully) stored in one 256 bit slot, with the anchor time taking 64 Bits and
      * the total vote count 192 Bits. Given the sub-second resolution of 20 Bits, the implicit assumption is
-     * that the timestamp can always be stored in 44 Bits (i.e. it does not exceed half a million years). Further,
+     * that the timestamp can always be stored in 44 Bits (i.e., it does not exceed half a million years). Further,
      * given 18 decimals (about 60 Bits), this implies that the total supply cannot exceed
      *   192 - 60 - 44 - 20 = 68 Bits
-     * Here, we are also save, as 68 Bits would imply more than a trillion outstanding shares. In fact,
+     * Here, we are also safe, as 68 Bits would imply more than a trillion outstanding shares. In fact,
      * a limit of about 2**36 shares (that's about 2**96 Bits when taking into account the decimals) is imposed
-     * when minting. This means that the maximum supply is billions shares, which is could only be reached in
-     * a scenario with hyper inflation, in which case the stablecoin is worthless anyway.
+     * when minting. This means that the maximum supply is billions of shares, which could only be reached in
+     * a scenario with hyperinflation, in which case the stablecoin is worthless anyway.
      */
-    uint192 private totalVotesAtAnchor; // Total number of votes at the anchor time, see comment on the um
-    uint64 private totalVotesAnchorTime; // 44 Bit for the time stamp, 20 Bit sub-second time resolution
+    uint192 private totalVotesAtAnchor; // Total number of votes at the anchor time
+    uint64 private totalVotesAnchorTime; // 44 Bits for the time stamp, 20 Bit sub-second resolution
 
     /**
-     * @notice Keeping track on who delegated votes to whom.
-     * Note that delegation does not mean you cannot vote / veto any more, it just means that the delegate can
-     * benefit from your votes when invoking a veto. Circular delegations are valid, do not help when voting.
+     * @notice Keeping track of who delegated votes to whom.
+     * Note that delegation does not mean you cannot vote / veto anymore; it just means that the delegate can
+     * benefit from your votes when invoking a veto. Circular delegations are valid but do not help when voting.
      */
     mapping(address owner => address delegate) public delegates;
 
     /**
-     * @notice A time stamp in the past such that: votes = balance * (time passed since anchor was set)
+     * @notice A time stamp in the past such that: votes = balance * (time passed since anchor was set).
      */
-    mapping(address owner => uint64 timestamp) private voteAnchor; // 44 bits for time stamp, 20 subsecond resolution
+    mapping(address owner => uint64 timestamp) private voteAnchor; // 44 bits for time stamp, 20 sub-second resolution
 
     event Delegation(address indexed from, address indexed to); // indicates a delegation
     event Trade(address who, int amount, uint totPrice, uint newprice); // amount pos or neg for mint or redemption
@@ -116,8 +116,8 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
 
     function _update(address from, address to, uint256 value) internal override {
         if (value > 0) {
-            // No need to adjust the sender votes. When they send out 10% of their shares, they also lose 10% of
-            // their votes so everything falls nicely into place. Recipient votes should stay the same, but grow
+            // No need to adjust the sender's votes. When they send out 10% of their shares, they also lose 10% of
+            // their votes, so everything falls nicely into place. Recipient votes should stay the same, but grow
             // faster in the future, requiring an adjustment of the anchor.
             uint256 roundingLoss = _adjustRecipientVoteAnchor(to, value);
             // The total also must be adjusted and kept accurate by taking into account the rounding error.
@@ -135,7 +135,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice Decrease the total votes anchor when tokens lose their voting power due to being moved
+     * @notice Decrease the total votes anchor when tokens lose their voting power due to being moved.
      * @param from      sender
      * @param amount    amount to be sent
      */
@@ -147,7 +147,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice the vote anchor of the recipient is moved forward such that the number of calculated
+     * @notice The vote anchor of the recipient is moved forward such that the number of calculated
      * votes does not change despite the higher balance.
      * @param to        receiver address
      * @param amount    amount to be received
@@ -157,7 +157,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         if (to != address(0x0)) {
             uint256 recipientVotes = votes(to); // for example 21 if 7 shares were held for 3 seconds
             uint256 newbalance = balanceOf(to) + amount; // for example 11 if 4 shares are added
-            // new example anchor is only 21 / 11 = 1 second in the past
+            // new example: anchor is only 21 / 11 = ~1 second in the past
             voteAnchor[to] = uint64(_anchorTime() - recipientVotes / newbalance);
             return recipientVotes % newbalance; // we have lost 21 % 11 = 10 votes
         } else {
@@ -239,8 +239,8 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
 
     /**
      * @notice Checks whether the sender address is qualified given a list of helpers that delegated their votes
-     * directly or indirectly to the sender. It is the responsiblity of the caller to figure out whether
-     * helpes are necessary and to identify them by scanning the blockchain for Delegation events.
+     * directly or indirectly to the sender. It is the responsibility of the caller to figure out whether
+     * helpers are necessary and to identify them by scanning the blockchain for Delegation events.
      */
     function checkQualified(address sender, address[] calldata helpers) public view override {
         uint256 _votes = votesDelegated(sender, helpers);
@@ -276,8 +276,8 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      *
      * Since this is a rather aggressive measure, delegation is not supported. Every holder must call this
      * method on their own.
-     * @param targets   The target addresses to remove votes from
-     * @param votesToDestroy    The maximum number of votes the caller is willing to sacrifice
+     * @param targets          The target addresses to remove votes from
+     * @param votesToDestroy   The maximum number of votes the caller is willing to sacrifice
      */
     function kamikaze(address[] calldata targets, uint256 votesToDestroy) external {
         uint256 budget = _reduceVotes(msg.sender, votesToDestroy);
@@ -304,7 +304,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
 
     /**
      * @notice Call this method to obtain newly minted pool shares in exchange for DecentralizedEUROs.
-     * No allowance required (i.e. it is hardcoded in the DecentralizedEURO token contract).
+     * No allowance required (i.e., it is hard-coded in the DecentralizedEURO token contract).
      * Make sure to invest at least 10e-12 * market cap to avoid rounding losses.
      *
      * @dev If equity is close to zero or negative, you need to send enough dEURO to bring equity back to 1000 dEURO.
@@ -329,7 +329,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     function _invest(address investor, uint256 amount, uint256 expectedShares) internal returns (uint256) {
         dEURO.transferFrom(investor, address(this), amount);
         uint256 equity = dEURO.equity();
-        require(equity >= MINIMUM_EQUITY, "insuf equity"); // ensures that the initial deposit is at least 1000 dEURO
+        require(equity >= MINIMUM_EQUITY, "insufficient equity"); // ensures that the initial deposit is at least 1000 dEURO
 
         uint256 shares = _calculateShares(equity <= amount ? 0 : equity - amount, amount);
         require(shares >= expectedShares);
@@ -337,7 +337,6 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         emit Trade(investor, int(shares), amount, price());
 
         // limit the total supply to a reasonable amount to guard against overflows with price and vote calculations
-        // the 36 bits are 68 bits for magnitude and 60 bits for precision, as calculated in an above comment
         require(totalSupply() <= type(uint96).max, "total supply exceeded");
         return shares;
     }
@@ -355,7 +354,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         uint256 totalShares = totalSupply();
         uint256 investmentExFees = (investment * 980) / 1000; // remove 2% fee
         // Assign 1000000 nDEPS for the initial deposit, calculate the amount otherwise
-        uint256 newTotalShares = capitalBefore < MINIMUM_EQUITY || totalShares == 0
+        uint256 newTotalShares = (capitalBefore < MINIMUM_EQUITY || totalShares == 0)
             ? totalShares + 1_000_000 * ONE_DEC18
             : _mulD18(totalShares, _cubicRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
         return newTotalShares - totalShares;
@@ -370,7 +369,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice Like redeem(...), but with an extra parameter to protect against frontrunning.
+     * @notice Like redeem(...), but with an extra parameter to protect against front running.
      * @param expectedProceeds  The minimum acceptable redemption proceeds.
      */
     function redeemExpected(address target, uint256 shares, uint256 expectedProceeds) external returns (uint256) {
@@ -424,7 +423,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * and we should allow qualified nDEPS holders to restructure the system.
      *
      * Example: there was a devastating loss and equity stands at -1'000'000. Most shareholders have lost hope in the
-     * DecentralizedEURO system except for a group of small nDEPS holders who still believes in it and is willing to provide
+     * DecentralizedEURO system except for a group of small nDEPS holders who still believe in it and are willing to provide
      * 2'000'000 dEURO to save it. These brave souls are essentially donating 1'000'000 to the minter reserve and it
      * would be wrong to force them to share the other million with the passive nDEPS holders. Instead, they will get
      * the possibility to bootstrap the system again owning 100% of all nDEPS shares.
