@@ -65,7 +65,7 @@ contract MintingHub {
         uint256 acquiredCollateral,
         uint256 challengeSize
     );
-    event PostponedReturn(address collateral, address indexed beneficiary, uint256 amount);
+    event PostPonedReturn(address collateral, address indexed beneficiary, uint256 amount);
     event ForcedSale(address pos, uint256 amount, uint256 priceE36MinusDecimals);
 
     error UnexpectedPrice();
