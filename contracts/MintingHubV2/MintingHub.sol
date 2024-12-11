@@ -95,6 +95,7 @@ contract MintingHub {
      * @param _minCollateral     minimum collateral required to prevent dust amounts
      * @param _initialCollateral amount of initial collateral to be deposited
      * @param _mintingMaximum    maximal amount of deur that can be minted by the position owner
+     * @param _initPeriodSeconds initial warm-up period in seconds before the position can be minted
      * @param _expirationSeconds position tenor in unit of timestamp (seconds) from 'now'
      * @param _challengeSeconds  challenge period. Longer for less liquid collateral.
      * @param _riskPremium       ppm of minted amount that is added to the applicible minting fee as a risk premium
