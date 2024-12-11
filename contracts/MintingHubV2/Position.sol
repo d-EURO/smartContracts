@@ -161,7 +161,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @dev See MintingHub.openPosition
      *
-     * @param _riskPremium       ppm of minted amount that is added to the applicable minting fee as a risk premium
+     * @param _riskPremiumPPM       ppm of minted amount that is added to the applicable minting fee as a risk premium
      */
     constructor(
         address _owner,
