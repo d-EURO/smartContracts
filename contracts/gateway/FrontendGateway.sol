@@ -26,11 +26,8 @@ contract FrontendGateway is Context {
 
     // ToDo: Invest
     function invest(uint256 amount, uint256 expectedShares, bytes32 frontendCode) external returns (uint256) {
-        DEURO.transferFrom(_msgSender(), address(this), amount);
-        uint256 actualShares = EQUITY.invest(amount, expectedShares);
-
-        frontendCodesBalances[frontendCode] = (amount * 10) / 1000;
-        EQUITY.transfer(_msgSender(), actualShares);
+        uint256 actualShares = EQUITY.investFor(_msgSender(), amount, expectedShares);
+        frontendCodesBalances[frontendCode] += (amount * 10) / 1000;
         return actualShares;
     }
 
@@ -39,7 +36,7 @@ contract FrontendGateway is Context {
         uint256 expectedProceeds = EQUITY.calculateProceeds(shares);
         uint256 actualProceeds = EQUITY.redeemFrom(_msgSender(), address(this), shares, expectedProceeds);
 
-        frontendCodesBalances[frontendCode] = (actualProceeds * 10) / 1000;
+        frontendCodesBalances[frontendCode] += (actualProceeds * 10) / 1000;
         return 0;
     }
 
