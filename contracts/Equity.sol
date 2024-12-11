@@ -40,7 +40,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      */
     uint32 public constant VALUATION_FACTOR = 3;
 
-    uint256 private constant MINIMUM_EQUITY = 1000 * ONE_DEC18;
+    uint256 private constant MINIMUM_EQUITY = 1_000 * ONE_DEC18;
 
     /**
      * @notice The quorum in basis points. 100 is 1%.
@@ -244,7 +244,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      */
     function checkQualified(address sender, address[] calldata helpers) public view override {
         uint256 _votes = votesDelegated(sender, helpers);
-        if (_votes * 10000 < QUORUM * totalVotes()) revert NotQualified();
+        if (_votes * 10_000 < QUORUM * totalVotes()) revert NotQualified();
     }
 
     error NotQualified();
@@ -413,7 +413,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         uint256 totalShares = totalSupply();
         require(shares + ONE_DEC18 < totalShares, "too many shares"); // make sure there is always at least one share
         uint256 capital = dEURO.equity();
-        uint256 reductionAfterFees = (shares * 980) / 1000; // remove 2% fee
+        uint256 reductionAfterFees = (shares * 980) / 1_000; // remove 2% fee
         uint256 newCapital = _mulD18(capital, _power3(_divD18(totalShares - reductionAfterFees, totalShares)));
         return capital - newCapital;
     }
