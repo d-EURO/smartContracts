@@ -106,7 +106,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     }
 
     /**
-     * @notice Make the system more user friendly by skipping the allowance in many cases.
+     * @notice Make the system more user-friendly by skipping the allowance in many cases.
      * @dev We trust minters and the positions they have created to mint and burn as they please, so
      * giving them arbitrary allowances does not pose an additional risk.
      */
@@ -126,7 +126,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @dev The minter reserve can be used to cover losses after the equity holders have been wiped out.
      */
     function minterReserve() public view returns (uint256) {
-        return minterReserveE6 / 1000000;
+        return minterReserveE6 / 1_000_000;
     }
 
     /**
@@ -141,8 +141,8 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     /**
      * @notice The amount of equity of the DecentralizedEURO system in dEURO, owned by the holders of Native Decentralized Euro Protocol Shares.
      * @dev Note that the equity contract technically holds both the minter reserve as well as the equity, so the minter
-     * reserve must be subtracted. All fees and other kind of income is added to the Equity contract and essentially
-     * constitutes profits attributable to the pool share holders.
+     * reserve must be subtracted. All fees and other kinds of income are added to the Equity contract and essentially
+     * constitute profits attributable to the pool share holders.
      */
     function equity() public view returns (uint256) {
         uint256 balance = balanceOf(address(reserve));
@@ -175,11 +175,11 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         uint32 _reservePPM,
         uint32 _feesPPM
     ) external override minterOnly {
-        uint256 usableMint = (_amount * (1000_000 - _feesPPM - _reservePPM)) / 1000_000; // rounding down is fine
+        uint256 usableMint = (_amount * (1_000_000 - _feesPPM - _reservePPM)) / 1_000_000; // rounding down is fine
         _mint(_target, usableMint);
         _mint(address(reserve), _amount - usableMint); // rest goes to equity as reserves or as fees
         minterReserveE6 += _amount * _reservePPM;
-        emit Profit(msg.sender, (_feesPPM * _amount) / 1000_000);
+        emit Profit(msg.sender, (_feesPPM * _amount) / 1_000_000);
     }
 
     function mint(address _target, uint256 _amount) external override minterOnly {
@@ -194,7 +194,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     }
 
     /**
-     * @notice Burn someone elses dEURO.
+     * @notice Burn someone else's dEURO.
      */
     function burnFrom(address _owner, uint256 _amount) external override minterOnly {
         _burn(_owner, _amount);
@@ -205,7 +205,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * pool share holders. This can make sense in combination with 'coverLoss', i.e. when it is the pool share
      * holders that bear the risk and depending on the outcome they make a profit or a loss.
      *
-     * Design rule: Minters calling this method are only allowed to so for tokens amounts they previously minted with
+     * Design rule: Minters calling this method are only allowed to do so for token amounts they previously minted with
      * the same _reservePPM amount.
      *
      * For example, if someone minted 50 dEURO earlier with a 20% reserve requirement (200000 ppm), they got 40 dEURO
@@ -219,11 +219,11 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         _burn(msg.sender, amount);
         uint256 reserveReduction = amount * reservePPM;
         if (reserveReduction > minterReserveE6) {
-            emit Profit(msg.sender, minterReserveE6 / 1000_000);
-            minterReserveE6 = 0; // should never happen, but we want robust behavior in case it does
+            emit Profit(msg.sender, minterReserveE6 / 1_000_000);
+            minterReserveE6 = 0; // should never happen, but we want robust behavior
         } else {
             minterReserveE6 -= reserveReduction;
-            emit Profit(msg.sender, reserveReduction / 1000_000);
+            emit Profit(msg.sender, reserveReduction / 1_000_000);
         }
     }
 
@@ -276,7 +276,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * severe loss of capital that burned into the minter's reserve, this can also be less than that.
      */
     function calculateAssignedReserve(uint256 mintedAmount, uint32 _reservePPM) public view returns (uint256) {
-        uint256 theoreticalReserve = (_reservePPM * mintedAmount) / 1000000;
+        uint256 theoreticalReserve = (_reservePPM * mintedAmount) / 1_000_000;
         uint256 currentReserve = balanceOf(address(reserve));
         uint256 minterReserve_ = minterReserve();
         if (currentReserve < minterReserve_) {
@@ -289,7 +289,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
 
     /**
      * @notice Calculate the amount that is freed when returning amountExcludingReserve given a reserve ratio of reservePPM,
-     * taking into account potential losses. Example values in the comments.
+     * taking into account potential losses.
      */
     function calculateFreedAmount(
         uint256 amountExcludingReserve /* 41 */,
@@ -340,7 +340,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     }
 
     /**
-     * @notice Returns the address of the minter that created this position or null if the provided address is unknown.
+     * @notice Returns the address of the minter that created this position or the zero address if the provided address is unknown.
      */
     function getPositionParent(address _position) public view override returns (address) {
         return positions[_position];
@@ -348,12 +348,9 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
 
     /**
      * @dev See {IERC165-supportsInterface}.
+     * Note: We do not claim ERC20/ERC20Permit/ERC3009 as ERC165 interfaces since ERC20 doesn't use ERC165 by standard.
      */
     function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
-        return
-            interfaceId == type(IERC20).interfaceId ||
-            interfaceId == type(ERC20Permit).interfaceId ||
-            interfaceId == type(ERC3009).interfaceId ||
-            super.supportsInterface(interfaceId);
+        return super.supportsInterface(interfaceId);
     }
 }
