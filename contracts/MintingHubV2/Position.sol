@@ -96,6 +96,8 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice The interest in parts per million per year that is deducted when minting dEURO.
      * To be paid upfront.
+     * 
+     * *Note:* This has been altered so that no interest is deducted upfront, to avoid any disadvantage in the event of early repayment.
      */
     uint24 public immutable riskPremiumPPM;
 
@@ -276,8 +278,9 @@ contract Position is Ownable, IPosition, MathUtil {
      * assigned to the minter reserve or (if applicable) fees.
      */
     function getUsableMint(uint256 totalMint, bool afterFees) public view returns (uint256) {
+        // Now, since there is no upfront fee, afterFees will work the same way as before but 0 fee is considered.
         if (afterFees) {
-            return (totalMint * (1000_000 - reserveContribution - calculateCurrentFee())) / 1000_000;
+            return (totalMint * (1000_000 - reserveContribution - 0)) / 1000_000;
         } else {
             return (totalMint * (1000_000 - reserveContribution)) / 1000_000;
         }
@@ -287,10 +290,11 @@ contract Position is Ownable, IPosition, MathUtil {
      * Returns the corresponding mint amount (disregarding the limit).
      */
     function getMintAmount(uint256 usableMint) external view returns (uint256) {
+        // Fee is now always zero, so we remove it from the calculation
         return
             usableMint == 0
                 ? 0
-                : (usableMint * 1000_000 - 1) / (1000_000 - reserveContribution - calculateCurrentFee()) + 1;
+                : (usableMint * 1000_000 - 1) / (1000_000 - reserveContribution - 0) + 1;
     }
 
     /**
@@ -361,9 +365,11 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * The applicable upfront fee in ppm when minting more dEURO based on the annual interest rate and
      * the expiration of the position.
+     *
+     * *Note:* This now always returns 0 to ensure no upfront disadvantage on early repayment.
      */
     function calculateCurrentFee() public view returns (uint24) {
-        return calculateFee(expiration);
+        return 0;
     }
 
     /**
@@ -376,19 +382,18 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * The fee in ppm when cloning and minting with the given expiration date.
+     *
+     * *Note:* This now always returns 0 to ensure no upfront disadvantage on early repayment.
      */
     function calculateFee(uint256 exp) public view returns (uint24) {
-        uint256 time = block.timestamp < start ? start : block.timestamp;
-        uint256 timePassed = exp - time;
-        // Time resolution is in the range of minutes for typical interest rates.
-        uint256 feePPM = (timePassed * annualInterestPPM()) / 365 days;
-        return uint24(feePPM > 1000000 ? 1000000 : feePPM); // fee cannot exceed 100%
+        return 0;
     }
 
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
         if (amount > availableForMinting()) revert LimitExceeded(amount, availableForMinting());
         Position(original).notifyMint(amount);
-        deuro.mintWithReserve(target, amount, reserveContribution, calculateCurrentFee());
+        // Pass 0 instead of calculateCurrentFee() to avoid upfront fee
+        deuro.mintWithReserve(target, amount, reserveContribution, 0);
         minted += amount;
         _checkCollateral(collateral_, price);
     }
@@ -412,6 +417,8 @@ contract Position is Ownable, IPosition, MathUtil {
      * amount = minted * (1000000 - reservePPM)
      *
      * E.g. if minted is 50 and reservePPM is 200000, it is necessary to repay 40 to be able to close the position.
+     *
+     * *Note:* No upfront fee is charged, so early repayment doesn't lead to any disadvantage now.
      */
     function repay(uint256 amount) public returns (uint256) {
         IERC20(deuro).transferFrom(msg.sender, address(this), amount);
