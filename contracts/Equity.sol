@@ -92,7 +92,12 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     event Delegation(address indexed from, address indexed to); // indicates a delegation
     event Trade(address who, int amount, uint totPrice, uint newprice); // amount pos or neg for mint or redemption
 
-    constructor(DecentralizedEURO dEURO_) ERC20Permit("Native Decentralized Euro Protocol Share") ERC20("Native Decentralized Euro Protocol Share", "nDEPS") {
+    constructor(
+        DecentralizedEURO dEURO_
+    )
+        ERC20Permit("Native Decentralized Euro Protocol Share")
+        ERC20("Native Decentralized Euro Protocol Share", "nDEPS")
+    {
         dEURO = dEURO_;
     }
 
@@ -305,17 +310,31 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * @dev If equity is close to zero or negative, you need to send enough dEURO to bring equity back to 1000 dEURO.
      *
      * @param amount            DecentralizedEUROs to invest
-     * @param expectedShares    Minimum amount of expected shares for frontrunning protection
+     * @param expectedShares    Minimum amount of expected shares for front running protection
      */
     function invest(uint256 amount, uint256 expectedShares) external returns (uint256) {
-        dEURO.transferFrom(msg.sender, address(this), amount);
+        return _invest(_msgSender(), amount, expectedShares);
+    }
+
+    function investFor(address investor, uint256 amount, uint256 expectedShares) external returns (uint256) {
+        if (investor != _msgSender()) {
+            uint256 currentAllowance = dEURO.allowance(investor, _msgSender());
+            if (currentAllowance < amount) {
+                revert ERC20InsufficientAllowance(_msgSender(), currentAllowance, amount);
+            }
+        }
+        return _invest(investor, amount, expectedShares);
+    }
+
+    function _invest(address investor, uint256 amount, uint256 expectedShares) internal returns (uint256) {
+        dEURO.transferFrom(investor, address(this), amount);
         uint256 equity = dEURO.equity();
         require(equity >= MINIMUM_EQUITY, "insuf equity"); // ensures that the initial deposit is at least 1000 dEURO
 
         uint256 shares = _calculateShares(equity <= amount ? 0 : equity - amount, amount);
         require(shares >= expectedShares);
-        _mint(msg.sender, shares);
-        emit Trade(msg.sender, int(shares), amount, price());
+        _mint(investor, shares);
+        emit Trade(investor, int(shares), amount, price());
 
         // limit the total supply to a reasonable amount to guard against overflows with price and vote calculations
         // the 36 bits are 68 bits for magnitude and 60 bits for precision, as calculated in an above comment
@@ -381,7 +400,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         uint256 proceeds = calculateProceeds(shares);
         _burn(owner, shares);
         dEURO.transfer(target, proceeds);
-        emit Trade(owner, - int(shares), proceeds, price());
+        emit Trade(owner, -int(shares), proceeds, price());
         return proceeds;
     }
 
@@ -425,7 +444,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(ERC20Permit).interfaceId ||
