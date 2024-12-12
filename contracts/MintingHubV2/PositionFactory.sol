@@ -7,7 +7,7 @@ import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 contract PositionFactory {
     /**
      * Create a completely new position in a newly deployed contract.
-     * Must be called through minting hub to be recognized as valid position.
+     * Must be called through the minting hub to be recognized as a valid position.
      */
     function createNewPosition(
         address _owner,
@@ -42,7 +42,7 @@ contract PositionFactory {
     }
 
     /**
-     * @notice clone an existing position. This can be a clone of another clone,
+     * @notice Clone an existing position. This can be a clone of another clone,
      * or an original position.
      * @param _parent address of the position we want to clone
      * @return address of the newly created clone position

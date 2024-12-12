@@ -6,9 +6,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /**
- * @title Stable Coin Bridge
+ * @title Stablecoin Bridge
  * @notice A minting contract for another Euro stablecoin ('source stablecoin') that we trust.
- * @author dEURO
  */
 contract StablecoinBridge {
     IERC20 public immutable eur; // the source stablecoin
@@ -22,7 +21,7 @@ contract StablecoinBridge {
     uint256 public immutable horizon;
 
     /**
-     * The maximum amount of outstanding converted source stablecoins.
+     * @notice The maximum amount of outstanding converted source stablecoins.
      */
     uint256 public immutable limit;
     uint256 public minted;
@@ -76,7 +75,7 @@ contract StablecoinBridge {
     }
 
     /**
-     * @notice Burn the indicated amount of dEURO and send the same number of source coin to the caller.
+     * @notice Burn the indicated amount of dEURO and send the same number of source coins to the caller.
      */
     function burnAndSend(address target, uint256 amount) external {
         _burn(msg.sender, target, amount);
