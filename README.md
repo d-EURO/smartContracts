@@ -135,7 +135,9 @@ hh deploy --network sepolia --tags positions
 ```
 
 > Recommanded commands for `sepolia` network.
-> The networks are configured in `hardhat.config.ts`.
+> Test deployments on a local Mainnet fork using `npx hardhat node` with `USE_FORK=true` in `.env`.
+> The networks are configured in `hardhat.config.ts`, including the Mainnet fork.
+
 
 ### 5. Write Deployment Scripts (via ignition deploy and verify)
 
