@@ -14,14 +14,14 @@ import {ERC3009} from "./impl/ERC3009.sol";
  * @title DecentralizedEURO
  * @notice The DecentralizedEURO (dEURO) is an ERC-20 token that is designed to track the value of the Euro.
  * It is not upgradable, but open to arbitrary minting plugins. These are automatically accepted if none of the
- * qualified pool share holders casts a veto, leading to a flexible but conservative governance.
+ * qualified pool shareholders casts a veto, leading to a flexible but conservative governance.
  */
 contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     /**
      * @notice Minimal fee and application period when suggesting a new minter.
      */
     uint256 public constant MIN_FEE = 1000 * (10 ** 18);
-    uint256 public immutable MIN_APPLICATION_PERIOD; // for example 10 days
+    uint256 public immutable MIN_APPLICATION_PERIOD; // For example: 10 days
 
     /**
      * @notice The contract that holds the reserve.
@@ -29,7 +29,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     IReserve public immutable override reserve;
 
     /**
-     * @notice How much of the reserve belongs to the minters. Everything else belongs to the pool share holders.
+     * @notice How much of the reserve belongs to the minters. Everything else belongs to the pool shareholders.
      * Stored with 6 additional digits of accuracy so no rounding is necessary when dealing with parts per
      * million (ppm) in reserve calculations.
      */
@@ -82,7 +82,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @dev The caller has to pay an application fee that is irrevocably lost even if the new minter is vetoed.
      * The caller must assume that someone will veto the new minter unless there is broad consensus that the new minter
      * adds value to the DecentralizedEURO system. Complex proposals should have application periods and applications fees
-     * above the minimum. It is assumed that over time, informal ways to coordinate on new minters emerge. The message
+     * above the minimum. It is assumed that over time, informal ways to coordinate on new minters will emerge. The message
      * parameter might be useful for initiating further communication. Maybe it contains a link to a website describing
      * the proposed minter.
      *
@@ -141,8 +141,8 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     /**
      * @notice The amount of equity of the DecentralizedEURO system in dEURO, owned by the holders of Native Decentralized Euro Protocol Shares.
      * @dev Note that the equity contract technically holds both the minter reserve as well as the equity, so the minter
-     * reserve must be subtracted. All fees and other kind of income is added to the Equity contract and essentially
-     * constitutes profits attributable to the pool share holders.
+     * reserve must be subtracted. All fees and other kinds of income are added to the Equity contract and essentially
+     * constitute profits attributable to the pool shareholders.
      */
     function equity() public view returns (uint256) {
         uint256 balance = balanceOf(address(reserve));
@@ -155,7 +155,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     }
 
     /**
-     * @notice Qualified pool share holders can deny minters during the application period.
+     * @notice Qualified pool shareholders can deny minters during the application period.
      * @dev Calling this function is relatively cheap thanks to the deletion of a storage slot.
      */
     function denyMinter(address _minter, address[] calldata _helpers, string calldata _message) external override {
@@ -194,26 +194,26 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     }
 
     /**
-     * @notice Burn someone elses dEURO.
+     * @notice Burn someone else's dEURO.
      */
     function burnFrom(address _owner, uint256 _amount) external override minterOnly {
         _burn(_owner, _amount);
     }
 
     /**
-     * @notice Burn that amount without reclaiming the reserve, but freeing it up and thereby essentially donating it to the
-     * pool share holders. This can make sense in combination with 'coverLoss', i.e. when it is the pool share
-     * holders that bear the risk and depending on the outcome they make a profit or a loss.
+     * @notice Burn the amount without reclaiming the reserve, but freeing it up and thereby essentially donating it to the
+     * pool shareholders. This can make sense in combination with 'coverLoss', i.e. when it is the pool shareholders
+     * that bear the risk and depending on the outcome they make a profit or a loss.
      *
-     * Design rule: Minters calling this method are only allowed to so for tokens amounts they previously minted with
+     * Design rule: Minters calling this method are only allowed to do so for token amounts they previously minted with
      * the same _reservePPM amount.
      *
      * For example, if someone minted 50 dEURO earlier with a 20% reserve requirement (200000 ppm), they got 40 dEURO
      * and paid 10 dEURO into the reserve. Now they want to repay the debt by burning 50 dEURO. When doing so using this
-     * method, 50 dEURO get burned and on top of that, 10 dEURO previously assigned to the minter's reserved are
-     * reassigned to the pool share holders.
+     * method, 50 dEURO get burned and on top of that, 10 dEURO previously assigned to the minter's reserve are
+     * reassigned to the pool shareholders.
      * 
-     * CS-ZCHF2-009: the Profit event can overstate profits in case there is no equity capital left.
+     * CS-ZCHF2-009: The Profit event can overstate profits in case there is no equity capital left.
      */
     function burnWithoutReserve(uint256 amount, uint32 reservePPM) public override minterOnly {
         _burn(msg.sender, amount);
@@ -254,7 +254,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * Only use this method for tokens also minted by the caller with the same _reservePPM.
      *
      * Example: the calling contract has previously minted 100 dEURO with a reserve ratio of 20% (i.e. 200000 ppm).
-     * To burn half of that again, the minter calls burnFrom with a target amount of 50 dEURO. Assuming that reserves
+     * To burn half of that again, the minter calls burnFromWithReserve with a target amount of 50 dEURO. Assuming that reserves
      * are only 90% covered, this call will deduct 41 dEURO from the payer's balance and 9 from the reserve, while
      * reducing the minter reserve by 10.
      */
@@ -309,7 +309,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * back into balance, the lost amount of dEURO must be removed from the reserve instead.
      *
      * For example, if a minter printed 1 million dEURO for a mortgage and the mortgage turned out to be unsound with
-     * the house only yielding 800'000 in the subsequent auction, there is a loss of 200'000 that needs to be covered
+     * the house only yielding 800,000 in the subsequent auction, there is a loss of 200,000 that needs to be covered
      * by the reserve.
      */
     function coverLoss(address source, uint256 _amount) external override minterOnly {

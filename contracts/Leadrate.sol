@@ -5,23 +5,23 @@ import {DecentralizedEURO} from "./DecentralizedEURO.sol";
 import {IReserve} from "./interface/IReserve.sol";
 
 /**
- * @title Leadrate (attempt at translating the nicely concise German term 'Leitzins')
+ * @title Leadrate (attempt at translating the concise German term 'Leitzins')
  *
- * A module that can provide other modules with the lead interest rate for the system.
+ * A module that can provide other modules with the leading interest rate for the system.
  *
  **/
 contract Leadrate {
     IReserve public immutable equity;
 
-    // the following five variables are less than 256 bit so they should be stored
-    // in the same slot, making them cheap to access together, right?
+    // The following five variables are less than 256 bits, so they should be stored
+    // in the same slot, making them cheaper to access together, right?
 
-    uint24 public currentRatePPM; // 24 bit allows rates of up to 1670% per year
+    uint24 public currentRatePPM; // 24 bits allows rates of up to ~1670% per year
     uint24 public nextRatePPM;
     uint40 public nextChange;
 
     uint40 private anchorTime; // 40 bits for time in seconds spans up to 1000 human generations
-    uint64 private ticksAnchor; // in bips * seconds, uint88 allows up to
+    uint64 private ticksAnchor; // in bips * seconds
 
     event RateProposed(address who, uint24 nextRate, uint40 nextChange);
     event RateChanged(uint24 newRate);
@@ -36,7 +36,7 @@ contract Leadrate {
         nextChange = uint40(block.timestamp);
         anchorTime = nextChange;
         ticksAnchor = 0;
-        emit RateChanged(initialRatePPM); // emit for init indexing, if wanted
+        emit RateChanged(initialRatePPM); // emit for initialization indexing, if desired
     }
 
     /**
@@ -65,7 +65,7 @@ contract Leadrate {
 
     /**
      * Total accumulated 'interest ticks' since this contract was deployed.
-     * One 'tick' is a ppm-second, so one months of 12% annual interest is
+     * One 'tick' is a ppm-second, so one month of 12% annual interest is
      *   120000*30*24*3600 = 311040000000 ticks.
      * Two months of 6% annual interest would result in the same number of
      * ticks. For simplicity, this is linear, so there is no "interest on interest".
