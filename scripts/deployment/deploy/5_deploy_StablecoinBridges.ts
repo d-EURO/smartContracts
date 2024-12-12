@@ -6,33 +6,39 @@ import { getParams } from "../../utils";
 import { verify } from "../../verify";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const chainId = hre.network.config["chainId"];
+  const { deployments, network } = hre;
+  const { get } = deployments;
+  const chainId = network.config["chainId"];
+
   if (chainId === undefined) {
     throw new Error("Chain ID is undefined");
   }
 
-  const params = getParams("paramsSavings", chainId);
-  const bridges = params.bridges;
+  // Fetch constructor arguments
+  const params = getParams("paramsBridges", chainId);
+  const decentralizedEURODeployment = await get("DecentralizedEURO");
 
+  const bridges = params.bridges;
   for (let i = 1; i < bridges.length; i++) {
     const bridge = bridges[i];
 
     const otherAddress = bridge.other;
-    const decentralizedEURO = bridge.decentralizedEURO;
+    const decentralizedEURO = decentralizedEURODeployment.address
     const limit = floatToDec18(bridge.limit);
     const weeks = bridge.weeks;
-
     const args = [otherAddress, decentralizedEURO, limit, weeks];
     
+    // Deploy contract
     const deployment = await deployContract(hre, "StablecoinBridge", args);
 
+    // Verify contract
     const deploymentAddress = await deployment.getAddress();
 
-    if(hre.network.name === "mainnet" && process.env.ETHERSCAN_API_KEY){
+    if(network.name === "mainnet" && process.env.ETHERSCAN_API_KEY){
       await verify(deploymentAddress, args);
     } else {
       console.log(
-        `Verify:\nnpx hardhat verify --network ${hre.network.name} ${deploymentAddress} ${args.join(" ")}`
+        `Verify:\nnpx hardhat verify --network ${network.name} ${deploymentAddress} ${args.join(" ")}`
       );
     }
 

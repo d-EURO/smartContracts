@@ -5,25 +5,31 @@ import { getParams } from "../../utils";
 import { verify } from "../../verify";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  const chainId = hre.network.config["chainId"];
+  const { deployments, network } = hre;
+  const { get } = deployments;
+  const chainId = network.config["chainId"];
+  
   if (chainId === undefined) {
     throw new Error("Chain ID is undefined");
   }
 
-  const params = getParams("paramsFrontendGateway", chainId);
-  const decentralizedEURO = params.decentralizedEURO;
+  // Fetch constructor arguments
+  const decentralizedEURODeployment = await get("DecentralizedEURO");
 
+  const decentralizedEURO = decentralizedEURODeployment.address;
   const args = [decentralizedEURO];
+
+  // Deploy contract
   const deployment = await deployContract(hre, "FrontendGateway", args);
 
+  // Verify contract
   const deploymentAddress = await deployment.getAddress();
-  console.log(`Deployed at: ${deploymentAddress}`);
  
-  if(hre.network.name === "mainnet" && process.env.ETHERSCAN_API_KEY){
+  if(network.name === "mainnet" && process.env.ETHERSCAN_API_KEY){
     await verify(deploymentAddress, args);
   } else {
     console.log(
-      `Verify:\nnpx hardhat verify --network ${hre.network.name} ${deploymentAddress} ${args.join(" ")}`
+      `Verify:\nnpx hardhat verify --network ${network.name} ${deploymentAddress} ${args.join(" ")}`
     );
   }
 
