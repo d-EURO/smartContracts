@@ -357,7 +357,7 @@ contract MintingHub {
         if (postpone) {
             // Postponing helps in case the challenger was blacklisted or otherwise cannot receive at the moment.
             pendingReturns[address(collateral)][recipient] += amount;
-            emit PostponedReturn(address(collateral), recipient, amount);
+            emit PostPonedReturn(address(collateral), recipient, amount);
         } else {
             collateral.transfer(recipient, amount); // return the challenger's collateral
         }
