@@ -36,12 +36,12 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    hardhat: {
+    hardhat: process.env.USE_FORK === "true" ? {
       forking: {
         url: `https://eth-mainnet.g.alchemy.com/v2/${alchemy}`,
       },
       chainId: 1
-    },
+    } : {},
     mainnet: {
       url: `https://eth-mainnet.g.alchemy.com/v2/${alchemy}`,
       chainId: 1,
