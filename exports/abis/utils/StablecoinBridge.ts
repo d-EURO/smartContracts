@@ -16,6 +16,11 @@ export const StablecoinBridgeABI = [
         name: "limit_",
         type: "uint256",
       },
+      {
+        internalType: "uint256",
+        name: "weeks_",
+        type: "uint256",
+      },
     ],
     stateMutability: "nonpayable",
     type: "constructor",
@@ -99,7 +104,7 @@ export const StablecoinBridgeABI = [
     name: "dEURO",
     outputs: [
       {
-        internalType: "contract IEuroCoin",
+        internalType: "contract IDecentralizedEURO",
         name: "",
         type: "address",
       },

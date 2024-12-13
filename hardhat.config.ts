@@ -15,6 +15,7 @@ dotenv.config();
 const seed = process.env.DEPLOYER_ACCOUNT_SEED;
 if (!seed) throw new Error("Failed to import the seed string from .env");
 const w0 = getChildFromSeed(seed, 0); // deployer
+const deployerPk = process.env.PK ?? w0.privateKey;
 
 const alchemy = process.env.ALCHEMY_RPC_KEY;
 if (alchemy?.length == 0 || !alchemy)
@@ -47,7 +48,7 @@ const config: HardhatUserConfig = {
       chainId: 1,
       gas: "auto",
       gasPrice: "auto",
-      accounts: [w0.privateKey],
+      accounts: [deployerPk],
       timeout: 50_000,
     },
     polygon: {
@@ -55,7 +56,7 @@ const config: HardhatUserConfig = {
       chainId: 137,
       gas: "auto",
       gasPrice: "auto",
-      accounts: [w0.privateKey],
+      accounts: [deployerPk],
       timeout: 50_000,
     },
   },
@@ -65,7 +66,7 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API,
+    apiKey: process.env.ETHERSCAN_API_KEY,
   },
   sourcify: {
     enabled: true,
