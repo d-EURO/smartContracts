@@ -91,7 +91,10 @@ file: .env
 ALCHEMY_RPC_KEY=...
 DEPLOYER_SEED="test test test test test test test test test test test junk"
 DEPLOYER_SEED_INDEX=1 // optional, select deployer
-ETHERSCAN_API=...
+PK=... // optional, replaces deployer seed
+ETHERSCAN_API_KEY=...
+USE_FORK=false
+CONFIRM_DEPLOYMENT=false
 ```
 
 > Create new session or re-navigate to the current directory, to make sure environment is loaded from `.env`
@@ -137,7 +140,7 @@ hh deploy --network sepolia --tags positions
 > Recommanded commands for `sepolia` network.
 > Test deployments on a local Mainnet fork using `npx hardhat node` with `USE_FORK=true` in `.env`.
 > The networks are configured in `hardhat.config.ts`, including the Mainnet fork.
-
+> Set `CONFIRM_DEPLOYMENT=true` to enable confirmation prompts before each deployment.
 
 ### 5. Write Deployment Scripts (via ignition deploy and verify)
 

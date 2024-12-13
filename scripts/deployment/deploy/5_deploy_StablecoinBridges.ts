@@ -19,7 +19,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const decentralizedEURODeployment = await get("DecentralizedEURO");
 
   const bridges = params.bridges;
-  for (let i = 1; i < bridges.length; i++) {
+  for (let i = 0; i < bridges.length; i++) {
     const bridge = bridges[i];
 
     const otherAddress = bridge.other;
