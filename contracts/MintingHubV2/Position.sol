@@ -412,19 +412,25 @@ contract Position is Ownable, IPosition, MathUtil {
      * amount = minted * (1000000 - reservePPM)
      *
      * E.g. if minted is 50 and reservePPM is 200000, it is necessary to repay 40 to be able to close the position.
+     *
+     * Updates:
+     * Refunds the interest fee if the repayment is made before the position's expiration.
+     * The refund amount is calculated based on the current interest fee and the repayment amount.
+     * If the refund fee is greater than 0, the refund is claimed by calling `deuro.coverLoss()`.
      */
     function repay(uint256 amount) public returns (uint256) {
         if (block.timestamp < expiration) {
             uint256 refundFee = (calculateCurrentFee() * amount) / 1_000_000;
             if (refundFee > 0) {
                 // refund interest as you go and trigger accounting event
-                deuro.coverLoss(msg.sender, refundFee);
+                deuro.coverLoss(owner(), refundFee);
             }
         }
 
         IERC20(deuro).transferFrom(msg.sender, address(this), amount);
         uint256 actuallyRepaid = IDecentralizedEURO(deuro).burnWithReserve(amount, reserveContribution);
         _notifyRepaid(actuallyRepaid);
+
         emit MintingUpdate(_collateralBalance(), price, minted);
         return actuallyRepaid;
     }

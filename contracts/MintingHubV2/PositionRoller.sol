@@ -128,7 +128,7 @@ contract PositionRoller {
         uint40 expiration
     ) public valid(source) valid(target) own(source) {
         deuro.mint(address(this), repay); // take a flash loan
-        source.repay(repay);
+        source.repay(repay); // @dev: repay with refund to its owner
         source.withdrawCollateral(msg.sender, collWithdraw);
         if (mint > 0) {
             IERC20 targetCollateral = IERC20(target.collateral());

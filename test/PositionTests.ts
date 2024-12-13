@@ -1666,26 +1666,40 @@ describe("Position Tests", () => {
       // Wait 100days
       await evm_increaseTime(86400 * 100);
 
-      // Calculate expected refund
-      const currentFee = await positionContract.calculateCurrentFee();
-      const repayAmount = floatToDec18(8_000);
-      const expectedRefund = (currentFee * repayAmount) / 1_000_000n;
-
       // Track balances before repay
       const balanceBefore = await dEURO.balanceOf(owner.address);
       const annPPm = await positionContract.annualInterestPPM();
       const exp = await positionContract.expiration();
       const timestamp = await time.latest();
 
+      // Calculate expected refund
+      const currentFee = await positionContract.calculateCurrentFee();
+      const repayAmount = floatToDec18(4_000);
+      const expectedRefund = (currentFee * floatToDec18(4_000)) / 1_000_000n;
+
+      // console.log({
+      //   balanceBefore,
+      //   annPPm,
+      //   exp,
+      //   timestamp,
+      //   reserve,
+      //   currentFee,
+      //   repayAmount,
+      //   expectedRefund,
+      // });
+
       // Perform repay
       await expect(positionContract.repay(repayAmount))
         .to.emit(dEURO, "Loss")
         .withArgs(owner.address, expectedRefund);
 
+      console.log(await positionContract.minted());
+
       // Verify refund was received
       const balanceAfter = await dEURO.balanceOf(owner.address);
       expect(balanceAfter).to.be.equal(
         balanceBefore + expectedRefund - repayAmount,
+        "expect refund was received",
       );
 
       const calcRefund =
@@ -1701,7 +1715,10 @@ describe("Position Tests", () => {
         calcRefund,
       });
 
-      expect(calcRefund).to.be.greaterThanOrEqual(expectedRefund); // due to passing of time i might be greater
+      expect(calcRefund).to.be.greaterThanOrEqual(
+        expectedRefund,
+        "calcRefund should be equal or slightly higher then expected refund",
+      ); // due to passing of time i might be greater
     });
 
     it("should not refund interest when repaying after expiration", async () => {
