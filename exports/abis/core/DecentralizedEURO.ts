@@ -234,6 +234,44 @@ export const DecentralizedEUROABI = [
   },
   {
     anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "authorizer",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "bytes32",
+        name: "nonce",
+        type: "bytes32",
+      },
+    ],
+    name: "AuthorizationCanceled",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "authorizer",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "bytes32",
+        name: "nonce",
+        type: "bytes32",
+      },
+    ],
+    name: "AuthorizationUsed",
+    type: "event",
+  },
+  {
+    anonymous: false,
     inputs: [],
     name: "EIP712DomainChanged",
     type: "event",
@@ -353,6 +391,19 @@ export const DecentralizedEUROABI = [
   },
   {
     inputs: [],
+    name: "CANCEL_AUTHORIZATION_TYPEHASH",
+    outputs: [
+      {
+        internalType: "bytes32",
+        name: "",
+        type: "bytes32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "DOMAIN_SEPARATOR",
     outputs: [
       {
@@ -385,6 +436,32 @@ export const DecentralizedEUROABI = [
         internalType: "uint256",
         name: "",
         type: "uint256",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "RECEIVE_WITH_AUTHORIZATION_TYPEHASH",
+    outputs: [
+      {
+        internalType: "bytes32",
+        name: "",
+        type: "bytes32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "TRANSFER_WITH_AUTHORIZATION_TYPEHASH",
+    outputs: [
+      {
+        internalType: "bytes32",
+        name: "",
+        type: "bytes32",
       },
     ],
     stateMutability: "view",
@@ -436,6 +513,30 @@ export const DecentralizedEUROABI = [
       },
     ],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "authorizer",
+        type: "address",
+      },
+      {
+        internalType: "bytes32",
+        name: "nonce",
+        type: "bytes32",
+      },
+    ],
+    name: "authorizationState",
+    outputs: [
+      {
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -605,6 +706,39 @@ export const DecentralizedEUROABI = [
       },
     ],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "authorizer",
+        type: "address",
+      },
+      {
+        internalType: "bytes32",
+        name: "nonce",
+        type: "bytes32",
+      },
+      {
+        internalType: "uint8",
+        name: "v",
+        type: "uint8",
+      },
+      {
+        internalType: "bytes32",
+        name: "r",
+        type: "bytes32",
+      },
+      {
+        internalType: "bytes32",
+        name: "s",
+        type: "bytes32",
+      },
+    ],
+    name: "cancelAuthorization",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -967,6 +1101,59 @@ export const DecentralizedEUROABI = [
     inputs: [
       {
         internalType: "address",
+        name: "from",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "to",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "validAfter",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "validBefore",
+        type: "uint256",
+      },
+      {
+        internalType: "bytes32",
+        name: "nonce",
+        type: "bytes32",
+      },
+      {
+        internalType: "uint8",
+        name: "v",
+        type: "uint8",
+      },
+      {
+        internalType: "bytes32",
+        name: "r",
+        type: "bytes32",
+      },
+      {
+        internalType: "bytes32",
+        name: "s",
+        type: "bytes32",
+      },
+    ],
+    name: "receiveWithAuthorization",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
         name: "_position",
         type: "address",
       },
@@ -1112,6 +1299,59 @@ export const DecentralizedEUROABI = [
         type: "bool",
       },
     ],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        internalType: "address",
+        name: "from",
+        type: "address",
+      },
+      {
+        internalType: "address",
+        name: "to",
+        type: "address",
+      },
+      {
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "validAfter",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "validBefore",
+        type: "uint256",
+      },
+      {
+        internalType: "bytes32",
+        name: "nonce",
+        type: "bytes32",
+      },
+      {
+        internalType: "uint8",
+        name: "v",
+        type: "uint8",
+      },
+      {
+        internalType: "bytes32",
+        name: "r",
+        type: "bytes32",
+      },
+      {
+        internalType: "bytes32",
+        name: "s",
+        type: "bytes32",
+      },
+    ],
+    name: "transferWithAuthorization",
+    outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
