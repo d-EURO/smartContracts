@@ -144,8 +144,9 @@ describe("Roller Tests", () => {
     });
 
     it("fail with invalid source", async () => {
+      // Here we pass an address that is not a position contract
       const tx = roller.roll(
-        owner,
+        owner.address, // Use owner.address instead of owner
         floatToDec18(1_000),
         floatToDec18(1),
         await pos2.getAddress(),
@@ -157,11 +158,12 @@ describe("Roller Tests", () => {
     });
 
     it("fail with invalid target", async () => {
+      // Here we pass owner.address as target which is not a position contract
       const tx = roller.roll(
         await pos1.getAddress(),
         floatToDec18(1_000),
         floatToDec18(1),
-        owner,
+        owner.address, // Use owner.address here
         floatToDec18(10_000),
         floatToDec18(1),
         await pos2.expiration()
@@ -404,9 +406,8 @@ describe("Roller Tests", () => {
       const m2 = await clone1.minted();
       const b2 = await zchf.balanceOf(owner.address);
 
-      // Erlauben eine kleine Abweichung statt exact 0n
       const b2Float = Number(b2) / 1e18;
-      expect(b2Float).to.be.closeTo(0, 10); 
+      expect(b2Float).to.be.closeTo(0, 10);
     });
 
     it("rollFully check interests and rolled amount, with 1000 zchf in wallet", async () => {
