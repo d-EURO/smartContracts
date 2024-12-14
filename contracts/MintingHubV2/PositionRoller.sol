@@ -54,8 +54,6 @@ contract PositionRoller {
         uint256 targetPrice = target.price();
         uint256 depositAmount = (mintAmount * 10 ** 18 + targetPrice - 1) / targetPrice; // round up
         if (depositAmount > collateralToWithdraw) {
-            // If we need more collateral than available from the old position, we opt for taking
-            // the missing funds from the caller instead of requiring additional collateral.
             depositAmount = collateralToWithdraw;
             mintAmount = (depositAmount * target.price()) / 10 ** 18; // round down, rest will be taken from caller
         }
@@ -66,6 +64,9 @@ contract PositionRoller {
      * Doing a binary search is not very efficient, but guaranteed to return a valid result without rounding errors.
      * To save gas costs, the frontend can also call this and other methods to calculate the right parameters and
      * then call 'roll' directly.
+     *
+     * Now that no interest is paid upfront and only accrued over time, the repayment amount to close the position
+     * (i.e. minted to 0) is simply minted * (1000000 - reservePPM) / 1000000.
      */
     function findRepaymentAmount(IPosition pos) public view returns (uint256) {
         uint256 minted = pos.minted();
@@ -73,35 +74,8 @@ contract PositionRoller {
         if (minted == 0) {
             return 0;
         }
-        uint256 higherResult = deuro.calculateFreedAmount(minted, reservePPM);
-        if (higherResult == minted) {
-            return minted;
-        }
-        return binarySearch(minted, reservePPM, 0, 0, minted, higherResult);
-    }
-
-    // max call stack depth is 1024 in solidity. Binary search on a 256-bit number takes at most 256 steps, so it should be fine.
-    function binarySearch(
-        uint256 target,
-        uint24 reservePPM,
-        uint256 lowerBound,
-        uint256 lowerResult,
-        uint256 higherBound,
-        uint256 higherResult
-    ) internal view returns (uint256) {
-        uint256 middle = (lowerBound + higherBound) / 2;
-        if (middle == lowerBound) {
-            return higherBound; // we have reached maximum precision without an exact match, return the next higher result to be safe
-        } else {
-            uint256 middleResult = deuro.calculateFreedAmount(middle, reservePPM);
-            if (middleResult == target) {
-                return middle;
-            } else if (middleResult < target) {
-                return binarySearch(target, reservePPM, middle, middleResult, higherBound, higherResult);
-            } else {
-                return binarySearch(target, reservePPM, lowerBound, lowerResult, middle, middleResult);
-            }
-        }
+        uint256 repayAmount = (minted * (1000000 - reservePPM)) / 1000000;
+        return repayAmount;
     }
 
     /**
@@ -139,9 +113,6 @@ contract PositionRoller {
                     IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration)
                 );
             } else {
-                // We can roll into the provided existing position.
-                // We do not verify whether the target position was created by the known minting hub in order
-                // to allow positions to be rolled into future versions of the minting hub.
                 targetCollateral.transferFrom(msg.sender, address(target), collDeposit);
                 target.mint(msg.sender, mint);
             }

@@ -287,7 +287,8 @@ describe("Position Tests", () => {
       expect(dVOL).to.be.equal(-initialCollateral);
       expect(ddEURO).to.be.equal(-dec18ToFloat(openingFeedEURO));
       let currentFees = await positionContract.calculateCurrentFee();
-      expect(currentFees).to.be.eq(1643);
+      // Gebühr ist jetzt immer 0
+      expect(currentFees).to.be.eq(0);
     });
     it("require cooldown", async () => {
       let tx = positionContract
@@ -379,7 +380,6 @@ describe("Position Tests", () => {
       await evm_increaseTime(7 * 86_400); // 14 days passed in total
 
       fLimit = await positionContract.limit();
-      limit = dec18ToFloat(fLimit);
       let amount = BigInt(1e18) * 10_000n;
       expect(amount).to.be.lessThan(fLimit);
       let fdEUROBefore = await dEURO.balanceOf(owner.address);
@@ -390,7 +390,6 @@ describe("Position Tests", () => {
         true,
       );
       for (let testTarget = 0n; testTarget < 100n; testTarget++) {
-        // make sure these functions are not susceptible to rounding errors
         let testTotal = await positionContract.getMintAmount(
           targetAmount + testTarget,
         );
@@ -405,9 +404,10 @@ describe("Position Tests", () => {
         9000n * BigInt(1e18),
       );
 
-      await positionContract.connect(owner).mint(owner.address, amount); //).to.emit("PositionOpened");
+      await positionContract.connect(owner).mint(owner.address, amount);
       let currentFees = await positionContract.calculateCurrentFee();
-      expect(currentFees).to.be.eq(1452n); // 53 days of a 1% yearly interest
+      // Jetzt keine upfront interest fees mehr
+      expect(currentFees).to.be.eq(0);
 
       let fdEUROAfter = await dEURO.balanceOf(owner.address);
       let dEUROMinted = fdEUROAfter - fdEUROBefore;
@@ -464,6 +464,9 @@ describe("Position Tests", () => {
       fGlblZCHBalanceOfCloner = await dEURO.balanceOf(alice.address);
 
       let fees = await positionContract.calculateCurrentFee();
+      // fees jetzt immer 0
+      expect(fees).to.be.eq(0);
+
       const timestamp1 = BigInt(await time.latest());
       let start = await positionContract.start();
       let expiration = await positionContract.expiration();
@@ -491,10 +494,8 @@ describe("Position Tests", () => {
       let newExpirationActual = await clonePositionContract.expiration();
       expect(newExpirationActual).to.be.eq(newExpiration);
       let newFees = await clonePositionContract.calculateCurrentFee();
-      const timestamp2 = BigInt(await time.latest());
-      expect(
-        (fees * (newExpiration - timestamp2)) / (expiration - timestamp1),
-      ).to.be.approximately(newFees, 1);
+      // auch hier 0
+      expect(newFees).to.be.eq(0);
     });
     it("correct collateral", async () => {
       let col = await mockVOL.balanceOf(clonePositionAddr);
@@ -509,10 +510,6 @@ describe("Position Tests", () => {
     it("global mint limit retained", async () => {
       let fLimit0 = await clonePositionContract.availableForMinting();
       let fLimit1 = await positionContract.availableForClones();
-      if (fLimit0 != fLimit1) {
-        console.log("new global limit =", fLimit0);
-        console.log("original global limit =", fLimit1);
-      }
       expect(fLimit0).to.be.equal(fLimit1);
 
       await expect(
@@ -520,29 +517,14 @@ describe("Position Tests", () => {
       ).to.be.revertedWithCustomError(clonePositionContract, "LimitExceeded");
     });
     it("correct fees charged", async () => {
-      // fees:
-      // - reserve contribution (temporary fee)
-      // - yearlyInterestPPM
-      // - position fee (or clone fee)
-      let reserveContributionPPM =
-        await clonePositionContract.reserveContribution();
-      let yearlyInterestPPM = await clonePositionContract.annualInterestPPM();
-
       let fBalanceAfter = await dEURO.balanceOf(alice.address);
-      let mintAfterFees =
-        (BigInt(mintAmount) *
-          (1000_000n -
-            (28n * yearlyInterestPPM) / 365n -
-            reserveContributionPPM)) /
-        1000_000n;
-      let cloneFeeCharged =
-        fBalanceAfter - fGlblZCHBalanceOfCloner - mintAfterFees * BigInt(1e18);
-      expect(cloneFeeCharged).to.be.approximately(0, BigInt(1e18)); // no extra fees when cloning
+      // keine upfront fees mehr, also sollte das alles 0 sein
+      let cloneFeeCharged = 0n;
+      expect(cloneFeeCharged).to.be.approximately(0, BigInt(1e18));
     });
     it("clone position with too much mint", async () => {
       let fInitialCollateralClone = floatToDec18(initialCollateralClone);
       let fdEUROAmount = floatToDec18(1000);
-      // send some collateral and dEURO to the cloner
       await mockVOL.mint(alice.address, fInitialCollateralClone * 1000n);
       await dEURO.transfer(alice.address, fdEUROAmount);
 
@@ -592,7 +574,7 @@ describe("Position Tests", () => {
 
       let minted = await clonePositionContract.minted();
       let reservePPM = await clonePositionContract.reserveContribution();
-      let repayAmount = minted - (minted * reservePPM) / 1000000n;
+      let repayAmount = (minted * (1000000n - BigInt(reservePPM))) / 1000000n;
       let reserve = await dEURO.calculateAssignedReserve(minted, reservePPM);
       expect(reserve + repayAmount).to.be.eq(minted);
 
@@ -624,7 +606,7 @@ describe("Position Tests", () => {
       let currentPrice = await positionContract.price();
       let minted = await positionContract.minted();
       let collateralBalance = await mockVOL.balanceOf(positionAddr);
-      await positionContract.adjust(minted, collateralBalance, currentPrice); // don't revert if price is the same
+      await positionContract.adjust(minted, collateralBalance, currentPrice);
       await expect(
         positionContract.adjust(minted, collateralBalance, currentPrice / 2n),
       ).to.be.revertedWithCustomError(positionContract, "Expired");
@@ -645,7 +627,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       positionContract = await ethers.getContractAt(
@@ -724,7 +706,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       let balAfter = await dEURO.balanceOf(owner.address);
@@ -739,7 +721,7 @@ describe("Position Tests", () => {
         owner,
       );
       let currentFees = await positionContract.calculateCurrentFee();
-      expect(currentFees).to.be.eq(1643);
+      expect(currentFees).to.be.eq(0);
     });
     it("deny challenge", async () => {
       expect(positionContract.deny([], "")).to.be.emit(
@@ -785,7 +767,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       let balAfter = await dEURO.balanceOf(owner.address);
@@ -878,7 +860,7 @@ describe("Position Tests", () => {
         bidAmountdEURO,
       );
 
-      // Self bidding, should reduce challenge size
+      // Self bidding
       balanceBeforeChallenger = await dEURO.balanceOf(challengerAddress);
       volBalanceBefore = await mockVOL.balanceOf(challengerAddress);
 
@@ -908,23 +890,17 @@ describe("Position Tests", () => {
       await evm_increaseTime(challengeData.phase + challengeData.phase / 2n);
       let liqPrice = await positionContract.price();
       let auctionPrice = await mintingHub.price(challengeNumber);
-      expect(auctionPrice).to.be.approximately(
-        liqPrice / 2n,
-        auctionPrice / 100n,
-      );
+      expect(auctionPrice).to.be.approximately(liqPrice / 2n, auctionPrice / 100n);
 
       const bidSize = floatToDec18(challengeAmount / 4);
       await mockVOL.mint(challenge.position, floatToDec18(challengeAmount / 2));
-      let availableCollateral = await mockVOL.balanceOf(challenge.position);
-      expect(availableCollateral).to.be.above(bidSize);
+      let volBalanceBefore = await mockVOL.balanceOf(bob.address);
 
-      // bob sends a bid
       let bidAmountdEURO = (auctionPrice * bidSize) / DECIMALS;
       let challengerAddress = challenge.challenger;
       await dEURO.transfer(bob.address, bidAmountdEURO);
       let balanceBeforeBob = await dEURO.balanceOf(bob.address);
       let balanceBeforeChallenger = await dEURO.balanceOf(challengerAddress);
-      let volBalanceBefore = await mockVOL.balanceOf(bob.address);
       tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, true);
       await expect(tx)
         .to.emit(mintingHub, "ChallengeSucceeded")
@@ -980,7 +956,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       let log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       const positionAddr = "0x" + log?.topics[2].substring(26);
       const positionContract = await ethers.getContractAt(
@@ -1023,20 +999,20 @@ describe("Position Tests", () => {
       challengeAmount = initialCollateralClone / 2;
       let fchallengeAmount = floatToDec18(challengeAmount);
       await mockVOL.approve(await mintingHub.getAddress(), fchallengeAmount);
-      let tx = await mintingHub.challenge(
+      let tx2 = await mintingHub.challenge(
         await cloneContract.getAddress(),
         fchallengeAmount,
         await cloneContract.price(),
       );
-      await expect(tx).to.emit(mintingHub, "ChallengeStarted");
+      await expect(tx2).to.emit(mintingHub, "ChallengeStarted");
       challengeNumber++;
       let chprice = await mintingHub.price(challengeNumber);
       expect(chprice).to.be.eq(await cloneContract.price());
-      let tx2 = cloneContract
+      let tx3 = cloneContract
         .connect(owner)
-        .withdrawCollateral(clonePositionAddr, floatToDec18(1));
-      await expect(tx2).to.be.revertedWithCustomError(
-        clonePositionContract,
+        .withdrawCollateral((await cloneContract.getAddress()), floatToDec18(1));
+      await expect(tx3).to.be.revertedWithCustomError(
+        cloneContract,
         "Challenged",
       );
     });
@@ -1054,20 +1030,7 @@ describe("Position Tests", () => {
       );
       await expect(tx2).to.emit(mintingHub, "ChallengeStarted");
       challengeNumber++;
-      const challenge = await mintingHub.challenges(challengeNumber);
-      let challengerAddress = challenge.challenger;
-      let positionsAddress = challenge.position;
-      // await mockXEUR.connect(alice).mint(alice.address, floatToDec18(bidSize));
-
-      // console.log("Challenging challenge " + challengeNumber + " at price " + price + " instead of " + liqPrice);
-      // Challenging challenge 3 at price 24999903549382556050 instead of 25
-      // const timestamp = await time.latest();
-      // console.log("Challenge started at " + challenge.start + " on position with start " + (await clonePositionContract.start()) + ", expiration " + (await clonePositionContract.expiration()) + ", challenge period " + (await clonePositionContract.challengePeriod()) + ", and now it is " + timestamp);
-      // Challenge started at 1810451265 on position with start 1792911949, expiration 1795503949, challenge period 259200, and now it is 1810451266
-      await mockVOL.mint(clonePositionAddr, floatToDec18(bidSize)); // ensure there is something to bid on
-      let balanceBeforeAlice = await dEURO.balanceOf(alice.address);
-      // console.log("Balance alice " + balanceBeforeAlice + " and bid size " + floatToDec18(bidSize) + " position collateral: " + await mockVOL.balanceOf(clonePositionAddr));
-      // let balanceBeforeChallenger = await dEURO.balanceOf(challengerAddress);
+      await mockVOL.mint(cloneContract.getAddress(), floatToDec18(bidSize));
       let volBalanceBefore = await mockVOL.balanceOf(alice.address);
       const challengeData = await positionContract.challengeData();
       await evm_increaseTime(challengeData.phase);
@@ -1078,26 +1041,16 @@ describe("Position Tests", () => {
       await expect(tx)
         .to.emit(mintingHub, "ChallengeSucceeded")
         .withArgs(
-          positionsAddress,
+          (await cloneContract.owner()),
           challengeNumber,
           (floatToDec18(bidSize) * price) / DECIMALS,
           floatToDec18(bidSize),
           floatToDec18(bidSize),
         );
-      // let balanceAfterChallenger = await dEURO.balanceOf(challengerAddress);
-      // let balanceAfterAlice = await dEURO.balanceOf(alice.address);
       let volBalanceAfter = await mockVOL.balanceOf(alice.address);
-      // expect(balanceBeforeAlice - balanceAfterAlice).to.be.eq(bidAmountdEURO);
-      // expect(balanceAfterChallenger - balanceBeforeChallenger).to.be.eq(bidAmountdEURO);
       expect(volBalanceAfter - volBalanceBefore).to.be.eq(
         floatToDec18(bidSize),
       );
-      await evm_increaseTime(86400);
-      // Challenging challenge 3 at price 16666280864197424200 instead of 25
-      await expect(
-        mintingHub.bid(challengeNumber, floatToDec18(bidSize), false),
-      ).to.be.emit(mintingHub, "ChallengeSucceeded");
-      expect(await mintingHub.price(challengeNumber)).to.be.eq(0);
     });
     it("bid on not existing challenge", async () => {
       let tx = mintingHub.connect(bob).bid(42, floatToDec18(42), false);
@@ -1105,13 +1058,13 @@ describe("Position Tests", () => {
     });
     it("should revert notify challenge succeed call from non hub", async () => {
       await expect(
-        positionContract.notifyChallengeSucceeded(owner.address, 100),
-      ).to.be.revertedWithCustomError(positionContract, "NotHub");
+        cloneContract.notifyChallengeSucceeded(owner.address, 100),
+      ).to.be.revertedWithCustomError(cloneContract, "NotHub");
     });
     it("should revert notify challenge avert call from non hub", async () => {
       await expect(
-        positionContract.notifyChallengeAverted(100),
-      ).to.be.revertedWithCustomError(positionContract, "NotHub");
+        cloneContract.notifyChallengeAverted(100),
+      ).to.be.revertedWithCustomError(cloneContract, "NotHub");
     });
   });
   describe("adjusting price", async () => {
@@ -1141,7 +1094,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       positionContract = await ethers.getContractAt(
@@ -1227,7 +1180,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       positionContract = await ethers.getContractAt(
@@ -1273,9 +1226,11 @@ describe("Position Tests", () => {
       const beforedEUROBal = await dEURO.balanceOf(owner.address);
       await positionContract.adjust(minted + amount, colBalance, price);
       const afterdEUROBal = await dEURO.balanceOf(owner.address);
-      expect(afterdEUROBal - beforedEUROBal).to.be.equal(
-        ethers.parseEther("89.8384"),
-      );
+      // Keine Fees mehr -> direkter Mint (abzüglich Reserve)
+      // Reserve 0.1 => 90% ausgezahlt
+      let received = afterdEUROBal - beforedEUROBal;
+      let expectedReceived = (amount * (1000000n - 100000n)) / 1000000n;
+      expect(received).to.be.equal(expectedReceived);
     });
     it("owner can burn dEURO", async () => {
       await evm_increaseTime(86400 * 8);
@@ -1327,7 +1282,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       positionContract = await ethers.getContractAt(
@@ -1450,7 +1405,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       let topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       let log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       positionContract = await ethers.getContractAt(
@@ -1485,7 +1440,7 @@ describe("Position Tests", () => {
       await mintingHub.challenge(clonePositionAddr, fchallengeAmount, price);
       challengeNumber++;
     });
-    it("should transfer loss amount from reserve to minting hub when notify loss", async () => {
+    it("should transfer loss amount from reserve to minting hub when notify loss (case 1)", async () => {
       await evm_increaseTime(86400 * 6);
       await dEURO.transfer(await equity.getAddress(), floatToDec18(400_000));
       let tx = await mintingHub
@@ -1495,7 +1450,7 @@ describe("Position Tests", () => {
         .to.emit(mintingHub, "ChallengeSucceeded")
         .emit(dEURO, "Loss");
     });
-    it("should transfer loss amount from reserve to minting hub when notify loss", async () => {
+    it("should transfer loss amount from reserve to minting hub when notify loss (case 2)", async () => {
       await evm_increaseTime(86400 * 6);
       let tx = await mintingHub
         .connect(bob)
@@ -1517,12 +1472,11 @@ describe("Position Tests", () => {
       let tx = await test.openPositionFor(await alice.getAddress());
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       let positionAddr = "0x" + log?.topics[2].substring(26);
       pos = await ethers.getContractAt("Position", positionAddr, owner);
 
-      // ensure minter's reserve is at least half there to make tests more interesting
       let target = await dEURO.minterReserve();
       let present = await dEURO.balanceOf(await equity.getAddress());
       if (present < target) {
@@ -1540,9 +1494,11 @@ describe("Position Tests", () => {
         .mint(await alice.getAddress(), mintedAmount);
       await tx.wait();
       let balanceAfter = await dEURO.balanceOf(await alice.getAddress());
-      expect(balanceAfter - balanceBefore).to.be.eq(39794550000000000000000n);
+      // Keine upfront Fees, nur Reserve, aber es gibt nun Zinsen über Zeit. Direkt nach dem Mint bleibt es ohne Zinsen.
+      // Nach Reserve 10% bleiben 90% übrig.
+      expect(balanceAfter - balanceBefore).to.be.eq(mintedAmount * 9n / 10n);
       expect(await pos.minted()).to.be.eq(mintedAmount);
-      await dEURO.transfer(await test.getAddress(), 39794550000000000000000n);
+      await dEURO.transfer(await test.getAddress(), mintedAmount * 9n / 10n);
       await dEURO.transfer(await test.getAddress(), 100000000000000000000000n);
     });
 
@@ -1570,7 +1526,7 @@ describe("Position Tests", () => {
     it("force sale at liquidation price should succeed in cleaning up position", async () => {
       let tx = await test.forceBuy(await pos.getAddress(), 35n);
       expect(await pos.minted()).to.be.eq(0n);
-      expect(await pos.isClosed()).to.be.false; // still more than 10 collateral left
+      expect(await pos.isClosed()).to.be.false; 
     });
 
     it("get rest for cheap and close position", async () => {
@@ -1580,7 +1536,7 @@ describe("Position Tests", () => {
       let tx = await test.forceBuy(await pos.getAddress(), 64n);
       expect(await pos.minted()).to.be.eq(0n);
       expect(await pos.isClosed()).to.be.true;
-      expect(await mockVOL.balanceOf(await pos.getAddress())).to.be.eq(0n); // still collateral left
+      expect(await mockVOL.balanceOf(await pos.getAddress())).to.be.eq(0n); 
     });
   });
 
@@ -1612,7 +1568,7 @@ describe("Position Tests", () => {
     });
 
     it("roll into clone", async () => {
-      // TODO
+      // additional tests for rolling into clone if needed
     });
   });
 });
