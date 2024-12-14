@@ -204,11 +204,9 @@ describe("ForceSale Tests", () => {
       const bCoin1 = await coin.balanceOf(alice.address);
       expect(bCoin0 + size).to.be.equal(bCoin1);
 
-      // Hier statt approximately eine closeTo-Überprüfung mit Umrechnung:
       const actualCost = bdEURO0 - bdEURO1;
       const actualCostFloat = Number(actualCost) / 1e18;
       const expectedCostFloat = Number(expectedCost) / 1e18;
-      // Erlauben wir eine Abweichung von 10 dEURO
       expect(actualCostFloat).to.be.closeTo(expectedCostFloat, 10);
     });
 
@@ -225,9 +223,7 @@ describe("ForceSale Tests", () => {
       expect(bCoin0 + size).to.be.equal(bCoin1);
 
       const diff = bdEURO1 + (expP * size) / floatToDec18(1) - bdEURO0;
-      // Auch hier evtl. "closeTo" falls erforderlich, aber wenn kein Problem war, lassen wir es so.
-      expect(diff).to.be.approximately(0n, 10n ** 18n);
-      // Falls wieder ein Fehler auftaucht, müssen wir auch hier closeTo benutzen.
+      expect(Number(diff)).to.be.approximately(0, 1e18);
     });
 
     it("Dispose bad debt on force sale", async () => {
