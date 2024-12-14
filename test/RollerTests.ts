@@ -144,9 +144,8 @@ describe("Roller Tests", () => {
     });
 
     it("fail with invalid source", async () => {
-      // Here we pass an address that is not a position contract
       const tx = roller.roll(
-        owner.address, // Use owner.address instead of owner
+        owner.address, // ungültige Quelle
         floatToDec18(1_000),
         floatToDec18(1),
         await pos2.getAddress(),
@@ -154,21 +153,24 @@ describe("Roller Tests", () => {
         floatToDec18(1),
         await pos2.expiration()
       );
-      await expect(tx).to.be.revertedWithCustomError(roller, "NotPosition");
+      await expect(tx)
+        .to.be.revertedWithCustomError(roller, "NotPosition")
+        .withArgs(owner.address);
     });
 
     it("fail with invalid target", async () => {
-      // Here we pass owner.address as target which is not a position contract
       const tx = roller.roll(
         await pos1.getAddress(),
         floatToDec18(1_000),
         floatToDec18(1),
-        owner.address, // Use owner.address here
+        owner.address, // ungültiges Ziel
         floatToDec18(10_000),
         floatToDec18(1),
         await pos2.expiration()
       );
-      await expect(tx).to.be.revertedWithCustomError(roller, "NotPosition");
+      await expect(tx)
+        .to.be.revertedWithCustomError(roller, "NotPosition")
+        .withArgs(owner.address);
     });
 
     it("create mint and merge partially into existing position", async () => {
