@@ -98,6 +98,61 @@ describe("Roller Tests", () => {
     await coin.mint(bob.address, floatToDec18(1_000));
   });
 
+    // // ---------------------------------------------------------------------------
+    // // give OWNER a position
+    // await coin.approve(mintingHub.getAddress(), floatToDec18(10));
+    // const txPos1 = await (
+    //   await mintingHub.openPosition(
+    //     await coin.getAddress(),
+    //     floatToDec18(1), // min size
+    //     floatToDec18(10), // size
+    //     floatToDec18(100_000), // mint limit
+    //     3 * 86_400,
+    //     100 * 86_400,
+    //     86_400,
+    //     10000,
+    //     floatToDec18(6000),
+    //     100000
+    //   )
+    // ).wait();
+    // const pos1Addr = await getPositionAddress(txPos1!);
+    // pos1 = await ethers.getContractAt("Position", pos1Addr, owner);
+
+    // // ---------------------------------------------------------------------------
+    // // give ALICE a position
+    // await coin
+    //   .connect(alice)
+    //   .approve(mintingHub.getAddress(), floatToDec18(10));
+    // const txPos2 = await (
+    //   await mintingHub.connect(alice).openPosition(
+    //     await coin.getAddress(),
+    //     floatToDec18(1), // min size
+    //     floatToDec18(10), // size
+    //     floatToDec18(100_000), // mint limit
+    //     3 * 86_400,
+    //     100 * 86_400,
+    //     86_400,
+    //     10000,
+    //     floatToDec18(6000),
+    //     100000
+    //   )
+    // ).wait();
+    // const pos2Addr = await getPositionAddress(txPos2!);
+    // pos2 = await ethers.getContractAt("Position", pos2Addr, alice);
+
+    // // ---------------------------------------------------------------------------
+    // // give BOB a clone of alice
+    // await coin.connect(bob).approve(mintingHub.getAddress(), floatToDec18(10));
+    // const txPos3 = await (
+    //   await mintingHub.connect(bob)["clone(address,uint256,uint256,uint40)"](
+    //     pos2Addr,
+    //     floatToDec18(10), // size
+    //     floatToDec18(10_000), // mint limit
+    //     30 * 86_400
+    //   )
+    // ).wait();
+    // const pos3Addr = await getPositionAddress(txPos3!);
+    // clone1 = await ethers.getContractAt("Position", pos3Addr, bob);
   // The logic in this test file remains unchanged from the original scenario,
   // since no upfront interest is now charged. The tests assume that interest
   // is accrued over time, which matches the updated contract logic.
