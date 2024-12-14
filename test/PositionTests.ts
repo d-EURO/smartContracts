@@ -406,7 +406,7 @@ describe("Position Tests", () => {
         9000n * BigInt(1e18),
       );
 
-      await positionContract.connect(owner).mint(owner.address, amount); //).to.emit("PositionOpened");
+      await positionContract.connect(owner).mint(owner.address, amount);
       let currentFees = await positionContract.calculateCurrentFee();
       // Jetzt keine upfront interest fees mehr
       expect(currentFees).to.be.eq(0);
@@ -608,7 +608,7 @@ describe("Position Tests", () => {
       let currentPrice = await positionContract.price();
       let minted = await positionContract.minted();
       let collateralBalance = await mockVOL.balanceOf(positionAddr);
-      await positionContract.adjust(minted, collateralBalance, currentPrice); // don't revert if price is the same
+      await positionContract.adjust(minted, collateralBalance, currentPrice);
       await expect(
         positionContract.adjust(minted, collateralBalance, currentPrice / 2n),
       ).to.be.revertedWithCustomError(positionContract, "Expired");
@@ -629,7 +629,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       positionContract = await ethers.getContractAt(
@@ -708,7 +708,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       let balAfter = await dEURO.balanceOf(owner.address);
@@ -769,7 +769,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       let balAfter = await dEURO.balanceOf(owner.address);
@@ -862,7 +862,7 @@ describe("Position Tests", () => {
         bidAmountdEURO,
       );
 
-      // Self bidding, should reduce challenge size
+      // Self bidding
       balanceBeforeChallenger = await dEURO.balanceOf(challengerAddress);
       volBalanceBefore = await mockVOL.balanceOf(challengerAddress);
 
@@ -961,7 +961,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       let log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       const positionAddr = "0x" + log?.topics[2].substring(26);
       const positionContract = await ethers.getContractAt(
@@ -1053,11 +1053,7 @@ describe("Position Tests", () => {
           floatToDec18(bidSize),
           floatToDec18(bidSize),
         );
-      // let balanceAfterChallenger = await dEURO.balanceOf(challengerAddress);
-      // let balanceAfterAlice = await dEURO.balanceOf(alice.address);
       let volBalanceAfter = await mockVOL.balanceOf(alice.address);
-      // expect(balanceBeforeAlice - balanceAfterAlice).to.be.eq(bidAmountdEURO);
-      // expect(balanceAfterChallenger - balanceBeforeChallenger).to.be.eq(bidAmountdEURO);
       expect(volBalanceAfter - volBalanceBefore).to.be.eq(
         floatToDec18(bidSize),
       );
@@ -1104,7 +1100,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       positionContract = await ethers.getContractAt(
@@ -1190,7 +1186,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       positionContract = await ethers.getContractAt(
@@ -1292,7 +1288,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       positionContract = await ethers.getContractAt(
@@ -1415,7 +1411,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       let topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       let log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       positionContract = await ethers.getContractAt(
@@ -1482,12 +1478,11 @@ describe("Position Tests", () => {
       let tx = await test.openPositionFor(await alice.getAddress());
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       let positionAddr = "0x" + log?.topics[2].substring(26);
       pos = await ethers.getContractAt("Position", positionAddr, owner);
 
-      // ensure minter's reserve is at least half there to make tests more interesting
       let target = await dEURO.minterReserve();
       let present = await dEURO.balanceOf(await equity.getAddress());
       if (present < target) {
@@ -1537,7 +1532,7 @@ describe("Position Tests", () => {
     it("force sale at liquidation price should succeed in cleaning up position", async () => {
       let tx = await test.forceBuy(await pos.getAddress(), 35n);
       expect(await pos.minted()).to.be.eq(0n);
-      expect(await pos.isClosed()).to.be.false; // still more than 10 collateral left
+      expect(await pos.isClosed()).to.be.false; 
     });
 
     it("get rest for cheap and close position", async () => {
@@ -1547,7 +1542,7 @@ describe("Position Tests", () => {
       let tx = await test.forceBuy(await pos.getAddress(), 64n);
       expect(await pos.minted()).to.be.eq(0n);
       expect(await pos.isClosed()).to.be.true;
-      expect(await mockVOL.balanceOf(await pos.getAddress())).to.be.eq(0n); // still collateral left
+      expect(await mockVOL.balanceOf(await pos.getAddress())).to.be.eq(0n); 
     });
   });
 
