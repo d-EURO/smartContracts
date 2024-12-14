@@ -248,3 +248,4 @@ describe("ForceSale Tests", () => {
       expect(await dEURO.equity()).to.be.lessThan(eqBefore);
     });
   });
+});
