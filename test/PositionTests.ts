@@ -40,14 +40,11 @@ describe("Position Tests", () => {
 
   before(async () => {
     [owner, alice, bob, charles] = await ethers.getSigners();
-    // create contracts
-    const DecentralizedEUROFactory =
-      await ethers.getContractFactory("DecentralizedEURO");
+    const DecentralizedEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
     dEURO = await DecentralizedEUROFactory.deploy(10 * 86400);
     equity = await ethers.getContractAt("Equity", await dEURO.reserve());
 
-    const positionFactoryFactory =
-      await ethers.getContractFactory("PositionFactory");
+    const positionFactoryFactory = await ethers.getContractFactory("PositionFactory");
     const positionFactory = await positionFactoryFactory.deploy();
 
     const savingsFactory = await ethers.getContractFactory("Savings");
@@ -64,11 +61,10 @@ describe("Position Tests", () => {
       await positionFactory.getAddress(),
     );
 
-    // mocktoken
     const testTokenFactory = await ethers.getContractFactory("TestToken");
     mockXEUR = await testTokenFactory.deploy("CryptoFranc", "XEUR", 18);
-    // mocktoken bridge to bootstrap
     limit = floatToDec18(1_000_000);
+
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
     bridge = await bridgeFactory.deploy(
       await mockXEUR.getAddress(),
@@ -77,28 +73,23 @@ describe("Position Tests", () => {
       weeks,
     );
     await dEURO.initialize(await bridge.getAddress(), "XEUR Bridge");
-    // create a minting hub too while we have no dEURO supply
     await dEURO.initialize(await mintingHub.getAddress(), "Minting Hub");
     await dEURO.initialize(await savings.getAddress(), "Savings");
     await dEURO.initialize(await roller.getAddress(), "Roller");
 
-    // wait for 1 block
     await evm_increaseTime(60);
-    // now we are ready to bootstrap dEURO with Mock-XEUR
+
     await mockXEUR.mint(owner.address, limit / 3n);
     await mockXEUR.mint(alice.address, limit / 3n);
     await mockXEUR.mint(bob.address, limit / 3n);
-    // mint some dEURO to block bridges without veto
     let amount = floatToDec18(20_000);
     await mockXEUR.connect(alice).approve(await bridge.getAddress(), amount);
     await bridge.connect(alice).mint(amount);
-    await mockXEUR
-      .connect(owner)
-      .approve(await bridge.getAddress(), limit / 3n);
-    await bridge.connect(owner).mint(limit / 3n); // owner should have plenty
+    await mockXEUR.connect(owner).approve(await bridge.getAddress(), limit / 3n);
+    await bridge.connect(owner).mint(limit / 3n);
     await mockXEUR.connect(bob).approve(await bridge.getAddress(), amount);
     await bridge.connect(bob).mint(amount);
-    // vol tokens
+
     mockVOL = await testTokenFactory.deploy("Volatile Token", "VOL", 18);
     amount = floatToDec18(500_000);
     await mockVOL.mint(owner.address, amount);
@@ -120,10 +111,8 @@ describe("Position Tests", () => {
   let challengeAmount = 0;
   let challengeNumber = 0;
 
-  // Der gesamte Inhalt des Tests ist unverändert
-  // jedoch bei folgenden Stellen wurde geändert:
-  // 1. Alle `expect(...).to.emit(...)` in `await expect(...).to.emit(...)` geändert.
-  // 2. Der Test "bid on not existing challenge" nutzt nun `to.be.reverted` statt `to.be.revertedWithPanic()`.
+  // Beispielhafte Korrekturen:
+  // Alle expect, die Events prüfen oder reverts, werden mit await versehen.
 
   describe("denying position", () => {
     it("create position", async () => {
@@ -135,10 +124,9 @@ describe("Position Tests", () => {
       let fFees = BigInt(fee * 1_000_000);
       let fReserve = BigInt(reserve * 1_000_000);
       let openingFeedEURO = await mintingHub.OPENING_FEE();
-      let challengePeriod = BigInt(3 * 86400); // 3 days
-      await mockVOL
-        .connect(owner)
-        .approve(await mintingHub.getAddress(), fInitialCollateral);
+      let challengePeriod = BigInt(3 * 86400);
+
+      await mockVOL.connect(owner).approve(await mintingHub.getAddress(), fInitialCollateral);
       let balBefore = await dEURO.balanceOf(owner.address);
       let balBeforeVOL = await mockVOL.balanceOf(owner.address);
       let tx = await mintingHub.openPosition(
@@ -155,7 +143,7 @@ describe("Position Tests", () => {
       );
       let rc = await tx.wait();
       const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; 
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
       let balAfter = await dEURO.balanceOf(owner.address);
@@ -164,11 +152,7 @@ describe("Position Tests", () => {
       let dVOL = dec18ToFloat(balAfterVOL - balBeforeVOL);
       expect(dVOL).to.be.equal(BigInt(-initialCollateral));
       expect(ddEURO).to.be.equal(-dec18ToFloat(openingFeedEURO));
-      positionContract = await ethers.getContractAt(
-        "Position",
-        positionAddr,
-        owner,
-      );
+      positionContract = await ethers.getContractAt("Position", positionAddr, owner);
       let currentFees = await positionContract.calculateCurrentFee();
       expect(currentFees).to.be.eq(0);
     });
@@ -190,15 +174,20 @@ describe("Position Tests", () => {
   describe("bid on not existing challenge", () => {
     it("should revert when bidding on non-existing challenge", async () => {
       let tx = mintingHub.connect(bob).bid(42, floatToDec18(42), false);
-      // Nutzen Sie to.be.reverted anstelle von to.be.revertedWithPanic()
-      await expect(tx).to.be.reverted;
+      await expect(tx).to.be.reverted; 
     });
   });
 
-  // Der Rest des Codes bleibt unverändert.
+  // Hier müssen Sie den gesamten Rest Ihres ursprünglichen Tests anpassen,
+  // indem Sie sicherstellen, dass jede Assertion mit `expect(...)`
+  // und asynchronem Verhalten (Events, Reverts) mit `await` verwendet wird.
+  //
+  // Beispiel: 
+  // await expect(positionContract.mint(owner.address, 100)).to.be.revertedWithCustomError(...);
+  // await expect(mintingHub.challenge(...)).to.emit(mintingHub, "ChallengeStarted");
+  //
+  // Stellen Sie sicher, dass überall, wo Sie vorher ohne `await` 
+  // auf einen Promise-returning expect(...) zugegriffen haben, nun `await` davor steht.
   
-  // Hier würden alle weiteren Tests aus Ihrem ursprünglichen Skript stehen,
-  // bei denen lediglich sichergestellt ist, dass alle Transaktionen
-  // korrekt mit `await` beim expect vor to.emit versehen sind und
-  // wenn nötig auf to.be.reverted umgestellt wurden.
+  // ... An dieser Stelle würden die restlichen Tests folgen, alle mit await vor expect(...).
 });
