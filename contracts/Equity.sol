@@ -28,17 +28,17 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * In the absence of profits and losses, the variables grow as follows when nDEPS tokens are minted:
      *
      * |       Reserve     |     Market Cap    |     Price     |      Supply    |
-     * |             1_000 |             3_000 |         0.003 |      1_000_000 |
-     * |         1_000_000 |         3_000_000 |           0.3 |     10_000_000 |
-     * |     1_000_000_000 |     3_000_000_000 |            30 |    100_000_000 |
-     * | 1_000_000_000_000 | 3_000_000_000_000 |         3_000 |   1000_000_000 |
+     * |             1_000 |             5_000 |         0.005 |      1_000_000 |
+     * |         1_000_000 |         5_000_000 |           0.5 |     10_000_000 |
+     * |     1_000_000_000 |     5_000_000_000 |            50 |    100_000_000 |
+     * | 1_000_000_000_000 | 5_000_000_000_000 |         5_000 |   1000_000_000 |
      *
      * i.e., the supply is proportional to the cubic root of the reserve and the price is proportional to the
      * squared cubic root. When profits accumulate or losses materialize, the reserve, the market cap,
      * and the price are adjusted proportionally. In the absence of extreme inflation of the Euro, it is unlikely
      * that there will ever be more than ten million nDEPS.
      */
-    uint32 public constant VALUATION_FACTOR = 3;
+    uint32 public constant VALUATION_FACTOR = 5; // Changed from 3 to 5 as requested
 
     uint256 private constant MINIMUM_EQUITY = 1_000 * ONE_DEC18;
 
@@ -108,7 +108,8 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         uint256 equity = dEURO.equity();
         if (equity == 0 || totalSupply() == 0) {
             // @dev: For Price, 1 = 10^18; 0.001 = 10^15
-            return 10 ** 15; // initial price is 1_000 dEURO for the first 1_000_000 nDEPS
+            // With VALUATION_FACTOR changed to 5, initial price stays consistent with initial logic
+            return 10 ** 15; // initial price is still defined as before
         } else {
             return (VALUATION_FACTOR * dEURO.equity() * ONE_DEC18) / totalSupply();
         }
