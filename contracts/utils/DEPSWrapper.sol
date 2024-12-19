@@ -22,11 +22,11 @@ contract DEPSWrapper is ERC20Permit, ERC20Wrapper {
 
     // requires allowance
     function wrap(uint256 amount) public {
-        depositFor(msg.sender, amount);
+        depositFor(_msgSender(), amount);
     }
 
     function unwrap(uint256 amount) public {
-        withdrawTo(msg.sender, amount);
+        withdrawTo(_msgSender(), amount);
     }
 
     function decimals() public view override(ERC20, ERC20Wrapper) returns (uint8) {
@@ -45,9 +45,9 @@ contract DEPSWrapper is ERC20Permit, ERC20Wrapper {
      * 90 days such that the average holding period of this contract stays
      * below that duration.
      */
-    function unwrapAndSell(uint256 amount) public {
-        super._burn(msg.sender, amount);
-        nDEPS.redeem(msg.sender, amount);
+    function unwrapAndSell(uint256 amount) public returns (uint256) {
+        super._burn(_msgSender(), amount);
+        return nDEPS.redeem(_msgSender(), amount);
     }
 
     /**
@@ -59,7 +59,7 @@ contract DEPSWrapper is ERC20Permit, ERC20Wrapper {
      * Anyone with 2% of the votes can call this.
      */
     function halveHoldingDuration(address[] calldata helpers) public {
-        nDEPS.checkQualified(msg.sender, helpers);
+        nDEPS.checkQualified(_msgSender(), helpers);
         // causes our votes to be cut in half
         nDEPS.transfer(address(this), totalSupply());
     }
