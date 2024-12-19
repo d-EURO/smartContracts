@@ -54,10 +54,8 @@ contract PositionRoller {
         uint256 targetPrice = target.price();
         uint256 depositAmount = (mintAmount * 10 ** 18 + targetPrice - 1) / targetPrice; // round up
         if (depositAmount > collateralToWithdraw) {
-            // If we need more collateral than available from the old position, we opt for taking
-            // the missing funds from the caller instead of requiring additional collateral.
             depositAmount = collateralToWithdraw;
-            mintAmount = (depositAmount * target.price()) / 10 ** 18; // round down, rest will be taken from caller
+            mintAmount = (depositAmount * target.price()) / 10 ** 18; // round down
         }
         roll(source, repay, collateralToWithdraw, target, mintAmount, depositAmount, expiration);
     }
@@ -80,7 +78,6 @@ contract PositionRoller {
         return binarySearch(minted, reservePPM, 0, 0, minted, higherResult);
     }
 
-    // max call stack depth is 1024 in solidity. Binary search on a 256-bit number takes at most 256 steps, so it should be fine.
     function binarySearch(
         uint256 target,
         uint24 reservePPM,
@@ -91,7 +88,7 @@ contract PositionRoller {
     ) internal view returns (uint256) {
         uint256 middle = (lowerBound + higherBound) / 2;
         if (middle == lowerBound) {
-            return higherBound; // we have reached maximum precision without an exact match, return the next higher result to be safe
+            return higherBound;
         } else {
             uint256 middleResult = deuro.calculateFreedAmount(middle, reservePPM);
             if (middleResult == target) {
@@ -107,16 +104,9 @@ contract PositionRoller {
     /**
      * Rolls the source position into the target position using a flash loan.
      * Both the source and the target position must recognize this roller.
-     * It is the responsibility of the caller to ensure that both positions are valid contracts.
      *
-     * @param source The source position, must be owned by the msg.sender.
-     * @param repay The amount to flash loan in order to repay the source position and free up some or all collateral.
-     * @param collWithdraw Collateral to move from the source position to the msg.sender.
-     * @param target The target position. If not owned by msg.sender or if it does not have the desired expiration,
-     *               it is cloned to create a position owned by the msg.sender.
-     * @param mint The amount to be minted from the target position using collateral from msg.sender.
-     * @param collDeposit The amount of collateral to be sent from msg.sender to the target position.
-     * @param expiration The desired expiration date for the target position.
+     * It is the responsibility of the caller to ensure that both positions are valid contracts.
+     * No upfront interest is charged here. We rely on ongoing interest accrual in the positions.
      */
     function roll(
         IPosition source,
@@ -133,15 +123,12 @@ contract PositionRoller {
         if (mint > 0) {
             IERC20 targetCollateral = IERC20(target.collateral());
             if (Ownable(address(target)).owner() != msg.sender || expiration != target.expiration()) {
-                targetCollateral.transferFrom(msg.sender, address(this), collDeposit); // get the new collateral
-                targetCollateral.approve(target.hub(), collDeposit); // approve the new collateral and clone:
+                targetCollateral.transferFrom(msg.sender, address(this), collDeposit);
+                targetCollateral.approve(target.hub(), collDeposit);
                 target = IPosition(
                     IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration)
                 );
             } else {
-                // We can roll into the provided existing position.
-                // We do not verify whether the target position was created by the known minting hub in order
-                // to allow positions to be rolled into future versions of the minting hub.
                 targetCollateral.transferFrom(msg.sender, address(target), collDeposit);
                 target.mint(msg.sender, mint);
             }
