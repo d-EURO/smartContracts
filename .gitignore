@@ -1,8 +1,12 @@
+**.DS_Store
+.deploys
+.states
 node_modules
 build
 typechain
 typechain-types
 artifacts
+artifacts*/
 cache
 coverage
 coverage.json
@@ -15,5 +19,7 @@ scripts/deployment/deployments/localhost
 scripts/deployment/deployments/hardhat
 .VSCodeCounter/
 .vscode/settings.json
-
 tst.ts
+package-lock.json
+.DS_Store
+abi/

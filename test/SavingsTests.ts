@@ -3,7 +3,7 @@ import { floatToDec18 } from "../scripts/math";
 import { ethers } from "hardhat";
 import {
   Equity,
-  Frankencoin,
+  DecentralizedEURO,
   MintingHub,
   Position,
   PositionFactory,
@@ -20,7 +20,7 @@ describe("Savings Tests", () => {
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
 
-  let zchf: Frankencoin;
+  let zchf: DecentralizedEURO;
   let equity: Equity;
   let roller: PositionRoller;
   let savings: Savings;
@@ -40,15 +40,15 @@ describe("Savings Tests", () => {
   beforeEach(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
-    const frankenCoinFactory = await ethers.getContractFactory("Frankencoin");
-    zchf = await frankenCoinFactory.deploy(10 * 86400);
+    const DecentralizedEUROFactory =
+      await ethers.getContractFactory("DecentralizedEURO");
+    zchf = await DecentralizedEUROFactory.deploy(10 * 86400);
 
     const equityAddr = await zchf.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
 
-    const positionFactoryFactory = await ethers.getContractFactory(
-      "PositionFactory"
-    );
+    const positionFactoryFactory =
+      await ethers.getContractFactory("PositionFactory");
     positionFactory = await positionFactoryFactory.deploy();
 
     const savingsFactory = await ethers.getContractFactory("Savings");
@@ -62,7 +62,7 @@ describe("Savings Tests", () => {
       await zchf.getAddress(),
       await savings.getAddress(),
       await roller.getAddress(),
-      await positionFactory.getAddress()
+      await positionFactory.getAddress(),
     );
 
     // jump start ecosystem
@@ -97,34 +97,36 @@ describe("Savings Tests", () => {
       await zchf.approve(savings.getAddress(), amount); // not needed if registered as minter
       await savings["save(uint192)"](amount);
       const r = await savings.savings(owner.address);
-      expect(r.saved).to.be.equal(amount);
+      expect(r.saved).to.be.approximately(amount, 10**12);
     });
 
     it("multi save", async () => {
-      await zchf.approve(savings.getAddress(), amount * 3n);
       await savings["save(uint192)"](amount);
-      await savings["save(uint192)"](amount);
-      await savings["save(uint192)"](amount);
+      await savings["save(uint192)"](amount); // @dev: will collect interest
+      await savings["save(uint192)"](amount); // @dev: will collect interest
       const r = await savings.savings(owner.address);
-      expect(r.saved).to.be.equal(amount * 3n);
+      expect(r.saved).to.be.greaterThanOrEqual(amount * 3n);
+      expect(r.saved * 10n).to.be.lessThan(amount * 31n); 
     });
 
-    it("premature attempt to withdraw", async () => {
-      await zchf.approve(savings.getAddress(), amount);
+    it("should allow to withdraw", async () => {
       await savings["save(uint192)"](amount);
-      const w = savings.withdraw(owner.address, amount);
-      await expect(w).to.be.revertedWithCustomError(savings, "FundsLocked");
+      const w = await savings.withdraw(owner.address, 2n * amount);
+      const r = await savings.savings(owner.address);
+      expect(r.saved).to.be.eq(0n);
+    });
 
-      savings.connect(owner).refreshMyBalance();
-
-      const w2 = savings.withdraw(owner.address, amount);
-      await expect(w2).to.be.revertedWithCustomError(savings, "FundsLocked");
+    it("should not pay any interest, if nothing is saved", async () => {
+      const b0 = await zchf.balanceOf(owner.address);
+      const w = await savings.withdraw(owner.address, 2n * amount);
+      const r = await savings.savings(owner.address);
+      const b1 = await zchf.balanceOf(owner.address);
+      expect(b1).to.be.eq(b0);
     });
 
     it("any interests after 365days", async () => {
       const i0 = await zchf.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
-      await zchf.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       await evm_increaseTime(365 * 86_400);
       await savings.withdraw(owner.address, 2n * amount); // as much as possible, 2x amount is enough
@@ -133,8 +135,8 @@ describe("Savings Tests", () => {
         equity addr: 0x1301d297043f564235EA41560f61681253BbD48B
 
         Error: VM Exception while processing transaction: reverted with custom error 'ERC20InsufficientAllowance("0x1301d297043f564235EA41560f61681253BbD48B", 0, 192328779807204464738)'
-        at Frankencoin.permit (contracts/utils/ERC20PermitLight.sol:21)
-        at Frankencoin.transferFrom (contracts/utils/ERC20.sol:123)
+        at DecentralizedEURO.permit (contracts/utils/ERC20PermitLight.sol:21)
+        at DecentralizedEURO.transferFrom (contracts/utils/ERC20.sol:123)
         at Savings.refresh (contracts/Savings.sol:68)
         at Savings.withdraw (contracts/Savings.sol:109)
 
@@ -145,10 +147,9 @@ describe("Savings Tests", () => {
       expect(i1).to.be.greaterThan(i0);
     });
 
-    it("correct interest after 365days (excl. 3days)", async () => {
+    it("correct interest after 365days", async () => {
       const i0 = await zchf.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
-      await zchf.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
 
@@ -160,12 +161,12 @@ describe("Savings Tests", () => {
       const iDiff = i1 - i0;
       const tDiff = t1! - t0!;
       const toCheck =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff) - 3n * 86_400n)) /
+        (floatToDec18(10_000) * 20000n * (BigInt(tDiff))) /
         (365n * 86_400n * 1_000_000n);
       expect(iDiff).to.be.equal(toCheck);
     });
 
-    it("correct interest after 1000days (excl. 14days)", async () => {
+    it("correct interest after 1000days", async () => {
       const b0 = await zchf.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
       await zchf.approve(savings.getAddress(), amount);
@@ -180,7 +181,7 @@ describe("Savings Tests", () => {
       const bDiff = b1 - b0;
       const tDiff = t1! - t0!;
       const toCheck =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff) - 3n * 86_400n)) /
+        (floatToDec18(10_000) * 20000n * (BigInt(tDiff))) /
         (365n * 86_400n * 1_000_000n);
       expect(bDiff).to.be.equal(toCheck);
     });
@@ -205,7 +206,7 @@ describe("Savings Tests", () => {
       const tDiff0 = t1! - t0!;
       const tDiff1 = t2! - t1!;
       const toCheck0 =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff0) - 3n * 86_400n)) /
+        (floatToDec18(10_000) * 20000n * (BigInt(tDiff0))) /
         (365n * 86_400n * 1_000_000n);
       const toCheck1 =
         ((floatToDec18(10_000) + toCheck0) *
@@ -213,11 +214,11 @@ describe("Savings Tests", () => {
           (BigInt(tDiff1) - 0n * 86_400n)) /
         (365n * 86_400n * 1_000_000n);
       const toCheck2 =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff1) - 3n * 86_400n)) /
+        (floatToDec18(10_000) * 20000n * (BigInt(tDiff1))) /
         (365n * 86_400n * 1_000_000n);
       expect(bDiff).to.be.approximately(
         toCheck0 + toCheck1 + toCheck2,
-        1_000_000_000n
+        1_000_000_000n,
       );
     });
 
@@ -233,7 +234,7 @@ describe("Savings Tests", () => {
       const t1 = await getTimeStamp();
       const tDiff = t1! - t0!;
       const toCheck =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff) - 3n * 86_400n)) /
+        (floatToDec18(10_000) * 20000n * (BigInt(tDiff))) /
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
@@ -252,7 +253,7 @@ describe("Savings Tests", () => {
       const t1 = await getTimeStamp();
       const tDiff = t1! - t0!;
       const toCheck =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff) - 3n * 86_400n)) /
+        (floatToDec18(10_000) * 20000n * (BigInt(tDiff))) /
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
@@ -271,7 +272,7 @@ describe("Savings Tests", () => {
       const t1 = await getTimeStamp();
       const tDiff = t1! - t0!;
       const toCheck =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff) - 3n * 86_400n)) /
+        (floatToDec18(10_000) * 20000n * (BigInt(tDiff))) /
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
@@ -282,10 +283,7 @@ describe("Savings Tests", () => {
       await savings["save(uint192)"](4n * amount);
       const account = await savings.savings(owner.address);
       expect(account.saved).to.be.eq(4n * amount);
-      const ticks = await savings.currentTicks();
-      const timeLeft =
-        (account.ticks - ticks) / (await savings.currentRatePPM());
-      await evm_increaseTime(timeLeft - 1n); // when executing the next transaction, timer will be increased by 1 seconds
+      await evm_increaseTime(100_000n); // when executing the next transaction, timer will be increased by 1 seconds
       const account2 = await savings.savings(owner.address);
       expect(account2.saved).to.be.eq(4n * amount);
       await savings.withdraw(owner.address, amount);
@@ -307,10 +305,10 @@ describe("Savings Tests", () => {
           1000000n /
           365n /
           24n /
-          3600n
+          3600n,
       );
       await savings.withdraw(owner.address, 10n * amount);
-      await expect((await savings.savings(owner.address)).saved).to.be.eq(0n);
+      expect((await savings.savings(owner.address)).saved).to.be.eq(0n);
     });
   });
 });
