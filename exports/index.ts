@@ -19,7 +19,6 @@ export * from "./abis/utils/Leadrate";
 export * from "./abis/utils/UniswapV3Pool";
 export * from "./abis/utils/StablecoinBridge";
 export * from "./abis/utils/DEPSWrapper";
-// export * from './abis/utils/FPSUnlock';
 
 // constructor args
 // export * from './ignition/constructor-args/index';

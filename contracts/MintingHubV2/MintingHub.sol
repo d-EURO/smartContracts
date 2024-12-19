@@ -17,7 +17,7 @@ import {PositionRoller} from "./PositionRoller.sol";
 
 /**
  * @title Minting Hub
- * @notice The central hub for creating, cloning and challenging collateralized DecentralizedEURO positions.
+ * @notice The central hub for creating, cloning, and challenging collateralized DecentralizedEURO positions.
  * @dev Only one instance of this contract is required, whereas every new position comes with a new position
  * contract. Pending challenges are stored as structs in an array.
  */
@@ -29,7 +29,7 @@ contract MintingHub {
 
     /**
      * @notice The challenger reward in parts per million (ppm) relative to the challenged amount, whereas
-     * challenged amount if defined as the challenged collateral amount times the liquidation price.
+     * challenged amount is defined as the challenged collateral amount times the liquidation price.
      */
     uint256 public constant CHALLENGER_REWARD = 20000; // 2%
     uint256 public constant EXPIRED_PRICE_FACTOR = 10;
@@ -91,17 +91,18 @@ contract MintingHub {
      * the minting hub to transfer the initial collateral amount to the newly created position and to
      * withdraw the fees.
      *
-     * @param _collateralAddress        address of collateral token
-     * @param _minCollateral     minimum collateral required to prevent dust amounts
-     * @param _initialCollateral amount of initial collateral to be deposited
-     * @param _mintingMaximum    maximal amount of deur that can be minted by the position owner
-     * @param _expirationSeconds position tenor in unit of timestamp (seconds) from 'now'
-     * @param _challengeSeconds  challenge period. Longer for less liquid collateral.
-     * @param _riskPremium       ppm of minted amount that is added to the applicible minting fee as a risk premium
-     * @param _liqPrice          Liquidation price with (36 - token decimals) decimals,
-     *                           e.g. 18 decimals for an 18 dec collateral, 36 decs for a 0 dec collateral.
-     * @param _reservePPM        ppm of minted amount that is locked as borrower's reserve, e.g. 20%
-     * @return address           address of created position
+     * @param _collateralAddress  address of collateral token
+     * @param _minCollateral      minimum collateral required to prevent dust amounts
+     * @param _initialCollateral  amount of initial collateral to be deposited
+     * @param _mintingMaximum     maximal amount of deur that can be minted by the position owner
+     * @param _initPeriodSeconds  initial period in seconds
+     * @param _expirationSeconds  position tenor in seconds from 'now'
+     * @param _challengeSeconds   challenge period. Longer for less liquid collateral.
+     * @param _riskPremium        ppm of minted amount that is added to the applicable minting fee as a risk premium
+     * @param _liqPrice           Liquidation price with (36 - token decimals) decimals,
+     *                            e.g. 18 decimals for an 18 dec collateral, 36 decs for a 0 dec collateral.
+     * @param _reservePPM         ppm of minted amount that is locked as borrower's reserve, e.g. 20%
+     * @return address            address of created position
      */
     function openPosition(
         address _collateralAddress,
@@ -126,7 +127,8 @@ contract MintingHub {
                 bytes memory /*lowLevelData*/
             ) {}
             if (_initialCollateral < _minCollateral) revert InsufficientCollateral();
-            if (_minCollateral * _liqPrice < 5000 ether * 10 ** 18) revert InsufficientCollateral(); // must start with at least 5000 deur worth of collateral
+            // must start with at least 5000 deur worth of collateral
+            if (_minCollateral * _liqPrice < 5000 ether * 10 ** 18) revert InsufficientCollateral();
         }
         IPosition pos = IPosition(
             POSITION_FACTORY.createNewPosition(
@@ -186,10 +188,10 @@ contract MintingHub {
 
     /**
      * @notice Launch a challenge (Dutch auction) on a position
-     * @param _positionAddr      address of the position we want to challenge
-     * @param _collateralAmount  amount of the collateral we want to challenge
-     * @param minimumPrice       position.price() to guard against the minter fruntrunning with a price change
-     * @return index of the challenge in challenge-array
+     * @param _positionAddr     address of the position we want to challenge
+     * @param _collateralAmount amount of the collateral we want to challenge
+     * @param minimumPrice       position.price() to guard against the minter front-running with a price change
+     * @return index of the challenge in the challenge-array
      */
     function challenge(
         address _positionAddr,
@@ -197,8 +199,8 @@ contract MintingHub {
         uint256 minimumPrice
     ) external validPos(_positionAddr) returns (uint256) {
         IPosition position = IPosition(_positionAddr);
-        // challenger should be ok if frontrun by owner with a higher price
-        // in case owner fruntruns challenger with small price decrease to prevent challenge,
+        // challenger should be ok if front-run by owner with a higher price
+        // in case owner front-runs challenger with small price decrease to prevent challenge,
         // the challenger should set minimumPrice to market price
         if (position.price() < minimumPrice) revert UnexpectedPrice();
         IERC20(position.collateral()).transferFrom(msg.sender, address(this), _collateralAmount);
@@ -212,13 +214,13 @@ contract MintingHub {
     /**
      * @notice Post a bid in deur given an open challenge.
      *
-     * @dev In case that the collateral cannot be transfered back to the challenger (i.e. because the collateral token
+     * @dev In case that the collateral cannot be transferred back to the challenger (i.e. because the collateral token
      * has a blacklist and the challenger is on it), it is possible to postpone the return of the collateral.
      *
-     * @param _challengeNumber  index of the challenge as broadcast in the event
-     * @param size              how much of the collateral the caller wants to bid for at most
-     *                          (automatically reduced to the available amount)
-     * @param postponeCollateralReturn To postpone the return of the collateral to the challenger. Usually false.
+     * @param _challengeNumber          index of the challenge as broadcast in the event
+     * @param size                      how much of the collateral the caller wants to bid for at most
+     *                                  (automatically reduced to the available amount)
+     * @param postponeCollateralReturn  To postpone the return of the collateral to the challenger. Usually false.
      */
     function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn) external {
         Challenge memory _challenge = challenges[_challengeNumber];
@@ -275,7 +277,7 @@ contract MintingHub {
     }
 
     function _avertChallenge(Challenge memory _challenge, uint32 number, uint256 liqPrice, uint256 size) internal {
-        require(block.timestamp != _challenge.start); // do not allow to avert the challenge in the same transaction, see CS-deur-037
+        require(block.timestamp != _challenge.start); // do not allow to avert the challenge in the same transaction, see CS-ZCHF-037
         if (msg.sender == _challenge.challenger) {
             // allow challenger to cancel challenge without paying themselves
         } else {
@@ -329,8 +331,8 @@ contract MintingHub {
 
     /**
      * @notice Get the price per unit of the collateral for the given challenge.
-     * @dev The price comes with (36-collateral.decimals()) digits, such that multiplying it with the
-     * raw collateral amount always yields a price with 36 digits, or 18 digits after dividing by 10**18 again.
+     * @dev The price comes with (36 - collateral.decimals()) digits, so multiplying it with the raw collateral amount
+     * always yields a price with 36 digits, or 18 digits after dividing by 10**18 again.
      */
     function price(uint32 challengeNumber) public view returns (uint256) {
         Challenge memory _challenge = challenges[challengeNumber];
@@ -393,7 +395,7 @@ contract MintingHub {
 
     /**
      * Buys up to the desired amount of the collateral asset from the given expired position using
-     * the applicable 'expiredPurchasePrice' in that instant.
+     * the applicable 'expiredPurchasePrice' at that instant.
      */
     function buyExpiredCollateral(IPosition pos, uint256 upToAmount) external returns (uint256) {
         uint256 max = pos.collateral().balanceOf(address(pos));

@@ -51,7 +51,7 @@ contract Position is Ownable, IPosition, MathUtil {
     uint40 public immutable challengePeriod;
 
     /**
-     * @notice Timestamp when minting can start and the position no longer denied.
+     * @notice Timestamp when minting can start and the position is no longer denied.
      */
     uint40 public immutable start;
 
@@ -69,7 +69,7 @@ contract Position is Ownable, IPosition, MathUtil {
     bool private closed;
 
     /**
-     * @notice The original position to help identifying clones.
+     * @notice The original position to help identify clones.
      */
     address public immutable original;
 
@@ -160,6 +160,8 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @dev See MintingHub.openPosition
+     *
+     * @param _riskPremiumPPM       ppm of minted amount that is added to the applicable minting fee as a risk premium
      */
     constructor(
         address _owner,
@@ -272,8 +274,8 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice This is how much the minter can actually use when minting deuro, with the rest being used
-     * assigned to the minter reserve or (if applicable) fees.
+     * @notice This is how much the minter can actually use when minting deuro, with the rest being assigned
+     * to the minter reserve or (if applicable) fees.
      */
     function getUsableMint(uint256 totalMint, bool afterFees) public view returns (uint256) {
         if (afterFees) {
@@ -368,7 +370,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * The applicable interest rate in ppm when minting more dEURO.
-     * It consists on the globally valid interest plus an individual risk premium.
+     * It consists of the globally valid interest plus an individual risk premium.
      */
     function annualInterestPPM() public view returns (uint24) {
         return IHub(hub).rate().currentRatePPM() + riskPremiumPPM;
@@ -435,7 +437,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * it is sent to the owner of the position.
      *
      * Do not allow a forced sale as long as there is an open challenge. Otherwise, a forced sale by the owner
-     * himself could remove any incentive to launch challenges shortly before the expiration. (CS-deuro2-001)
+     * himself could remove any incentive to launch challenges shortly before the expiration. (CS-ZCHF2-001)
      */
     function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external onlyHub expired noChallenge {
         // send collateral to buyer
@@ -453,7 +455,7 @@ contract Position is Ownable, IPosition, MathUtil {
                 // we can only repay a part, nothing left to pay to owner
                 deuro.transferFrom(buyer, address(this), proceeds);
                 if (remainingCollateral == 0) {
-                    // CS-deuro2-002, bad debt should be properly handled. In this case, the proceeds from
+                    // CS-ZCHF2-002, bad debt should be properly handled. In this case, the proceeds from
                     // the forced sale did not suffice to repay the position and there is a loss
                     deuro.coverLoss(address(this), minted - proceeds); // more than we need, but returned again on next line
                     deuro.burnWithoutReserve(minted, reserveContribution);
@@ -556,8 +558,8 @@ contract Position is Ownable, IPosition, MathUtil {
      * Triggers the payout of the challenged part of the collateral.
      * Everything else is assumed to be handled by the hub.
      *
-     * @param _bidder   address of the bidder that receives the collateral
-     * @param _size     amount of the collateral bid for
+     * @param _bidder address of the bidder that receives the collateral
+     * @param _size   amount of the collateral bid for
      * @return (position owner, effective challenge size in deuro, amount to be repaid, reserve ppm)
      */
     function notifyChallengeSucceeded(
@@ -572,8 +574,7 @@ contract Position is Ownable, IPosition, MathUtil {
         uint256 repayment = colBal == 0 ? 0 : (minted * _size) / colBal; // for enormous colBal, this could be rounded to 0, which is ok
         _notifyRepaid(repayment); // we assume the caller takes care of the actual repayment
 
-        // Give time for additional challenges before the owner can mint again. In particular,
-        // the owner might have added collateral only seconds before the challenge ended, preventing a close.
+        // Give time for additional challenges before the owner can mint again.
         _restrictMinting(3 days);
 
         uint256 newBalance = _sendCollateral(_bidder, _size); // transfer collateral to the bidder and emit update

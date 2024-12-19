@@ -1,4 +1,6 @@
 import { ethers } from "hardhat";
+import readline from "readline";
+import { Network } from "hardhat/types";
 
 let defaultSigner: String;
 
@@ -71,4 +73,30 @@ export function getParams(
   // __dirname + "/../parameters/paramsBridges.json";
   const paramFile = __dirname + "/deployment/parameters/" + name + ".json";
   return require(paramFile)[chainId];
+}
+
+export async function confirmAndProceed(
+  deployer: string,
+  network: Network,
+  contractName: string,
+  args?: any[]
+): Promise<void> {
+  console.log(`> Deploying (deployer: ${deployer}) on ${network.name} (${network.config["chainId"]}): \n> Name: ${contractName} \n> Args: ${args?.join(" ")}`);
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  const confirmation = await new Promise<string>((resolve) => {
+    rl.question("Proceed? (default: Y) / n\n", (answer: string) => {
+      resolve(answer.trim().toLowerCase());
+      rl.close();
+    });
+  });
+
+  if (confirmation === "n" || confirmation === "no") {
+    console.log("Deployment aborted.");
+    process.exit(0);
+  }
 }
