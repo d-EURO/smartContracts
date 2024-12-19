@@ -3,13 +3,13 @@
 pragma solidity ^0.8.0;
 
 import {DecentralizedEURO} from "./DecentralizedEURO.sol";
-import {IReserve} from "./interface/IReserve.sol";
-import {ERC3009} from "./impl/ERC3009.sol";
-import {MathUtil} from "./utils/MathUtil.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC3009} from "./impl/ERC3009.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IReserve} from "./interface/IReserve.sol";
+import {MathUtil} from "./utils/MathUtil.sol";
 
 /**
  * @title Equity
@@ -90,7 +90,13 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     mapping(address owner => uint64 timestamp) private voteAnchor; // 44 bits for time stamp, 20 sub-second resolution
 
     event Delegation(address indexed from, address indexed to); // indicates a delegation
-    event Trade(address who, int amount, uint totPrice, uint newprice); // amount pos or neg for mint or redemption
+    event Trade(address who, int256 amount, uint256 totPrice, uint256 newprice); // amount pos or neg for mint or redemption
+
+    error NotQualified();
+    error NotMinter();
+    error InsufficientEquity();
+    error TooManyShares();
+    error TotalSupplyExceeded();
 
     constructor(
         DecentralizedEURO dEURO_
@@ -247,8 +253,6 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         if (_votes * 10_000 < QUORUM * totalVotes()) revert NotQualified();
     }
 
-    error NotQualified();
-
     /**
      * @notice Increases the voting power of the delegate by your number of votes without taking away any voting power
      * from the sender.
@@ -317,19 +321,14 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     function investFor(address investor, uint256 amount, uint256 expectedShares) external returns (uint256) {
-        if (investor != _msgSender()) {
-            uint256 currentAllowance = dEURO.allowance(investor, _msgSender());
-            if (currentAllowance < amount) {
-                revert ERC20InsufficientAllowance(_msgSender(), currentAllowance, amount);
-            }
-        }
+        if (!dEURO.isMinter(_msgSender())) revert NotMinter();
         return _invest(investor, amount, expectedShares);
     }
 
     function _invest(address investor, uint256 amount, uint256 expectedShares) internal returns (uint256) {
         dEURO.transferFrom(investor, address(this), amount);
         uint256 equity = dEURO.equity();
-        require(equity >= MINIMUM_EQUITY, "insufficient equity"); // ensures that the initial deposit is at least 1_000 dEURO
+        if (equity < MINIMUM_EQUITY) revert InsufficientEquity(); // ensures that the initial deposit is at least 1_000 dEURO
 
         uint256 shares = _calculateShares(equity <= amount ? 0 : equity - amount, amount);
         require(shares >= expectedShares);
@@ -337,7 +336,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         emit Trade(investor, int(shares), amount, price());
 
         // limit the total supply to a reasonable amount to guard against overflows with price and vote calculations
-        require(totalSupply() <= type(uint96).max, "total supply exceeded");
+        if(totalSupply() > type(uint96).max) revert TotalSupplyExceeded();
         return shares;
     }
 
@@ -411,7 +410,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      */
     function calculateProceeds(uint256 shares) public view returns (uint256) {
         uint256 totalShares = totalSupply();
-        require(shares + ONE_DEC18 < totalShares, "too many shares"); // make sure there is always at least one share
+        if (shares + ONE_DEC18 >= totalShares) revert TooManyShares(); // make sure there is always at least one share
         uint256 capital = dEURO.equity();
         uint256 reductionAfterFees = (shares * 980) / 1_000; // remove 2% fee
         uint256 newCapital = _mulD18(capital, _power3(_divD18(totalShares - reductionAfterFees, totalShares)));

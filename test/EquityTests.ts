@@ -87,9 +87,7 @@ describe("Equity Tests", () => {
 
   describe("minting shares", () => {
     it("should revert minting less than minimum equity amount", async () => {
-      await expect(equity.invest(floatToDec18(999), 0)).to.be.revertedWith(
-        "insufficient equity",
-      );
+      await expect(equity.invest(floatToDec18(999), 0)).to.be.revertedWithCustomError(equity, "InsufficientEquity");
     });
 
     // TODO: Check this again, compare to the original
@@ -138,23 +136,6 @@ describe("Equity Tests", () => {
       );
     });
 
-    it("should investFor a different user", async () => {
-      await equity.invest(floatToDec18(1000), 0);
-      const expected = await equity.calculateShares(floatToDec18(7000 / 0.98));
-      expect(expected).to.be.approximately(
-        floatToDec18(1000000),
-        floatToDec18(0.01),
-      );
-
-      await dEURO.approve(alice.address, floatToDec18(7000 / 0.98));
-      await equity.connect(alice).investFor(owner.address, floatToDec18(7000 / 0.98), expected);
-      const balance = await equity.balanceOf(owner.address);
-      expect(balance).to.be.approximately(
-        floatToDec18(2000000),
-        floatToDec18(0.01),
-      );
-    });
-
     it("should fail to investFor a different user", async () => {
       await equity.invest(floatToDec18(1000), 0);
       const expected = await equity.calculateShares(floatToDec18(7000 / 0.98));
@@ -164,7 +145,7 @@ describe("Equity Tests", () => {
       );
       await expect(
         equity.connect(alice).investFor(owner.address, floatToDec18(7000 / 0.98), expected)
-      ).to.be.revertedWithCustomError(equity, 'ERC20InsufficientAllowance');
+      ).to.be.revertedWithCustomError(equity, 'NotMinter');
     });
   });
 
@@ -235,7 +216,7 @@ describe("Equity Tests", () => {
 
       await expect(
         equity.calculateProceeds((await equity.totalSupply()) * 2n),
-      ).to.be.revertedWith("too many shares");
+      ).to.be.revertedWithCustomError(equity, 'TooManyShares');
 
       const redemptionAmount =
         (await equity.balanceOf(owner.address)) - floatToDec18(1000000.0);
