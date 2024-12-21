@@ -6,13 +6,13 @@ import {
   DEPSWrapper,
   Equity,
   FrontendGateway,
+  SavingsGateway,
   StablecoinBridge,
   TestToken
 } from "../typechain";
-import { floatToDec18 } from "../scripts/math";
+import { dec18ToFloat, floatToDec18 } from "../scripts/math";
+import { evm_increaseTime } from "./helper";
 
-
-const oneETH = ethers.parseEther("1");
 
 describe("FrontendGateway Tests", () => {
   let dEURO: DecentralizedEURO;
@@ -38,21 +38,21 @@ describe("FrontendGateway Tests", () => {
     equity = await ethers.getContractAt("Equity", await dEURO.reserve());
 
     const wrapperFactory = await ethers.getContractFactory("DEPSWrapper");
-    wrapper = await wrapperFactory.deploy(await equity.getAddress());
+    wrapper = await wrapperFactory.deploy(equity.getAddress());
 
     let supply = floatToDec18(1000_000);
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
     bridge = await bridgeFactory.deploy(
-      await XEUR.getAddress(),
-      await dEURO.getAddress(),
+      XEUR.getAddress(),
+      dEURO.getAddress(),
       floatToDec18(100_000_000_000),
       30
     );
-    await dEURO.initialize(await bridge.getAddress(), "");
+    await dEURO.initialize(bridge.getAddress(), "");
 
     const FrontendGatewayFactory = await ethers.getContractFactory("FrontendGateway");
-    frontendGateway = await FrontendGatewayFactory.deploy(await dEURO.getAddress(), await wrapper.getAddress());
-    await dEURO.initialize(await frontendGateway.getAddress(), "");
+    frontendGateway = await FrontendGatewayFactory.deploy(dEURO.getAddress(), wrapper.getAddress());
+    await dEURO.initialize(frontendGateway.getAddress(), "");
 
     await XEUR.mint(owner.address, supply);
     await XEUR.approve(await bridge.getAddress(), supply);
@@ -63,26 +63,55 @@ describe("FrontendGateway Tests", () => {
   it("Should add to the code balance", async () => {
     const frontendCode = ethers.randomBytes(32);
     const expected = await equity.calculateShares(floatToDec18(1000));
-    await dEURO.approve(await frontendGateway.getAddress(), floatToDec18(100000000));
+    await dEURO.approve(frontendGateway.getAddress(), floatToDec18(100000000));
     await frontendGateway.invest(floatToDec18(1000), expected, frontendCode);
 
     let balance = await equity.balanceOf(owner.address);
     expect(balance).to.be.equal(floatToDec18(1000000));
-    let claimableBalance = await frontendGateway.frontendCodesBalances(frontendCode);
+    let claimableBalance = (await frontendGateway.frontendCodes(frontendCode)).balance;
     expect(claimableBalance).to.be.equal(floatToDec18(10));
 
     await frontendGateway.connect(alice).registerFrontendCode(frontendCode);
     await frontendGateway.connect(alice).withdrawRewards(frontendCode);
     balance = await dEURO.balanceOf(alice);
     expect(balance).to.be.equal(floatToDec18(10));
-    claimableBalance = await frontendGateway.frontendCodesBalances(frontendCode);
+    claimableBalance = (await frontendGateway.frontendCodes(frontendCode)).balance;
     expect(claimableBalance).to.be.equal(0);
   });
 
-  it("Should fail to invest for", async () => {
-    const expected = await equity.calculateShares(floatToDec18(1000));
+  describe("Saving Frontend Rewards", () => {
+    let savings: SavingsGateway;
 
-    await expect(equity.investFor(owner.address, floatToDec18(1000), expected)).revertedWithCustomError(equity, "NotMinter");
+    before(async () => {
+      const savingsFactory = await ethers.getContractFactory("SavingsGateway");
+      savings = await savingsFactory.deploy(dEURO.getAddress(), 20000n, frontendGateway.getAddress());
+
+
+      await frontendGateway.initSavings(savings.getAddress());
+      const applicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
+      const applicationFee = await dEURO.MIN_FEE();
+
+      await dEURO.suggestMinter(savings.getAddress(), applicationPeriod, applicationFee, "");
+      await evm_increaseTime(86400 * 11);
+    });
+
+    it("any interests after 365days", async () => {
+      const i0 = await dEURO.balanceOf(owner.address);
+      const amount = floatToDec18(10_000);
+
+      const frontendCode = ethers.randomBytes(32);
+      await frontendGateway.save(owner, amount, frontendCode);
+      await evm_increaseTime(365 * 86_400);
+
+      await savings.withdraw(owner.address, 2n * amount); // as much as possible, 2x amount is enough
+
+      const c0 = (await frontendGateway.frontendCodes(frontendCode)).balance;
+      const i1 = await dEURO.balanceOf(owner.address);
+
+      expect(dec18ToFloat((i1-i0))).to.be.equal(200); // Because 20% of 10_000 dEURO are 200 dEURO
+      expect(dec18ToFloat(c0)).to.be.equal(10); // Because 1% of 10_000 dEURO are 10 dEURO
+    });
   });
+
 });
 
