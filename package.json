@@ -12,7 +12,7 @@
   "scripts": {
     "lint:sol": "solhint 'contracts/**/*.sol' && prettier -c \"contracts/**/*.sol\"",
     "lint:sol:fix": "prettier --write \"contracts/**/*.sol\"",
-    "lint:ts:fix": "prettier --write \"test/**/FrontendGateway.test.ts\"",
+    "lint:test:fix": "prettier --write \"test/**/**.test.ts\"",
     "compile": "npx hardhat compile",
     "wallet": "npx ts-node helper/wallet.info.ts",
     "coverage": "npx hardhat coverage",
