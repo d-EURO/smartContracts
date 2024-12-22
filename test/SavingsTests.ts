@@ -79,6 +79,15 @@ describe("Savings Tests", () => {
     await deuro.transfer(bob.address, floatToDec18(100_000));
 
     // Kickstart equity
+    const eqBalanceNeededOwner = floatToDec18(1_001_000); // oder mehr
+    await deuro.approve(equityAddr, eqBalanceNeededOwner); // owner
+
+    const eqBalanceNeededAlice = floatToDec18(20_000); // alice invests 10k 
+    await deuro.connect(alice).approve(equityAddr, eqBalanceNeededAlice);
+
+    const eqBalanceNeededBob = floatToDec18(20_000); // bob invests 10k
+    await deuro.connect(bob).approve(equityAddr, eqBalanceNeededBob);
+
     await equity.invest(floatToDec18(1000), 0);
     await equity.connect(alice).invest(floatToDec18(10_000), 0);
     await equity.connect(bob).invest(floatToDec18(10_000), 0);
