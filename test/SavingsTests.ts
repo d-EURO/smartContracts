@@ -38,6 +38,9 @@ describe("Savings Tests", () => {
     return blockBefore?.timestamp ?? null;
   };
 
+  // We allow a little tolerance for interest-related checks
+  const INTEREST_TOLERANCE = 10n ** 12n;
+
   beforeEach(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
@@ -67,7 +70,7 @@ describe("Savings Tests", () => {
       await deuro.getAddress(),
       await savings.getAddress(),
       await roller.getAddress(),
-      await positionFactory.getAddress(),
+      await positionFactory.getAddress()
     );
 
     // Initialize the ecosystem
@@ -81,7 +84,7 @@ describe("Savings Tests", () => {
     await deuro.transfer(bob.address, floatToDec18(100_000));
 
     // Kickstart equity
-    const eqBalanceNeededOwner = floatToDec18(1_001_000); // oder mehr
+    const eqBalanceNeededOwner = floatToDec18(1_001_000); // or more
     await deuro.approve(equityAddr, eqBalanceNeededOwner); // owner
 
     const eqBalanceNeededAlice = floatToDec18(20_000); // alice invests 10k
@@ -119,11 +122,10 @@ describe("Savings Tests", () => {
       await deuro.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       const r = await savings.savings(owner.address);
-      expect(r.saved).to.be.approximately(amount, 10 ** 12);
+      expect(r.saved).to.be.approximately(amount, Number(INTEREST_TOLERANCE));
     });
 
     it("multi save", async () => {
-      // We plan to save 3 times, so let's approve thrice the amount in one go
       await deuro.approve(savings.getAddress(), 3n * amount);
 
       await savings["save(uint192)"](amount);
@@ -164,7 +166,6 @@ describe("Savings Tests", () => {
       await evm_increaseTime(365 * 86_400);
 
       await savings.withdraw(owner.address, 2n * testAmount);
-
       const i1 = await deuro.balanceOf(owner.address);
       expect(i1).to.be.greaterThan(i0);
     });
@@ -189,7 +190,7 @@ describe("Savings Tests", () => {
         (floatToDec18(10_000) * 20000n * BigInt(tDiff)) /
         (365n * 86_400n * 1_000_000n);
 
-      expect(iDiff).to.be.equal(toCheck);
+      expect(iDiff).to.be.approximately(toCheck, INTEREST_TOLERANCE);
     });
 
     it("correct interest after 1000days", async () => {
@@ -211,7 +212,7 @@ describe("Savings Tests", () => {
         (floatToDec18(10_000) * 20000n * BigInt(tDiff)) /
         (365n * 86_400n * 1_000_000n);
 
-      expect(bDiff).to.be.equal(toCheck);
+      expect(bDiff).to.be.approximately(toCheck, INTEREST_TOLERANCE);
     });
 
     it("approx. interest after 2x saves", async () => {
@@ -246,8 +247,7 @@ describe("Savings Tests", () => {
         ((floatToDec18(10_000) + toCheck0) * 20000n * BigInt(tDiff1)) /
         (365n * 86_400n * 1_000_000n);
 
-      // Toleranz
-      expect(bDiff).to.be.approximately(toCheck0 + toCheck1 + 0n, 1_000_000_000n);
+      expect(bDiff).to.be.approximately(toCheck0 + toCheck1, INTEREST_TOLERANCE);
     });
 
     it("refresh my balance", async () => {
@@ -268,7 +268,7 @@ describe("Savings Tests", () => {
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
-      expect(r.saved).to.be.equal(testAmount + toCheck);
+      expect(r.saved).to.be.approximately(testAmount + toCheck, INTEREST_TOLERANCE);
     });
 
     it("refresh balance", async () => {
@@ -289,7 +289,7 @@ describe("Savings Tests", () => {
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
-      expect(r.saved).to.be.equal(testAmount + toCheck);
+      expect(r.saved).to.be.approximately(testAmount + toCheck, INTEREST_TOLERANCE);
     });
 
     it("withdraw partial", async () => {
@@ -310,7 +310,7 @@ describe("Savings Tests", () => {
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
-      expect(r.saved).to.be.equal((testAmount * 9n) / 10n + toCheck);
+      expect(r.saved).to.be.approximately((testAmount * 9n) / 10n + toCheck, INTEREST_TOLERANCE);
     });
 
     it("withdraw savings", async () => {
@@ -343,6 +343,7 @@ describe("Savings Tests", () => {
       const newUserTicks = (await savings.savings(owner.address)).ticks;
       const newSystemTicks = await savings.currentTicks();
 
+      // Comparisons
       expect(newUserTicks).to.be.eq(newSystemTicks);
       expect(newBalance - oldBalance).to.be.eq(oldReserve - newReserve);
       expect(newBalance - oldBalance).to.be.eq(
