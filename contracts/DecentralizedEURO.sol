@@ -35,16 +35,8 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      */
     uint256 private minterReserveE6;
 
-    /**
-     * @notice Map of minters to approval time stamps. If the time stamp is in the past, the minter contract is allowed
-     * to mint DecentralizedEUROs.
-     */
-    mapping(address minter => uint256 validityStart) public minters;
-
-    /**
-     * @notice List of positions that are allowed to mint and the minter that registered them.
-     */
-    mapping(address position => address registeringMinter) public positions;
+    mapping(address => uint256) public minters;
+    mapping(address => address) public positions;
 
     event MinterApplied(address indexed minter, uint256 applicationPeriod, uint256 applicationFee, string message);
     event MinterDenied(address indexed minter, string message);
@@ -131,59 +123,11 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         emit MinterApplied(_minter, _applicationPeriod, _applicationFee, _message);
     }
 
-    /**
-     * @notice Make the system more user friendly by skipping the allowance in many cases.
-     * @dev We trust minters and the positions they have created to mint and burn as they please, so
-     * giving them arbitrary allowances does not pose an additional risk.
-     */
-    function allowance(address owner, address spender) public view override(IERC20, ERC20) returns (uint256) {
-        uint256 explicit = super.allowance(owner, spender);
-        if (explicit > 0) {
-            return explicit; // don't waste gas checking minter
-        } else if (isMinter(spender) || isMinter(getPositionParent(spender)) || spender == address(reserve)) {
-            return 1 << 255;
-        } else {
-            return 0;
-        }
-    }
-
-    /**
-     * @notice The reserve provided by the owners of collateralized positions.
-     * @dev The minter reserve can be used to cover losses after the equity holders have been wiped out.
-     */
-    function minterReserve() public view returns (uint256) {
-        return minterReserveE6 / 1000000;
-    }
-
-    /**
-     * @notice Allows minters to register collateralized debt positions, thereby giving them the ability to mint DecentralizedEUROs.
-     * @dev It is assumed that the responsible minter that registers the position ensures that the position can be trusted.
-     */
     function registerPosition(address _position) external override {
         if (!isMinter(msg.sender)) revert NotMinter();
         positions[_position] = msg.sender;
     }
 
-    /**
-     * @notice The amount of equity of the DecentralizedEURO system in dEURO, owned by the holders of Native Decentralized Euro Protocol Shares.
-     * @dev Note that the equity contract technically holds both the minter reserve as well as the equity, so the minter
-     * reserve must be subtracted. All fees and other kinds of income are added to the Equity contract and essentially
-     * constitute profits attributable to the pool shareholders.
-     */
-    function equity() public view returns (uint256) {
-        uint256 balance = balanceOf(address(reserve));
-        uint256 minReserve = minterReserve();
-        if (balance <= minReserve) {
-            return 0;
-        } else {
-            return balance - minReserve;
-        }
-    }
-
-    /**
-     * @notice Qualified pool shareholders can deny minters during the application period.
-     * @dev Calling this function is relatively cheap thanks to the deletion of a storage slot.
-     */
     function denyMinter(address _minter, address[] calldata _helpers, string calldata _message) external override {
         if (block.timestamp > minters[_minter]) revert TooLate();
         reserve.checkQualified(msg.sender, _helpers);
