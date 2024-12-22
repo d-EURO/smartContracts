@@ -120,7 +120,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
             return 0;
         }
     }
-
+// test
     /**
      * @notice The reserve provided by the owners of collateralized positions.
      * @dev The minter reserve can be used to cover losses after the equity holders have been wiped out.
