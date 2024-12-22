@@ -72,6 +72,8 @@ describe("Savings Tests", () => {
 
     // Initialize the ecosystem
     await deuro.initialize(owner.address, "owner");
+    await deuro.initialize(await mintingHub.getAddress(), "mintingHub");
+    await deuro.initialize(await savings.getAddress(), "savings");
 
     // Mint some initial dEURO to owner, then transfer to Alice and Bob
     await deuro.mint(owner.address, floatToDec18(2_000_000));
