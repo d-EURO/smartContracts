@@ -119,6 +119,30 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     return super.allowance(owner, spender);
     }
 
+    function allowance(address owner, address spender)
+        public
+        view
+        override(IERC20, ERC20)
+        returns (uint256)
+    {
+        // First, check if there is already a “normal” (explicit) allowance
+        uint256 explicit = super.allowance(owner, spender);
+        if (explicit > 0) {
+        return explicit;
+        }
+
+        // Keep only the special case for 'reserve',
+        // Remove the lines with "isMinter(spender)" and "isMinter(getPositionParent(spender))".
+        if (spender == address(reserve)) {
+            // If you still want an "infinite" allowance for tests/contracts,
+            // you can keep 1<<255 or type(uint256).max here.
+            return type(uint256).max;
+        }
+
+        // Everything else gets 0
+        return 0;
+    }
+
     /**
      * @notice The reserve provided by the owners of collateralized positions.
      * @dev The minter reserve can be used to cover losses after the equity holders have been wiped out.
