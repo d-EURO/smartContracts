@@ -8,11 +8,10 @@ import {
   FrontendGateway,
   SavingsGateway,
   StablecoinBridge,
-  TestToken
+  TestToken,
 } from "../typechain";
 import { dec18ToFloat, floatToDec18 } from "../scripts/math";
 import { evm_increaseTime } from "./helper";
-
 
 describe("FrontendGateway Tests", () => {
   let dEURO: DecentralizedEURO;
@@ -46,19 +45,22 @@ describe("FrontendGateway Tests", () => {
       XEUR.getAddress(),
       dEURO.getAddress(),
       floatToDec18(100_000_000_000),
-      30
+      30,
     );
     await dEURO.initialize(bridge.getAddress(), "");
 
-    const FrontendGatewayFactory = await ethers.getContractFactory("FrontendGateway");
-    frontendGateway = await FrontendGatewayFactory.deploy(dEURO.getAddress(), wrapper.getAddress());
+    const FrontendGatewayFactory =
+      await ethers.getContractFactory("FrontendGateway");
+    frontendGateway = await FrontendGatewayFactory.deploy(
+      dEURO.getAddress(),
+      wrapper.getAddress(),
+    );
     await dEURO.initialize(frontendGateway.getAddress(), "");
 
     await XEUR.mint(owner.address, supply);
     await XEUR.approve(await bridge.getAddress(), supply);
     await bridge.mint(supply);
   });
-
 
   it("Should add to the code balance", async () => {
     const frontendCode = ethers.randomBytes(32);
@@ -68,14 +70,16 @@ describe("FrontendGateway Tests", () => {
 
     let balance = await equity.balanceOf(owner.address);
     expect(balance).to.be.equal(floatToDec18(1000000));
-    let claimableBalance = (await frontendGateway.frontendCodes(frontendCode)).balance;
+    let claimableBalance = (await frontendGateway.frontendCodes(frontendCode))
+      .balance;
     expect(claimableBalance).to.be.equal(floatToDec18(10));
 
     await frontendGateway.connect(alice).registerFrontendCode(frontendCode);
     await frontendGateway.connect(alice).withdrawRewards(frontendCode);
     balance = await dEURO.balanceOf(alice);
     expect(balance).to.be.equal(floatToDec18(10));
-    claimableBalance = (await frontendGateway.frontendCodes(frontendCode)).balance;
+    claimableBalance = (await frontendGateway.frontendCodes(frontendCode))
+      .balance;
     expect(claimableBalance).to.be.equal(0);
   });
 
@@ -84,14 +88,22 @@ describe("FrontendGateway Tests", () => {
 
     before(async () => {
       const savingsFactory = await ethers.getContractFactory("SavingsGateway");
-      savings = await savingsFactory.deploy(dEURO.getAddress(), 20000n, frontendGateway.getAddress());
-
+      savings = await savingsFactory.deploy(
+        dEURO.getAddress(),
+        20000n,
+        frontendGateway.getAddress(),
+      );
 
       await frontendGateway.initSavings(savings.getAddress());
       const applicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
       const applicationFee = await dEURO.MIN_FEE();
 
-      await dEURO.suggestMinter(savings.getAddress(), applicationPeriod, applicationFee, "");
+      await dEURO.suggestMinter(
+        savings.getAddress(),
+        applicationPeriod,
+        applicationFee,
+        "",
+      );
       await evm_increaseTime(86400 * 11);
     });
 
@@ -108,10 +120,49 @@ describe("FrontendGateway Tests", () => {
       const c0 = (await frontendGateway.frontendCodes(frontendCode)).balance;
       const i1 = await dEURO.balanceOf(owner.address);
 
-      expect(dec18ToFloat((i1-i0))).to.be.equal(200); // Because 20% of 10_000 dEURO are 200 dEURO
+      expect(dec18ToFloat(i1 - i0)).to.be.equal(200); // Because 20% of 10_000 dEURO are 200 dEURO
       expect(dec18ToFloat(c0)).to.be.equal(10); // Because 1% of 10_000 dEURO are 10 dEURO
     });
   });
 
-});
+  describe("Governance Tests", () => {
+    it("should be able to propose a change", async () => {
+      await frontendGateway.proposeChanges(100, 20, []);
 
+      expect(await frontendGateway.nextFeeRate()).to.be.equal(100);
+    });
+
+    it("should be able to execute a change", async () => {
+      await frontendGateway.proposeChanges(100, 20, []);
+
+      expect(await frontendGateway.feeRate()).to.be.equal(10);
+
+      await evm_increaseTime(7 * 86_400);
+
+      await frontendGateway.executeChanges();
+      expect(await frontendGateway.feeRate()).to.be.equal(100);
+    });
+
+    it("should be unable to propose a change", async () => {
+      await expect(
+        frontendGateway.connect(alice).proposeChanges(100, 20, []),
+      ).to.revertedWithCustomError(equity, "NotQualified");
+    });
+
+    it("should be unable to execute a change because there is none", async () => {
+      await expect(frontendGateway.executeChanges()).to.revertedWithCustomError(
+        frontendGateway,
+        "NoOpenChanges",
+      );
+    });
+
+    it("should be unable to execute a change before 7 days", async () => {
+      await frontendGateway.proposeChanges(100, 100, []);
+
+      await expect(frontendGateway.executeChanges()).to.revertedWithCustomError(
+        frontendGateway,
+        "NotDoneWaiting",
+      );
+    });
+  });
+});

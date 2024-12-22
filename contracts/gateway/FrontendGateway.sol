@@ -22,15 +22,22 @@ contract FrontendGateway is Context, Ownable {
 
     uint8 public feeRate; // Fee rate in PPM (parts per thousand), for example 10 = 1%
     uint8 public savingsFeeRate; // Fee rate of savings in PPM (parts per thousand), for example 10 = 1%
+    uint8 public nextFeeRate;
+    uint8 public nextSavingsFeeRate;
+    uint256 public changeTimeLock;
+
     mapping(bytes32 => FrontendCode) public frontendCodes;
     mapping(address => bytes32) public lastUsedFrontendCode;
 
     event FrontendCodeRegistered(address owner, bytes32 frontendCode);
-    event RateChangesProposed(address who, uint8 nextFeeRate, uint8 nextSavingsFeeRate, uint40 nextChange);
+    event RateChangesProposed(address who, uint8 nextFeeRate, uint8 nextSavingsFeeRate, uint256 nextChange);
+    event RateChangesExecuted(address who, uint8 nextFeeRate, uint8 nextSavingsFeeRate);
 
     error FrontendCodeAlreadyExists();
     error NotFrontendCodeOwner();
     error NotSavingsGateway();
+    error NoOpenChanges();
+    error NotDoneWaiting(uint minmumExecutionTime);
 
     modifier frontendCodeOwnerOnly(bytes32 frontendCode) {
         if (frontendCodes[frontendCode].owner != _msgSender()) revert NotFrontendCodeOwner();
@@ -139,14 +146,25 @@ contract FrontendGateway is Context, Ownable {
     }
 
     /**
-     * @notice Proposes new referral rates that will automatically be applied after seven days.
+     * @notice Proposes new referral rates that will available to be executed after seven days.
      * To cancel a proposal, just overwrite it with a new one proposing the current rate.
      */
     function proposeChanges(uint8 newFeeRatePPM_, uint8 newSavingsFeeRatePPM_, address[] calldata helpers) external {
         EQUITY.checkQualified(_msgSender(), helpers);
-        // ToDo: Implement
+        nextFeeRate = newFeeRatePPM_;
+        nextSavingsFeeRate = newSavingsFeeRatePPM_;
+        changeTimeLock = block.timestamp + 7 days;
         emit RateChangesProposed(_msgSender(), newFeeRatePPM_, newSavingsFeeRatePPM_, 0);
     }
+
+    function executeChanges() external {
+        if (nextFeeRate == feeRate && nextSavingsFeeRate == savingsFeeRate) revert NoOpenChanges();
+        if (block.timestamp < changeTimeLock) revert NotDoneWaiting(changeTimeLock);
+        feeRate = nextFeeRate;
+        savingsFeeRate = nextSavingsFeeRate;
+        emit RateChangesExecuted(_msgSender(), feeRate, savingsFeeRate);
+    }
+
 
     function initSavings(address savings) external onlyOwner {
         SAVINGS = SavingsGateway(savings);
