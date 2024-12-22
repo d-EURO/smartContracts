@@ -88,9 +88,17 @@ describe("Savings Tests", () => {
   const amount = floatToDec18(1000);
 
   describe("Save some zchf", () => {
-    it("no approval needed, minters power", async () => {
+    it("now an approval is required before saving", async () => {
       const amount = floatToDec18(1000);
+    
+      // Zuerst explizit approve!
+      await zchf.approve(await savings.getAddress(), amount);
+    
+      // Erst danach darf 'transferFrom' klappen
       await savings["save(uint192)"](amount);
+    
+      const r = await savings.savings(owner.address);
+      expect(r.saved).to.be.equal(amount);
     });
 
     it("simple save", async () => {
