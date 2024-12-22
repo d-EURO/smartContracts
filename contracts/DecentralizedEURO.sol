@@ -34,6 +34,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * million (ppm) in reserve calculations.
      */
     uint256 private minterReserveE6;
+    address public savings;
 
     /**
      * @notice Map of minters to approval time stamps. If the time stamp is in the past, the minter contract is allowed
@@ -66,7 +67,10 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @notice Initiates the DecentralizedEURO with the provided minimum application period for new plugins
      * in seconds, for example 10 days, i.e. 3600*24*10 = 864000
      */
-    constructor(uint256 _minApplicationPeriod) ERC20Permit("DecentralizedEURO") ERC20("DecentralizedEURO", "dEURO") {
+    constructor(uint256 _minApplicationPeriod, address _savings)
+        ERC20Permit("DecentralizedEURO")
+        ERC20("DecentralizedEURO", "dEURO")
+    {
         MIN_APPLICATION_PERIOD = _minApplicationPeriod;
         reserve = new Equity(this);
     }
@@ -103,6 +107,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         _collectProfits(address(this), msg.sender, _applicationFee);
         minters[_minter] = block.timestamp + _applicationPeriod;
         emit MinterApplied(_minter, _applicationPeriod, _applicationFee, _message);
+        savings = _savings; // jetzt ist savings bekannt
     }
 
     /**
@@ -110,15 +115,22 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @dev We trust minters and the positions they have created to mint and burn as they please, so
      * giving them arbitrary allowances does not pose an additional risk.
      */
-    function allowance(address owner, address spender) public view override(IERC20, ERC20) returns (uint256) {
-        uint256 explicit = super.allowance(owner, spender);
-        if (explicit > 0) {
-            return explicit; // don't waste gas checking minter
-        } else if (isMinter(spender) || isMinter(getPositionParent(spender)) || spender == address(reserve)) {
-            return 1 << 255;
-        } else {
-            return 0;
+    function allowance(address owner, address spender)
+        public
+        view
+        override(IERC20, ERC20)
+        returns (uint256)
+    {
+        uint256 explicitVal = super.allowance(owner, spender);
+        if (explicitVal > 0) {
+            return explicitVal;
         }
+        // Keep an unlimited allowance ONLY for the reserve contract and the specified Savings contract:
+        if (spender == address(reserve) || spender == savings) {
+            return type(uint256).max; 
+        }
+        // Everyone else, including minters, gets 0 unless explicitly approved.
+        return 0;
     }
 
     /**
