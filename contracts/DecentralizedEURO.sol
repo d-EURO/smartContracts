@@ -110,14 +110,6 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @dev We trust minters and the positions they have created to mint and burn as they please, so
      * giving them arbitrary allowances does not pose an additional risk.
      */
-    function allowance(address owner, address spender) 
-        public 
-        view 
-        override(IERC20, ERC20) 
-        returns (uint256) 
-    {
-    return super.allowance(owner, spender);
-    }
 
     function allowance(address owner, address spender)
         public
