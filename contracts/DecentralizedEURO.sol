@@ -20,6 +20,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     /**
      * @notice Minimal fee and application period when suggesting a new minter.
      */
+    address public savings;
     uint256 public constant MIN_FEE = 1000 * (10 ** 18);
     uint256 public immutable MIN_APPLICATION_PERIOD; // For example: 10 days
 
