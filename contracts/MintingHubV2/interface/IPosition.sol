@@ -46,7 +46,7 @@ interface IPosition {
 
     function deny(address[] calldata helpers, string calldata message) external;
 
-    function getUsableMint(uint256 totalMint, bool afterFees) external view returns (uint256);
+    function getUsableMint(uint256 totalMint) external view returns (uint256);
 
     function getMintAmount(uint256 usableMint) external view returns (uint256);
 
@@ -56,11 +56,7 @@ interface IPosition {
 
     function mint(address target, uint256 amount) external;
 
-    function calculateCurrentFee() external view returns (uint24);
-
     function annualInterestPPM() external view returns (uint24);
-
-    function calculateFee(uint256 exp) external view returns (uint24);
 
     function repay(uint256 amount) external returns (uint256);
 

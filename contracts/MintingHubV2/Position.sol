@@ -104,6 +104,21 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     uint24 public immutable reserveContribution;
 
+    /**
+     * @notice The total principal borrowed.
+     */
+    uint256 public principal;      
+    
+    /**
+     * @notice The total interest accrued but not yet paid.
+     */
+    uint256 public accruedInterest;
+
+    /**
+     * @notice The timestamp of the last interest accrual update.
+     */
+    uint40 public lastAccrual;
+
     event MintingUpdate(uint256 collateral, uint256 price, uint256 minted);
     event PositionDenied(address indexed sender, string message); // emitted if closed by governance
 
@@ -275,14 +290,10 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice This is how much the minter can actually use when minting deuro, with the rest being assigned
-     * to the minter reserve or (if applicable) fees.
+     * to the minter reserve.
      */
-    function getUsableMint(uint256 totalMint, bool afterFees) public view returns (uint256) {
-        if (afterFees) {
-            return (totalMint * (1000_000 - reserveContribution - calculateCurrentFee())) / 1000_000;
-        } else {
-            return (totalMint * (1000_000 - reserveContribution)) / 1000_000;
-        }
+    function getUsableMint(uint256 totalMint) public view returns (uint256) {
+        return (totalMint * (1000_000 - reserveContribution)) / 1000_000;
     }
 
     /**
@@ -292,7 +303,7 @@ contract Position is Ownable, IPosition, MathUtil {
         return
             usableMint == 0
                 ? 0
-                : (usableMint * 1000_000 - 1) / (1000_000 - reserveContribution - calculateCurrentFee()) + 1;
+                : (usableMint * 1000_000 - 1) / (1000_000 - reserveContribution) + 1;
     }
 
     /**
@@ -300,14 +311,14 @@ contract Position is Ownable, IPosition, MathUtil {
      * and the price in one transaction.
      */
     function adjust(uint256 newMinted, uint256 newCollateral, uint256 newPrice) external onlyOwner {
+        _accrueInterest();
         uint256 colbal = _collateralBalance();
         if (newCollateral > colbal) {
             collateral.transferFrom(msg.sender, address(this), newCollateral - colbal);
         }
         // Must be called after collateral deposit, but before withdrawal
         if (newMinted < minted) {
-            deuro.burnFromWithReserve(msg.sender, minted - newMinted, reserveContribution);
-            _notifyRepaid(minted - newMinted);
+            _payDownDebt(msg.sender, minted - newMinted);
         }
         if (newCollateral < colbal) {
             _withdrawCollateral(msg.sender, colbal - newCollateral);
@@ -361,14 +372,6 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * The applicable upfront fee in ppm when minting more dEURO based on the annual interest rate and
-     * the expiration of the position.
-     */
-    function calculateCurrentFee() public view returns (uint24) {
-        return calculateFee(expiration);
-    }
-
-    /**
      * The applicable interest rate in ppm when minting more dEURO.
      * It consists of the globally valid interest plus an individual risk premium.
      */
@@ -377,21 +380,32 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * The fee in ppm when cloning and minting with the given expiration date.
+     * @notice Accrues interest on the principal amount since the last accrual time.
+     * 
+     * This function calculates the interest based on the time elapsed since the last accrual,
+     * the principal amount, and the annual interest rate. The calculated interest is then added
+     * to the accrued interest and the total minted amount is updated.
      */
-    function calculateFee(uint256 exp) public view returns (uint24) {
-        uint256 time = block.timestamp < start ? start : block.timestamp;
-        uint256 timePassed = exp - time;
-        // Time resolution is in the range of minutes for typical interest rates.
-        uint256 feePPM = (timePassed * annualInterestPPM()) / 365 days;
-        return uint24(feePPM > 1000000 ? 1000000 : feePPM); // fee cannot exceed 100%
+    function _accrueInterest() internal {
+        uint40 nowTime = uint40(block.timestamp);
+        if (nowTime > lastAccrual && principal > 0) {
+            uint256 delta = nowTime - lastAccrual;
+            // interest = principal * annualRate * (delta / year)
+            uint256 interest = (principal * annualInterestPPM() * delta) / (365 days * 1_000_000);
+            accruedInterest += interest;
+            minted = principal + accruedInterest;
+        }
+        lastAccrual = nowTime;
     }
 
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
+        _accrueInterest();
         if (amount > availableForMinting()) revert LimitExceeded(amount, availableForMinting());
         Position(original).notifyMint(amount);
-        deuro.mintWithReserve(target, amount, reserveContribution, calculateCurrentFee());
-        minted += amount;
+        deuro.mintWithReserve(target, amount, reserveContribution, 0);
+        
+        principal += amount;
+        minted = principal + accruedInterest;
         _checkCollateral(collateral_, price);
     }
 
@@ -403,72 +417,95 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice Repay some deuro. If too much is repaid, the call fails.
-     * It is possible to repay while there are challenges, but the collateral is locked until all is clear again.
-     *
-     * The repaid amount should fulfill the following equation in order to close the position,
-     * i.e. bring the minted amount to 0:
-     * minted = amount + deuro.calculateAssignedReserve(amount, reservePPM)
-     *
-     * Under normal circumstances, this implies:
-     * amount = minted * (1000000 - reservePPM)
-     *
-     * E.g. if minted is 50 and reservePPM is 200000, it is necessary to repay 40 to be able to close the position.
-     */
+    * @notice Repays a specified amount of debt from `msg.sender`, prioritizing accrued interest first and then principal.
+    * @dev This method integrates the logic of paying accrued interest before principal, as introduced in the continuous
+    *      interest accrual model. Any interest repaid is collected as profit, and principal repayment uses `burnWithReserve`.
+    * 
+    *      Unlike previous implementations, this function delegates the actual repayment steps to `_payDownDebt`, ensuring
+    *      a clean separation of logic. As a result:
+    *      - Any surplus `amount` beyond what is needed to pay all outstanding interest and principal is never withdrawn 
+    *        from `msg.sender`’s account (no leftover handling required).
+    *      - The function can be called while there are challenges, though in that scenario, collateral withdrawals remain 
+    *        blocked until all challenges are resolved.
+    * 
+    *      To fully close the position (bring `minted` to 0), the amount required generally follows the formula:
+    *      `minted = principal + accruedInterest + deuro.calculateAssignedReserve(principal + accruedInterest, reservePPM)`.
+    *      Under normal conditions, this simplifies to:
+    *      `amount = (principal + accruedInterest) * (1000000 - reservePPM) / 1000000`.
+    * 
+    *      For example, if `principal` is 40, `accruedInterest` is 10, and `reservePPM` is 200000, repaying 40 dEURO 
+    *      is required to fully close the position.
+    * 
+    * @param amount The maximum amount of dEURO that `msg.sender` is willing to repay.
+    * @return used  The actual amount of dEURO used for interest and principal repayment.
+    * 
+    * Emits a {MintingUpdate} event.
+    */
     function repay(uint256 amount) public returns (uint256) {
-        IERC20(deuro).transferFrom(msg.sender, address(this), amount);
-        uint256 actuallyRepaid = IDecentralizedEURO(deuro).burnWithReserve(amount, reserveContribution);
-        _notifyRepaid(actuallyRepaid);
+        uint256 used = _payDownDebt(msg.sender, amount);
         emit MintingUpdate(_collateralBalance(), price, minted);
-        return actuallyRepaid;
-    }
-
-    function _notifyRepaid(uint256 amount) internal {
-        if (amount > minted) revert RepaidTooMuch(amount - minted);
-        Position(original).notifyRepaid(amount);
-        minted -= amount;
+        return used;
     }
 
     /**
-     * Force the sale of some collateral after the position is expired.
-     *
-     * Can only be called by the minting hub and the minting hub is trusted to calculate the price correctly.
-     * The proceeds from the sale are first used to repay the outstanding balance and then (if anything is left)
-     * it is sent to the owner of the position.
+     * @notice Notifies the original position that a portion of the debt (principal) has been repaid.
+     */
+    function _notifyRepaid(uint256 amount) internal {
+        if (amount > principal) revert RepaidTooMuch(amount - principal);
+        Position(original).notifyRepaid(amount);
+    }
+
+    /**
+     * @notice Forcefully sells some of the collateral after the position has expired, using the given buyer as the source of proceeds.
+     * @dev
+     * - Can only be called by the minting hub once the position is expired.
+     * - Requires that there are no open challenges, ensuring that a forced sale is not used to circumvent the challenge process.
+     * - The proceeds from the sale are first used to repay any accrued interest (treated as profit, collected via `collectProfits`),
+     *   and then the principal (via `burnWithReserve`). This ensures correct accounting, where interest is always realized as profit before principal is returned.
+     * - If all debt is fully repaid and there are surplus proceeds, these are transferred to the position owner.
+     * - If there is a shortfall (not enough proceeds to fully repay the debt) and no remaining collateral, the system covers the loss.
      *
      * Do not allow a forced sale as long as there is an open challenge. Otherwise, a forced sale by the owner
      * himself could remove any incentive to launch challenges shortly before the expiration. (CS-ZCHF2-001)
+     *
+     * In the old model, `forceSale` would rely on `calculateAssignedReserve` and treat `minted` as a lump sum including principal, reserve, and fees.
+     * Now, with principal and interest separated, `forceSale` no longer needs manual calculation of reserves. Instead, it uses `burnWithReserve` 
+     * to handle the principal and reserve portions automatically.
+     *
+     * @param buyer       The address buying the collateral. This address provides `proceeds` in dEURO to repay the outstanding debt.
+     * @param collAmount  The amount of collateral to be forcibly sold and transferred to the `buyer`.
+     * @param proceeds    The amount of dEURO proceeds provided by the `buyer` to repay interest and principal.
+     *
+     * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and minted amount after the forced sale.
      */
     function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external onlyHub expired noChallenge {
-        // send collateral to buyer
+        _accrueInterest(); // ensure latest state
+
         uint256 remainingCollateral = _sendCollateral(buyer, collAmount);
-        if (minted > 0) {
-            uint256 availableReserve = deuro.calculateAssignedReserve(minted, reserveContribution);
-            if (proceeds + availableReserve >= minted) {
-                // repay everything from the buyer's account
-                uint256 returnedReserve = deuro.burnFromWithReserve(buyer, minted, reserveContribution);
-                assert(returnedReserve == availableReserve);
-                // transfer the remaining purchase price from the buyer to the owner
-                deuro.transferFrom(buyer, owner(), proceeds + returnedReserve - minted);
-                _notifyRepaid(minted);
-            } else {
-                // we can only repay a part, nothing left to pay to owner
-                deuro.transferFrom(buyer, address(this), proceeds);
-                if (remainingCollateral == 0) {
-                    // CS-ZCHF2-002, bad debt should be properly handled. In this case, the proceeds from
-                    // the forced sale did not suffice to repay the position and there is a loss
-                    deuro.coverLoss(address(this), minted - proceeds); // more than we need, but returned again on next line
-                    deuro.burnWithoutReserve(minted, reserveContribution);
-                    _notifyRepaid(minted);
-                } else {
-                    uint256 repaid = deuro.burnWithReserve(proceeds, reserveContribution);
-                    _notifyRepaid(repaid);
-                }
+
+        if (minted == 0) {
+            // No debt, everything goes to owner if proceeds > 0
+            if (proceeds > 0) {
+                deuro.transferFrom(buyer, owner(), proceeds);
             }
-        } else {
-            // wire funds directly to owner
-            deuro.transferFrom(buyer, owner(), proceeds);
+            emit MintingUpdate(_collateralBalance(), price, minted);
+            return;
         }
+
+        // Pay interest and principal from `buyer` up to `proceeds`.
+        uint256 used = _payDownDebt(buyer, proceeds);
+        uint256 leftover = proceeds > used ? (proceeds - used) : 0;
+
+        if (minted == 0 && leftover > 0) {
+            // All debt paid, leftover is profit for owner
+            deuro.transferFrom(buyer, owner(), leftover);
+        } else if (minted > 0 && remainingCollateral == 0) {
+            // Shortfall scenario, cover the loss if needed
+            uint256 deficit = minted - used;
+            deuro.coverLoss(buyer, deficit);
+            _payDownDebt(buyer, deficit);
+        }
+
         emit MintingUpdate(_collateralBalance(), price, minted);
     }
 
@@ -526,6 +563,40 @@ contract Position is Ownable, IPosition, MathUtil {
             revert InsufficientCollateral(relevantCollateral * atPrice, minted * ONE_DEC18);
     }
 
+    function _payDownDebt(address payer, uint256 amount) internal returns (uint256 repaidAmount) {
+        _accrueInterest(); // ensure principal, accruedInterest, minted are up-to-date
+
+        repaidAmount = 0;
+
+        // 1. Pay accrued interest first
+        if (accruedInterest > 0) {
+            uint256 interestToPay = (accruedInterest > amount) ? amount : accruedInterest;
+            if (interestToPay > 0) {
+                IERC20(deuro).transferFrom(payer, address(this), interestToPay);
+                deuro.collectProfits(address(this), interestToPay);
+                accruedInterest -= interestToPay;
+                amount -= interestToPay;
+                repaidAmount += interestToPay;
+            }
+        }
+
+        // 2. Pay principal next
+        if (amount > 0 && principal > 0) {
+            uint256 principalToPay = (principal > amount) ? amount : principal;
+            if (principalToPay > 0) {
+                IERC20(deuro).transferFrom(payer, address(this), principalToPay);
+                uint256 repaid = deuro.burnWithReserve(principalToPay, reserveContribution);
+                principal -= repaid;
+                amount -= principalToPay;
+                repaidAmount += principalToPay;
+                _notifyRepaid(repaid);
+            }
+        }
+        
+        // Update minted after all repayments
+        minted = principal + accruedInterest;
+    }
+
     /**
      * @notice Returns the liquidation price and the durations for phase1 and phase2 of the challenge.
      * Both phases are usually of equal duration, but near expiration, phase one is adjusted such that
@@ -566,20 +637,28 @@ contract Position is Ownable, IPosition, MathUtil {
         address _bidder,
         uint256 _size
     ) external onlyHub returns (address, uint256, uint256, uint32) {
+        _accrueInterest();
+
         challengedAmount -= _size;
         uint256 colBal = _collateralBalance();
         if (colBal < _size) {
             _size = colBal;
         }
-        uint256 repayment = colBal == 0 ? 0 : (minted * _size) / colBal; // for enormous colBal, this could be rounded to 0, which is ok
-        _notifyRepaid(repayment); // we assume the caller takes care of the actual repayment
+
+        // Determine how much must be repaid based on challenged collateral
+        uint256 repayment = (colBal == 0) ? 0 : (minted * _size) / colBal;
+
+        // First account for paid down accrued interest, then principal
+        repayment -= (accruedInterest > repayment) ? repayment : accruedInterest;
+        repayment = (principal > repayment) ? repayment : principal;
+        _notifyRepaid(repayment);
+
+        // Transfer the challenged collateral to the bidder
+        uint256 newBalance = _sendCollateral(_bidder, _size);
+        emit MintingUpdate(newBalance, price, minted);
 
         // Give time for additional challenges before the owner can mint again.
         _restrictMinting(3 days);
-
-        uint256 newBalance = _sendCollateral(_bidder, _size); // transfer collateral to the bidder and emit update
-
-        emit MintingUpdate(newBalance, price, minted);
 
         return (owner(), _size, repayment, reserveContribution);
     }
