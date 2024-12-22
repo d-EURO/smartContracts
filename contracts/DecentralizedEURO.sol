@@ -66,9 +66,35 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @notice Initiates the DecentralizedEURO with the provided minimum application period for new plugins
      * in seconds, for example 10 days, i.e. 3600*24*10 = 864000
      */
-    constructor(uint256 _minApplicationPeriod) ERC20Permit("DecentralizedEURO") ERC20("DecentralizedEURO", "dEURO") {
+    constructor(uint256 _minApplicationPeriod, address _savings)
+        ERC20Permit("DecentralizedEURO")
+        ERC20("DecentralizedEURO", "dEURO")
+    {
         MIN_APPLICATION_PERIOD = _minApplicationPeriod;
         reserve = new Equity(this);
+        savings = _savings;
+    }
+
+    /**
+     * @notice Returns allowance exactly like a standard ERC20, except that
+     *         the `reserve` and the given `savings` contract have infinite allowance.
+     */
+    function allowance(address owner, address spender)
+        public
+        view
+        override(IERC20, ERC20)
+        returns (uint256)
+    {
+        uint256 explicitVal = super.allowance(owner, spender);
+        if (explicitVal > 0) {
+            return explicitVal;
+        }
+        // Keep an unlimited allowance ONLY for the reserve contract and the specified Savings contract:
+        if (spender == address(reserve) || spender == savings) {
+            return type(uint256).max; 
+        }
+        // Everyone else, including minters, gets 0 unless explicitly approved.
+        return 0;
     }
 
     function initialize(address _minter, string calldata _message) external {
@@ -346,10 +372,44 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         return positions[_position];
     }
 
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
+    function minterReserve() public view returns (uint256) {
+        return minterReserveE6 / 1000000;
+    }
+
+    function equity() public view returns (uint256) {
+        uint256 balanceReserve = balanceOf(address(reserve));
+        uint256 minReserve = minterReserve();
+        if (balanceReserve <= minReserve) {
+            return 0;
+        } else {
+            return balanceReserve - minReserve;
+        }
+    }
+
+    function calculateAssignedReserve(uint256 mintedAmount, uint32 _reservePPM) public view returns (uint256) {
+        uint256 theoreticalReserve = (_reservePPM * mintedAmount) / 1000000;
+        uint256 currentReserve = balanceOf(address(reserve));
+        uint256 minterReserve_ = minterReserve();
+        if (currentReserve < minterReserve_) {
+            return (theoreticalReserve * currentReserve) / minterReserve_;
+        } else {
+            return theoreticalReserve;
+        }
+    }
+
+    function calculateFreedAmount(
+        uint256 amountExcludingReserve,
+        uint32 reservePPM
+    ) public view returns (uint256) {
+        uint256 currentReserve = balanceOf(address(reserve));
+        uint256 minterReserve_ = minterReserve();
+        uint256 adjustedReservePPM = currentReserve < minterReserve_
+            ? (reservePPM * currentReserve) / minterReserve_
+            : reservePPM;
+        return (1000000 * amountExcludingReserve) / (1000000 - adjustedReservePPM);
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(ERC20Permit).interfaceId ||
