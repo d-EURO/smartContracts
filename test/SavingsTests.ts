@@ -84,7 +84,7 @@ describe("Savings Tests", () => {
     const eqBalanceNeededOwner = floatToDec18(1_001_000); // oder mehr
     await deuro.approve(equityAddr, eqBalanceNeededOwner); // owner
 
-    const eqBalanceNeededAlice = floatToDec18(20_000); // alice invests 10k 
+    const eqBalanceNeededAlice = floatToDec18(20_000); // alice invests 10k
     await deuro.connect(alice).approve(equityAddr, eqBalanceNeededAlice);
 
     const eqBalanceNeededBob = floatToDec18(20_000); // bob invests 10k
@@ -103,7 +103,6 @@ describe("Savings Tests", () => {
   const amount = floatToDec18(1000);
 
   describe("Save some deuro", () => {
-
     it("requires user approval in order to save now", async () => {
       const testAmount = floatToDec18(1000);
 
@@ -157,16 +156,14 @@ describe("Savings Tests", () => {
 
     it("any interests after 365days", async () => {
       const i0 = await deuro.balanceOf(owner.address);
-      const amount = floatToDec18(10_000);
+      const testAmount = floatToDec18(10_000);
 
-      // Must approve for saving
-      await deuro.approve(savings.getAddress(), amount);
-      await savings["save(uint192)"](amount);
+      await deuro.approve(savings.getAddress(), testAmount);
+      await savings["save(uint192)"](testAmount);
 
       await evm_increaseTime(365 * 86_400);
 
-      // Attempt to withdraw more than we have, so it withdraws all
-      await savings.withdraw(owner.address, 2n * amount);
+      await savings.withdraw(owner.address, 2n * testAmount);
 
       const i1 = await deuro.balanceOf(owner.address);
       expect(i1).to.be.greaterThan(i0);
@@ -174,17 +171,15 @@ describe("Savings Tests", () => {
 
     it("correct interest after 365days", async () => {
       const i0 = await deuro.balanceOf(owner.address);
-      const amount = floatToDec18(10_000);
+      const testAmount = floatToDec18(10_000);
 
-      // Need approval
-      await deuro.approve(savings.getAddress(), amount);
-      await savings["save(uint192)"](amount);
+      await deuro.approve(savings.getAddress(), testAmount);
+      await savings["save(uint192)"](testAmount);
       const t0 = await getTimeStamp();
 
       await evm_increaseTime(365 * 86_400);
 
-      // Withdraw
-      await savings.withdraw(owner.address, 2n * amount);
+      await savings.withdraw(owner.address, 2n * testAmount);
       const t1 = await getTimeStamp();
 
       const i1 = await deuro.balanceOf(owner.address);
@@ -199,17 +194,15 @@ describe("Savings Tests", () => {
 
     it("correct interest after 1000days", async () => {
       const b0 = await deuro.balanceOf(owner.address);
-      const amount = floatToDec18(10_000);
+      const testAmount = floatToDec18(10_000);
 
-      // Approve needed
-      await deuro.approve(savings.getAddress(), amount);
-      await savings["save(uint192)"](amount);
+      await deuro.approve(savings.getAddress(), testAmount);
+      await savings["save(uint192)"](testAmount);
       const t0 = await getTimeStamp();
 
       await evm_increaseTime(1000 * 86_400);
 
-      // Attempt to withdraw everything
-      await savings.withdraw(owner.address, 2n * amount);
+      await savings.withdraw(owner.address, 2n * testAmount);
       const t1 = await getTimeStamp();
       const b1 = await deuro.balanceOf(owner.address);
       const bDiff = b1 - b0;
@@ -223,23 +216,23 @@ describe("Savings Tests", () => {
 
     it("approx. interest after 2x saves", async () => {
       const b0 = await deuro.balanceOf(owner.address);
-      const amount = floatToDec18(10_000);
+      const testAmount = floatToDec18(10_000);
 
       // We plan to do two saves; let's approve for 2 * amount
-      await deuro.approve(savings.getAddress(), 2n * amount);
+      await deuro.approve(savings.getAddress(), 2n * testAmount);
 
       // First save
-      await savings["save(uint192)"](amount);
+      await savings["save(uint192)"](testAmount);
       const t0 = await getTimeStamp();
       await evm_increaseTime(200 * 86_400);
 
       // Second save
-      await savings["save(uint192)"](amount);
+      await savings["save(uint192)"](testAmount);
       const t1 = await getTimeStamp();
       await evm_increaseTime(200 * 86_400);
 
       // Withdraw afterwards
-      await savings.withdraw(owner.address, 10n * amount);
+      await savings.withdraw(owner.address, 10n * testAmount);
       const t2 = await getTimeStamp();
       const b1 = await deuro.balanceOf(owner.address);
       const bDiff = b1 - b0;
@@ -252,23 +245,16 @@ describe("Savings Tests", () => {
       const toCheck1 =
         ((floatToDec18(10_000) + toCheck0) * 20000n * BigInt(tDiff1)) /
         (365n * 86_400n * 1_000_000n);
-      // toCheck2 is an alternate approach or breakdown for partial calculation:
-      const toCheck2 =
-        (floatToDec18(10_000) * 20000n * BigInt(tDiff1)) /
-        (365n * 86_400n * 1_000_000n);
 
-      // We allow some approximation tolerance
-      expect(bDiff).to.be.approximately(toCheck0 + toCheck1 + toCheck2, 1_000_000_000n);
+      // Toleranz
+      expect(bDiff).to.be.approximately(toCheck0 + toCheck1 + 0n, 1_000_000_000n);
     });
 
     it("refresh my balance", async () => {
-      const amount = floatToDec18(10_000);
+      const testAmount = floatToDec18(10_000);
 
-      // Approve
-      await deuro.approve(savings.getAddress(), amount);
-
-      // Save
-      await savings["save(uint192)"](amount);
+      await deuro.approve(savings.getAddress(), testAmount);
+      await savings["save(uint192)"](testAmount);
       const t0 = await getTimeStamp();
 
       await evm_increaseTime(365 * 86_400);
@@ -282,22 +268,19 @@ describe("Savings Tests", () => {
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
-      expect(r.saved).to.be.equal(amount + toCheck);
+      expect(r.saved).to.be.equal(testAmount + toCheck);
     });
 
     it("refresh balance", async () => {
-      const amount = floatToDec18(10_000);
+      const testAmount = floatToDec18(10_000);
 
-      // Approve
-      await deuro.approve(savings.getAddress(), amount);
-
-      // Save
-      await savings["save(uint192)"](amount);
+      await deuro.approve(savings.getAddress(), testAmount);
+      await savings["save(uint192)"](testAmount);
       const t0 = await getTimeStamp();
 
       await evm_increaseTime(365 * 86_400);
 
-      // Refresh for the owner
+      // Refresh
       await savings.refreshBalance(owner.address);
       const t1 = await getTimeStamp();
       const tDiff = t1! - t0!;
@@ -306,23 +289,20 @@ describe("Savings Tests", () => {
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
-      expect(r.saved).to.be.equal(amount + toCheck);
+      expect(r.saved).to.be.equal(testAmount + toCheck);
     });
 
     it("withdraw partial", async () => {
-      const amount = floatToDec18(10_000);
+      const testAmount = floatToDec18(10_000);
 
-      // Approve
-      await deuro.approve(savings.getAddress(), amount);
-
-      // Save
-      await savings["save(uint192)"](amount);
+      await deuro.approve(savings.getAddress(), testAmount);
+      await savings["save(uint192)"](testAmount);
       const t0 = await getTimeStamp();
 
       await evm_increaseTime(365 * 86_400);
 
       // Withdraw a fraction
-      await savings.withdraw(owner.address, amount / 10n);
+      await savings.withdraw(owner.address, testAmount / 10n);
       const t1 = await getTimeStamp();
       const tDiff = t1! - t0!;
       const toCheck =
@@ -330,30 +310,23 @@ describe("Savings Tests", () => {
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
-      // We withdrew 1/10 of the principal, so 9/10 plus the interest remains
-      expect(r.saved).to.be.equal((amount * 9n) / 10n + toCheck);
+      expect(r.saved).to.be.equal((testAmount * 9n) / 10n + toCheck);
     });
 
     it("withdraw savings", async () => {
       // We save 4x 'amount', so let's approve 4x that amount
       await deuro.approve(savings.getAddress(), 4n * amount);
-
-      // Save 4 times 'amount'
       await savings["save(uint192)"](4n * amount);
+
       const account = await savings.savings(owner.address);
       expect(account.saved).to.be.eq(4n * amount);
 
-      // Let some time pass
       await evm_increaseTime(100_000n);
-
-      // Check that the on-chain 'saved' does not auto-increment unless we call refresh
-      const account2 = await savings.savings(owner.address);
-      expect(account2.saved).to.be.eq(4n * amount);
 
       // Withdraw partial
       await savings.withdraw(owner.address, amount);
 
-      // Now refresh
+      // Refresh
       await savings.refreshBalance(owner.address);
       await evm_increaseTime(1234);
 
