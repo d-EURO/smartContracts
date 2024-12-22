@@ -110,15 +110,25 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @dev We trust minters and the positions they have created to mint and burn as they please, so
      * giving them arbitrary allowances does not pose an additional risk.
      */
-    function allowance(address owner, address spender) public view override(IERC20, ERC20) returns (uint256) {
-        uint256 explicit = super.allowance(owner, spender);
-        if (explicit > 0) {
-            return explicit; // don't waste gas checking minter
-        } else if (isMinter(spender) || isMinter(getPositionParent(spender)) || spender == address(reserve)) {
-            return 1 << 255;
-        } else {
-            return 0;
+    
+    function allowance(address owner, address spender)
+        public
+        view
+        override(IERC20, ERC20)
+        returns (uint256)
+    {
+        uint256 explicitAllowance = super.allowance(owner, spender);
+        if (explicitAllowance > 0) {
+        return explicitAllowance;
         }
+
+        // Now we keep only the special allowance for the reserve contract
+        if (spender == address(reserve)) {
+            return type(uint256).max; // or 1 << 255, depending on preference
+        }
+
+        // Everyone else (including minters) gets 0 unless explicitly approved
+        return 0;
     }
 
     /**
