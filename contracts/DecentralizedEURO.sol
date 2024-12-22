@@ -110,24 +110,26 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @dev We trust minters and the positions they have created to mint and burn as they please, so
      * giving them arbitrary allowances does not pose an additional risk.
      */
-    
+        
     function allowance(address owner, address spender)
         public
         view
         override(IERC20, ERC20)
         returns (uint256)
     {
+        // 1) Check whether a normal (explicit) ERC20 allowance exists
         uint256 explicitAllowance = super.allowance(owner, spender);
         if (explicitAllowance > 0) {
-        return explicitAllowance;
+            return explicitAllowance;
         }
 
-        // Now we keep only the special allowance for the reserve contract
+        // 2) Keep a special case only for the reserve contract
+        //    so it can still call transferFrom(...) without needing an explicit approve
         if (spender == address(reserve)) {
-            return type(uint256).max; // or 1 << 255, depending on preference
+            return type(uint256).max; // or 1 << 255, whichever you prefer
         }
 
-        // Everyone else (including minters) gets 0 unless explicitly approved
+        // 3) Everyone else (including any minter or positions) has zero unless explicitly approved
         return 0;
     }
 
