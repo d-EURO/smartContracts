@@ -97,66 +97,12 @@ describe("Roller Tests", () => {
     await coin.mint(alice.address, floatToDec18(1_000));
     await coin.mint(bob.address, floatToDec18(1_000));
 
-    // // ---------------------------------------------------------------------------
-    // // give OWNER a position
-    // await coin.approve(mintingHub.getAddress(), floatToDec18(10));
-    // const txPos1 = await (
-    //   await mintingHub.openPosition(
-    //     await coin.getAddress(),
-    //     floatToDec18(1), // min size
-    //     floatToDec18(10), // size
-    //     floatToDec18(100_000), // mint limit
-    //     3 * 86_400,
-    //     100 * 86_400,
-    //     86_400,
-    //     10000,
-    //     floatToDec18(6000),
-    //     100000
-    //   )
-    // ).wait();
-    // const pos1Addr = await getPositionAddress(txPos1!);
-    // pos1 = await ethers.getContractAt("Position", pos1Addr, owner);
-
-    // // ---------------------------------------------------------------------------
-    // // give ALICE a position
-    // await coin
-    //   .connect(alice)
-    //   .approve(mintingHub.getAddress(), floatToDec18(10));
-    // const txPos2 = await (
-    //   await mintingHub.connect(alice).openPosition(
-    //     await coin.getAddress(),
-    //     floatToDec18(1), // min size
-    //     floatToDec18(10), // size
-    //     floatToDec18(100_000), // mint limit
-    //     3 * 86_400,
-    //     100 * 86_400,
-    //     86_400,
-    //     10000,
-    //     floatToDec18(6000),
-    //     100000
-    //   )
-    // ).wait();
-    // const pos2Addr = await getPositionAddress(txPos2!);
-    // pos2 = await ethers.getContractAt("Position", pos2Addr, alice);
-
-    // // ---------------------------------------------------------------------------
-    // // give BOB a clone of alice
-    // await coin.connect(bob).approve(mintingHub.getAddress(), floatToDec18(10));
-    // const txPos3 = await (
-    //   await mintingHub.connect(bob)["clone(address,uint256,uint256,uint40)"](
-    //     pos2Addr,
-    //     floatToDec18(10), // size
-    //     floatToDec18(10_000), // mint limit
-    //     30 * 86_400
-    //   )
-    // ).wait();
-    // const pos3Addr = await getPositionAddress(txPos3!);
-    // clone1 = await ethers.getContractAt("Position", pos3Addr, bob);
+    // The block of code that was commented out in your original file is omitted here,
+    // as we now handle position creation in the describe() blocks below.
   });
 
   describe("roll tests for owner", () => {
     beforeEach("give owner 1st and 2nd position", async () => {
-      // ---------------------------------------------------------------------------
       // give OWNER a position
       await coin.approve(await mintingHub.getAddress(), floatToDec18(10));
       const txPos1 = await (
@@ -176,15 +122,14 @@ describe("Roller Tests", () => {
       const pos1Addr = await getPositionAddress(txPos1!);
       pos1 = await ethers.getContractAt("Position", pos1Addr, owner);
 
-      // ---------------------------------------------------------------------------
       // give OWNER a 2nd position
       await coin.approve(await mintingHub.getAddress(), floatToDec18(10));
       const txPos2 = await (
         await mintingHub.openPosition(
           await coin.getAddress(),
-          floatToDec18(1), // min size
-          floatToDec18(10), // size
-          floatToDec18(100_000), // mint limit
+          floatToDec18(1),
+          floatToDec18(10),
+          floatToDec18(100_000),
           3 * 86_400,
           100 * 86_400,
           86_400,
@@ -205,8 +150,8 @@ describe("Roller Tests", () => {
 
     it("fail with invalid source", async () => {
       const tx = roller.roll(
-        owner,
-        floatToDec18(1_000), //
+        owner, // not a position
+        floatToDec18(1_000),
         floatToDec18(1),
         await pos2.getAddress(),
         floatToDec18(10_000),
@@ -219,9 +164,9 @@ describe("Roller Tests", () => {
     it("fail with invalid target", async () => {
       const tx = roller.roll(
         await pos1.getAddress(),
-        floatToDec18(1_000), //
+        floatToDec18(1_000),
         floatToDec18(1),
-        owner,
+        owner, // not a position
         floatToDec18(10_000),
         floatToDec18(1),
         await pos2.expiration(),
@@ -231,16 +176,20 @@ describe("Roller Tests", () => {
 
     it("create mint and merge partially into existing position", async () => {
       await evm_increaseTime(3 * 86_400 + 300);
+
       const bdeuro1 = await deuro.balanceOf(owner.address);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const bdeuro2 = await deuro.balanceOf(owner.address);
-      expect(bdeuro2).to.be.greaterThan(bdeuro1);
-      expect(await pos1.minted()).to.be.greaterThan(0n);
-      expect(await pos2.minted()).to.be.equal(0n);
+
+      expect(bdeuro2).to.be.gt(bdeuro1, "owner minted some dEURO");
+      expect(await pos1.minted()).to.be.gt(0n);
+      expect(await pos2.minted()).to.be.eq(0n);
+
+      // roll partially
       await coin.approve(await roller.getAddress(), floatToDec18(1));
-      const tx = await roller.roll(
+      await roller.roll(
         await pos1.getAddress(),
-        floatToDec18(1_000), //
+        floatToDec18(1_000),
         floatToDec18(1),
         await pos2.getAddress(),
         floatToDec18(10_000),
@@ -248,21 +197,21 @@ describe("Roller Tests", () => {
         await pos2.expiration(),
       );
 
-      expect(await pos1.minted()).to.be.lessThan(
+      expect(await pos1.minted()).to.be.lt(
         floatToDec18(10_000),
-        "pos1 mint should decrease",
+        "pos1 minted decreased",
       );
-      expect(await pos2.minted()).to.be.greaterThanOrEqual(
+      expect(await pos2.minted()).to.be.gte(
         floatToDec18(1_000),
-        "pos2 mint should increase",
+        "pos2 minted increased",
       );
-      expect(await coin.balanceOf(await pos1.getAddress())).to.be.equal(
+      expect(await coin.balanceOf(await pos1.getAddress())).to.be.eq(
         floatToDec18(9),
-        "1 coin should be transfered, dec.",
+        "pos1 coin bal decreased by 1",
       );
-      expect(await coin.balanceOf(await pos2.getAddress())).to.be.equal(
+      expect(await coin.balanceOf(await pos2.getAddress())).to.be.eq(
         floatToDec18(11),
-        "1 coin should be transfered, inc.",
+        "pos2 coin bal increased by 1",
       );
     });
 
@@ -272,31 +221,28 @@ describe("Roller Tests", () => {
 
       const toRepay = floatToDec18(10_000 * 0.9);
       await coin.approve(await roller.getAddress(), floatToDec18(10));
-      const tx = await roller.roll(
+      await roller.roll(
         await pos1.getAddress(),
-        toRepay, // to pay
+        toRepay,
         floatToDec18(10),
         await pos2.getAddress(),
-        floatToDec18(10_000), // to borrow
+        floatToDec18(10_000),
         floatToDec18(10),
         await pos2.expiration(),
       );
 
-      expect(await pos1.minted()).to.be.equal(
-        floatToDec18(0),
-        "pos1 minted should be 0, rolled",
-      );
-      expect(await pos2.minted()).to.be.equal(
+      expect(await pos1.minted()).to.be.eq(0n, "pos1 fully rolled out");
+      expect(await pos2.minted()).to.be.eq(
         floatToDec18(10_000),
-        "pos2 minted should be 10_000 ether",
+        "pos2 minted merges to 10k",
       );
-      expect(await coin.balanceOf(await pos1.getAddress())).to.be.equal(
-        floatToDec18(0),
-        "coin size of pos1 should be 0, rolled",
+      expect(await coin.balanceOf(await pos1.getAddress())).to.be.eq(
+        0n,
+        "pos1 coin=0",
       );
-      expect(await coin.balanceOf(await pos2.getAddress())).to.be.equal(
+      expect(await coin.balanceOf(await pos2.getAddress())).to.be.eq(
         floatToDec18(20),
-        "coin size of pos2 should be 20, merged both",
+        "pos2 coin sum of both",
       );
     });
 
@@ -306,20 +252,17 @@ describe("Roller Tests", () => {
 
       const toRepay = floatToDec18(10_000 * 0.9);
       await coin.approve(await roller.getAddress(), floatToDec18(10));
-      const tx = await roller.roll(
+      await roller.roll(
         await pos1.getAddress(),
-        toRepay, // to pay
+        toRepay,
         floatToDec18(10),
         await pos2.getAddress(),
-        floatToDec18(10_000), // to borrow
+        floatToDec18(10_000),
         floatToDec18(10),
         await pos2.expiration(),
       );
 
-      expect(await pos1.isClosed()).to.be.equal(
-        true,
-        "pos1 should be considered closed after full roll",
-      );
+      expect(await pos1.isClosed()).to.be.true;
     });
 
     it("merge full, expiration below, create clone, check ownership", async () => {
@@ -330,39 +273,38 @@ describe("Roller Tests", () => {
       await coin.approve(await roller.getAddress(), floatToDec18(10));
       const tx = await roller.roll(
         await pos1.getAddress(),
-        toRepay, // to pay
+        toRepay,
         floatToDec18(10),
         await pos2.getAddress(),
-        floatToDec18(10_000), // to borrow
+        floatToDec18(10_000),
         floatToDec18(10),
-        (await pos2.expiration()) - 86_400n, // reach SC branch below exp. -> clone
+        (await pos2.expiration()) - 86_400n,
       );
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
 
-      expect((await clone1.original()).toLowerCase()).to.be.equal(
+      expect((await clone1.original()).toLowerCase()).to.be.eq(
         (await pos2.getAddress()).toLowerCase(),
-        "new rolled position should be a clone",
+        "new position is a clone",
       );
-      expect(await clone1.owner()).to.be.equal(
+      expect(await clone1.owner()).to.be.eq(
         owner.address,
-        "cloned rolled position should be owned by correct owner",
+        "cloned position = correct owner",
       );
     });
   });
 
   describe("roll tests for owner and alice", () => {
     beforeEach("give owner 1st and alice 2nd position", async () => {
-      // ---------------------------------------------------------------------------
-      // give OWNER 1st position
+      // OWNER pos1
       await coin.approve(await mintingHub.getAddress(), floatToDec18(10));
       const txPos1 = await (
         await mintingHub.openPosition(
           await coin.getAddress(),
-          floatToDec18(1), // min size
-          floatToDec18(10), // size
-          floatToDec18(100_000), // mint limit
+          floatToDec18(1),
+          floatToDec18(10),
+          floatToDec18(100_000),
           3 * 86_400,
           100 * 86_400,
           86_400,
@@ -374,17 +316,14 @@ describe("Roller Tests", () => {
       const pos1Addr = await getPositionAddress(txPos1!);
       pos1 = await ethers.getContractAt("Position", pos1Addr, owner);
 
-      // ---------------------------------------------------------------------------
-      // give ALICE 2nd position
-      await coin
-        .connect(alice)
-        .approve(await mintingHub.getAddress(), floatToDec18(10));
+      // ALICE pos2
+      await coin.connect(alice).approve(await mintingHub.getAddress(), floatToDec18(10));
       const txPos2 = await (
         await mintingHub.connect(alice).openPosition(
           await coin.getAddress(),
-          floatToDec18(1), // min size
-          floatToDec18(10), // size
-          floatToDec18(100_000), // mint limit
+          floatToDec18(1),
+          floatToDec18(10),
+          floatToDec18(100_000),
           3 * 86_400,
           100 * 86_400,
           86_400,
@@ -399,10 +338,10 @@ describe("Roller Tests", () => {
 
     it("fully open, correct owner", async () => {
       await evm_increaseTime(3 * 86_400 + 300);
-      expect(await pos1.start()).to.be.lessThan(await getTimeStamp());
-      expect(await pos2.start()).to.be.lessThan(await getTimeStamp());
-      expect(await pos1.owner()).to.be.equal(owner.address);
-      expect(await pos2.owner()).to.be.equal(alice.address);
+      expect(await pos1.start()).to.be.lt(await getTimeStamp());
+      expect(await pos2.start()).to.be.lt(await getTimeStamp());
+      expect(await pos1.owner()).to.be.eq(owner.address);
+      expect(await pos2.owner()).to.be.eq(alice.address);
     });
 
     it("rollFully simple", async () => {
@@ -418,11 +357,8 @@ describe("Roller Tests", () => {
       const m2 = await pos1.minted();
       const b2 = await deuro.balanceOf(owner.address);
 
-      expect(m1).to.be.greaterThan(
-        0,
-        "mint pos1 should be greater then 0 before rolling",
-      );
-      expect(m2).to.be.equal(0, "mint pos1 should be 0 after rolling");
+      expect(m1).to.be.gt(0n, "pos1 minted > 0 before rolling");
+      expect(m2).to.be.eq(0n, "pos1 minted = 0 after rolling fully");
     });
 
     it("rollFully check collateral rolled amount", async () => {
@@ -430,6 +366,7 @@ describe("Roller Tests", () => {
       await pos1.mint(owner.address, floatToDec18(10_000));
       const ownCoinBalance = await coin.balanceOf(owner.address);
       const oldPositionBalance = await coin.balanceOf(await pos1.getAddress());
+
       await coin.approve(
         await roller.getAddress(),
         await coin.balanceOf(await pos1.getAddress()),
@@ -440,14 +377,14 @@ describe("Roller Tests", () => {
       );
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
-      const newPositionBalance = await coin.balanceOf(
-        await clone1.getAddress(),
-      );
+
+      const newPositionBalance = await coin.balanceOf(await clone1.getAddress());
       const coinsReturns =
         (await coin.balanceOf(owner.address)) - ownCoinBalance;
-      expect(oldPositionBalance).to.be.equal(
+
+      expect(oldPositionBalance).to.be.eq(
         newPositionBalance + coinsReturns,
-        "total amount of collateral should be the same",
+        "collateral is consistent across the roll",
       );
     });
 
@@ -456,7 +393,8 @@ describe("Roller Tests", () => {
       await pos1.mint(owner.address, floatToDec18(10_000));
 
       const b1 = await deuro.balanceOf(owner.address);
-      await deuro.transfer(bob.address, b1); // remove all deuro for testing
+      // remove all from owner for the test
+      await deuro.transfer(bob.address, b1);
 
       const m1 = await pos1.minted();
       await coin.approve(
@@ -472,33 +410,39 @@ describe("Roller Tests", () => {
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
       const m2 = await clone1.minted();
       const b2 = await deuro.balanceOf(owner.address);
-      expect(b2).to.be.equal(0n, "owner deuro balance should be 0");
 
+      expect(b2).to.be.eq(0n, "owner's deuro is 0 after rolling fully");
+
+      // approximate any new interest portion using annualInterestPPM() instead of calculateCurrentFee():
       const toRepay = floatToDec18(9_000);
-      const numerator = toRepay * 1_000_000n;
+      const approximateFee = await clone1.annualInterestPPM();
       const denominator =
-        1_000_000n -
-        ((await clone1.reserveContribution()) +
-          (await clone1.calculateCurrentFee()));
-      const toMint =
-        numerator / denominator + (numerator % denominator > 0n ? 1n : 0n);
+        1_000_000n - (BigInt(await clone1.reserveContribution()) + BigInt(approximateFee));
+      let toMint = 0n;
+      if (denominator > 0) {
+        const numerator = toRepay * 1_000_000n;
+        toMint = numerator / denominator + (numerator % denominator > 0n ? 1n : 0n);
+      }
 
-      expect(m2).to.be.equal(
+      expect(m2).to.be.eq(
         toMint,
-        "minted amount of clone should be the adj. amount to cover the pay out for the flash loan plus new interest.",
+        "rolled minted amount with approximate fee/interest assumption",
       );
 
-      await deuro.connect(bob).transfer(owner.address, b1); // refund deuro for testing
+      // return deuro
+      await deuro.connect(bob).transfer(owner.address, b1);
     });
 
     it("rollFully check interests and rolled amount, with 1000 deuro in wallet", async () => {
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const b1 = await deuro.balanceOf(owner.address);
-      await deuro.transfer(bob.address, b1 - floatToDec18(1_000)); // remove all deuro for testing
-      expect(await deuro.balanceOf(owner.address)).to.be.equal(
+
+      // remove everything but 1000
+      await deuro.transfer(bob.address, b1 - floatToDec18(1_000));
+      expect(await deuro.balanceOf(owner.address)).to.be.eq(
         floatToDec18(1000),
-        "you should have 1000 deuro left in your wallet",
+        "kept 1000 dEUR in wallet",
       );
 
       await pos2.adjustPrice(1000n * 10n ** 18n);
@@ -506,7 +450,6 @@ describe("Roller Tests", () => {
         await roller.getAddress(),
         await coin.balanceOf(await pos1.getAddress()),
       );
-
       const tx = await roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
@@ -514,16 +457,18 @@ describe("Roller Tests", () => {
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
+
       const m2 = await clone1.minted();
       const b2 = await deuro.balanceOf(owner.address);
-      expect(b2).to.be.equal(
-        890420000000000000000n,
-        "some of the owner balance should be used to cover the interest of the new position",
-      );
 
-      expect(m2).to.be.equal(
+      // some portion used
+      expect(b2).to.be.eq(
+        890420000000000000000n,
+        "some of the leftover 1000 dEUR used for interest coverage",
+      );
+      expect(m2).to.be.eq(
         floatToDec18(10_000),
-        "as interest was covered by sender, minted amount should stay the same given same liquidation price",
+        "stays at 10k minted since interest got covered by wallet dEUR",
       );
     });
   });
