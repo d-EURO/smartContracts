@@ -28,7 +28,7 @@ interface IPosition {
 
     function adjust(uint256 newMinted, uint256 newCollateral, uint256 newPrice) external;
 
-    function minted() external view returns (uint256);
+    function debt() external view returns (uint256);
 
     function availableForMinting() external view returns (uint256);
 

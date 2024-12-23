@@ -235,8 +235,8 @@ describe("Roller Tests", () => {
       await pos1.mint(owner.address, floatToDec18(10_000));
       const bZchf2 = await zchf.balanceOf(owner.address);
       expect(bZchf2).to.be.greaterThan(bZchf1);
-      expect(await pos1.minted()).to.be.greaterThan(0n);
-      expect(await pos2.minted()).to.be.equal(0n);
+      expect(await pos1.debt()).to.be.greaterThan(0n);
+      expect(await pos2.debt()).to.be.equal(0n);
       await coin.approve(await roller.getAddress(), floatToDec18(1));
       const tx = await roller.roll(
         await pos1.getAddress(),
@@ -248,11 +248,11 @@ describe("Roller Tests", () => {
         await pos2.expiration(),
       );
 
-      expect(await pos1.minted()).to.be.lessThan(
+      expect(await pos1.debt()).to.be.lessThan(
         floatToDec18(10_000),
         "pos1 mint should decrease",
       );
-      expect(await pos2.minted()).to.be.greaterThanOrEqual(
+      expect(await pos2.debt()).to.be.greaterThanOrEqual(
         floatToDec18(1_000),
         "pos2 mint should increase",
       );
@@ -282,11 +282,11 @@ describe("Roller Tests", () => {
         await pos2.expiration(),
       );
 
-      expect(await pos1.minted()).to.be.equal(
+      expect(await pos1.debt()).to.be.equal(
         floatToDec18(0),
         "pos1 minted should be 0, rolled",
       );
-      expect(await pos2.minted()).to.be.equal(
+      expect(await pos2.debt()).to.be.equal(
         floatToDec18(10_000),
         "pos2 minted should be 10_000 ether",
       );
@@ -409,13 +409,13 @@ describe("Roller Tests", () => {
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
-      const m1 = await pos1.minted();
+      const m1 = await pos1.debt();
       await coin.approve(
         await roller.getAddress(),
         await coin.balanceOf(await pos1.getAddress()),
       );
       await roller.rollFully(await pos1.getAddress(), await pos2.getAddress());
-      const m2 = await pos1.minted();
+      const m2 = await pos1.debt();
       const b2 = await zchf.balanceOf(owner.address);
 
       expect(m1).to.be.greaterThan(
@@ -458,7 +458,7 @@ describe("Roller Tests", () => {
       const b1 = await zchf.balanceOf(owner.address);
       await zchf.transfer(bob.address, b1); // remove all zchf for testing
 
-      const m1 = await pos1.minted();
+      const m1 = await pos1.debt();
       await coin.approve(
         await roller.getAddress(),
         await coin.balanceOf(await pos1.getAddress()),
@@ -470,7 +470,7 @@ describe("Roller Tests", () => {
       const t2 = await getTimeStamp();
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
-      const m2 = await clone1.minted();
+      const m2 = await clone1.debt();
       const b2 = await zchf.balanceOf(owner.address);
       expect(b2).to.be.equal(0n, "owner zchf balance should be 0");
 
@@ -514,7 +514,7 @@ describe("Roller Tests", () => {
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
-      const m2 = await clone1.minted();
+      const m2 = await clone1.debt();
       const b2 = await zchf.balanceOf(owner.address);
       expect(b2).to.be.equal(
         890420000000000000000n,

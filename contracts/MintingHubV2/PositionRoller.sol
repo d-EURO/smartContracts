@@ -68,7 +68,7 @@ contract PositionRoller {
      * then call 'roll' directly.
      */
     function findRepaymentAmount(IPosition pos) public view returns (uint256) {
-        uint256 minted = pos.minted();
+        uint256 minted = pos.debt();
         uint24 reservePPM = pos.reserveContribution();
         if (minted == 0) {
             return 0;

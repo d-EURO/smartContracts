@@ -12,7 +12,7 @@ interface IPosition {
 
     function price() external view returns (uint256);
 
-    function minted() external view returns (uint256);
+    function debt() external view returns (uint256);
 
     function challengedAmount() external view returns (uint256);
 
