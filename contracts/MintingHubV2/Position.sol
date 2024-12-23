@@ -14,16 +14,17 @@ import {IPosition} from "./interface/IPosition.sol";
 
 /**
  * @title Position
- * @notice A collateralized minting position.
+ * @notice A collateralized minting position (dOb472e version) with continuous interest accrual.
  */
 contract Position is Ownable, IPosition, MathUtil {
     /**
-     * @notice The deuro price per unit of the collateral below which challenges succeed, (36 - collateral.decimals) decimals
+     * @notice The liquidation price in dEURO per unit of collateral below which challenges succeed,
+     *         with (36 - collateral.decimals) decimals.
      */
     uint256 public price;
 
     /**
-     * @notice Net minted amount, including both principal and accrued interest.
+     * @notice Net minted amount = principal + accrued interest.
      */
     uint256 public minted;
 
@@ -32,6 +33,9 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     uint256 private totalMinted;
 
+    /**
+     * @notice Maximum mintable limit for this position (and its clones).
+     */
     uint256 public immutable limit;
 
     /**
@@ -45,12 +49,12 @@ contract Position is Ownable, IPosition, MathUtil {
     uint40 public immutable challengePeriod;
 
     /**
-     * @notice When minting can start and the position is no longer deniable.
+     * @notice Start timestamp. Minting can happen only after this time passes.
      */
     uint40 public immutable start;
 
     /**
-     * @notice End of the latest cooldown. If in the future, minting is suspended.
+     * @notice End of the latest cooldown. If still in the future, minting is suspended.
      */
     uint40 public cooldown;
 
@@ -62,7 +66,7 @@ contract Position is Ownable, IPosition, MathUtil {
     bool private closed;
 
     /**
-     * @notice The original position to help identify clones.
+     * @notice The original position address (to identify clones).
      */
     address public immutable original;
 
@@ -87,8 +91,8 @@ contract Position is Ownable, IPosition, MathUtil {
     uint256 public immutable override minimumCollateral;
 
     /**
-     * @notice The interest in parts per million per year that is deducted when minting dEURO.
-     * To be paid over time, but effectively accounted for in accruedInterest.
+     * @notice The interest in parts per million (ppm) per year that is effectively deducted when minting dEURO.
+     *         Accrued over time in `accruedInterest`.
      */
     uint24 public immutable riskPremiumPPM;
 
@@ -98,7 +102,7 @@ contract Position is Ownable, IPosition, MathUtil {
     uint24 public immutable reserveContribution;
 
     /**
-     * @notice The total principal borrowed so far (excluding accrued interest).
+     * @notice The total principal borrowed (excludes accrued interest).
      */
     uint256 public principal;
 
@@ -164,6 +168,20 @@ contract Position is Ownable, IPosition, MathUtil {
         _;
     }
 
+    /**
+     * @param _owner            The initial owner
+     * @param _hub              The MintingHub that created this position
+     * @param _deuro            The DecentralizedEURO contract
+     * @param _collateral       The collateral token contract
+     * @param _minCollateral    Minimal collateral
+     * @param _initialLimit     Maximum mintable limit
+     * @param _initPeriod       The time until the position is no longer deniable
+     * @param _duration         The total lifespan of the position (time until expiration)
+     * @param _challengePeriod  The challenge period
+     * @param _riskPremiumPPM   The risk premium in ppm
+     * @param _liqPrice         The initial liquidation price
+     * @param _reservePPM       Reserve contribution in ppm
+     */
     constructor(
         address _owner,
         address _hub,
@@ -249,10 +267,6 @@ contract Position is Ownable, IPosition, MathUtil {
         closed = true;
     }
 
-    /**
-     * @notice This is how much the minter can actually use when minting,
-     * with the rest going to the minter reserve.
-     */
     function getUsableMint(uint256 totalMint) public view returns (uint256) {
         return (totalMint * (1000_000 - reserveContribution)) / 1000_000;
     }
@@ -264,9 +278,14 @@ contract Position is Ownable, IPosition, MathUtil {
         return (usableMint * 1000_000 - 1) / (1000_000 - reserveContribution) + 1;
     }
 
+    /**
+     * @notice ""All in one"" function to adjust minted, collateral, and price in one transaction.
+     */
     function adjust(uint256 newMinted, uint256 newCollateral, uint256 newPrice) external onlyOwner {
         _accrueInterest();
         uint256 colbal = _collateralBalance();
+
+        // deposit additional collateral if needed
         if (newCollateral > colbal) {
             collateral.transferFrom(msg.sender, address(this), newCollateral - colbal);
         }
@@ -278,7 +297,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (newCollateral < colbal) {
             _withdrawCollateral(msg.sender, colbal - newCollateral);
         }
-        // if minted is increasing
+        // increase minted
         if (newMinted > minted) {
             _mint(msg.sender, newMinted - minted, newCollateral);
         }
@@ -399,6 +418,9 @@ contract Position is Ownable, IPosition, MathUtil {
         Position(original).notifyRepaid(amount);
     }
 
+    /**
+     * @notice Force a sale of some collateral after the position is expired. Only callable by the hub.
+     */
     function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external onlyHub expired noChallenge {
         _accrueInterest();
         uint256 remainingCollateral = _sendCollateral(buyer, collAmount);
@@ -427,6 +449,10 @@ contract Position is Ownable, IPosition, MathUtil {
         emit MintingUpdate(_collateralBalance(), price, minted);
     }
 
+    /**
+     * @notice Withdraw any ERC20 token that might have ended up here.
+     *         Withdrawing collateral is subject to the same restrictions as withdrawCollateral(...).
+     */
     function withdraw(address token, address target, uint256 amount) external onlyOwner {
         if (token == address(collateral)) {
             withdrawCollateral(target, amount);
@@ -442,10 +468,18 @@ contract Position is Ownable, IPosition, MathUtil {
         emit MintingUpdate(balance, price, minted);
     }
 
-    function _withdrawCollateral(address target, uint256 amount) internal noChallenge {
+    /**
+     * @notice Internal function that actually handles collateral withdrawal logic, returning new coll. balance.
+     */
+    function _withdrawCollateral(address target, uint256 amount)
+        internal
+        noChallenge
+        returns (uint256)
+    {
         if (block.timestamp <= cooldown) revert Hot();
         uint256 balance = _sendCollateral(target, amount);
         _checkCollateral(balance, price);
+        return balance;
     }
 
     function _sendCollateral(address target, uint256 amount) internal returns (uint256) {
