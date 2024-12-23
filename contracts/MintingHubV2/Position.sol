@@ -366,6 +366,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * and there is sufficient collateral.
      */
     function mint(address target, uint256 amount) public ownerOrRoller {
+        _accrueInterest();
         uint256 collateralBalance = _collateralBalance();
         _mint(target, amount, collateralBalance);
         emit MintingUpdate(collateralBalance, price, minted);
@@ -399,7 +400,6 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
-        _accrueInterest();
         if (amount > availableForMinting()) revert LimitExceeded(amount, availableForMinting());
         Position(original).notifyMint(amount);
         deuro.mintWithReserve(target, amount, reserveContribution, 0);
@@ -451,7 +451,6 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice Notifies the original position that a portion of the debt (principal) has been repaid.
      */
     function _notifyRepaid(uint256 amount) internal {
-        if (amount > principal) revert RepaidTooMuch(amount - principal);
         Position(original).notifyRepaid(amount);
     }
 
@@ -481,6 +480,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external onlyHub expired noChallenge {
         _accrueInterest(); // ensure latest state
 
+        // send collateral to buyer
         uint256 remainingCollateral = _sendCollateral(buyer, collAmount);
 
         if (minted == 0) {
@@ -500,8 +500,8 @@ contract Position is Ownable, IPosition, MathUtil {
             // All debt paid, leftover is profit for owner
             deuro.transferFrom(buyer, owner(), leftover);
         } else if (minted > 0 && remainingCollateral == 0) {
+            uint256 deficit = minted;
             // Shortfall scenario, cover the loss if needed
-            uint256 deficit = minted - used;
             deuro.coverLoss(buyer, deficit);
             _payDownDebt(buyer, deficit);
         }
@@ -559,35 +559,41 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
-        if (relevantCollateral * atPrice < minted * ONE_DEC18)
+        if (relevantCollateral * atPrice < minted * ONE_DEC18) {
             revert InsufficientCollateral(relevantCollateral * atPrice, minted * ONE_DEC18);
+        }
     }
 
     function _payDownDebt(address payer, uint256 amount) internal returns (uint256 repaidAmount) {
         _accrueInterest(); // ensure principal, accruedInterest, minted are up-to-date
 
+
+        if (amount == 0) {
+            return 0;
+        }
+
+        uint256 remaining = amount > minted ? minted : amount;
+        IERC20(deuro).transferFrom(payer, address(this), remaining);
         repaidAmount = 0;
 
-        // 1. Pay accrued interest first
+        // 1) Pay accrued interest first
         if (accruedInterest > 0) {
-            uint256 interestToPay = (accruedInterest > amount) ? amount : accruedInterest;
+            uint256 interestToPay = (accruedInterest > remaining) ? remaining : accruedInterest;
             if (interestToPay > 0) {
-                IERC20(deuro).transferFrom(payer, address(this), interestToPay);
                 deuro.collectProfits(address(this), interestToPay);
                 accruedInterest -= interestToPay;
-                amount -= interestToPay;
+                remaining -= interestToPay;
                 repaidAmount += interestToPay;
             }
         }
 
-        // 2. Pay principal next
-        if (amount > 0 && principal > 0) {
-            uint256 principalToPay = (principal > amount) ? amount : principal;
+        // 2) Pay principal next
+        if (principal > 0 && remaining > 0) {
+            uint256 principalToPay = (principal > remaining) ? remaining : principal;
             if (principalToPay > 0) {
-                IERC20(deuro).transferFrom(payer, address(this), principalToPay);
                 uint256 repaid = deuro.burnWithReserve(principalToPay, reserveContribution);
                 principal -= repaid;
-                amount -= principalToPay;
+                remaining -= principalToPay;
                 repaidAmount += principalToPay;
                 _notifyRepaid(repaid);
             }
