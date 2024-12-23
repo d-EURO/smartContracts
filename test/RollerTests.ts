@@ -186,6 +186,7 @@ describe("Roller Tests", () => {
       expect(await pos2.minted()).to.be.eq(0n);
 
       // roll partially
+
       await coin.approve(await roller.getAddress(), floatToDec18(1));
       await roller.roll(
         await pos1.getAddress(),
@@ -396,6 +397,7 @@ describe("Roller Tests", () => {
       // remove all from owner for the test
       await deuro.transfer(bob.address, b1);
 
+
       const m1 = await pos1.minted();
       await coin.approve(
         await roller.getAddress(),
@@ -412,6 +414,7 @@ describe("Roller Tests", () => {
       const b2 = await deuro.balanceOf(owner.address);
 
       expect(b2).to.be.eq(0n, "owner's deuro is 0 after rolling fully");
+
 
       // approximate any new interest portion using annualInterestPPM() instead of calculateCurrentFee():
       const toRepay = floatToDec18(9_000);
@@ -431,6 +434,7 @@ describe("Roller Tests", () => {
 
       // return deuro
       await deuro.connect(bob).transfer(owner.address, b1);
+
     });
 
     it("rollFully check interests and rolled amount, with 1000 deuro in wallet", async () => {
@@ -443,6 +447,7 @@ describe("Roller Tests", () => {
       expect(await deuro.balanceOf(owner.address)).to.be.eq(
         floatToDec18(1000),
         "kept 1000 dEUR in wallet",
+
       );
 
       await pos2.adjustPrice(1000n * 10n ** 18n);
@@ -463,6 +468,7 @@ describe("Roller Tests", () => {
 
       // some portion used
       expect(b2).to.be.eq(
+
         890420000000000000000n,
         "some of the leftover 1000 dEUR used for interest coverage",
       );
