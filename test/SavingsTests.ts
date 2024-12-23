@@ -20,7 +20,7 @@ describe("Savings Tests", () => {
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
 
-  let zchf: DecentralizedEURO;
+  let deuro: DecentralizedEURO;
   let equity: Equity;
   let roller: PositionRoller;
   let savings: Savings;
@@ -42,9 +42,9 @@ describe("Savings Tests", () => {
 
     const DecentralizedEUROFactory =
       await ethers.getContractFactory("DecentralizedEURO");
-    zchf = await DecentralizedEUROFactory.deploy(10 * 86400);
+    deuro = await DecentralizedEUROFactory.deploy(10 * 86400);
 
-    const equityAddr = await zchf.reserve();
+    const equityAddr = await deuro.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
 
     const positionFactoryFactory =
@@ -52,27 +52,27 @@ describe("Savings Tests", () => {
     positionFactory = await positionFactoryFactory.deploy();
 
     const savingsFactory = await ethers.getContractFactory("Savings");
-    savings = await savingsFactory.deploy(zchf.getAddress(), 20000n);
+    savings = await savingsFactory.deploy(deuro.getAddress(), 20000n);
 
     const rollerFactory = await ethers.getContractFactory("PositionRoller");
-    roller = await rollerFactory.deploy(zchf.getAddress());
+    roller = await rollerFactory.deploy(deuro.getAddress());
 
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
-      await zchf.getAddress(),
+      await deuro.getAddress(),
       await savings.getAddress(),
       await roller.getAddress(),
       await positionFactory.getAddress(),
     );
 
     // jump start ecosystem
-    await zchf.initialize(owner.address, "owner");
-    await zchf.initialize(await mintingHub.getAddress(), "mintingHub");
-    await zchf.initialize(await savings.getAddress(), "savings");
+    await deuro.initialize(owner.address, "owner");
+    await deuro.initialize(await mintingHub.getAddress(), "mintingHub");
+    await deuro.initialize(await savings.getAddress(), "savings");
 
-    await zchf.mint(owner.address, floatToDec18(2_000_000));
-    await zchf.transfer(alice.address, floatToDec18(100_000));
-    await zchf.transfer(bob.address, floatToDec18(100_000));
+    await deuro.mint(owner.address, floatToDec18(2_000_000));
+    await deuro.transfer(alice.address, floatToDec18(100_000));
+    await deuro.transfer(bob.address, floatToDec18(100_000));
 
     // jump start fps
     await equity.invest(floatToDec18(1000), 0);
@@ -87,14 +87,14 @@ describe("Savings Tests", () => {
 
   const amount = floatToDec18(1000);
 
-  describe("Save some zchf", () => {
+  describe("Save some deuro", () => {
     it("no approval needed, minters power", async () => {
       const amount = floatToDec18(1000);
       await savings["save(uint192)"](amount);
     });
 
     it("simple save", async () => {
-      await zchf.approve(savings.getAddress(), amount); // not needed if registered as minter
+      await deuro.approve(savings.getAddress(), amount); // not needed if registered as minter
       await savings["save(uint192)"](amount);
       const r = await savings.savings(owner.address);
       expect(r.saved).to.be.approximately(amount, 10**12);
@@ -117,15 +117,15 @@ describe("Savings Tests", () => {
     });
 
     it("should not pay any interest, if nothing is saved", async () => {
-      const b0 = await zchf.balanceOf(owner.address);
+      const b0 = await deuro.balanceOf(owner.address);
       const w = await savings.withdraw(owner.address, 2n * amount);
       const r = await savings.savings(owner.address);
-      const b1 = await zchf.balanceOf(owner.address);
+      const b1 = await deuro.balanceOf(owner.address);
       expect(b1).to.be.eq(b0);
     });
 
     it("any interests after 365days", async () => {
-      const i0 = await zchf.balanceOf(owner.address);
+      const i0 = await deuro.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
       await savings["save(uint192)"](amount);
       await evm_increaseTime(365 * 86_400);
@@ -140,15 +140,15 @@ describe("Savings Tests", () => {
         at Savings.refresh (contracts/Savings.sol:68)
         at Savings.withdraw (contracts/Savings.sol:109)
 
-        The SC "Savings" is not a "minter" aka "no minter superpower". So it CAN NOT withdraw any zchf without approval, 
+        The SC "Savings" is not a "minter" aka "no minter superpower". So it CAN NOT withdraw any deuro without approval, 
         this will cause an error while trying to "transferFrom" the equity some interests.
       */
-      const i1 = await zchf.balanceOf(owner.address);
+      const i1 = await deuro.balanceOf(owner.address);
       expect(i1).to.be.greaterThan(i0);
     });
 
     it("correct interest after 365days", async () => {
-      const i0 = await zchf.balanceOf(owner.address);
+      const i0 = await deuro.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
@@ -157,7 +157,7 @@ describe("Savings Tests", () => {
 
       await savings.withdraw(owner.address, 2n * amount);
       const t1 = await getTimeStamp();
-      const i1 = await zchf.balanceOf(owner.address);
+      const i1 = await deuro.balanceOf(owner.address);
       const iDiff = i1 - i0;
       const tDiff = t1! - t0!;
       const toCheck =
@@ -167,9 +167,9 @@ describe("Savings Tests", () => {
     });
 
     it("correct interest after 1000days", async () => {
-      const b0 = await zchf.balanceOf(owner.address);
+      const b0 = await deuro.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
-      await zchf.approve(savings.getAddress(), amount);
+      await deuro.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
 
@@ -177,7 +177,7 @@ describe("Savings Tests", () => {
 
       await savings.withdraw(owner.address, 2n * amount);
       const t1 = await getTimeStamp();
-      const b1 = await zchf.balanceOf(owner.address);
+      const b1 = await deuro.balanceOf(owner.address);
       const bDiff = b1 - b0;
       const tDiff = t1! - t0!;
       const toCheck =
@@ -187,9 +187,9 @@ describe("Savings Tests", () => {
     });
 
     it("approx. interest after 2x saves", async () => {
-      const b0 = await zchf.balanceOf(owner.address);
+      const b0 = await deuro.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
-      await zchf.approve(savings.getAddress(), 2n * amount);
+      await deuro.approve(savings.getAddress(), 2n * amount);
 
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
@@ -201,7 +201,7 @@ describe("Savings Tests", () => {
 
       await savings.withdraw(owner.address, 10n * amount);
       const t2 = await getTimeStamp();
-      const b1 = await zchf.balanceOf(owner.address);
+      const b1 = await deuro.balanceOf(owner.address);
       const bDiff = b1 - b0;
       const tDiff0 = t1! - t0!;
       const tDiff1 = t2! - t1!;
@@ -224,7 +224,7 @@ describe("Savings Tests", () => {
 
     it("refresh my balance", async () => {
       const amount = floatToDec18(10_000);
-      await zchf.approve(savings.getAddress(), amount);
+      await deuro.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
 
@@ -243,7 +243,7 @@ describe("Savings Tests", () => {
 
     it("refresh balance", async () => {
       const amount = floatToDec18(10_000);
-      await zchf.approve(savings.getAddress(), amount);
+      await deuro.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
 
@@ -262,7 +262,7 @@ describe("Savings Tests", () => {
 
     it("withdraw partial", async () => {
       const amount = floatToDec18(10_000);
-      await zchf.approve(savings.getAddress(), amount);
+      await deuro.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
 
@@ -290,12 +290,12 @@ describe("Savings Tests", () => {
       await savings.refreshBalance(owner.address);
       await evm_increaseTime(1234);
       const oldBalance = (await savings.savings(owner.address)).saved;
-      const oldReserve = await zchf.balanceOf(await zchf.reserve());
+      const oldReserve = await deuro.balanceOf(await deuro.reserve());
       const oldUserTicks = (await savings.savings(owner.address)).ticks;
       const oldSystemTicks = await savings.currentTicks();
       await savings.refreshBalance(owner.address);
       const newBalance = (await savings.savings(owner.address)).saved;
-      const newReserve = await zchf.balanceOf(await zchf.reserve());
+      const newReserve = await deuro.balanceOf(await deuro.reserve());
       const newUserTicks = (await savings.savings(owner.address)).ticks;
       const newSystemTicks = await savings.currentTicks();
       expect(newUserTicks).to.be.eq(newSystemTicks);

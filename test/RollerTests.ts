@@ -20,7 +20,7 @@ describe("Roller Tests", () => {
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
 
-  let zchf: DecentralizedEURO;
+  let deuro: DecentralizedEURO;
   let equity: Equity;
   let roller: PositionRoller;
   let savings: Savings;
@@ -51,9 +51,9 @@ describe("Roller Tests", () => {
 
     const DecentralizedEUROFactory =
       await ethers.getContractFactory("DecentralizedEURO");
-    zchf = await DecentralizedEUROFactory.deploy(5 * 86400);
+    deuro = await DecentralizedEUROFactory.deploy(5 * 86400);
 
-    const equityAddr = await zchf.reserve();
+    const equityAddr = await deuro.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
 
     const positionFactoryFactory =
@@ -61,14 +61,14 @@ describe("Roller Tests", () => {
     positionFactory = await positionFactoryFactory.deploy();
 
     const savingsFactory = await ethers.getContractFactory("Savings");
-    savings = await savingsFactory.deploy(zchf.getAddress(), 20000n);
+    savings = await savingsFactory.deploy(deuro.getAddress(), 20000n);
 
     const rollerFactory = await ethers.getContractFactory("PositionRoller");
-    roller = await rollerFactory.deploy(zchf.getAddress());
+    roller = await rollerFactory.deploy(deuro.getAddress());
 
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
-      await zchf.getAddress(),
+      await deuro.getAddress(),
       await savings.getAddress(),
       await roller.getAddress(),
       await positionFactory.getAddress(),
@@ -79,14 +79,14 @@ describe("Roller Tests", () => {
     coin = await coinFactory.deploy("Supercoin", "XCOIN", 18);
 
     // jump start ecosystem
-    await zchf.initialize(owner.address, "owner");
-    await zchf.initialize(await mintingHub.getAddress(), "mintingHub");
-    await zchf.initialize(await savings.getAddress(), "savings");
-    await zchf.initialize(await roller.getAddress(), "roller");
+    await deuro.initialize(owner.address, "owner");
+    await deuro.initialize(await mintingHub.getAddress(), "mintingHub");
+    await deuro.initialize(await savings.getAddress(), "savings");
+    await deuro.initialize(await roller.getAddress(), "roller");
 
-    await zchf.mint(owner.address, floatToDec18(2_000_000));
-    await zchf.transfer(alice.address, floatToDec18(200_000));
-    await zchf.transfer(bob.address, floatToDec18(200_000));
+    await deuro.mint(owner.address, floatToDec18(2_000_000));
+    await deuro.transfer(alice.address, floatToDec18(200_000));
+    await deuro.transfer(bob.address, floatToDec18(200_000));
 
     // jump start fps
     await equity.invest(floatToDec18(1000), 0);
@@ -231,10 +231,10 @@ describe("Roller Tests", () => {
 
     it("create mint and merge partially into existing position", async () => {
       await evm_increaseTime(3 * 86_400 + 300);
-      const bZchf1 = await zchf.balanceOf(owner.address);
+      const bdeuro1 = await deuro.balanceOf(owner.address);
       await pos1.mint(owner.address, floatToDec18(10_000));
-      const bZchf2 = await zchf.balanceOf(owner.address);
-      expect(bZchf2).to.be.greaterThan(bZchf1);
+      const bdeuro2 = await deuro.balanceOf(owner.address);
+      expect(bdeuro2).to.be.greaterThan(bdeuro1);
       expect(await pos1.debt()).to.be.greaterThan(0n);
       expect(await pos2.debt()).to.be.equal(0n);
       await coin.approve(await roller.getAddress(), floatToDec18(1));
@@ -416,7 +416,7 @@ describe("Roller Tests", () => {
       );
       await roller.rollFully(await pos1.getAddress(), await pos2.getAddress());
       const m2 = await pos1.debt();
-      const b2 = await zchf.balanceOf(owner.address);
+      const b2 = await deuro.balanceOf(owner.address);
 
       expect(m1).to.be.greaterThan(
         0,
@@ -455,8 +455,8 @@ describe("Roller Tests", () => {
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
-      const b1 = await zchf.balanceOf(owner.address);
-      await zchf.transfer(bob.address, b1); // remove all zchf for testing
+      const b1 = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, b1); // remove all deuro for testing
 
       const m1 = await pos1.debt();
       await coin.approve(
@@ -471,15 +471,14 @@ describe("Roller Tests", () => {
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
       const m2 = await clone1.debt();
-      const b2 = await zchf.balanceOf(owner.address);
-      expect(b2).to.be.equal(0n, "owner zchf balance should be 0");
+      const b2 = await deuro.balanceOf(owner.address);
+      expect(b2).to.be.equal(0n, "owner deuro balance should be 0");
 
       const toRepay = floatToDec18(9_000);
       const numerator = toRepay * 1_000_000n;
       const denominator =
         1_000_000n -
-        ((await clone1.reserveContribution()) +
-          (await clone1.calculateCurrentFee()));
+        ((await clone1.reserveContribution()));
       const toMint =
         numerator / denominator + (numerator % denominator > 0n ? 1n : 0n);
 
@@ -488,17 +487,17 @@ describe("Roller Tests", () => {
         "minted amount of clone should be the adj. amount to cover the pay out for the flash loan plus new interest.",
       );
 
-      await zchf.connect(bob).transfer(owner.address, b1); // refund zchf for testing
+      await deuro.connect(bob).transfer(owner.address, b1); // refund deuro for testing
     });
 
-    it("rollFully check interests and rolled amount, with 1000 zchf in wallet", async () => {
+    it("rollFully check interests and rolled amount, with 1000 deuro in wallet", async () => {
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
-      const b1 = await zchf.balanceOf(owner.address);
-      await zchf.transfer(bob.address, b1 - floatToDec18(1_000)); // remove all zchf for testing
-      expect(await zchf.balanceOf(owner.address)).to.be.equal(
+      const b1 = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, b1 - floatToDec18(1_000)); // remove all deuro for testing
+      expect(await deuro.balanceOf(owner.address)).to.be.equal(
         floatToDec18(1000),
-        "you should have 1000 zchf left in your wallet",
+        "you should have 1000 deuro left in your wallet",
       );
 
       await pos2.adjustPrice(1000n * 10n ** 18n);
@@ -515,7 +514,7 @@ describe("Roller Tests", () => {
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
       const m2 = await clone1.debt();
-      const b2 = await zchf.balanceOf(owner.address);
+      const b2 = await deuro.balanceOf(owner.address);
       expect(b2).to.be.equal(
         890420000000000000000n,
         "some of the owner balance should be used to cover the interest of the new position",
