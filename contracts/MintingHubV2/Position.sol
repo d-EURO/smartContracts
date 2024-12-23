@@ -192,7 +192,7 @@ contract Position is Ownable, IPosition, MathUtil {
         uint256 _liqPrice,
         uint24 _reservePPM
     ) Ownable(_owner) {
-        require(_initPeriod >= 3 days); // must be at least three days, recommended to use higher values
+        require(_initPeriod >= 3 days, "initPeriod < 3 days");
         original = address(this);
         hub = _hub;
         deuro = IDecentralizedEURO(_deuro);
@@ -243,7 +243,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * Better use 'availableForMinting'.
      */
     function availableForClones() external view returns (uint256) {
-        // reserve capacity for the original to the extent the owner provided collateral
+        // Reserve capacity for the original to the extent the owner provided collateral
         uint256 potential = (_collateralBalance() * price) / ONE_DEC18;
         uint256 unusedPotential = minted > potential ? 0 : potential - minted;
         if (totalMinted + unusedPotential >= limit) {
@@ -300,10 +300,10 @@ contract Position is Ownable, IPosition, MathUtil {
      * Returns the corresponding mint amount (disregarding the limit).
      */
     function getMintAmount(uint256 usableMint) external view returns (uint256) {
-        return
-            usableMint == 0
-                ? 0
-                : (usableMint * 1000_000 - 1) / (1000_000 - reserveContribution) + 1;
+        if (usableMint == 0) return 0;
+        uint256 numerator = usableMint * 1000_000 - 1;
+        uint256 denominator = (1000_000 - reserveContribution);
+        return (numerator / denominator) + 1;
     }
 
     /**
@@ -330,7 +330,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (newPrice != price) {
             _adjustPrice(newPrice);
         }
-        emit MintingUpdate(newCollateral, newPrice, newMinted);
+        emit MintingUpdate(newCollateral, newPrice, minted);
     }
 
     /**
@@ -353,7 +353,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _setPrice(uint256 newPrice, uint256 bounds) internal {
-        require(newPrice * minimumCollateral <= bounds * ONE_DEC18); // sanity check
+        require(newPrice * minimumCollateral <= bounds * ONE_DEC18, "Price * minColl > bounds");
         price = newPrice;
     }
 
@@ -366,6 +366,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * and there is sufficient collateral.
      */
     function mint(address target, uint256 amount) public ownerOrRoller {
+        _accrueInterest();
         uint256 collateralBalance = _collateralBalance();
         _mint(target, amount, collateralBalance);
         emit MintingUpdate(collateralBalance, price, minted);
@@ -399,11 +400,10 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
-        _accrueInterest();
         if (amount > availableForMinting()) revert LimitExceeded(amount, availableForMinting());
         Position(original).notifyMint(amount);
         deuro.mintWithReserve(target, amount, reserveContribution, 0);
-        
+
         principal += amount;
         minted = principal + accruedInterest;
         _checkCollateral(collateral_, price);
@@ -499,9 +499,11 @@ contract Position is Ownable, IPosition, MathUtil {
         if (minted == 0 && leftover > 0) {
             // All debt paid, leftover is profit for owner
             deuro.transferFrom(buyer, owner(), leftover);
-        } else if (minted > 0 && remainingCollateral == 0) {
-            // Shortfall scenario, cover the loss if needed
-            uint256 deficit = minted - used;
+        }
+        // 3) if minted > 0 and no more collateral => system must cover the shortfall
+        if (minted > 0 && remainingCollateral == 0) {
+            uint256 deficit = minted;
+            // let the buyer cover it or system covers => 
             deuro.coverLoss(buyer, deficit);
             _payDownDebt(buyer, deficit);
         }
@@ -519,7 +521,7 @@ contract Position is Ownable, IPosition, MathUtil {
         } else {
             uint256 balance = _collateralBalance();
             IERC20(token).transfer(target, amount);
-            require(balance == _collateralBalance()); // guard against double-entry-point tokens
+            require(balance == _collateralBalance(), "Non-collateral flow blocked");
         }
     }
 
@@ -543,8 +545,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
     function _sendCollateral(address target, uint256 amount) internal returns (uint256) {
         if (amount > 0) {
-            // Some weird tokens fail when trying to transfer 0 amounts
-            IERC20(collateral).transfer(target, amount);
+            collateral.transfer(target, amount);
         }
         uint256 balance = _collateralBalance();
         if (balance < minimumCollateral) {
@@ -559,35 +560,42 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
-        if (relevantCollateral * atPrice < minted * ONE_DEC18)
+        if (relevantCollateral * atPrice < minted * ONE_DEC18) {
             revert InsufficientCollateral(relevantCollateral * atPrice, minted * ONE_DEC18);
+        }
     }
 
     function _payDownDebt(address payer, uint256 amount) internal returns (uint256 repaidAmount) {
         _accrueInterest(); // ensure principal, accruedInterest, minted are up-to-date
 
         repaidAmount = 0;
+        if (amount == 0 || minted == 0) {
+            return 0;
+        }
 
-        // 1. Pay accrued interest first
+        // Pull dEURO from payer
+        deuro.transferFrom(payer, address(this), amount);
+        uint256 leftover = amount;
+
+        // 1) Pay accrued interest first
         if (accruedInterest > 0) {
-            uint256 interestToPay = (accruedInterest > amount) ? amount : accruedInterest;
+            uint256 interestToPay = (accruedInterest > leftover) ? leftover : accruedInterest;
             if (interestToPay > 0) {
-                IERC20(deuro).transferFrom(payer, address(this), interestToPay);
-                deuro.collectProfits(address(this), interestToPay);
+                deuro.collectProfits(address(this), interestToPay); // interest => system profits
                 accruedInterest -= interestToPay;
-                amount -= interestToPay;
+                leftover -= interestToPay;
                 repaidAmount += interestToPay;
             }
         }
 
-        // 2. Pay principal next
-        if (amount > 0 && principal > 0) {
-            uint256 principalToPay = (principal > amount) ? amount : principal;
+        // 2) Pay principal
+        if (principal > 0 && leftover > 0) {
+            uint256 principalToPay = (principal > leftover) ? leftover : principal;
             if (principalToPay > 0) {
-                IERC20(deuro).transferFrom(payer, address(this), principalToPay);
+                // pay principal => burnFromWithReserve
                 uint256 repaid = deuro.burnWithReserve(principalToPay, reserveContribution);
                 principal -= repaid;
-                amount -= principalToPay;
+                leftover -= principalToPay;
                 repaidAmount += principalToPay;
                 _notifyRepaid(repaid);
             }
@@ -648,18 +656,38 @@ contract Position is Ownable, IPosition, MathUtil {
         // Determine how much must be repaid based on challenged collateral
         uint256 repayment = (colBal == 0) ? 0 : (minted * _size) / colBal;
 
-        // First account for paid down accrued interest, then principal
-        repayment -= (accruedInterest > repayment) ? repayment : accruedInterest;
-        repayment = (principal > repayment) ? repayment : principal;
-        _notifyRepaid(repayment);
+        if (repayment > 0) {
+            // Bidder zahlt "repayment" an diese Position => interest + principal
+            deuro.transferFrom(_bidder, address(this), repayment);
+            uint256 leftover = repayment;
 
-        // Transfer the challenged collateral to the bidder
+            // 1) accruedInterest bezahlen
+            if (accruedInterest > 0) {
+                uint256 interestToPay = (accruedInterest > leftover) ? leftover : accruedInterest;
+                deuro.collectProfits(address(this), interestToPay);
+                accruedInterest -= interestToPay;
+                leftover -= interestToPay;
+            }
+
+            // 2) principal tilgen
+            if (principal > 0 && leftover > 0) {
+                uint256 principalToPay = (principal > leftover) ? leftover : principal;
+                uint256 repaid = deuro.burnWithReserve(principalToPay, reserveContribution);
+                principal -= repaid;
+                leftover -= principalToPay;
+                _notifyRepaid(repaid);
+            }
+
+            minted = principal + accruedInterest;
+        }
+
+        // Collateral an den Bieter übertragen
         uint256 newBalance = _sendCollateral(_bidder, _size);
-        emit MintingUpdate(newBalance, price, minted);
 
         // Give time for additional challenges before the owner can mint again.
         _restrictMinting(3 days);
 
+        emit MintingUpdate(newBalance, price, minted);
         return (owner(), _size, repayment, reserveContribution);
     }
 }
