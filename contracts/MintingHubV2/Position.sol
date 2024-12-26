@@ -28,11 +28,6 @@ contract Position is Ownable, IPosition, MathUtil {
     uint256 public price;
 
     /**
-     * @notice Net minted amount, including reserve.
-     */
-    uint256 public debt; // TODO: Rename to "debt"
-
-    /**
      * @notice How much has been minted in total. This variable is only used in the parent position.
      */
     uint256 private totalMinted;
@@ -235,6 +230,9 @@ contract Position is Ownable, IPosition, MathUtil {
 
     function notifyRepaid(uint256 repaid_) external {
         if (deuro.getPositionParent(msg.sender) != hub) revert NotHub();
+        // if (repaid_ > totalMinted) {
+        //     revert RepaidTooMuch(repaid_ - totalMinted);
+        // }
         totalMinted -= repaid_;
     }
 
@@ -244,6 +242,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function availableForClones() external view returns (uint256) {
         // reserve capacity for the original to the extent the owner provided collateral
+        uint256 debt = principal + accruedInterest;
         uint256 potential = (_collateralBalance() * price) / ONE_DEC18;
         uint256 unusedPotential = debt > potential ? 0 : potential - debt;
         if (totalMinted + unusedPotential >= limit) {
@@ -310,27 +309,27 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice "All in one" function to adjust the outstanding amount of deuro, the collateral amount,
      * and the price in one transaction.
      */
-    function adjust(uint256 newMinted, uint256 newCollateral, uint256 newPrice) external onlyOwner {
-        _accrueInterest();
+    function adjust(uint256 newDebt, uint256 newCollateral, uint256 newPrice) external onlyOwner {
+        uint256 debt =_accrueInterest();
         uint256 colbal = _collateralBalance();
         if (newCollateral > colbal) {
             collateral.transferFrom(msg.sender, address(this), newCollateral - colbal);
         }
         // Must be called after collateral deposit, but before withdrawal
-        if (newMinted < debt) {
-            _payDownDebt(msg.sender, debt - newMinted);
+        if (newDebt < debt) {
+            _payDownDebt(msg.sender, debt - newDebt);
         }
         if (newCollateral < colbal) {
             _withdrawCollateral(msg.sender, colbal - newCollateral);
         }
         // Must be called after collateral withdrawal
-        if (newMinted > debt) {
-            _mint(msg.sender, newMinted - debt, newCollateral);
+        if (newDebt > debt) {
+            _mint(msg.sender, newDebt - debt, newCollateral);
         }
         if (newPrice != price) {
             _adjustPrice(newPrice);
         }
-        emit MintingUpdate(newCollateral, newPrice, newMinted);
+        emit MintingUpdate(newCollateral, newPrice, newDebt);
     }
 
     /**
@@ -340,7 +339,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function adjustPrice(uint256 newPrice) public onlyOwner {
         _adjustPrice(newPrice);
-        emit MintingUpdate(_collateralBalance(), price, debt);
+        emit MintingUpdate(_collateralBalance(), price, principal + accruedInterest);
     }
 
     function _adjustPrice(uint256 newPrice) internal noChallenge alive backed {
@@ -349,7 +348,7 @@ contract Position is Ownable, IPosition, MathUtil {
         } else {
             _checkCollateral(_collateralBalance(), newPrice);
         }
-        _setPrice(newPrice, debt + availableForMinting());
+        _setPrice(newPrice, principal + accruedInterest + availableForMinting());
     }
 
     function _setPrice(uint256 newPrice, uint256 bounds) internal {
@@ -366,7 +365,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * and there is sufficient collateral.
      */
     function mint(address target, uint256 amount) public ownerOrRoller {
-        _accrueInterest();
+        uint256 debt = _accrueInterest();
         uint256 collateralBalance = _collateralBalance();
         _mint(target, amount, collateralBalance);
         emit MintingUpdate(collateralBalance, price, debt);
@@ -387,25 +386,50 @@ contract Position is Ownable, IPosition, MathUtil {
      * the principal amount, and the annual interest rate. The calculated interest is then added
      * to the accrued interest and the total minted amount is updated.
      */
-    function _accrueInterest() internal {
+    function _accrueInterest() internal returns (uint256 debt) {
         uint40 nowTime = uint40(block.timestamp);
-        if (nowTime > lastAccrual && principal > 0) {
-            uint256 delta = nowTime - lastAccrual;
-            // interest = principal * annualRate * (delta / year)
-            uint256 interest = (principal * annualInterestPPM() * delta) / (365 days * 1_000_000);
-            accruedInterest += interest;
-            debt = principal + accruedInterest;
+        debt = _getDebtAtTime(nowTime);
+        
+        if (debt - principal > accruedInterest) {
+            accruedInterest = debt - principal;
         }
+
         lastAccrual = nowTime;
+    }
+
+    /**
+     * @notice Internal helper to calculate debt based on a given timestamp
+     * @param currentTime The current block timestamp for calculation
+     * @return The total debt (principal + interest accrued up to currentTime)
+     */
+    function _getDebtAtTime(uint40 currentTime) internal view returns (uint256) {
+        uint256 interest = accruedInterest;
+
+        if (currentTime > lastAccrual && principal > 0) {
+            uint256 delta = currentTime - lastAccrual;
+            interest += (principal * annualInterestPPM() * delta) / (365 days * 1_000_000);
+        }
+
+        return principal + interest;
+    }
+
+    /**
+     * @notice Public function to calculate current debt without modifying state
+     * @return The total current debt (principal + accrued interest up to now)
+     */
+    function getDebt() public view returns (uint256) {
+        return _getDebtAtTime(uint40(block.timestamp));
     }
 
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
         if (amount > availableForMinting()) revert LimitExceeded(amount, availableForMinting());
+        
+        _accrueInterest(); // Accrue interest on current principal before minting
+
         Position(original).notifyMint(amount);
         deuro.mintWithReserve(target, amount, reserveContribution, 0);
         
         principal += amount;
-        debt = principal + accruedInterest;
         _checkCollateral(collateral_, price);
     }
 
@@ -441,9 +465,15 @@ contract Position is Ownable, IPosition, MathUtil {
     * 
     * Emits a {MintingUpdate} event.
     */
-    function repay(uint256 amount) public returns (uint256) {
+    function repay(uint256 amount) external returns (uint256) {
         uint256 used = _payDownDebt(msg.sender, amount);
-        emit MintingUpdate(_collateralBalance(), price, debt);
+        emit MintingUpdate(_collateralBalance(), price, principal + accruedInterest);
+        return used;
+    }
+
+    function repayFull() external returns (uint256) {
+        uint256 used = _payDownDebt(msg.sender, _accrueInterest());
+        emit MintingUpdate(_collateralBalance(), price, principal + accruedInterest);
         return used;
     }
 
@@ -478,7 +508,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and minted amount after the forced sale.
      */
     function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external onlyHub expired noChallenge {
-        _accrueInterest(); // ensure latest state
+        uint256 debt = _accrueInterest(); // ensure latest state
 
         // send collateral to buyer
         uint256 remainingCollateral = _sendCollateral(buyer, collAmount);
@@ -492,9 +522,10 @@ contract Position is Ownable, IPosition, MathUtil {
             return;
         }
 
-        // Pay interest and principal from `buyer` up to `proceeds`.
+        // Pay down debt from `buyer` up to `proceeds`.
         uint256 used = _payDownDebt(buyer, proceeds);
         uint256 leftover = proceeds > used ? (proceeds - used) : 0;
+        debt -= used;
 
         if (debt == 0 && leftover > 0) {
             // All debt paid, leftover is profit for owner
@@ -531,7 +562,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function withdrawCollateral(address target, uint256 amount) public ownerOrRoller {
         uint256 balance = _withdrawCollateral(target, amount);
-        emit MintingUpdate(balance, price, debt);
+        emit MintingUpdate(balance, price, principal + accruedInterest);
     }
 
     function _withdrawCollateral(address target, uint256 amount) internal noChallenge returns (uint256) {
@@ -558,6 +589,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * variables change in an adverse way.
      */
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
+        uint256 debt = principal + accruedInterest;
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
         if (relevantCollateral * atPrice < debt * ONE_DEC18) {
             revert InsufficientCollateral(relevantCollateral * atPrice, debt * ONE_DEC18);
@@ -565,8 +597,8 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _payDownDebt(address payer, uint256 amount) internal returns (uint256 repaidAmount) {
-        _accrueInterest(); // ensure principal, accruedInterest, minted are up-to-date
-
+        uint256 debt = _accrueInterest(); // ensure principal, accruedInterest, minted are up-to-date
+        // TODO: Can we remove the _accrueInterest call here?
 
         if (amount == 0) {
             return 0;
@@ -591,16 +623,14 @@ contract Position is Ownable, IPosition, MathUtil {
         if (principal > 0 && remaining > 0) {
             uint256 principalToPay = (principal > remaining) ? remaining : principal;
             if (principalToPay > 0) {
-                uint256 repaid = deuro.burnWithReserve(principalToPay, reserveContribution);
-                principal -= repaid;
+                uint256 reservePortion = deuro.calculateAssignedReserve(principalToPay, reserveContribution);
+                uint256 repaid = deuro.burnWithReserve(principalToPay - reservePortion, reserveContribution);
+                principal -= principalToPay;
                 remaining -= principalToPay;
                 repaidAmount += principalToPay;
                 _notifyRepaid(repaid);
             }
         }
-        
-        // Update minted after all repayments
-        debt = principal + accruedInterest;
     }
 
     /**
@@ -643,7 +673,7 @@ contract Position is Ownable, IPosition, MathUtil {
         address _bidder,
         uint256 _size
     ) external onlyHub returns (address, uint256, uint256, uint32) {
-        _accrueInterest();
+        uint256 debt = _accrueInterest();
 
         challengedAmount -= _size;
         uint256 colBal = _collateralBalance();

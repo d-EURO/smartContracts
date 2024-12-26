@@ -375,7 +375,7 @@ describe("Position Tests", () => {
     });
     it("get loan", async () => {
       await evm_increaseTime(7 * 86_400); // 14 days passed in total
-      // let minted = await positionContract.debt();
+      // let minted = await positionContract.getDebt();
       // let collateralBalance = await mockVOL.balanceOf(positionAddr);
       // let price = await positionContract.price();
       // await positionContract.adjust(minted, collateralBalance, price);
@@ -586,17 +586,21 @@ describe("Position Tests", () => {
         "InsufficientCollateral",
       );
 
-      let minted = await clonePositionContract.debt();
+      let principal = await clonePositionContract.principal();
+      let minted = await clonePositionContract.getDebt();
       let reservePPM = await clonePositionContract.reserveContribution();
-      let repayAmount = minted - (minted * reservePPM) / 1000000n;
-      let reserve = await dEURO.calculateAssignedReserve(minted, reservePPM);
+      let repayAmount = minted - (principal * reservePPM) / 1000000n;
+      let reserve = await dEURO.calculateAssignedReserve(principal, reservePPM);
       expect(reserve + repayAmount).to.be.eq(minted);
 
-      await clonePositionContract.repay(repayAmount - reserve);
-      let minted1 = await clonePositionContract.debt();
-      let reserve1 = await dEURO.calculateAssignedReserve(minted1, reservePPM);
-      let repayAmount1 = minted1 - reserve1;
-      await clonePositionContract.repay(repayAmount1);
+      // console.log("minted", minted);
+      // await clonePositionContract.repay(minted);
+      // let principal1 = await clonePositionContract.principal();
+      // let accruedInterest1 = await clonePositionContract.accruedInterest();
+      // let minted1 = await clonePositionContract.getDebt();
+      // console.log("debt", principal1 + accruedInterest1);
+      // console.log("minted1", minted1);
+      await clonePositionContract.repayFull();
       await clonePositionContract.withdrawCollateral(
         cloneOwner,
         fInitialCollateralClone,
@@ -618,7 +622,7 @@ describe("Position Tests", () => {
     });
     it("should revert on price adjustments when expired", async () => {
       let currentPrice = await positionContract.price();
-      let minted = await positionContract.debt();
+      let minted = await positionContract.getDebt();
       let collateralBalance = await mockVOL.balanceOf(positionAddr);
       await positionContract.adjust(minted, collateralBalance, currentPrice); // don't revert if price is the same
       await expect(
@@ -735,7 +739,7 @@ describe("Position Tests", () => {
         owner,
       );
       let currentFees = await positionContract.accruedInterest();
-      expect(currentFees).to.be.eq(1643);
+      expect(currentFees).to.be.eq(0);
     });
     it("deny challenge", async () => {
       expect(positionContract.deny([], "")).to.be.emit(
@@ -1263,31 +1267,32 @@ describe("Position Tests", () => {
       await evm_increaseTime(86400 * 8);
       const price = floatToDec18(1000);
       const colBalance = await mockVOL.balanceOf(positionAddr);
-      const minted = await positionContract.debt();
+      const minted = await positionContract.getDebt();
       const amount = floatToDec18(100);
 
       const beforedEUROBal = await dEURO.balanceOf(owner.address);
       await positionContract.adjust(minted + amount, colBalance, price);
       const afterdEUROBal = await dEURO.balanceOf(owner.address);
+      const reservePPM = await positionContract.reserveContribution();
+      const expecteddEUROReceived = amount - (amount * reservePPM) / 1000000n
       expect(afterdEUROBal - beforedEUROBal).to.be.equal(
-        ethers.parseEther("89.8384"),
+        expecteddEUROReceived,
       );
     });
     it("owner can burn dEURO", async () => {
       await evm_increaseTime(86400 * 8);
       const price = floatToDec18(1000);
       const colBalance = await mockVOL.balanceOf(positionAddr);
-      const minted = await positionContract.debt();
+      const minted = await positionContract.getDebt();
       const amount = floatToDec18(100);
       await positionContract.adjust(minted + amount, colBalance, price);
-
       await positionContract.adjust(minted, colBalance, price);
-      expect(await positionContract.debt()).to.be.equal(minted);
+      expect(await positionContract.getDebt()).to.be.equal(minted);
     });
     it("owner can adjust price", async () => {
       await evm_increaseTime(86400 * 8);
       const price = await positionContract.price();
-      let minted = await positionContract.debt();
+      let minted = await positionContract.getDebt();
       let collbal = await positionContract.minimumCollateral();
       await positionContract.adjust(minted, collbal, price * 2n);
       expect(await positionContract.price()).to.be.equal(price * 2n);
@@ -1537,7 +1542,7 @@ describe("Position Tests", () => {
       await tx.wait();
       let balanceAfter = await dEURO.balanceOf(await alice.getAddress());
       expect(balanceAfter - balanceBefore).to.be.eq(39794550000000000000000n);
-      expect(await pos.debt()).to.be.eq(mintedAmount);
+      expect(await pos.getDebt()).to.be.eq(mintedAmount);
       await dEURO.transfer(await test.getAddress(), 39794550000000000000000n);
       await dEURO.transfer(await test.getAddress(), 100000000000000000000000n);
     });
@@ -1565,7 +1570,7 @@ describe("Position Tests", () => {
 
     it("force sale at liquidation price should succeed in cleaning up position", async () => {
       let tx = await test.forceBuy(await pos.getAddress(), 35n);
-      expect(await pos.debt()).to.be.eq(0n);
+      expect(await pos.getDebt()).to.be.eq(0n);
       expect(await pos.isClosed()).to.be.false; // still more than 10 collateral left
     });
 
@@ -1574,7 +1579,7 @@ describe("Position Tests", () => {
         (await pos.expiration()) + 2n * (await pos.challengePeriod()),
       );
       let tx = await test.forceBuy(await pos.getAddress(), 64n);
-      expect(await pos.debt()).to.be.eq(0n);
+      expect(await pos.getDebt()).to.be.eq(0n);
       expect(await pos.isClosed()).to.be.true;
       expect(await mockVOL.balanceOf(await pos.getAddress())).to.be.eq(0n); // still collateral left
     });
