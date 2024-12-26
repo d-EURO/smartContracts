@@ -48,7 +48,7 @@ contract PositionRoller {
      */
     function rollFullyWithExpiration(IPosition source, IPosition target, uint40 expiration) public {
         require(source.collateral() == target.collateral());
-        uint256 repay = findRepaymentAmount(source);
+        uint256 repay = source.getDebt();
         uint256 mintAmount = target.getMintAmount(repay);
         uint256 collateralToWithdraw = IERC20(source.collateral()).balanceOf(address(source));
         uint256 targetPrice = target.price();
@@ -67,6 +67,7 @@ contract PositionRoller {
      * To save gas costs, the frontend can also call this and other methods to calculate the right parameters and
      * then call 'roll' directly.
      */
+    // TODO: Is this function really needed?
     function findRepaymentAmount(IPosition pos) public view returns (uint256) {
         uint256 minted = pos.principal() + pos.accruedInterest();
         uint24 reservePPM = pos.reserveContribution();

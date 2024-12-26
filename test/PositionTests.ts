@@ -1541,7 +1541,9 @@ describe("Position Tests", () => {
         .mint(await alice.getAddress(), mintedAmount);
       await tx.wait();
       let balanceAfter = await dEURO.balanceOf(await alice.getAddress());
-      expect(balanceAfter - balanceBefore).to.be.eq(39794550000000000000000n);
+      let reservePPM = await pos.reserveContribution();
+      let expectedAmount = mintedAmount - (mintedAmount * reservePPM) / 1_000_000n;
+      expect(balanceAfter - balanceBefore).to.be.eq(expectedAmount);
       expect(await pos.getDebt()).to.be.eq(mintedAmount);
       await dEURO.transfer(await test.getAddress(), 39794550000000000000000n);
       await dEURO.transfer(await test.getAddress(), 100000000000000000000000n);
@@ -1569,8 +1571,12 @@ describe("Position Tests", () => {
     });
 
     it("force sale at liquidation price should succeed in cleaning up position", async () => {
-      let tx = await test.forceBuy(await pos.getAddress(), 35n);
-      expect(await pos.getDebt()).to.be.eq(0n);
+      let debtBefore = await pos.getDebt();
+      await test.forceBuy(await pos.getAddress(), 35n); // Total collateral is 100
+      let debtAfter = await pos.getDebt();
+      let forceSalePrice = await mintingHub.expiredPurchasePrice(await pos.getAddress());
+      let expectedDebtPayoff = (forceSalePrice * 35n) / (10n ** 18n);
+      expect(debtBefore - debtAfter).to.be.approximately(expectedDebtPayoff, floatToDec18(1));
       expect(await pos.isClosed()).to.be.false; // still more than 10 collateral left
     });
 

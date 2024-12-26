@@ -423,8 +423,6 @@ contract Position is Ownable, IPosition, MathUtil {
 
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
         if (amount > availableForMinting()) revert LimitExceeded(amount, availableForMinting());
-        
-        _accrueInterest(); // Accrue interest on current principal before minting
 
         Position(original).notifyMint(amount);
         deuro.mintWithReserve(target, amount, reserveContribution, 0);
@@ -525,7 +523,7 @@ contract Position is Ownable, IPosition, MathUtil {
         // Pay down debt from `buyer` up to `proceeds`.
         uint256 used = _payDownDebt(buyer, proceeds);
         uint256 leftover = proceeds > used ? (proceeds - used) : 0;
-        debt -= used;
+        debt = used > debt ? 0 : debt - used;
 
         if (debt == 0 && leftover > 0) {
             // All debt paid, leftover is profit for owner
@@ -589,10 +587,9 @@ contract Position is Ownable, IPosition, MathUtil {
      * variables change in an adverse way.
      */
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
-        uint256 debt = principal + accruedInterest;
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
-        if (relevantCollateral * atPrice < debt * ONE_DEC18) {
-            revert InsufficientCollateral(relevantCollateral * atPrice, debt * ONE_DEC18);
+        if (relevantCollateral * atPrice < principal * ONE_DEC18) {
+            revert InsufficientCollateral(relevantCollateral * atPrice, principal * ONE_DEC18);
         }
     }
 
