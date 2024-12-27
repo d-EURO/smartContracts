@@ -253,9 +253,9 @@ describe("ForceSale Tests", () => {
       const repaymentNeeded = (max * 9n) / 10n;
       expect((expP * col) / 10n ** 18n).to.be.lessThan(repaymentNeeded);
       const equity = await dEURO.equity();
-      // await mintingHub.buyExpiredCollateral(position, col * 10n); // try buying way too much // TODO: Fix test failure
-      // expect(await position.getDebt()).to.be.eq(0);
-      // expect(await dEURO.equity()).to.be.lessThan(equity);
+      await mintingHub.buyExpiredCollateral(position, col * 10n); // try buying way too much
+      expect(await position.getDebt()).to.be.eq(0);
+      expect(await dEURO.equity()).to.be.lessThan(equity);
     });
   });
 });
