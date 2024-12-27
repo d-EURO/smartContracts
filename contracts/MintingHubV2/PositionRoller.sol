@@ -63,49 +63,6 @@ contract PositionRoller {
     }
 
     /**
-     * Doing a binary search is not very efficient, but guaranteed to return a valid result without rounding errors.
-     * To save gas costs, the frontend can also call this and other methods to calculate the right parameters and
-     * then call 'roll' directly.
-     */
-    // TODO: Is this function really needed?
-    function findRepaymentAmount(IPosition pos) public view returns (uint256) {
-        uint256 minted = pos.principal() + pos.accruedInterest();
-        uint24 reservePPM = pos.reserveContribution();
-        if (minted == 0) {
-            return 0;
-        }
-        uint256 higherResult = deuro.calculateFreedAmount(minted, reservePPM);
-        if (higherResult == minted) {
-            return minted;
-        }
-        return binarySearch(minted, reservePPM, 0, 0, minted, higherResult);
-    }
-
-    // max call stack depth is 1024 in solidity. Binary search on a 256-bit number takes at most 256 steps, so it should be fine.
-    function binarySearch(
-        uint256 target,
-        uint24 reservePPM,
-        uint256 lowerBound,
-        uint256 lowerResult,
-        uint256 higherBound,
-        uint256 higherResult
-    ) internal view returns (uint256) {
-        uint256 middle = (lowerBound + higherBound) / 2;
-        if (middle == lowerBound) {
-            return higherBound; // we have reached maximum precision without an exact match, return the next higher result to be safe
-        } else {
-            uint256 middleResult = deuro.calculateFreedAmount(middle, reservePPM);
-            if (middleResult == target) {
-                return middle;
-            } else if (middleResult < target) {
-                return binarySearch(target, reservePPM, middle, middleResult, higherBound, higherResult);
-            } else {
-                return binarySearch(target, reservePPM, lowerBound, lowerResult, middle, middleResult);
-            }
-        }
-    }
-
-    /**
      * Rolls the source position into the target position using a flash loan.
      * Both the source and the target position must recognize this roller.
      * It is the responsibility of the caller to ensure that both positions are valid contracts.

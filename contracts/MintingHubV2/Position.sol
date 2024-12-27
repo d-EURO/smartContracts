@@ -230,9 +230,6 @@ contract Position is Ownable, IPosition, MathUtil {
 
     function notifyRepaid(uint256 repaid_) external {
         if (deuro.getPositionParent(msg.sender) != hub) revert NotHub();
-        // if (repaid_ > totalMinted) {
-        //     revert RepaidTooMuch(repaid_ - totalMinted);
-        // }
         totalMinted -= repaid_;
     }
 
@@ -463,16 +460,14 @@ contract Position is Ownable, IPosition, MathUtil {
     * 
     * Emits a {MintingUpdate} event.
     */
-    function repay(uint256 amount) external returns (uint256) {
+    function repay(uint256 amount) public returns (uint256) {
         uint256 used = _payDownDebt(msg.sender, amount);
         emit MintingUpdate(_collateralBalance(), price, principal + accruedInterest);
         return used;
     }
 
     function repayFull() external returns (uint256) {
-        uint256 used = _payDownDebt(msg.sender, _accrueInterest());
-        emit MintingUpdate(_collateralBalance(), price, principal + accruedInterest);
-        return used;
+        return repay(_accrueInterest());
     }
 
     /**
@@ -595,7 +590,6 @@ contract Position is Ownable, IPosition, MathUtil {
 
     function _payDownDebt(address payer, uint256 amount) internal returns (uint256 repaidAmount) {
         uint256 debt = _accrueInterest(); // ensure principal, accruedInterest, minted are up-to-date
-        // TODO: Can we remove the _accrueInterest call here?
 
         if (amount == 0) {
             return 0;
