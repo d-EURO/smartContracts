@@ -12,8 +12,6 @@ interface IPosition {
 
     function price() external view returns (uint256);
 
-    function minted() external view returns (uint256);
-
     function challengedAmount() external view returns (uint256);
 
     function original() external view returns (address);
@@ -32,6 +30,12 @@ interface IPosition {
 
     function reserveContribution() external view returns (uint24);
 
+    function principal() external view returns (uint256);
+
+    function accruedInterest() external view returns (uint256);
+    
+    function lastAccrual() external view returns (uint40);
+
     function initialize(address parent, uint40 _expiration) external;
 
     function assertCloneable() external;
@@ -46,7 +50,7 @@ interface IPosition {
 
     function deny(address[] calldata helpers, string calldata message) external;
 
-    function getUsableMint(uint256 totalMint, bool afterFees) external view returns (uint256);
+    function getUsableMint(uint256 totalMint) external view returns (uint256);
 
     function getMintAmount(uint256 usableMint) external view returns (uint256);
 
@@ -56,13 +60,13 @@ interface IPosition {
 
     function mint(address target, uint256 amount) external;
 
-    function calculateCurrentFee() external view returns (uint24);
-
     function annualInterestPPM() external view returns (uint24);
 
-    function calculateFee(uint256 exp) external view returns (uint24);
+    function getDebt() external view returns (uint256);
 
     function repay(uint256 amount) external returns (uint256);
+    
+    function repayFull() external returns (uint256);
 
     function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external;
 

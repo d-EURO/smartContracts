@@ -243,7 +243,7 @@ describe("ForceSale Tests", () => {
       let col = await coin.balanceOf(await position.getAddress());
       let max = ((await position.price()) * col) / 10n ** 18n;
       await position.mint(owner, max);
-      expect(await position.minted()).to.be.eq(max);
+      expect(await position.getDebt()).to.be.eq(max);
 
       const period = await position.challengePeriod();
       await evm_increaseTime(100n * 86_400n + (period * 3n) / 2n + 300n); // consider expired
@@ -254,7 +254,7 @@ describe("ForceSale Tests", () => {
       expect((expP * col) / 10n ** 18n).to.be.lessThan(repaymentNeeded);
       const equity = await dEURO.equity();
       await mintingHub.buyExpiredCollateral(position, col * 10n); // try buying way too much
-      expect(await position.minted()).to.be.eq(0);
+      expect(await position.getDebt()).to.be.eq(0);
       expect(await dEURO.equity()).to.be.lessThan(equity);
     });
   });

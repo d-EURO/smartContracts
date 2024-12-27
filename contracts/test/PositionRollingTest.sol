@@ -60,7 +60,7 @@ contract PositionRollingTest {
     function roll() public {
         col.approve(address(roller), col.balanceOf(address(p1))); // approve full balance
         roller.rollFully(p1, p2);
-        require(p1.minted() == 0);
+        require(p1.getDebt() == 0);
         require(deuro.balanceOf(address(this)) == 0);
     }
 }
