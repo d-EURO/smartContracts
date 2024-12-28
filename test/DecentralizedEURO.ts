@@ -182,6 +182,7 @@ describe("DecentralizedEURO", () => {
       expect(allowance2).to.be.eq(floatToDec18(0));
       await dEURO.burn(amount);
       await bridge.burn(amount);
+      await dEURO.approve(await bridge.getAddress(), amount);
       await bridge.burnAndSend(owner.address, amount);
 
       let balanceXEUROfBridge = await mockXEUR.balanceOf(

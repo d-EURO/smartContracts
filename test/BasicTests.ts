@@ -173,6 +173,7 @@ describe("Basic Tests", () => {
       expect(allowance2).to.be.eq(floatToDec18(0));
       await dEURO.burn(amount);
       await bridge.burn(amount);
+      await dEURO.approve(bridgeAddr, amount);
       await bridge.burnAndSend(owner.address, amount);
 
       let balanceXEUROfBridge = await mockXEUR.balanceOf(bridgeAddr);
@@ -229,6 +230,7 @@ describe("Basic Tests", () => {
       let totalShares = dec18ToFloat(fTotalShares);
       let totalCapital = dec18ToFloat(fTotalCapital);
       let dShares = capitalToShares(totalCapital, totalShares, amount);
+      await dEURO.approve(equity, fAmount);
       await equity.invest(fAmount, 0);
       let balanceAfter = await equity.balanceOf(owner.address);
       let balanceAfterdEURO = await dEURO.balanceOf(owner.address);
