@@ -289,4 +289,44 @@ describe("Basic Tests", () => {
       }
     });
   });
+  describe("dEURO allowance function tests", () => {
+    it("should return 0 by default for non-internal => non-internal", async () => {
+      const allowanceVal = await dEURO.allowance(owner.address, alice.address);
+      expect(allowanceVal).to.eq(0n);
+    });
+  
+    it("should return 0 by default for non-internal => minter (bridge)", async () => {
+      const allowanceVal = await dEURO.allowance(owner.address, await bridge.getAddress());
+      expect(allowanceVal).to.eq(0n);
+    });
+
+    it("should return allowance for non-internal => minter (bridge) after approval", async () => {
+      const amount = 1337n;
+      await dEURO.connect(owner).approve(await bridge.getAddress(), amount);
+      const allowanceVal = await dEURO.allowance(owner.address, await bridge.getAddress());
+      expect(allowanceVal).to.eq(amount);
+    });
+  
+    it("should return 2^255 for internal (bridge) => internal (reserve)", async () => {
+      const allowanceVal = await dEURO.allowance(await bridge.getAddress(), await equity.getAddress());
+      const maxUint255 = (1n << 255n).toString();
+      expect(allowanceVal.toString()).to.eq(maxUint255);
+    });
+  
+    it("should return 0 for internal => non-internal (bridge => alice)", async () => {
+      const allowanceVal = await dEURO.allowance(await bridge.getAddress(), alice.address);
+      expect(allowanceVal).to.eq(0n);
+    });
+  
+    it("explicit approval overrides the default logic", async () => {
+      const explicitAmount = 1337n;
+      await dEURO.connect(owner).approve(alice.address, explicitAmount);
+      const allowanceVal = await dEURO.allowance(owner.address, alice.address);
+      expect(allowanceVal).to.eq(explicitAmount);
+      const newAmount = 2022n;
+      await dEURO.connect(owner).approve(alice.address, newAmount);
+      const allowanceVal2 = await dEURO.allowance(owner.address, alice.address);
+      expect(allowanceVal2).to.eq(newAmount);
+    });
+  });
 });

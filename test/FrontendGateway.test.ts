@@ -64,6 +64,7 @@ describe("FrontendGateway Tests", () => {
     const frontendCode = ethers.randomBytes(32);
     const expected = await equity.calculateShares(floatToDec18(1000));
     await dEURO.approve(await frontendGateway.getAddress(), floatToDec18(100000000));
+    await dEURO.approve(equity, floatToDec18(1000));
     await frontendGateway.invest(floatToDec18(1000), expected, frontendCode);
 
     let balance = await equity.balanceOf(owner.address);
