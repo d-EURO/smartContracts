@@ -95,7 +95,10 @@ describe("FrontendGateway Tests", () => {
         frontendGateway.getAddress(),
       );
 
-      await frontendGateway.init(savings.getAddress(), "0x0000000000000000000000000000000000000000");
+      await frontendGateway.init(
+        savings.getAddress(),
+        "0x0000000000000000000000000000000000000000",
+      );
       const applicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
       const applicationFee = await dEURO.MIN_FEE();
 
