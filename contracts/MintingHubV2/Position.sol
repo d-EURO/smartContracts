@@ -588,7 +588,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _notifyInterestPaid(uint256 amount) internal {
-        if (IERC165(hub).supportsInterface(type(IMintingHubGateway).interfaceId)) { // MintingHubGateway Interface Id
+        if (IERC165(hub).supportsInterface(type(IMintingHubGateway).interfaceId)) {
             IMintingHubGateway(hub).notifyInterestPaid(amount);
         }
     }
