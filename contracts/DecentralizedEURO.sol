@@ -114,24 +114,14 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         uint256 explicit = super.allowance(owner, spender);
         if (explicit > 0) {
             return explicit; // don't waste gas checking minter
-        } 
-        
-        bool ownerIsInternal = (
-            isMinter(owner) 
-            || positions[owner] != address(0) 
-            || owner == address(reserve)
-        );
-
-        bool spenderIsMinterOrReserve = (
-            isMinter(spender)
-            || isMinter(getPositionParent(spender)) 
-            || spender == address(reserve)
-        );
-        
-        if (ownerIsInternal && spenderIsMinterOrReserve) {
-            return 1 << 255;
         }
-            
+
+        if (isMinter(owner) || positions[owner] != address(0) || owner == address(reserve)) {
+            if (isMinter(spender) || isMinter(getPositionParent(spender)) || spender == address(reserve)) {
+                return 1 << 255;
+            }
+        }
+
         return 0;
     }
 
