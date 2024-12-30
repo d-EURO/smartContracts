@@ -6,6 +6,7 @@ import {
   DEPSWrapper,
   Equity,
   FrontendGateway,
+  MintingHubGateway,
   SavingsGateway,
   StablecoinBridge,
   TestToken,
@@ -94,7 +95,7 @@ describe("FrontendGateway Tests", () => {
         frontendGateway.getAddress(),
       );
 
-      await frontendGateway.initSavings(savings.getAddress());
+      await frontendGateway.init(savings.getAddress(), "0x0000000000000000000000000000000000000000");
       const applicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
       const applicationFee = await dEURO.MIN_FEE();
 
@@ -163,6 +164,42 @@ describe("FrontendGateway Tests", () => {
         frontendGateway,
         "NotDoneWaiting",
       );
+    });
+  });
+
+  describe("Minting Tests", () => {
+    let mintingHub: MintingHubGateway;
+    before(async () => {
+      const positionFactoryFactory =
+        await ethers.getContractFactory("PositionFactory");
+      const positionFactory = await positionFactoryFactory.deploy();
+
+      const savingsFactory = await ethers.getContractFactory("Savings");
+      const savings = await savingsFactory.deploy(dEURO.getAddress(), 0n);
+
+      const rollerFactory = await ethers.getContractFactory("PositionRoller");
+      const roller = await rollerFactory.deploy(dEURO.getAddress());
+
+      const mintingHubFactory =
+        await ethers.getContractFactory("MintingHubGateway");
+      mintingHub = await mintingHubFactory.deploy(
+        dEURO.getAddress(),
+        savings.getAddress(),
+        roller.getAddress(),
+        positionFactory.getAddress(),
+        frontendGateway.getAddress(),
+      );
+
+      const applicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
+      const applicationFee = await dEURO.MIN_FEE();
+
+      await dEURO.suggestMinter(
+        mintingHub.getAddress(),
+        applicationPeriod,
+        applicationFee,
+        "",
+      );
+      await evm_increaseTime(86400 * 11);
     });
   });
 });

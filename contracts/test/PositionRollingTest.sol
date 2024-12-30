@@ -26,8 +26,8 @@ contract PositionRollingTest {
     constructor(address hub_) {
         hub = MintingHub(hub_);
         col = new TestToken("Some Collateral", "COL", uint8(0));
-        deuro = hub.deur();
-        roller = hub.roller();
+        deuro = hub.DEURO();
+        roller = hub.ROLLER();
     }
 
     function openTwoPositions() public {

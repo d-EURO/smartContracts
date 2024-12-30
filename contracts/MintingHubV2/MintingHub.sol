@@ -1,19 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {MathUtil} from "../utils/MathUtil.sol";
-
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
-import {IReserve} from "../interface/IReserve.sol";
 import {ILeadrate} from "../interface/ILeadrate.sol";
-
+import {PositionRoller} from "./PositionRoller.sol";
 import {IPosition} from "./interface/IPosition.sol";
 import {IPositionFactory} from "./interface/IPositionFactory.sol";
-import {PositionRoller} from "./PositionRoller.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {IMintingHub} from "./interface/IMintingHub.sol";
 
 /**
  * @title Minting Hub
@@ -21,7 +18,7 @@ import {PositionRoller} from "./PositionRoller.sol";
  * @dev Only one instance of this contract is required, whereas every new position comes with a new position
  * contract. Pending challenges are stored as structs in an array.
  */
-contract MintingHub {
+contract MintingHub is IMintingHub, ERC165 {
     /**
      * @notice Irrevocable fee in deur when proposing a new position (but not when cloning an existing one).
      */
@@ -36,9 +33,9 @@ contract MintingHub {
 
     IPositionFactory private immutable POSITION_FACTORY; // position contract to clone
 
-    IDecentralizedEURO public immutable deur; // currency
-    PositionRoller public immutable roller; // helper to roll positions
-    ILeadrate public immutable rate; // to determine the interest rate
+    IDecentralizedEURO public immutable DEURO; // currency
+    PositionRoller public immutable ROLLER; // helper to roll positions
+    ILeadrate public immutable RATE; // to determine the interest rate
 
     Challenge[] public challenges; // list of open challenges
 
@@ -65,7 +62,7 @@ contract MintingHub {
         uint256 acquiredCollateral,
         uint256 challengeSize
     );
-    event PostPonedReturn(address collateral, address indexed beneficiary, uint256 amount);
+    event PostponedReturn(address collateral, address indexed beneficiary, uint256 amount);
     event ForcedSale(address pos, uint256 amount, uint256 priceE36MinusDecimals);
 
     error UnexpectedPrice();
@@ -74,15 +71,15 @@ contract MintingHub {
     error InsufficientCollateral();
 
     modifier validPos(address position) {
-        if (deur.getPositionParent(position) != address(this)) revert InvalidPos();
+        if (DEURO.getPositionParent(position) != address(this)) revert InvalidPos();
         _;
     }
 
     constructor(address _deur, address _leadrate, address _roller, address _factory) {
-        deur = IDecentralizedEURO(_deur);
-        rate = ILeadrate(_leadrate);
+        DEURO = IDecentralizedEURO(_deur);
+        RATE = ILeadrate(_leadrate);
         POSITION_FACTORY = IPositionFactory(_factory);
-        roller = PositionRoller(_roller);
+        ROLLER = PositionRoller(_roller);
     }
 
     /**
@@ -133,7 +130,7 @@ contract MintingHub {
         IPosition pos = IPosition(
             POSITION_FACTORY.createNewPosition(
                 msg.sender,
-                address(deur),
+                address(DEURO),
                 _collateralAddress,
                 _minCollateral,
                 _mintingMaximum,
@@ -145,8 +142,8 @@ contract MintingHub {
                 _reservePPM
             )
         );
-        deur.registerPosition(address(pos));
-        deur.collectProfits(msg.sender, OPENING_FEE);
+        DEURO.registerPosition(address(pos));
+        DEURO.collectProfits(msg.sender, OPENING_FEE);
         IERC20(_collateralAddress).transferFrom(msg.sender, address(pos), _initialCollateral);
 
         emit PositionOpened(msg.sender, address(pos), address(pos), _collateralAddress);
@@ -176,7 +173,7 @@ contract MintingHub {
         address pos = POSITION_FACTORY.clonePosition(parent);
         IPosition child = IPosition(pos);
         child.initialize(parent, expiration);
-        deur.registerPosition(pos);
+        DEURO.registerPosition(pos);
         IERC20 collateral = child.collateral();
         if (_initialCollateral < child.minimumCollateral()) revert InsufficientCollateral();
         collateral.transferFrom(msg.sender, pos, _initialCollateral); // collateral must still come from sender for security
@@ -251,9 +248,9 @@ contract MintingHub {
         // No overflow possible thanks to invariant (col * price <= limit * 10**18)
         // enforced in Position.setPrice and knowing that collateral <= col.
         uint256 offer = (_calculatePrice(_challenge.start + phase, phase, liqPrice) * collateral) / 10 ** 18;
-        deur.transferFrom(msg.sender, address(this), offer); // get money from bidder
+        DEURO.transferFrom(msg.sender, address(this), offer); // get money from bidder
         uint256 reward = (offer * CHALLENGER_REWARD) / 1000_000;
-        deur.transfer(_challenge.challenger, reward); // pay out the challenger reward
+        DEURO.transfer(_challenge.challenger, reward); // pay out the challenger reward
         uint256 fundsAvailable = offer - reward; // funds available after reward
 
         // Example: available funds are 90, repayment is 50, reserve 20%. Then 20%*(90-50)=16 are collected as profits
@@ -267,12 +264,12 @@ contract MintingHub {
             // for excess fund distribution, which make position owners that maxed out their positions slightly better
             // off in comparison to those who did not.
             uint256 profits = (reservePPM * (fundsAvailable - repayment)) / 1000_000;
-            deur.collectProfits(address(this), profits);
-            deur.transfer(owner, fundsAvailable - repayment - profits);
+            DEURO.collectProfits(address(this), profits);
+            DEURO.transfer(owner, fundsAvailable - repayment - profits);
         } else if (fundsAvailable < repayment) {
-            deur.coverLoss(address(this), repayment - fundsAvailable); // ensure we have enough to pay everything
+            DEURO.coverLoss(address(this), repayment - fundsAvailable); // ensure we have enough to pay everything
         }
-        deur.burnWithoutReserve(repayment, reservePPM); // Repay the challenged part, example: 50 deur leading to 10 deur in implicit profits
+        DEURO.burnWithoutReserve(repayment, reservePPM); // Repay the challenged part, example: 50 deur leading to 10 deur in implicit profits
         return (collateral, offer);
     }
 
@@ -281,7 +278,7 @@ contract MintingHub {
         if (msg.sender == _challenge.challenger) {
             // allow challenger to cancel challenge without paying themselves
         } else {
-            deur.transferFrom(msg.sender, _challenge.challenger, (size * liqPrice) / (10 ** 18));
+            DEURO.transferFrom(msg.sender, _challenge.challenger, (size * liqPrice) / (10 ** 18));
         }
 
         _challenge.position.notifyChallengeAverted(size);
@@ -357,7 +354,7 @@ contract MintingHub {
         if (postpone) {
             // Postponing helps in case the challenger was blacklisted or otherwise cannot receive at the moment.
             pendingReturns[address(collateral)][recipient] += amount;
-            emit PostPonedReturn(address(collateral), recipient, amount);
+            emit PostponedReturn(address(collateral), recipient, amount);
         } else {
             collateral.transfer(recipient, amount); // return the challenger's collateral
         }
@@ -405,5 +402,14 @@ contract MintingHub {
         pos.forceSale(msg.sender, amount, costs);
         emit ForcedSale(address(pos), amount, forceSalePrice);
         return amount;
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
+        return
+            interfaceId == type(IMintingHub).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }

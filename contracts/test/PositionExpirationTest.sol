@@ -22,7 +22,7 @@ contract PositionExpirationTest {
     constructor(address hub_) {
         hub = MintingHub(hub_);
         col = new TestToken("Some Collateral", "COL", uint8(0));
-        deuro = hub.deur();
+        deuro = hub.DEURO();
     }
 
     function openPositionFor(address owner) public returns (address) {
