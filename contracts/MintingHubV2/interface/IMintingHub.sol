@@ -10,7 +10,11 @@ interface IMintingHub {
 
     function ROLLER() external view returns (PositionRoller);
 
-    function challenge(address _positionAddr, uint256 _collateralAmount, uint256 minimumPrice) external returns (uint256);
+    function challenge(
+        address _positionAddr,
+        uint256 _collateralAmount,
+        uint256 minimumPrice
+    ) external returns (uint256);
 
     function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn) external;
 

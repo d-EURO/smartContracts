@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import {Equity} from "../Equity.sol";
-import {IPosition} from "../MintingHubV2/interface/IPosition.sol";
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 import {DEPSWrapper} from "../utils/DEPSWrapper.sol";
 import {SavingsGateway} from "./SavingsGateway.sol";
@@ -16,7 +15,11 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     IERC20 public immutable DEURO;
     Equity public immutable EQUITY;
     DEPSWrapper public immutable DEPS;
+
+    // solhint-disable-next-line var-name-mixedcase
     IMintingHubGateway public MINTING_HUB;
+
+    // solhint-disable-next-line var-name-mixedcase
     SavingsGateway public SAVINGS;
 
     uint8 public feeRate; // Fee rate in PPM (parts per thousand), for example 10 = 1%
@@ -34,7 +37,7 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         _;
     }
 
-    constructor(address deuro_, address deps_) public Ownable(_msgSender()) {
+    constructor(address deuro_, address deps_) Ownable(_msgSender()) {
         DEURO = IERC20(deuro_);
         EQUITY = Equity(address(IDecentralizedEURO(deuro_).reserve()));
         DEPS = DEPSWrapper(deps_);

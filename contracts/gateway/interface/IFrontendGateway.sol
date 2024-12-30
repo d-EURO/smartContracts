@@ -15,7 +15,7 @@ interface IFrontendGateway {
     error NotFrontendCodeOwner();
     error NotGatewayService();
     error NoOpenChanges();
-    error NotDoneWaiting(uint minmumExecutionTime);
+    error NotDoneWaiting(uint256 minmumExecutionTime);
 
     function invest(uint256 amount, uint256 expectedShares, bytes32 frontendCode) external returns (uint256);
     function redeem(address target, uint256 shares, bytes32 frontendCode) external returns (uint256);

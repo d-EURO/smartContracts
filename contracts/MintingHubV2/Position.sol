@@ -10,7 +10,6 @@ import {IPosition} from "./interface/IPosition.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import {MintingHubGateway} from "../gateway/MintingHubGateway.sol";
 
 /**
  * @title Position

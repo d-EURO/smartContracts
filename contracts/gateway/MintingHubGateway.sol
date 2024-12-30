@@ -4,7 +4,6 @@ pragma solidity ^0.8.10;
 import {MintingHub} from "../MintingHubV2/MintingHub.sol";
 import {IFrontendGateway} from "./interface/IFrontendGateway.sol";
 import {IMintingHubGateway} from "./interface/IMintingHubGateway.sol";
-import {IMintingHub} from "../MintingHubV2/interface/IMintingHub.sol";
 
 contract MintingHubGateway is MintingHub, IMintingHubGateway {
     IFrontendGateway public immutable GATEWAY;
@@ -75,24 +74,14 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
         return position;
     }
 
-    function notifyInterestPaid(uint256 amount) validPos(msg.sender) external {
+    function notifyInterestPaid(uint256 amount) external validPos(msg.sender) {
         GATEWAY.updatePositionRewards(msg.sender, amount);
-    }
-
-    function mintingHubGatewayInterfaceId() public view returns(bytes4){
-        return type(IMintingHubGateway).interfaceId;
-    }
-
-    function mintingHubInterfaceId() public view returns(bytes4){
-        return type(IMintingHub).interfaceId;
     }
 
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
-        return
-            interfaceId == type(IMintingHubGateway).interfaceId ||
-            super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == type(IMintingHubGateway).interfaceId || super.supportsInterface(interfaceId);
     }
 }

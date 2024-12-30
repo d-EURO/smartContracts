@@ -11,11 +11,7 @@ contract SavingsGateway is Savings, Context {
 
     error NotGateway();
 
-    constructor(
-        IDecentralizedEURO deuro_,
-        uint24 initialRatePPM,
-        address gateway_
-    ) public Savings(deuro_, initialRatePPM) {
+    constructor(IDecentralizedEURO deuro_, uint24 initialRatePPM, address gateway_) Savings(deuro_, initialRatePPM) {
         GATEWAY = IFrontendGateway(gateway_);
     }
 
