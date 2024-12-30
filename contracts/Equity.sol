@@ -38,7 +38,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * and the price are adjusted proportionally. In the absence of extreme inflation of the Euro, it is unlikely
      * that there will ever be more than ten million nDEPS.
      */
-    uint32 public constant VALUATION_FACTOR = 3;
+    uint32 public constant VALUATION_FACTOR = 5;
 
     uint256 private constant MINIMUM_EQUITY = 1_000 * ONE_DEC18;
 
@@ -355,7 +355,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         // Assign 1_000_000 nDEPS for the initial deposit, calculate the amount otherwise
         uint256 newTotalShares = (capitalBefore < MINIMUM_EQUITY || totalShares == 0)
             ? totalShares + 1_000_000 * ONE_DEC18
-            : _mulD18(totalShares, _cubicRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
+            : _mulD18(totalShares, _cubicRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)) * VALUATION_FACTOR / 3);
         return newTotalShares - totalShares;
     }
 
