@@ -25,7 +25,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * The VALUATION_FACTOR determines the market cap of the reserve pool shares relative to the equity reserves.
      * The following always holds: Market Cap = Valuation Factor * Equity Reserve = Price * Supply
      *
-     * In the absence of fees, gains and losses, the variables develop as follows when nDEPS coins are minted:
+     * In the absence of fees, profits and losses, the variables grow as follows when nDEPS tokens are minted:
      *
      * |        Reserve     |      Market Cap    |     Price   |      Supply    |
      * |              1_000 |              5_000 |       0.005 |      1_000_000 |
