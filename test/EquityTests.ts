@@ -87,11 +87,13 @@ describe("Equity Tests", () => {
 
   describe("minting shares", () => {
     it("should revert minting less than minimum equity amount", async () => {
+      await dEURO.approve(equity, floatToDec18(1000));
       await expect(equity.invest(floatToDec18(999), 0)).to.be.revertedWithCustomError(equity, "InsufficientEquity");
     });
 
     // TODO: Check this again, compare to the original
     it("should revert minting when minted less than expected", async () => {
+      await dEURO.approve(equity, floatToDec18(1000));
       await expect(
         equity.invest(floatToDec18(1000), floatToDec18(9999999)),
       ).to.be.revertedWithoutReason();
@@ -116,18 +118,21 @@ describe("Equity Tests", () => {
       expect(price).to.be.equal(floatToDec(1, 15));
       await equity.calculateShares(floatToDec18(1000));
 
+      await dEURO.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), expected);
       let balance = await equity.balanceOf(owner.address);
       expect(balance).to.be.equal(floatToDec18(1000000));
     });
 
     it("should create 1000 more shares when adding seven capital plus fees", async () => {
+      await dEURO.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), 0);
       let expected = await equity.calculateShares(floatToDec18(7000 / 0.98));
       expect(expected).to.be.approximately(
         floatToDec18(1000000),
         floatToDec18(0.01),
       );
+      await dEURO.approve(equity, floatToDec18(7000 / 0.98));
       await equity.invest(floatToDec18(7000 / 0.98), expected);
       let balance = await equity.balanceOf(owner.address);
       expect(balance).to.be.approximately(
@@ -137,6 +142,7 @@ describe("Equity Tests", () => {
     });
 
     it("should fail to investFor a different user", async () => {
+      await dEURO.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), 0);
       const expected = await equity.calculateShares(floatToDec18(7000 / 0.98));
       expect(expected).to.be.approximately(
@@ -151,6 +157,7 @@ describe("Equity Tests", () => {
 
   describe("voting power for savings module", () => {
     beforeEach(async () => {
+      await dEURO.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), 0);
     });
 
@@ -198,8 +205,10 @@ describe("Equity Tests", () => {
 
   describe("redeem shares", () => {
     beforeEach(async () => {
+      await dEURO.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), 0);
       const expected = await equity.calculateShares(floatToDec18(7000 / 0.997));
+      await dEURO.approve(equity, floatToDec18(7000 / 0.997));
       await equity.invest(floatToDec18(7000 / 0.997), expected);
     });
 
@@ -277,7 +286,9 @@ describe("Equity Tests", () => {
 
   describe("transfer shares", () => {
     beforeEach(async () => {
+      await dEURO.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), 0);
+      await dEURO.connect(bob).approve(equity, floatToDec18(1000));
       await equity.connect(bob).invest(floatToDec18(1000), 0);
     });
     it("total votes==sum of owner votes", async () => {
@@ -378,7 +389,9 @@ describe("Equity Tests", () => {
 
   describe("delegate voting power", () => {
     beforeEach(async () => {
+      await dEURO.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), 0);
+      await dEURO.connect(bob).approve(equity, floatToDec18(1000));
       await equity.connect(bob).invest(floatToDec18(1000), 0);
     });
 
@@ -404,6 +417,7 @@ describe("Equity Tests", () => {
 
     it("should revert qualified check when not meet quorum", async () => {
       await dEURO.transfer(alice.address, 1);
+      await dEURO.connect(alice).approve(equity, 1);
       await equity.connect(alice).invest(1, 0);
       await expect(
         equity.checkQualified(alice.address, []),
@@ -477,6 +491,9 @@ describe("Equity Tests", () => {
 
         // Burn dEURO and send EUR to owner
         const ownerEURBalanceBefore = await eur.balanceOf(owner.address);
+        await dEURO
+          .connect(alice)
+          .approve(await bridge.getAddress(), expectedMintAmount);
         await bridge
           .connect(alice)
           .burnAndSend(owner.address, expectedMintAmount);
