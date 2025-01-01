@@ -30,15 +30,20 @@ The source code can be found in the [contracts](contracts) folder. The following
 
 The last status adopted by Frankencoin was Commit [a2ce625c554bbd3465a31e7d8b7360a054339dd2](https://github.com/Frankencoin-ZCHF/FrankenCoin/commit/a2ce625c554bbd3465a31e7d8b7360a054339dd2) on December 2, 2024. The following things were built on it as a fork.
 
-## Core module
+## DecentralizedEURO Core module
 1. ZCHF was renamed to dEURO  
 2. Frankencoin was renamed to DecentralizedEURO  
 3. FPS was renamed to nDEPS (native Decentralized Protocol Share)  
-4. nDEPS now cost 10_000 times less than the FPS for Frankencoin  
-5. ERC20 token has been completely converted to standard Open Zeppelin V5  
-6. ERC165 token standard has been added  
-7. ERC3009 added  
-8. SmartContract internal exchange fee (can also be called issuance fee) increased from 0.3% to 2%  
+4. nDEPS now cost 10_000 times less than the FPS for Frankencoin
+5. In the Equity SmartContract, the valuation factor was adjusted from 3 to 5. 
+6. ERC20 token has been completely converted to standard Open Zeppelin V5  
+7. ERC165 token standard has been added  
+8. ERC3009 added  
+9. SmartContract internal exchange fee (can also be called issuance fee) increased from 0.3% to 2%
+10. Minters are no longer authorized to execute SendFrom and BurnFrom from any address. https://github.com/d-EURO/smartContracts/pull/108
+
+## Savings
+The lock-up of 3 days has been removed without replacement. 
 
 ## DEPS Wrapper
 1. FPS has been renamed to nDEPS  
