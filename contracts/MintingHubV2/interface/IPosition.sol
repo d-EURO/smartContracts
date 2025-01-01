@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IPosition {
     function hub() external view returns (address);
@@ -33,7 +33,7 @@ interface IPosition {
     function principal() external view returns (uint256);
 
     function accruedInterest() external view returns (uint256);
-    
+
     function lastAccrual() external view returns (uint40);
 
     function initialize(address parent, uint40 _expiration) external;
@@ -65,7 +65,7 @@ interface IPosition {
     function getDebt() external view returns (uint256);
 
     function repay(uint256 amount) external returns (uint256);
-    
+
     function repayFull() external returns (uint256);
 
     function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external;

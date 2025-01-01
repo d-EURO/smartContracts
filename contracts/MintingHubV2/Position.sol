@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {MathUtil} from "../utils/MathUtil.sol";
-
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-
+import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 import {IReserve} from "../interface/IReserve.sol";
-import {ILeadrate} from "../interface/ILeadrate.sol";
-
+import {MathUtil} from "../utils/MathUtil.sol";
+import {IMintingHub} from "./interface/IMintingHub.sol";
 import {IPosition} from "./interface/IPosition.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
  * @title Position
@@ -102,8 +101,8 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice The total principal borrowed.
      */
-    uint256 public principal;      
-    
+    uint256 public principal;
+
     /**
      * @notice The total interest accrued but not yet paid.
      */
@@ -164,7 +163,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     modifier ownerOrRoller() {
-        if (msg.sender != address(IHub(hub).roller())) _checkOwner();
+        if (msg.sender != address(IMintingHub(hub).ROLLER())) _checkOwner();
         _;
     }
 
@@ -307,7 +306,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * and the price in one transaction.
      */
     function adjust(uint256 newDebt, uint256 newCollateral, uint256 newPrice) external onlyOwner {
-        uint256 debt =_accrueInterest();
+        uint256 debt = _accrueInterest();
         uint256 colbal = _collateralBalance();
         if (newCollateral > colbal) {
             collateral.transferFrom(msg.sender, address(this), newCollateral - colbal);
@@ -373,7 +372,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * It consists of the globally valid interest plus an individual risk premium.
      */
     function annualInterestPPM() public view returns (uint24) {
-        return IHub(hub).rate().currentRatePPM() + riskPremiumPPM;
+        return IMintingHubGateway(hub).RATE().currentRatePPM() + riskPremiumPPM;
     }
 
     /**
@@ -386,7 +385,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function _accrueInterest() internal returns (uint256 debt) {
         uint40 nowTime = uint40(block.timestamp);
         debt = _getDebtAtTime(nowTime);
-        
+
         if (debt - principal > accruedInterest) {
             accruedInterest = debt - principal;
         }
@@ -423,7 +422,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
         Position(original).notifyMint(amount);
         deuro.mintWithReserve(target, amount, reserveContribution, 0);
-        
+
         principal += amount;
         _checkCollateral(collateral_, price);
     }
@@ -588,6 +587,12 @@ contract Position is Ownable, IPosition, MathUtil {
         }
     }
 
+    function _notifyInterestPaid(uint256 amount) internal {
+        if (IERC165(hub).supportsInterface(type(IMintingHubGateway).interfaceId)) {
+            IMintingHubGateway(hub).notifyInterestPaid(amount);
+        }
+    }
+
     function _payDownDebt(address payer, uint256 amount) internal returns (uint256 repaidAmount) {
         uint256 debt = _accrueInterest(); // ensure principal, accruedInterest, minted are up-to-date
 
@@ -604,6 +609,7 @@ contract Position is Ownable, IPosition, MathUtil {
             uint256 interestToPay = (accruedInterest > remaining) ? remaining : accruedInterest;
             if (interestToPay > 0) {
                 deuro.collectProfits(address(this), interestToPay);
+                _notifyInterestPaid(interestToPay);
                 accruedInterest -= interestToPay;
                 remaining -= interestToPay;
                 repaidAmount += interestToPay;
@@ -689,10 +695,4 @@ contract Position is Ownable, IPosition, MathUtil {
 
         return (owner(), _size, repayment, reserveContribution);
     }
-}
-
-interface IHub {
-    function rate() external view returns (ILeadrate);
-
-    function roller() external view returns (address);
 }

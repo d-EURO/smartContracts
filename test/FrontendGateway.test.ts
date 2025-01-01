@@ -65,7 +65,10 @@ describe("FrontendGateway Tests", () => {
   it("Should add to the code balance", async () => {
     const frontendCode = ethers.randomBytes(32);
     const expected = await equity.calculateShares(floatToDec18(1000));
-    await dEURO.approve(await frontendGateway.getAddress(), floatToDec18(100000000));
+    await dEURO.approve(
+      await frontendGateway.getAddress(),
+      floatToDec18(100000000),
+    );
     await dEURO.approve(equity, floatToDec18(1000));
     await frontendGateway.invest(floatToDec18(1000), expected, frontendCode);
 
@@ -95,7 +98,10 @@ describe("FrontendGateway Tests", () => {
         frontendGateway.getAddress(),
       );
 
-      await frontendGateway.initSavings(savings.getAddress());
+      await frontendGateway.init(
+        savings.getAddress(),
+        "0x0000000000000000000000000000000000000000",
+      );
       const applicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
       const applicationFee = await dEURO.MIN_FEE();
 

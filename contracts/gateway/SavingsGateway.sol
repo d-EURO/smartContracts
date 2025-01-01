@@ -1,22 +1,18 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.10;
 
-import {Savings} from "../Savings.sol";
-import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
-import {FrontendGateway} from "./FrontendGateway.sol";
+import {IFrontendGateway} from "./interface/IFrontendGateway.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
+import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {Savings} from "../Savings.sol";
 
 contract SavingsGateway is Savings, Context {
-    FrontendGateway public immutable GATEWAY;
+    IFrontendGateway public immutable GATEWAY;
 
     error NotGateway();
 
-    constructor(
-        IDecentralizedEURO deuro_,
-        uint24 initialRatePPM,
-        address gateway_
-    ) public Savings(deuro_, initialRatePPM) {
-        GATEWAY = FrontendGateway(gateway_);
+    constructor(IDecentralizedEURO deuro_, uint24 initialRatePPM, address gateway_) Savings(deuro_, initialRatePPM) {
+        GATEWAY = IFrontendGateway(gateway_);
     }
 
     function refresh(address accountOwner) internal override returns (Account storage) {
@@ -28,7 +24,7 @@ contract SavingsGateway is Savings, Context {
                 // collect interest as you go and trigger accounting event
                 (IDecentralizedEURO(address(deuro))).coverLoss(address(this), earnedInterest);
                 account.saved += earnedInterest;
-                GATEWAY.updateSaving(accountOwner, earnedInterest);
+                GATEWAY.updateSavingRewards(accountOwner, earnedInterest);
                 emit InterestCollected(accountOwner, earnedInterest);
             }
             account.ticks = ticks;

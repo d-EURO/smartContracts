@@ -8,17 +8,19 @@ import {SavingsGateway} from "./SavingsGateway.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
+import {IFrontendGateway} from "./interface/IFrontendGateway.sol";
+import {IMintingHubGateway} from "./interface/IMintingHubGateway.sol";
 
-contract FrontendGateway is Context, Ownable {
+contract FrontendGateway is IFrontendGateway, Context, Ownable {
     IERC20 public immutable DEURO;
     Equity public immutable EQUITY;
     DEPSWrapper public immutable DEPS;
-    SavingsGateway public SAVINGS;
 
-    struct FrontendCode {
-        uint256 balance;
-        address owner;
-    }
+    // solhint-disable-next-line var-name-mixedcase
+    IMintingHubGateway public MINTING_HUB;
+
+    // solhint-disable-next-line var-name-mixedcase
+    SavingsGateway public SAVINGS;
 
     uint8 public feeRate; // Fee rate in PPM (parts per thousand), for example 10 = 1%
     uint8 public savingsFeeRate; // Fee rate of savings in PPM (parts per thousand), for example 10 = 1%
@@ -27,24 +29,15 @@ contract FrontendGateway is Context, Ownable {
     uint256 public changeTimeLock;
 
     mapping(bytes32 => FrontendCode) public frontendCodes;
+    mapping(address => bytes32) public referredPositions;
     mapping(address => bytes32) public lastUsedFrontendCode;
-
-    event FrontendCodeRegistered(address owner, bytes32 frontendCode);
-    event RateChangesProposed(address who, uint8 nextFeeRate, uint8 nextSavingsFeeRate, uint256 nextChange);
-    event RateChangesExecuted(address who, uint8 nextFeeRate, uint8 nextSavingsFeeRate);
-
-    error FrontendCodeAlreadyExists();
-    error NotFrontendCodeOwner();
-    error NotSavingsGateway();
-    error NoOpenChanges();
-    error NotDoneWaiting(uint minmumExecutionTime);
 
     modifier frontendCodeOwnerOnly(bytes32 frontendCode) {
         if (frontendCodes[frontendCode].owner != _msgSender()) revert NotFrontendCodeOwner();
         _;
     }
 
-    constructor(address deuro_, address deps_) public Ownable(_msgSender()) {
+    constructor(address deuro_, address deps_) Ownable(_msgSender()) {
         DEURO = IERC20(deuro_);
         EQUITY = Equity(address(IDecentralizedEURO(deuro_).reserve()));
         DEPS = DEPSWrapper(deps_);
@@ -93,29 +86,42 @@ contract FrontendGateway is Context, Ownable {
         SAVINGS.saveFor(_msgSender(), owner, amount);
     }
 
-    function withdraw(address target, uint192 amount, bytes32 frontendCode) external returns (uint256) {
+    function withdrawSaving(address target, uint192 amount, bytes32 frontendCode) external returns (uint256) {
         lastUsedFrontendCode[_msgSender()] = frontendCode;
         return SAVINGS.withdrawFor(_msgSender(), target, amount);
     }
 
-    function adjust(uint192 targetAmount, bytes32 frontendCode) external {
+    function adjustSaving(uint192 targetAmount, bytes32 frontendCode) external {
         lastUsedFrontendCode[_msgSender()] = frontendCode;
         SAVINGS.adjustFor(_msgSender(), targetAmount);
     }
-
-    // ToDo: 2. ClonePosition
-    // ToDo: 2.1. Create Position https://etherscan.io/address/0x86db50a14b35f71c2d81a0ae19eb20503587f596#writeContract
 
     function updateFrontendAccount(bytes32 frontendCode, uint256 amount) internal {
         lastUsedFrontendCode[_msgSender()] = frontendCode;
         frontendCodes[frontendCode].balance += (amount * feeRate) / 1000;
     }
 
-    function updateSaving(address saver, uint256 interest) external {
-        if (_msgSender() != address(SAVINGS)) revert NotSavingsGateway();
+    function updateSavingRewards(address saver, uint256 interest) external {
+        if (_msgSender() != address(SAVINGS)) revert NotGatewayService();
 
         frontendCodes[lastUsedFrontendCode[saver]].balance += (interest * savingsFeeRate) / 1000;
     }
+
+    function registerPosition(address position, bytes32 frontendCode) external {
+        if (_msgSender() != address(MINTING_HUB)) revert NotGatewayService();
+
+        referredPositions[position] = frontendCode;
+    }
+
+    function updatePositionRewards(address position, uint256 amount) external {
+        if (_msgSender() != address(MINTING_HUB)) revert NotGatewayService();
+
+        frontendCodes[referredPositions[position]].balance += (amount * savingsFeeRate) / 1000;
+    }
+
+    /////////////////////
+    // Fronted Code Logic
+    /////////////////////
 
     function registerFrontendCode(bytes32 frontendCode) external returns (bool) {
         if (frontendCodes[frontendCode].owner != address(0)) revert FrontendCodeAlreadyExists();
@@ -132,13 +138,17 @@ contract FrontendGateway is Context, Ownable {
     }
 
     function withdrawRewards(bytes32 frontendCode) external frontendCodeOwnerOnly(frontendCode) returns (uint256) {
-        return withdrawRewardsTo(frontendCode, _msgSender());
+        return _withdrawRewardsTo(frontendCode, _msgSender());
     }
 
     function withdrawRewardsTo(
         bytes32 frontendCode,
         address to
-    ) public frontendCodeOwnerOnly(frontendCode) returns (uint256) {
+    ) external frontendCodeOwnerOnly(frontendCode) returns (uint256) {
+        return _withdrawRewardsTo(frontendCode, to);
+    }
+
+    function _withdrawRewardsTo(bytes32 frontendCode, address to) internal returns (uint256) {
         uint256 amount = frontendCodes[frontendCode].balance;
         frontendCodes[frontendCode].balance = 0;
         IDecentralizedEURO(address(DEURO)).coverLoss(to, amount);
@@ -165,9 +175,9 @@ contract FrontendGateway is Context, Ownable {
         emit RateChangesExecuted(_msgSender(), feeRate, savingsFeeRate);
     }
 
-
-    function initSavings(address savings) external onlyOwner {
+    function init(address savings, address mintingHub) external onlyOwner {
         SAVINGS = SavingsGateway(savings);
+        MINTING_HUB = IMintingHubGateway(mintingHub);
         renounceOwnership();
     }
 }

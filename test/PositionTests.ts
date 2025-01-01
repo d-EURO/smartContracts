@@ -953,7 +953,7 @@ describe("Position Tests", () => {
         mintingHub
           .connect(alice)
           .bid(challengeNumber, challenge.size * 2n, true),
-      ).to.be.emit(mintingHub, "PostPonedReturn");
+      ).to.be.emit(mintingHub, "PostponedReturn");
     });
   });
   describe("challenge clone", () => {
@@ -1525,7 +1525,7 @@ describe("Position Tests", () => {
       const factory = await ethers.getContractFactory("PositionExpirationTest");
       test = await factory.deploy(await mintingHub.getAddress());
       await dEURO.transfer(await test.getAddress(), 1000n * 10n ** 18n);
-      let tx = await test.openPositionFor(await alice.getAddress());
+      let tx = await test.openPositionFor(await alice.getAddress(), ethers.randomBytes(32));
       let rc = await tx.wait();
       const topic =
         "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
