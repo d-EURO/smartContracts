@@ -21,6 +21,7 @@ The source code can be found in the [contracts](contracts) folder. The following
 | Savings.sol           | A module to pay out interest to ZCHF holders                     |
 | Leadrate.sol          | A module that can provide a leading interest rate for the system |
 | PositionFactory.sol   | Create a completely new position in a newly deployed contract    |
+| DEPSWrapper.sol       | Enables nDEPS to be wrapped in DEPS                              |
 | FrontendGateway.sol   |                                                                  |
 | MintingHubGateway.sol |                                                                  |
 | SavingsGateway.sol    |                                                                  |
@@ -30,18 +31,18 @@ The source code can be found in the [contracts](contracts) folder. The following
 The last status adopted by Frankencoin was Commit [a2ce625c554bbd3465a31e7d8b7360a054339dd2](https://github.com/Frankencoin-ZCHF/FrankenCoin/commit/a2ce625c554bbd3465a31e7d8b7360a054339dd2) on December 2, 2024. The following things were built on it as a fork.
 
 ## Core module
-ZCHF was renamed to dEURO  
-Frankencoin was renamed to DecentralizedEURO  
-FPS was renamed to nDEPS (native Decentralized Protocol Share)  
-nDEPS now cost 1000 times less than the FPS for Frankencoin  
-ERC20 token has been completely converted to standard Open Zeppelin V5  
-ERC165 token standard has been added  
-ERC3009 added  
-SmartContract internal exchange fee (can also be called issuance fee) increased from 0.3% to 2%  
+1. ZCHF was renamed to dEURO  
+2. Frankencoin was renamed to DecentralizedEURO  
+3. FPS was renamed to nDEPS (native Decentralized Protocol Share)  
+4. nDEPS now cost 10_000 times less than the FPS for Frankencoin  
+5. ERC20 token has been completely converted to standard Open Zeppelin V5  
+6. ERC165 token standard has been added  
+7. ERC3009 added  
+8. SmartContract internal exchange fee (can also be called issuance fee) increased from 0.3% to 2%  
 
-## WFPS Wrapper
-WFPS has been renamed to nDEPS  
-WFPS has been renamed DEPS  
+## DEPS Wrapper
+1. FPS has been renamed to nDEPS  
+2. WFPS has been renamed DEPS  
 (so “w” is no longer used for “wrapped” but the non-wrapped version is now called “native”)  
 
 ## Bridges
@@ -51,9 +52,16 @@ dEURO has 4 bridges to
 	Circle EUR  
 	VNX EUR  
 	Stasis EUR  
+ The new tokens in the bridges have different decimal places. 
 
 ## Minting module v1
 In contrast to Frankencoin, dEURO does not use the minting module v1 at all  
+
+## Minting module v1
+Interest is no longer paid when a position is opened but is credited as a debt on an ongoing basis and only has to be paid when a position is closed or modified. 
+
+## Front-end gateway
+It is possible to use the SmartContracts through a gateway and thus obtain a refferal commission. This module is completely new. 
 
 # Audit Reports
 2023-02-10 [Blockbite](https://github.com/Frankencoin-ZCHF/FrankenCoin/blob/main/audits/blockbite-audit.pdf)  
