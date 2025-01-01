@@ -411,7 +411,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         if (shares + ONE_DEC18 >= totalShares) revert TooManyShares(); // make sure there is always at least one share
         uint256 capital = dEURO.equity();
         uint256 reductionAfterFees = (shares * 980) / 1_000; // remove 2% fee
-        uint256 newCapital = _mulD18(capital, _power3(_divD18(totalShares - reductionAfterFees, totalShares)));
+        uint256 newCapital = _mulD18(capital, _power5(_divD18(totalShares - reductionAfterFees, totalShares)));
         return capital - newCapital;
     }
 

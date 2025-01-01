@@ -13,7 +13,6 @@ import {
 } from "../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { evm_increaseTime } from "./helper";
-import { float } from "hardhat/internal/core/params/argumentTypes";
 
 describe("Savings Tests", () => {
   let owner: HardhatEthersSigner;
@@ -76,7 +75,9 @@ describe("Savings Tests", () => {
 
     // jump start fps
     await equity.invest(floatToDec18(1000), 0);
+    await deuro.connect(alice).approve(await equity.getAddress(), floatToDec18(10_000));
     await equity.connect(alice).invest(floatToDec18(10_000), 0);
+    await deuro.connect(bob).approve(await equity.getAddress(), floatToDec18(10_000));
     await equity.connect(bob).invest(floatToDec18(10_000), 0);
     await equity.invest(floatToDec18(1_000_000), 0);
 

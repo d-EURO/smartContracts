@@ -44,6 +44,10 @@ contract PositionExpirationTest {
         return pos;
     }
 
+    function approveDEURO(address spender, uint256 amount) external {
+        deuro.approve(spender, amount);
+    }
+
     function forceBuy(address pos, uint256 amount) public {
         uint256 price = hub.expiredPurchasePrice(Position(pos));
         uint256 balanceBefore = deuro.balanceOf(address(this));
