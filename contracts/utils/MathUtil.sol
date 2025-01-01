@@ -22,7 +22,7 @@ contract MathUtil {
         uint256 x = _v > ONE_DEC18 && _v < 10 ** 19 ? (_v - ONE_DEC18) / 5 + ONE_DEC18 : ONE_DEC18;
         uint256 diff;
         do {
-            uint256 powX5 = _mulD18(_mulD18(_mulD18(_mulD18(x, x), x), x), x);
+            uint256 powX5 = _power5(x);
             uint256 xnew = (x * (powX5 + 2 * _v)) / (2 * powX5 + _v);
             diff = xnew > x ? xnew - x : x - xnew;
             x = xnew;
@@ -38,8 +38,8 @@ contract MathUtil {
         return (_a * ONE_DEC18) / _b;
     }
 
-    function _power3(uint256 _x) internal pure returns (uint256) {
-        return _mulD18(_mulD18(_x, _x), _x);
+    function _power5(uint256 _x) internal pure returns (uint256) {
+        return _mulD18(_mulD18(_mulD18(_mulD18(_x, _x), _x), _x), _x);
     }
 
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {

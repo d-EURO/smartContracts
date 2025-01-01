@@ -87,7 +87,9 @@ describe("Equity Tests", () => {
 
   describe("minting shares", () => {
     it("should revert minting less than minimum equity amount", async () => {
-      await expect(equity.invest(floatToDec18(999), 0)).to.be.revertedWithCustomError(equity, "InsufficientEquity");
+      await expect(
+        equity.invest(floatToDec18(999), 0),
+      ).to.be.revertedWithCustomError(equity, "InsufficientEquity");
     });
 
     // TODO: Check this again, compare to the original
@@ -123,12 +125,12 @@ describe("Equity Tests", () => {
 
     it("should create 1000 more shares when adding seven capital plus fees", async () => {
       await equity.invest(floatToDec18(1000), 0);
-      let expected = await equity.calculateShares(floatToDec18(7000 / 0.98));
+      let expected = await equity.calculateShares(floatToDec18(31000 / 0.98));
       expect(expected).to.be.approximately(
         floatToDec18(1000000),
         floatToDec18(0.01),
       );
-      await equity.invest(floatToDec18(7000 / 0.98), expected);
+      await equity.invest(floatToDec18(31000 / 0.98), expected);
       let balance = await equity.balanceOf(owner.address);
       expect(balance).to.be.approximately(
         floatToDec18(2000000),
@@ -137,15 +139,12 @@ describe("Equity Tests", () => {
     });
 
     it("should fail to investFor a different user", async () => {
-      await equity.invest(floatToDec18(1000), 0);
       const expected = await equity.calculateShares(floatToDec18(7000 / 0.98));
-      expect(expected).to.be.approximately(
-        floatToDec18(1000000),
-        floatToDec18(0.01),
-      );
       await expect(
-        equity.connect(alice).investFor(owner.address, floatToDec18(7000 / 0.98), expected)
-      ).to.be.revertedWithCustomError(equity, 'NotMinter');
+        equity
+          .connect(alice)
+          .investFor(owner.address, floatToDec18(7000 / 0.98), expected),
+      ).to.be.revertedWithCustomError(equity, "NotMinter");
     });
   });
 
@@ -155,7 +154,7 @@ describe("Equity Tests", () => {
     });
 
     it("Proposes a different rate", async () => {
-      const r = await savings.proposeChange(21000n, []);
+      await savings.proposeChange(21000n, []);
       const nextRate = await savings.nextRatePPM();
       expect(nextRate).to.be.equal(21000n);
     });
@@ -216,7 +215,7 @@ describe("Equity Tests", () => {
 
       await expect(
         equity.calculateProceeds((await equity.totalSupply()) * 2n),
-      ).to.be.revertedWithCustomError(equity, 'TooManyShares');
+      ).to.be.revertedWithCustomError(equity, "TooManyShares");
 
       const redemptionAmount =
         (await equity.balanceOf(owner.address)) - floatToDec18(1000000.0);

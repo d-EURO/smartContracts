@@ -29,8 +29,8 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      *
      * |        Reserve     |      Market Cap    |     Price   |      Supply    |
      * |              1_000 |              5_000 |       0.005 |      1_000_000 |
-     * |        100_000_000 |        500_000_000 |      50     |     10_000_000 |
-     * | 10_000_000_000_000 | 50_000_000_000_000 | 500_000     |    100_000_000 |
+     * |        100_000_000 |        500_000_000 |          50 |     10_000_000 |
+     * | 10_000_000_000_000 | 50_000_000_000_000 |     500_000 |    100_000_000 |
      *
      * i.e., the supply is proportional to the cubic root of the reserve and the price is proportional to the
      * squared cubic root. When profits accumulate or losses materialize, the reserve, the market cap,
@@ -413,7 +413,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         if (shares + ONE_DEC18 >= totalShares) revert TooManyShares(); // make sure there is always at least one share
         uint256 capital = dEURO.equity();
         uint256 reductionAfterFees = (shares * 980) / 1_000; // remove 2% fee
-        uint256 newCapital = _mulD18(capital, _power3(_divD18(totalShares - reductionAfterFees, totalShares)));
+        uint256 newCapital = _mulD18(capital, _power5(_divD18(totalShares - reductionAfterFees, totalShares)));
         return capital - newCapital;
     }
 
