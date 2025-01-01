@@ -1,31 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
-// import "./Strings.sol";
-import "./TestToken.sol";
-import "../Equity.sol";
-import "../MintingHubV2/Position.sol";
-import "../MintingHubV2/MintingHub.sol";
-import "../StablecoinBridge.sol";
-import "../MintingHubV2/interface/IPosition.sol";
-import "../interface/IReserve.sol";
-import "../interface/IDecentralizedEURO.sol";
+import {Position} from "../MintingHubV2/Position.sol";
+import {MintingHubGateway} from "../gateway/MintingHubGateway.sol";
+import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {TestToken} from "./TestToken.sol";
 
 contract PositionExpirationTest {
-    MintingHub hub;
-    TestToken col;
-    IDecentralizedEURO deuro;
+    MintingHubGateway public hub;
+    TestToken public col;
+    IDecentralizedEURO public deuro;
+    bytes32 public frontendCode;
 
     constructor(address hub_) {
-        hub = MintingHub(hub_);
+        hub = MintingHubGateway(hub_);
         col = new TestToken("Some Collateral", "COL", uint8(0));
         deuro = hub.DEURO();
     }
 
-    function openPositionFor(address owner) public returns (address) {
+    function openPositionFor(address owner, bytes32 frontendCode_) public returns (address) {
+        frontendCode = frontendCode_;
         col.mint(address(this), 100);
         col.approve(address(hub), 100);
         address pos = hub.openPosition(
@@ -38,7 +32,8 @@ contract PositionExpirationTest {
             10 hours,
             50000,
             1000 * 10 ** 36 /* price */,
-            200000
+            200000,
+            frontendCode
         );
         Position(pos).transferOwnership(owner);
         return pos;
