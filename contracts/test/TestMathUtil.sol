@@ -35,7 +35,7 @@ contract TestMathUtil is MathUtil {
         return _divD18(_a, _b);
     }
 
-    function power3(uint256 _x) external pure returns (uint256) {
-        return _power3(_x);
+    function power5(uint256 _x) external pure returns (uint256) {
+        return _power5(_x);
     }
 }

@@ -40,8 +40,7 @@ export async function getSigningManagerFromPK(
   const provider = new ethers.JsonRpcProvider(nodeUrl);
   const wallet = new ethers.Wallet(pk);
   const signer = wallet.connect(provider);
-  const signingContractManager = new ethers.Contract(ctrAddr, ctrAbi, signer);
-  return signingContractManager;
+  return new ethers.Contract(ctrAddr, ctrAbi, signer);
 }
 
 export function capitalToShares(
@@ -50,7 +49,7 @@ export function capitalToShares(
   dCapital: bigint
 ): bigint {
   if (totalShares == 0n) {
-    return 1000000n;
+    return 10000000n;
   } else {
     return (
       totalShares *

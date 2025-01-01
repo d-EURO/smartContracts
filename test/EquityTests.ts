@@ -76,7 +76,7 @@ describe("Equity Tests", () => {
 
     it("should have initial price 0.001 dEURO / nDEPS", async () => {
       let price = await equity.price();
-      expect(price).to.be.equal(BigInt(1e15));
+      expect(price).to.be.equal(BigInt(1e14));
     });
 
     it("should have some coins", async () => {
@@ -88,14 +88,16 @@ describe("Equity Tests", () => {
   describe("minting shares", () => {
     it("should revert minting less than minimum equity amount", async () => {
       await dEURO.approve(equity, floatToDec18(1000));
-      await expect(equity.invest(floatToDec18(999), 0)).to.be.revertedWithCustomError(equity, "InsufficientEquity");
+      await expect(
+        equity.invest(floatToDec18(999), 0),
+      ).to.be.revertedWithCustomError(equity, "InsufficientEquity");
     });
 
     // TODO: Check this again, compare to the original
     it("should revert minting when minted less than expected", async () => {
       await dEURO.approve(equity, floatToDec18(1000));
       await expect(
-        equity.invest(floatToDec18(1000), floatToDec18(9999999)),
+        equity.invest(floatToDec18(1000), floatToDec18(99999999)),
       ).to.be.revertedWithoutReason();
     });
 
@@ -115,43 +117,39 @@ describe("Equity Tests", () => {
       const expected = await equity.calculateShares(floatToDec18(1000));
       await dEURO.transfer(await equity.getAddress(), 1);
       const price = await equity.price();
-      expect(price).to.be.equal(floatToDec(1, 15));
+      expect(price).to.be.equal(floatToDec(1, 14));
       await equity.calculateShares(floatToDec18(1000));
 
       await dEURO.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), expected);
       let balance = await equity.balanceOf(owner.address);
-      expect(balance).to.be.equal(floatToDec18(1000000));
+      expect(balance).to.be.equal(floatToDec18(10000000));
     });
 
     it("should create 1000 more shares when adding seven capital plus fees", async () => {
       await dEURO.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), 0);
-      let expected = await equity.calculateShares(floatToDec18(7000 / 0.98));
+      let expected = await equity.calculateShares(floatToDec18(31000 / 0.98));
       expect(expected).to.be.approximately(
-        floatToDec18(1000000),
+        floatToDec18(10000000),
         floatToDec18(0.01),
       );
-      await dEURO.approve(equity, floatToDec18(7000 / 0.98));
-      await equity.invest(floatToDec18(7000 / 0.98), expected);
+      await dEURO.approve(equity, floatToDec18(31000 / 0.98));
+      await equity.invest(floatToDec18(31000 / 0.98), expected);
       let balance = await equity.balanceOf(owner.address);
       expect(balance).to.be.approximately(
-        floatToDec18(2000000),
+        floatToDec18(20000000),
         floatToDec18(0.01),
       );
     });
 
     it("should fail to investFor a different user", async () => {
-      await dEURO.approve(equity, floatToDec18(1000));
-      await equity.invest(floatToDec18(1000), 0);
       const expected = await equity.calculateShares(floatToDec18(7000 / 0.98));
-      expect(expected).to.be.approximately(
-        floatToDec18(1000000),
-        floatToDec18(0.01),
-      );
       await expect(
-        equity.connect(alice).investFor(owner.address, floatToDec18(7000 / 0.98), expected)
-      ).to.be.revertedWithCustomError(equity, 'NotMinter');
+        equity
+          .connect(alice)
+          .investFor(owner.address, floatToDec18(7000 / 0.98), expected),
+      ).to.be.revertedWithCustomError(equity, "NotMinter");
     });
   });
 
@@ -162,7 +160,7 @@ describe("Equity Tests", () => {
     });
 
     it("Proposes a different rate", async () => {
-      const r = await savings.proposeChange(21000n, []);
+      await savings.proposeChange(21000n, []);
       const nextRate = await savings.nextRatePPM();
       expect(nextRate).to.be.equal(21000n);
     });
@@ -225,10 +223,10 @@ describe("Equity Tests", () => {
 
       await expect(
         equity.calculateProceeds((await equity.totalSupply()) * 2n),
-      ).to.be.revertedWithCustomError(equity, 'TooManyShares');
+      ).to.be.revertedWithCustomError(equity, "TooManyShares");
 
       const redemptionAmount =
-        (await equity.balanceOf(owner.address)) - floatToDec18(1000000.0);
+        (await equity.balanceOf(owner.address)) - floatToDec18(10000000.0);
       const equityCapital = await dEURO.balanceOf(await equity.getAddress());
       const proceeds = await equity.calculateProceeds(redemptionAmount);
       expect(proceeds).to.be.approximately(
