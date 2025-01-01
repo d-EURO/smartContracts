@@ -53,16 +53,16 @@ The lock-up of 3 days has been removed without replacement.
 ## Bridges
 Frankencoin had a single bridge to XCHF from Bitcoin Suisse  
 dEURO has 4 bridges to   
-	Tether EUR  
-	Circle EUR  
-	VNX EUR  
-	Stasis EUR  
- The new tokens in the bridges have different decimal places. 
+1. Tether EUR  
+2. Circle EUR  
+3. VNX EUR  
+4. Stasis EUR  
+The new tokens in the bridges have different decimal places. 
 
 ## Minting module v1
 In contrast to Frankencoin, dEURO does not use the minting module v1 at all  
 
-## Minting module v1
+## Minting module v2
 Interest is no longer paid when a position is opened but is credited as a debt on an ongoing basis and only has to be paid when a position is closed or modified. 
 
 ## Front-end gateway
