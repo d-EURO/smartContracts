@@ -27,10 +27,10 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      *
      * In the absence of fees, profits and losses, the variables grow as follows when nDEPS tokens are minted:
      *
-     * |        Reserve     |      Market Cap    |     Price   |      Supply    |
-     * |              1_000 |              5_000 |       0.005 |      1_000_000 |
-     * |        100_000_000 |        500_000_000 |          50 |     10_000_000 |
-     * | 10_000_000_000_000 | 50_000_000_000_000 |     500_000 |    100_000_000 |
+     * |        Reserve     |      Market Cap    |     Price    |       Supply    |
+     * |              1_000 |              5_000 |       0.0005 |      10_000_000 |
+     * |        100_000_000 |        500_000_000 |       5      |     100_000_000 |
+     * | 10_000_000_000_000 | 50_000_000_000_000 |  50_000      |   1_000_000_000 |
      *
      * i.e., the supply is proportional to the cubic root of the reserve and the price is proportional to the
      * squared cubic root. When profits accumulate or losses materialize, the reserve, the market cap,
@@ -112,9 +112,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     function price() public view returns (uint256) {
         uint256 equity = dEURO.equity();
         if (equity == 0 || totalSupply() == 0) {
-            // @dev: For Price, 1 = 10^18; 0.001 = 10^15
-            // With VALUATION_FACTOR changed to 5, initial price stays consistent with initial logic
-            return 10 ** 15; // initial price is still defined as before
+            return 10 ** 14; 
         } else {
             return (VALUATION_FACTOR * dEURO.equity() * ONE_DEC18) / totalSupply();
         }
@@ -354,7 +352,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         uint256 investmentExFees = (investment * 980) / 1_000; // remove 2% fee
         // Assign 1_000_000 nDEPS for the initial deposit, calculate the amount otherwise
         uint256 newTotalShares = (capitalBefore < MINIMUM_EQUITY || totalShares == 0)
-            ? totalShares + 1_000_000 * ONE_DEC18
+            ? totalShares + 10_000_000 * ONE_DEC18
             : _mulD18(totalShares, _cubicRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
         return newTotalShares - totalShares;
     }
