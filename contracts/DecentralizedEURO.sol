@@ -114,11 +114,15 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         uint256 explicit = super.allowance(owner, spender);
         if (explicit > 0) {
             return explicit; // don't waste gas checking minter
-        } else if (isMinter(spender) || isMinter(getPositionParent(spender)) || spender == address(reserve)) {
-            return 1 << 255;
-        } else {
-            return 0;
         }
+
+        if (isMinter(owner) || positions[owner] != address(0) || owner == address(reserve)) {
+            if (isMinter(spender) || isMinter(getPositionParent(spender)) || spender == address(reserve)) {
+                return 1 << 255;
+            }
+        }
+
+        return 0;
     }
 
     /**
@@ -197,6 +201,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @notice Burn someone else's dEURO.
      */
     function burnFrom(address _owner, uint256 _amount) external override minterOnly {
+        _spendAllowance(_owner, msg.sender, _amount);
         _burn(_owner, _amount);
     }
 
@@ -263,6 +268,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         uint256 targetTotalBurnAmount,
         uint32 reservePPM
     ) external override minterOnly returns (uint256) {
+        _spendAllowance(payer, msg.sender, targetTotalBurnAmount);
         uint256 assigned = calculateAssignedReserve(targetTotalBurnAmount, reservePPM);
         _transfer(address(reserve), payer, assigned); // send reserve to owner
         _burn(payer, targetTotalBurnAmount); // and burn the full amount from the owner's address

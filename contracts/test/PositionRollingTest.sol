@@ -26,8 +26,8 @@ contract PositionRollingTest {
     constructor(address hub_) {
         hub = MintingHub(hub_);
         col = new TestToken("Some Collateral", "COL", uint8(0));
-        deuro = hub.deur();
-        roller = hub.roller();
+        deuro = hub.DEURO();
+        roller = hub.ROLLER();
     }
 
     function openTwoPositions() public {
@@ -60,7 +60,7 @@ contract PositionRollingTest {
     function roll() public {
         col.approve(address(roller), col.balanceOf(address(p1))); // approve full balance
         roller.rollFully(p1, p2);
-        require(p1.minted() == 0);
+        require(p1.getDebt() == 0);
         require(deuro.balanceOf(address(this)) == 0);
     }
 }

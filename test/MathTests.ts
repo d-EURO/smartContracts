@@ -6,6 +6,16 @@ import { ethers } from "hardhat";
 describe("Math Tests", () => {
   let MathContract: TestMathUtil;
 
+  const expectResult = (result: number, fResult: bigint) => {
+    const err = abs(floatToDec18(result) - fResult);
+    if (err > BigInt(10e6)) {
+      console.log("expected=", result);
+      console.log("received=", fResult);
+      console.log("abs error=", err);
+    }
+    expect(err).to.be.lessThan(BigInt(10e6));
+  };
+
   before(async () => {
     const factory = await ethers.getContractFactory("TestMathUtil");
     MathContract = await factory.deploy();
@@ -13,81 +23,59 @@ describe("Math Tests", () => {
 
   describe("math", () => {
     it("div", async () => {
-      let a = 1.5;
-      let b = 0.4;
-      let result = a / b;
-      let fA = floatToDec18(a);
-      let fB = floatToDec18(b);
-      let fResult = await MathContract.divD18(fA, fB);
-      let err = abs(floatToDec18(result) - fResult);
-      if (err > BigInt(10e6)) {
-        console.log("expected=", result);
-        console.log("received=", fResult);
-        console.log("abs error=", err);
-      }
-      expect(err).to.be.lessThan(BigInt(10e6));
+      const a = 1.5;
+      const b = 0.4;
+      const result = a / b;
+      const fA = floatToDec18(a);
+      const fB = floatToDec18(b);
+      const fResult = await MathContract.divD18(fA, fB);
+      expectResult(result, fResult);
     });
+
     it("mul", async () => {
-      let a = 1.5;
-      let b = 0.4;
-      let result = a * b;
-      let fA = floatToDec18(a);
-      let fB = floatToDec18(b);
-      let fResult = await MathContract.mulD18(fA, fB);
-      let err = abs(floatToDec18(result) - fResult);
-      if (err > BigInt(1e6)) {
-        console.log("expected=", result);
-        console.log("received=", fResult);
-        console.log("abs error=", err);
-      }
-      expect(err).to.be.lessThan(BigInt(10e6));
+      const a = 1.5;
+      const b = 0.4;
+      const result = a * b;
+      const fA = floatToDec18(a);
+      const fB = floatToDec18(b);
+      const fResult = await MathContract.mulD18(fA, fB);
+      expectResult(result, fResult);
     });
-    it("pow3", async () => {
-      let a = 1.5;
-      let result = a ** 3;
-      let fA = floatToDec18(a);
-      let fResult = await MathContract.power3(fA);
-      let err = abs(floatToDec18(result) - fResult);
-      if (err > BigInt(10e6)) {
-        console.log("expected=", result);
-        console.log("received=", fResult);
-        console.log("abs error=", err);
-      }
-      expect(err).to.be.lessThan(BigInt(10e6));
+
+    it("pow5", async () => {
+      const a = 1.5;
+      const result = a ** 5;
+      const fA = floatToDec18(a);
+      const fResult = await MathContract.power5(fA);
+      expectResult(result, fResult);
     });
+
     it("cubic root", async () => {
       // let numbers = [0.01, 0.9, 1, 1.5, 2, 10];
-      let numbers = [1000000000000, 1, 1.01, 1.0002, 1.000003, 1.00000005];
-      for (var k = 0; k < numbers.length; k++) {
-        let number = numbers[k];
-        let result = number ** (1 / 3);
-        let fNumber = floatToDec18(number);
-        let tx = await MathContract.cubicRoot(fNumber, true);
+      const numbers = [1000000000000, 1, 1.01, 1.0002, 1.000003, 1.00000005];
+      for (let k = 0; k < numbers.length; k++) {
+        const number = numbers[k];
+        const result = number ** (1 / 5);
+        const fNumber = floatToDec18(number);
+        const tx = await MathContract.cubicRoot(fNumber, true);
         await expect(tx).to.not.be.reverted;
-        let fResult = await MathContract.result();
-        // console.log(resultRec);
-        let err = abs(floatToDec18(result) - fResult);
-        if (err > BigInt(10e6)) {
-          console.log("expected=", result);
-          console.log("received=", fResult);
-          console.log("rel error=", err);
-        }
-        expect(err).to.be.lessThan(BigInt(10e6));
+        const fResult = await MathContract.result();
+        expectResult(result, fResult);
       }
     });
 
     it("total shares", async () => {
-      let totalShares = floatToDec18(10000);
-      let capitalBefore = floatToDec18(1000000000000); // 1000 billion
-      let numbers = [
+      const totalShares = floatToDec18(10000);
+      const capitalBefore = floatToDec18(1000000000000); // 1000 billion
+      const numbers = [
         7000000000000, 1000, 100, 10, 1, 0.1, 0.01, 0.001, 0.0001, 0.00001,
       ];
-      for (var k = 0; k < numbers.length; k++) {
-        let fNumber = floatToDec18(numbers[k]);
-        let fResult = await MathContract.calculateShares(
+      for (let k = 0; k < numbers.length; k++) {
+        const fNumber = floatToDec18(numbers[k]);
+        const fResult = await MathContract.calculateShares(
           totalShares,
           capitalBefore,
-          fNumber
+          fNumber,
         );
         expect(fResult).to.be.above(0n);
       }

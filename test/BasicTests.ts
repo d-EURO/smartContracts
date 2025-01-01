@@ -173,6 +173,7 @@ describe("Basic Tests", () => {
       expect(allowance2).to.be.eq(floatToDec18(0));
       await dEURO.burn(amount);
       await bridge.burn(amount);
+      await dEURO.approve(bridgeAddr, amount);
       await bridge.burnAndSend(owner.address, amount);
 
       let balanceXEUROfBridge = await mockXEUR.balanceOf(bridgeAddr);
@@ -229,6 +230,7 @@ describe("Basic Tests", () => {
       let totalShares = dec18ToFloat(fTotalShares);
       let totalCapital = dec18ToFloat(fTotalCapital);
       let dShares = capitalToShares(totalCapital, totalShares, amount);
+      await dEURO.approve(equity, fAmount);
       await equity.invest(fAmount, 0);
       let balanceAfter = await equity.balanceOf(owner.address);
       let balanceAfterdEURO = await dEURO.balanceOf(owner.address);
@@ -285,6 +287,46 @@ describe("Basic Tests", () => {
         expect(isPoolShareAmountCorrect).to.be.true;
         expect(isdEUROAmountCorrect).to.be.true;
       }
+    });
+  });
+  describe("dEURO allowance function tests", () => {
+    it("should return 0 by default for non-internal => non-internal", async () => {
+      const allowanceVal = await dEURO.allowance(owner.address, alice.address);
+      expect(allowanceVal).to.eq(0n);
+    });
+  
+    it("should return 0 by default for non-internal => minter (bridge)", async () => {
+      const allowanceVal = await dEURO.allowance(owner.address, await bridge.getAddress());
+      expect(allowanceVal).to.eq(0n);
+    });
+
+    it("should return allowance for non-internal => minter (bridge) after approval", async () => {
+      const amount = 1337n;
+      await dEURO.connect(owner).approve(await bridge.getAddress(), amount);
+      const allowanceVal = await dEURO.allowance(owner.address, await bridge.getAddress());
+      expect(allowanceVal).to.eq(amount);
+    });
+  
+    it("should return 2^255 for internal (bridge) => internal (reserve)", async () => {
+      const allowanceVal = await dEURO.allowance(await bridge.getAddress(), await equity.getAddress());
+      const maxUint255 = (1n << 255n).toString();
+      expect(allowanceVal.toString()).to.eq(maxUint255);
+    });
+  
+    it("should return 0 for internal => non-internal (bridge => alice)", async () => {
+      const allowanceVal = await dEURO.allowance(await bridge.getAddress(), alice.address);
+      expect(allowanceVal).to.eq(0n);
+    });
+  
+    it("explicit approval overrides the default logic", async () => {
+      const explicitAmount = 1337n;
+      await dEURO.connect(owner).approve(alice.address, explicitAmount);
+      const allowanceVal = await dEURO.allowance(owner.address, alice.address);
+      expect(allowanceVal).to.eq(explicitAmount);
+      const newAmount = 2022n;
+      await dEURO.connect(owner).approve(alice.address, newAmount);
+      const allowanceVal2 = await dEURO.allowance(owner.address, alice.address);
+      expect(allowanceVal2).to.eq(newAmount);
     });
   });
 });

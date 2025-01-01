@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {DecentralizedEURO} from "./DecentralizedEURO.sol";
 import {IReserve} from "./interface/IReserve.sol";
 
 /**
