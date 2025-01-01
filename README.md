@@ -16,9 +16,14 @@ The source code can be found in the [contracts](contracts) folder. The following
 | Equity.sol            | The Native Decentralized Euro Protocol Share (nDEPS) ERC20 token |
 | MintingHub.sol        | Plugin for oracle-free collateralized minting                    |
 | Position.sol          | A borrowed minting position holding collateral                   |
-| PositionRoller.sol   | A module to roll positions into new ones        |
+| PositionRoller.sol    | A module to roll positions into new ones                         |
 | StablecoinBridge.sol  | Plugin for 1:1 swaps with other EUR stablecoins                  |
-| Savings.sol          | A module to pay out interest to ZCHF holders    |
+| Savings.sol           | A module to pay out interest to ZCHF holders                     |
+| Leadrate.sol          | A module that can provide a leading interest rate for the system |
+| PositionFactory.sol   | Create a completely new position in a newly deployed contract    |
+| FrontendGateway.sol   |                                                                  |
+| MintingHubGateway.sol |                                                                  |
+| SavingsGateway.sol    |                                                                  |
 
 # Code basis and changes after the fork
 
