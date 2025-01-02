@@ -353,7 +353,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         // Assign 1_000_000 nDEPS for the initial deposit, calculate the amount otherwise
         uint256 newTotalShares = (capitalBefore < MINIMUM_EQUITY || totalShares == 0)
             ? totalShares + 10_000_000 * ONE_DEC18
-            : _mulD18(totalShares, _cubicRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
+            : _mulD18(totalShares, _fifthRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
         return newTotalShares - totalShares;
     }
 
