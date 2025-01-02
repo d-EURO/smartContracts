@@ -396,7 +396,7 @@ contract MintingHub is IMintingHub, ERC165 {
      * the applicable 'expiredPurchasePrice' at that instant.
      *
      * To prevent dust either the remaining collateral needs to be bought or collateral with a value
-     * of at least the OPENING_FEE (1000 dEURO) needs to remain in the position for a different buyer
+     * of at least OPENING_FEE (1000 dEURO) needs to remain in the position for a different buyer
      */
     function buyExpiredCollateral(IPosition pos, uint256 upToAmount) external returns (uint256) {
         uint256 max = pos.collateral().balanceOf(address(pos));
