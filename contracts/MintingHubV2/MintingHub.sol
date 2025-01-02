@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
-import {ILeadrate} from "../interface/ILeadrate.sol";
-import {PositionRoller} from "./PositionRoller.sol";
-import {IPosition} from "./interface/IPosition.sol";
-import {IPositionFactory} from "./interface/IPositionFactory.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ILeadrate} from "../interface/ILeadrate.sol";
 import {IMintingHub} from "./interface/IMintingHub.sol";
+import {IPositionFactory} from "./interface/IPositionFactory.sol";
+import {IPosition} from "./interface/IPosition.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {PositionRoller} from "./PositionRoller.sol";
 
 /**
  * @title Minting Hub
@@ -69,6 +69,7 @@ contract MintingHub is IMintingHub, ERC165 {
     error InvalidPos();
     error IncompatibleCollateral();
     error InsufficientCollateral();
+    error LeaveNoDust(uint256 amount);
 
     modifier validPos(address position) {
         if (DEURO.getPositionParent(position) != address(this)) revert InvalidPos();
@@ -393,12 +394,20 @@ contract MintingHub is IMintingHub, ERC165 {
     /**
      * Buys up to the desired amount of the collateral asset from the given expired position using
      * the applicable 'expiredPurchasePrice' at that instant.
+     *
+     * To prevent dust either the remaining collateral needs to be bought or collateral with a value
+     * of at least 1000 dEURO needs to remain in the position for a different buyer
      */
     function buyExpiredCollateral(IPosition pos, uint256 upToAmount) external returns (uint256) {
         uint256 max = pos.collateral().balanceOf(address(pos));
         uint256 amount = upToAmount > max ? max : upToAmount;
         uint256 forceSalePrice = expiredPurchasePrice(pos);
         uint256 costs = (forceSalePrice * amount) / 10 ** 18;
+
+        if (max - amount > 0 && ((forceSalePrice * (max - amount)) / 10 ** 18) < (1000 * 10 ** 18)) {
+            revert LeaveNoDust(max - amount);
+        }
+
         pos.forceSale(msg.sender, amount, costs);
         emit ForcedSale(address(pos), amount, forceSalePrice);
         return amount;

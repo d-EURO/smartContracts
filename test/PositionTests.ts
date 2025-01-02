@@ -11,15 +11,24 @@ import {
   PositionRoller,
   StablecoinBridge,
   TestToken,
-} from "../typechain";
-import {
   PositionExpirationTest,
-  PositionRollingTest,
-} from "../typechain/contracts/test";
+  PositionRollingTest
+} from "../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
+import { ContractTransactionResponse } from "ethers";
 
 const weeks = 30;
+
+const getPositionAddressFromTX = async (
+  tx: ContractTransactionResponse,
+): Promise<string> => {
+  const PositionOpenedTopic =
+    "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
+  const rc = await tx.wait();
+  const log = rc?.logs.find((x) => x.topics.indexOf(PositionOpenedTopic) >= 0);
+  return "0x" + log?.topics[2].substring(26);
+};
 
 describe("Position Tests", () => {
   let owner: HardhatEthersSigner;
@@ -1101,7 +1110,7 @@ describe("Position Tests", () => {
       );
       await evm_increaseTime(86400);
       // Challenging challenge 3 at price 16666280864197424200 instead of 25
-      let approvalAmount = (price * floatToDec18(bidSize)) / DECIMALS;  
+      let approvalAmount = (price * floatToDec18(bidSize)) / DECIMALS;
       await dEURO.approve(await mintingHub.getAddress(), approvalAmount);
       await expect(
         mintingHub.bid(challengeNumber, floatToDec18(bidSize), false),
@@ -1521,86 +1530,105 @@ describe("Position Tests", () => {
     let test: PositionExpirationTest;
     let pos: Position;
 
-    it("initialize", async () => {
+    before(async () => {
       const factory = await ethers.getContractFactory("PositionExpirationTest");
-      test = await factory.deploy(await mintingHub.getAddress());
+      test = await factory.deploy(mintingHub.getAddress());
+
       await dEURO.transfer(await test.getAddress(), 1000n * 10n ** 18n);
-      let tx = await test.openPositionFor(await alice.getAddress(), ethers.randomBytes(32));
-      let rc = await tx.wait();
-      const topic =
-        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
-      const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
-      let positionAddr = "0x" + log?.topics[2].substring(26);
+
+      const tx = await test.openPositionFor(
+        alice.getAddress(),
+        ethers.randomBytes(32),
+      );
+      const positionAddr = await getPositionAddressFromTX(tx);
       pos = await ethers.getContractAt("Position", positionAddr, owner);
 
       // ensure minter's reserve is at least half there to make tests more interesting
-      let target = await dEURO.minterReserve();
-      let present = await dEURO.balanceOf(await equity.getAddress());
+      const target = await dEURO.minterReserve();
+      const present = await dEURO.balanceOf(equity.getAddress());
+
       if (present < target) {
-        let amount = (target - present) / 2n;
-        dEURO.connect(owner).transfer(await dEURO.reserve(), amount);
+        const amount = (target - present) / 2n;
+        await dEURO.connect(owner).transfer(dEURO.reserve(), amount);
       }
     });
 
     it("should be possible to borrow after starting", async () => {
       await evm_increaseTimeTo(await pos.start());
-      let balanceBefore = await dEURO.balanceOf(await alice.getAddress());
-      let mintedAmount = 50000n * 10n ** 18n;
-      let tx = await pos
-        .connect(alice)
-        .mint(await alice.getAddress(), mintedAmount);
-      await tx.wait();
-      let balanceAfter = await dEURO.balanceOf(await alice.getAddress());
-      let reservePPM = await pos.reserveContribution();
-      let expectedAmount = mintedAmount - (mintedAmount * reservePPM) / 1_000_000n;
+
+      const balanceBefore = await dEURO.balanceOf(alice.getAddress());
+      const mintedAmount = 50000n * 10n ** 18n;
+
+      await pos.connect(alice).mint(alice.getAddress(), mintedAmount);
+
+      const balanceAfter = await dEURO.balanceOf(alice.getAddress());
+      const reservePPM = await pos.reserveContribution();
+      const expectedAmount =
+        mintedAmount - (mintedAmount * reservePPM) / 1_000_000n;
+
       expect(balanceAfter - balanceBefore).to.be.eq(expectedAmount);
       expect(await pos.getDebt()).to.be.eq(mintedAmount);
-      await dEURO.transfer(await test.getAddress(), 39794550000000000000000n);
-      await dEURO.transfer(await test.getAddress(), 100000000000000000000000n);
+
+      await dEURO.transfer(test.getAddress(), 39794550000000000000000n);
+      await dEURO.transfer(test.getAddress(), 100000000000000000000000n);
     });
 
     it("force sale should fail before expiration", async () => {
-      let tx = test.forceBuy(await pos.getAddress(), 1n);
-      expect(tx).to.be.revertedWithCustomError(pos, "Alive");
+      await expect(
+        test.forceBuy(pos.getAddress(), 1n),
+      ).to.be.revertedWithCustomError(pos, "Alive");
     });
 
     it("force sale should succeed after expiration", async () => {
       await evm_increaseTimeTo(await pos.expiration());
-      await test.approveDEURO(await pos.getAddress(), floatToDec18(10_000));
-      let tx = await test.forceBuy(await pos.getAddress(), 1n);
+      await test.approveDEURO(pos.getAddress(), floatToDec18(10_000));
+      await test.forceBuy(pos.getAddress(), 1n);
     });
 
     it("price should reach liq price after one period", async () => {
       await evm_increaseTimeTo(
         (await pos.expiration()) + (await pos.challengePeriod()),
       );
-      let expPrice = await mintingHub.expiredPurchasePrice(
-        await pos.getAddress(),
-      );
-      let liqPrice = await pos.price();
-      expect(liqPrice).to.be.eq(expPrice);
+      const expPrice = await mintingHub.expiredPurchasePrice(pos.getAddress());
+      expect(await pos.price()).to.be.eq(expPrice);
     });
 
     it("force sale at liquidation price should succeed in cleaning up position", async () => {
-      let debtBefore = await pos.getDebt();
-      await test.approveDEURO(await pos.getAddress(), floatToDec18(35_000));
-      await test.forceBuy(await pos.getAddress(), 35n); // Total collateral is 100
-      let debtAfter = await pos.getDebt();
-      let forceSalePrice = await mintingHub.expiredPurchasePrice(await pos.getAddress());
-      let expectedDebtPayoff = (forceSalePrice * 35n) / (10n ** 18n);
-      expect(debtBefore - debtAfter).to.be.approximately(expectedDebtPayoff, floatToDec18(1));
+      const debtBefore = await pos.getDebt();
+
+      await test.approveDEURO(pos.getAddress(), floatToDec18(35_000));
+      await test.forceBuy(pos.getAddress(), 35n); // Total collateral is 100
+
+      const debtAfter = await pos.getDebt();
+      const forceSalePrice = await mintingHub.expiredPurchasePrice(
+        pos.getAddress(),
+      );
+      const expectedDebtPayoff = (forceSalePrice * 35n) / 10n ** 18n;
+
+      expect(debtBefore - debtAfter).to.be.approximately(
+        expectedDebtPayoff,
+        floatToDec18(1),
+      );
       expect(await pos.isClosed()).to.be.false; // still more than 10 collateral left
+    });
+
+    it("should revert due to dust protection", async () => {
+      await test.approveDEURO(pos.getAddress(), floatToDec18(63_000));
+      await expect(
+        test.forceBuy(pos.getAddress(), 63n),
+      ).to.revertedWithCustomError(mintingHub, "LeaveNoDust");
     });
 
     it("get rest for cheap and close position", async () => {
       await evm_increaseTimeTo(
         (await pos.expiration()) + 2n * (await pos.challengePeriod()),
       );
-      await test.approveDEURO(await pos.getAddress(), floatToDec18(64_000));
-      let tx = await test.forceBuy(await pos.getAddress(), 64n);
+      await test.approveDEURO(pos.getAddress(), floatToDec18(64_000));
+      await test.forceBuy(pos.getAddress(), 64n);
+
       expect(await pos.getDebt()).to.be.eq(0n);
       expect(await pos.isClosed()).to.be.true;
-      expect(await mockVOL.balanceOf(await pos.getAddress())).to.be.eq(0n); // still collateral left
+      expect(await mockVOL.balanceOf(pos.getAddress())).to.be.eq(0n); // still collateral left
     });
   });
 
