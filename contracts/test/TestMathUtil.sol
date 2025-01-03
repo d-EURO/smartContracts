@@ -12,7 +12,7 @@ contract TestMathUtil is MathUtil {
 
     // make it a transaction so we can measure gas costs in our tests
     function cubicRoot(uint256 a, bool recordResult) external {
-        uint256 r = _cubicRoot(a);
+        uint256 r = _fifthRoot(a);
         if (recordResult) {
             result = r;
         }
@@ -23,7 +23,7 @@ contract TestMathUtil is MathUtil {
         uint256 capitalBefore,
         uint256 investment
     ) external pure returns (uint256) {
-        uint256 newTotalShares = _mulD18(totalShares, _cubicRoot(_divD18(capitalBefore + investment, capitalBefore)));
+        uint256 newTotalShares = _mulD18(totalShares, _fifthRoot(_divD18(capitalBefore + investment, capitalBefore)));
         return newTotalShares - totalShares;
     }
 
