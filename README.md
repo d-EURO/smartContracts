@@ -10,21 +10,21 @@ There also is a [public frontend](https://app.dEURO.com) and a [documentation pa
 
 The source code can be found in the [contracts](contracts) folder. The following are the most important contracts.
 
-| Contract              | Description                                                      |
-| --------------------- | ---------------------------------------------------------------- |
-| DecentralizedEURO.sol | The DecentralizedEURO (dEURO) ERC20 token                        |
-| Equity.sol            | The Native Decentralized Euro Protocol Share (nDEPS) ERC20 token |
-| MintingHub.sol        | Plugin for oracle-free collateralized minting                    |
-| Position.sol          | A borrowed minting position holding collateral                   |
-| PositionRoller.sol    | A module to roll positions into new ones                         |
-| StablecoinBridge.sol  | Plugin for 1:1 swaps with other EUR stablecoins                  |
-| Savings.sol           | A module to pay out interest to ZCHF holders                     |
-| Leadrate.sol          | A module that can provide a leading interest rate for the system |
-| PositionFactory.sol   | Create a completely new position in a newly deployed contract    |
-| DEPSWrapper.sol       | Enables nDEPS to be wrapped in DEPS                              |
-| FrontendGateway.sol   |                                                                  |
-| MintingHubGateway.sol |                                                                  |
-| SavingsGateway.sol    |                                                                  |
+| Contract              | Description                                                                       |
+|-----------------------|-----------------------------------------------------------------------------------|
+| DecentralizedEURO.sol | The DecentralizedEURO (dEURO) ERC20 token                                         |
+| Equity.sol            | The Native Decentralized Euro Protocol Share (nDEPS) ERC20 token                  |
+| MintingHub.sol        | Plugin for oracle-free collateralized minting                                     |
+| Position.sol          | A borrowed minting position holding collateral                                    |
+| PositionRoller.sol    | A module to roll positions into new ones                                          |
+| StablecoinBridge.sol  | Plugin for 1:1 swaps with other EUR stablecoins                                   |
+| Savings.sol           | A module to pay out interest to ZCHF holders                                      |
+| Leadrate.sol          | A module that can provide a leading interest rate for the system                  |
+| PositionFactory.sol   | Create a completely new position in a newly deployed contract                     |
+| DEPSWrapper.sol       | Enables nDEPS to be wrapped in DEPS                                               |
+| FrontendGateway.sol   | A module that rewards frontend providers for referrals into the dEURO Ecosystem   |
+| MintingHubGateway.sol | Plugin for oracle-free collateralized minting with rewards for frontend providers |
+| SavingsGateway.sol    | A module to pay out interest to ZCHF holders and reward frontend providers        |
 
 # Code basis and changes after the fork
 
