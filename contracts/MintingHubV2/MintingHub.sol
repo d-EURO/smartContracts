@@ -84,7 +84,7 @@ contract MintingHub is IMintingHub, ERC165 {
     }
 
     /**
-     * @notice Open a collateralized loan position. See also https://docs.DecentralizedEURO.com/positions/open .
+     * @notice Open a collateralized loan position. See also https://docs.dEURO.com/positions/open .
      * @dev For a successful call, you must set an allowance for the collateral token, allowing
      * the minting hub to transfer the initial collateral amount to the newly created position and to
      * withdraw the fees.
