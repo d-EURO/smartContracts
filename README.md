@@ -59,10 +59,12 @@ dEURO has 4 bridges to
 4. Stasis EUR  
 The new tokens in the bridges have different decimal places. 
 
+
 ## Minting module v1
 In contrast to Frankencoin, dEURO does not use the minting module v1 at all  
 
 ## Minting module v2
+
 Interest is no longer paid when a position is opened but is credited as a debt on an ongoing basis and only has to be paid when a position is closed or modified. 
 
 ## Front-end gateway

@@ -12,18 +12,18 @@ contract MathUtil {
     uint256 internal constant THRESH_DEC18 = 10 ** 6;
 
     /**
-     * @notice Cubic root with Halley approximation
+     * @notice Fifth root with Halley approximation
      *         Number 1e18 decimal
      * @param _v     number for which we calculate x**(1/5)
      * @return returns _v**(1/5)
      */
-    function _cubicRoot(uint256 _v) internal pure returns (uint256) {
+    function _fifthRoot(uint256 _v) internal pure returns (uint256) {
         // Good first guess for _v slightly above 1.0, which is often the case in the dEURO system
         uint256 x = _v > ONE_DEC18 && _v < 10 ** 19 ? (_v - ONE_DEC18) / 5 + ONE_DEC18 : ONE_DEC18;
         uint256 diff;
         do {
             uint256 powX5 = _power5(x);
-            uint256 xnew = (x * (powX5 + 2 * _v)) / (2 * powX5 + _v);
+            uint256 xnew = (x * (2 * powX5 + 3 * _v)) / (3 * powX5 + 2 * _v);
             diff = xnew > x ? xnew - x : x - xnew;
             x = xnew;
         } while (diff > THRESH_DEC18);
