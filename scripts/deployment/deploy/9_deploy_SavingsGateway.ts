@@ -14,15 +14,17 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   }
 
   // Fetch constructor arguments
+  const params = getParams("paramsSavings", chainId);
   const decentralizedEURODeployment = await get("DecentralizedEURO");
-  const depsWrapperDeployment = await get("DEPSWrapper");
-
+  const frontendGatewayDeployment = await get("FrontendGateway");
+  
+  const initialRatePPM = params.initialRatePPM;
   const decentralizedEURO = decentralizedEURODeployment.address;
-  const depsWrapper = depsWrapperDeployment.address;
-  const args = [decentralizedEURO, depsWrapper];
+  const frontendGateway = frontendGatewayDeployment.address;
+  const args = [decentralizedEURO, initialRatePPM, frontendGateway];
 
   // Deploy contract
-  const deployment = await deployContract(hre, "FrontendGateway", args);
+  const deployment = await deployContract(hre, "SavingsGateway", args);
 
   // Verify contract
   const deploymentAddress = await deployment.getAddress();
@@ -39,4 +41,4 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 };
 
 export default deploy;
-deploy.tags = ["main", "FrontendGateway"];
+deploy.tags = ["main", "SavingsGateway"];

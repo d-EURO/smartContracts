@@ -15,14 +15,20 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   // Fetch constructor arguments
   const decentralizedEURODeployment = await get("DecentralizedEURO");
-  const depsWrapperDeployment = await get("DEPSWrapper");
+  const savingsDeployment = await get("Savings");
+  const positionRollerDeployment = await get("PositionRoller");
+  const positionFactoryDeployment = await get("PositionFactory");
+  const frontendGatewayDeployment = await get("FrontendGateway");
 
   const decentralizedEURO = decentralizedEURODeployment.address;
-  const depsWrapper = depsWrapperDeployment.address;
-  const args = [decentralizedEURO, depsWrapper];
+  const savings = savingsDeployment.address;
+  const positionRoller = positionRollerDeployment.address;
+  const positionFactory = positionFactoryDeployment.address;
+  const frontendGateway = frontendGatewayDeployment.address;
+  const args = [decentralizedEURO, savings, positionRoller, positionFactory, frontendGateway];
 
   // Deploy contract
-  const deployment = await deployContract(hre, "FrontendGateway", args);
+  const deployment = await deployContract(hre, "MintingHubGateway", args);
 
   // Verify contract
   const deploymentAddress = await deployment.getAddress();
@@ -39,4 +45,4 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 };
 
 export default deploy;
-deploy.tags = ["main", "FrontendGateway"];
+deploy.tags = ["main", "MintingHubGateway"];
