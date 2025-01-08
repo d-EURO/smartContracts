@@ -8,8 +8,8 @@ interface IFrontendGateway {
     }
 
     event FrontendCodeRegistered(address owner, bytes32 frontendCode);
-    event RateChangesProposed(address who, uint8 nextFeeRate, uint8 nextSavingsFeeRate, uint256 nextChange);
-    event RateChangesExecuted(address who, uint8 nextFeeRate, uint8 nextSavingsFeeRate);
+    event RateChangesProposed(address who, uint24 nextFeeRate, uint24 nextSavingsFeeRate, uint256 nextChange);
+    event RateChangesExecuted(address who, uint24 nextFeeRate, uint24 nextSavingsFeeRate);
 
     error FrontendCodeAlreadyExists();
     error NotFrontendCodeOwner();
@@ -37,6 +37,6 @@ interface IFrontendGateway {
     function withdrawRewardsTo(bytes32 frontendCode, address to) external returns (uint256);
 
     // Governance
-    function proposeChanges(uint8 newFeeRatePPM_, uint8 newSavingsFeeRatePPM_, address[] calldata helpers) external;
+    function proposeChanges(uint24 newFeeRatePPM_, uint24 newSavingsFeeRatePPM_, address[] calldata helpers) external;
     function executeChanges() external;
 }

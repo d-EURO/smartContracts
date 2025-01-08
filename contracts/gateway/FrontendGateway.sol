@@ -22,10 +22,10 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     // solhint-disable-next-line var-name-mixedcase
     SavingsGateway public SAVINGS;
 
-    uint8 public feeRate; // Fee rate in PPM (parts per thousand), for example 10 = 1%
-    uint8 public savingsFeeRate; // Fee rate of savings in PPM (parts per thousand), for example 10 = 1%
-    uint8 public nextFeeRate;
-    uint8 public nextSavingsFeeRate;
+    uint24 public feeRate; // Fee rate in PPM (parts per million), for example 10 = 1%
+    uint24 public savingsFeeRate; // Fee rate of savings in PPM (parts per million), for example 10 = 1%
+    uint24 public nextFeeRate;
+    uint24 public nextSavingsFeeRate;
     uint256 public changeTimeLock;
 
     mapping(bytes32 => FrontendCode) public frontendCodes;
@@ -41,8 +41,8 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         DEURO = IERC20(deuro_);
         EQUITY = Equity(address(IDecentralizedEURO(deuro_).reserve()));
         DEPS = DEPSWrapper(deps_);
-        feeRate = 10; // 10/1000 = 1% fee
-        savingsFeeRate = 50; // 10/1000 = 1% fee
+        feeRate = 10_000; // 10_000/1_000_000 = 1% fee
+        savingsFeeRate = 50_000; // 50_000/1_000_000 = 5% fee of the of the savings interest
     }
 
     /**
@@ -98,13 +98,13 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
 
     function updateFrontendAccount(bytes32 frontendCode, uint256 amount) internal {
         lastUsedFrontendCode[_msgSender()] = frontendCode;
-        frontendCodes[frontendCode].balance += (amount * feeRate) / 1000;
+        frontendCodes[frontendCode].balance += (amount * feeRate) / 1_000_000;
     }
 
     function updateSavingRewards(address saver, uint256 interest) external {
         if (_msgSender() != address(SAVINGS)) revert NotGatewayService();
 
-        frontendCodes[lastUsedFrontendCode[saver]].balance += (interest * savingsFeeRate) / 1000;
+        frontendCodes[lastUsedFrontendCode[saver]].balance += (interest * savingsFeeRate) / 1_000_000;
     }
 
     function registerPosition(address position, bytes32 frontendCode) external {
@@ -116,12 +116,12 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     function updatePositionRewards(address position, uint256 amount) external {
         if (_msgSender() != address(MINTING_HUB)) revert NotGatewayService();
 
-        frontendCodes[referredPositions[position]].balance += (amount * savingsFeeRate) / 1000;
+        frontendCodes[referredPositions[position]].balance += (amount * savingsFeeRate) / 1_000_000;
     }
 
-    /////////////////////
-    // Fronted Code Logic
-    /////////////////////
+    //////////////////////
+    // Frontend Code Logic
+    //////////////////////
 
     function registerFrontendCode(bytes32 frontendCode) external returns (bool) {
         if (frontendCodes[frontendCode].owner != address(0)) revert FrontendCodeAlreadyExists();
@@ -159,12 +159,12 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
      * @notice Proposes new referral rates that will available to be executed after seven days.
      * To cancel a proposal, just overwrite it with a new one proposing the current rate.
      */
-    function proposeChanges(uint8 newFeeRatePPM_, uint8 newSavingsFeeRatePPM_, address[] calldata helpers) external {
+    function proposeChanges(uint24 newFeeRatePPM_, uint24 newSavingsFeeRatePPM_, address[] calldata helpers) external {
         EQUITY.checkQualified(_msgSender(), helpers);
         nextFeeRate = newFeeRatePPM_;
         nextSavingsFeeRate = newSavingsFeeRatePPM_;
         changeTimeLock = block.timestamp + 7 days;
-        emit RateChangesProposed(_msgSender(), newFeeRatePPM_, newSavingsFeeRatePPM_, 0);
+        emit RateChangesProposed(_msgSender(), newFeeRatePPM_, newSavingsFeeRatePPM_, changeTimeLock);
     }
 
     function executeChanges() external {
