@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
 import {IFrontendGateway} from "./interface/IFrontendGateway.sol";
@@ -8,8 +8,6 @@ import {Savings} from "../Savings.sol";
 
 contract SavingsGateway is Savings, Context {
     IFrontendGateway public immutable GATEWAY;
-
-    error NotGateway();
 
     constructor(IDecentralizedEURO deuro_, uint24 initialRatePPM, address gateway_) Savings(deuro_, initialRatePPM) {
         GATEWAY = IFrontendGateway(gateway_);
@@ -32,40 +30,22 @@ contract SavingsGateway is Savings, Context {
         return account;
     }
 
-    modifier gatewayOnly() {
-        if (_msgSender() != address(GATEWAY)) revert NotGateway();
-        _;
+    function save(uint192 amount, bytes32 frontendCode) public {
+        save(_msgSender(), amount, frontendCode);
     }
 
-    function adjustFor(address owner, uint192 targetAmount) public gatewayOnly {
-        Account storage balance = refresh(owner);
-        if (balance.saved < targetAmount) {
-            saveFor(owner, owner, targetAmount - balance.saved);
-        } else if (balance.saved > targetAmount) {
-            withdrawFor(owner, owner, balance.saved - targetAmount);
-        }
+    function save(address owner, uint192 amount, bytes32 frontendCode) public {
+        GATEWAY.updateSavingCode(owner, frontendCode);
+        save(_msgSender(), amount);
     }
 
-    function saveFor(address sender, address target, uint192 amount) public gatewayOnly {
-        if (currentRatePPM == 0) revert ModuleDisabled();
-        if (nextRatePPM == 0 && (nextChange <= block.timestamp)) revert ModuleDisabled();
-        Account storage balance = refresh(target);
-        deuro.transferFrom(sender, address(this), amount);
-        assert(balance.ticks >= currentTicks()); // @dev: should not differ, since there is no shift of interests
-        balance.saved += amount;
-        emit Saved(target, amount);
+    function adjust(uint192 targetAmount, bytes32 frontendCode) public {
+        GATEWAY.updateSavingCode(_msgSender(), frontendCode);
+        adjust(targetAmount);
     }
 
-    function withdrawFor(address owner, address target, uint192 amount) public gatewayOnly returns (uint256) {
-        Account storage account = refresh(owner);
-        if (amount >= account.saved) {
-            amount = account.saved;
-            delete savings[owner];
-        } else {
-            account.saved -= amount;
-        }
-        deuro.transfer(target, amount);
-        emit Withdrawn(owner, amount);
-        return amount;
+    function withdraw(address target, uint192 amount, bytes32 frontendCode) public returns (uint256) {
+        GATEWAY.updateSavingCode(_msgSender(), frontendCode);
+        return withdraw(target, amount);
     }
 }
