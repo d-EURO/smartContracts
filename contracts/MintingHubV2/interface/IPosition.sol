@@ -60,8 +60,6 @@ interface IPosition {
 
     function mint(address target, uint256 amount) external;
 
-    function annualInterestPPM() external view returns (uint24);
-
     function getDebt() external view returns (uint256);
 
     function repay(uint256 amount) external returns (uint256);
