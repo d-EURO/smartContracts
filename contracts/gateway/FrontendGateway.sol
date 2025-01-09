@@ -37,6 +37,11 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         _;
     }
 
+    modifier onlyGatewayService(address service) {
+        if (_msgSender() != address(service)) revert NotGatewayService();
+        _;
+    }
+
     constructor(address deuro_, address deps_) Ownable(_msgSender()) {
         DEURO = IERC20(deuro_);
         EQUITY = Equity(address(IDecentralizedEURO(deuro_).reserve()));
@@ -81,6 +86,8 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         return actualProceeds;
     }
 
+
+
     function save(address owner, uint192 amount, bytes32 frontendCode) external {
         lastUsedFrontendCode[_msgSender()] = frontendCode;
         SAVINGS.saveFor(_msgSender(), owner, amount);
@@ -96,6 +103,10 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         SAVINGS.adjustFor(_msgSender(), targetAmount);
     }
 
+    ///////////////////
+    // Accounting Logic
+    ///////////////////
+
     function updateFrontendAccount(bytes32 frontendCode, uint256 amount) internal {
         lastUsedFrontendCode[_msgSender()] = frontendCode;
         frontendCodes[frontendCode].balance += (amount * feeRate) / 1_000_000;
@@ -104,18 +115,18 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     function updateSavingRewards(address saver, uint256 interest) external {
         if (_msgSender() != address(SAVINGS)) revert NotGatewayService();
 
+    function updateSavingRewards(address saver, uint256 interest) external onlyGatewayService(address(SAVINGS)) {
         frontendCodes[lastUsedFrontendCode[saver]].balance += (interest * savingsFeeRate) / 1_000_000;
     }
 
-    function registerPosition(address position, bytes32 frontendCode) external {
-        if (_msgSender() != address(MINTING_HUB)) revert NotGatewayService();
-
+    function registerPosition(
+        address position,
+        bytes32 frontendCode
+    ) external onlyGatewayService(address(MINTING_HUB)) {
         referredPositions[position] = frontendCode;
     }
 
-    function updatePositionRewards(address position, uint256 amount) external {
-        if (_msgSender() != address(MINTING_HUB)) revert NotGatewayService();
-
+    function updatePositionRewards(address position, uint256 amount) external onlyGatewayService(address(MINTING_HUB)) {
         frontendCodes[referredPositions[position]].balance += (amount * savingsFeeRate) / 1_000_000;
     }
 
@@ -126,6 +137,7 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     function registerFrontendCode(bytes32 frontendCode) external returns (bool) {
         if (frontendCodes[frontendCode].owner != address(0)) revert FrontendCodeAlreadyExists();
         frontendCodes[frontendCode].owner = _msgSender();
+        emit FrontendCodeRegistered(_msgSender(), frontendCode);
         return true;
     }
 
@@ -134,6 +146,7 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         address to
     ) external frontendCodeOwnerOnly(frontendCode) returns (bool) {
         frontendCodes[frontendCode].owner = to;
+        emit FrontendCodeTransferred(_msgSender(), to, frontendCode);
         return true;
     }
 
@@ -152,6 +165,7 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         uint256 amount = frontendCodes[frontendCode].balance;
         frontendCodes[frontendCode].balance = 0;
         IDecentralizedEURO(address(DEURO)).coverLoss(to, amount);
+        emit FrontendCodeRewardsWithdrawn(to, amount, frontendCode);
         return amount;
     }
 

@@ -8,6 +8,8 @@ interface IFrontendGateway {
     }
 
     event FrontendCodeRegistered(address owner, bytes32 frontendCode);
+    event FrontendCodeTransferred(address from, address to, bytes32 frontendCode);
+    event FrontendCodeRewardsWithdrawn(address to, uint256 amount, bytes32 frontendCode);
     event RateChangesProposed(address who, uint24 nextFeeRate, uint24 nextSavingsFeeRate, uint256 nextChange);
     event RateChangesExecuted(address who, uint24 nextFeeRate, uint24 nextSavingsFeeRate);
 
