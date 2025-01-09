@@ -86,8 +86,6 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         return actualProceeds;
     }
 
-
-
     function save(address owner, uint192 amount, bytes32 frontendCode) external {
         lastUsedFrontendCode[_msgSender()] = frontendCode;
         SAVINGS.saveFor(_msgSender(), owner, amount);
@@ -111,9 +109,6 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         lastUsedFrontendCode[_msgSender()] = frontendCode;
         frontendCodes[frontendCode].balance += (amount * feeRate) / 1_000_000;
     }
-
-    function updateSavingRewards(address saver, uint256 interest) external {
-        if (_msgSender() != address(SAVINGS)) revert NotGatewayService();
 
     function updateSavingRewards(address saver, uint256 interest) external onlyGatewayService(address(SAVINGS)) {
         frontendCodes[lastUsedFrontendCode[saver]].balance += (interest * savingsFeeRate) / 1_000_000;
