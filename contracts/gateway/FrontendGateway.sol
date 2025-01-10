@@ -24,8 +24,10 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
 
     uint24 public feeRate; // Fee rate in PPM (parts per million), for example 10 = 1%
     uint24 public savingsFeeRate; // Fee rate of savings in PPM (parts per million), for example 10 = 1%
+    uint24 public mintingFeeRate; // Reward rate of newly minted positions in PPM (parts per million), for example 10 = 1%
     uint24 public nextFeeRate;
     uint24 public nextSavingsFeeRate;
+    uint24 public nextMintingFeeRate;
     uint256 public changeTimeLock;
 
     mapping(bytes32 => FrontendCode) public frontendCodes;
@@ -48,6 +50,7 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         DEPS = DEPSWrapper(deps_);
         feeRate = 10_000; // 10_000/1_000_000 = 1% fee
         savingsFeeRate = 50_000; // 50_000/1_000_000 = 5% fee of the of the savings interest
+        mintingFeeRate = 50_000; // 50_000/1_000_000 = 5% fee of the of the interest paid by the position owner
     }
 
     /**
@@ -122,7 +125,7 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     }
 
     function updatePositionRewards(address position, uint256 amount) external onlyGatewayService(address(MINTING_HUB)) {
-        frontendCodes[referredPositions[position]].balance += (amount * savingsFeeRate) / 1_000_000;
+        frontendCodes[referredPositions[position]].balance += (amount * mintingFeeRate) / 1_000_000;
     }
 
     //////////////////////
@@ -168,20 +171,22 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
      * @notice Proposes new referral rates that will available to be executed after seven days.
      * To cancel a proposal, just overwrite it with a new one proposing the current rate.
      */
-    function proposeChanges(uint24 newFeeRatePPM_, uint24 newSavingsFeeRatePPM_, address[] calldata helpers) external {
+    function proposeChanges(uint24 newFeeRatePPM_, uint24 newSavingsFeeRatePPM_, uint24 newMintingFeeRatePPM_, address[] calldata helpers) external {
         EQUITY.checkQualified(_msgSender(), helpers);
         nextFeeRate = newFeeRatePPM_;
         nextSavingsFeeRate = newSavingsFeeRatePPM_;
+        nextMintingFeeRate = newMintingFeeRatePPM_;
         changeTimeLock = block.timestamp + 7 days;
-        emit RateChangesProposed(_msgSender(), newFeeRatePPM_, newSavingsFeeRatePPM_, changeTimeLock);
+        emit RateChangesProposed(_msgSender(), newFeeRatePPM_, newSavingsFeeRatePPM_, newMintingFeeRatePPM_, changeTimeLock);
     }
 
     function executeChanges() external {
-        if (nextFeeRate == feeRate && nextSavingsFeeRate == savingsFeeRate) revert NoOpenChanges();
+        if (nextFeeRate == feeRate && nextSavingsFeeRate == savingsFeeRate && nextMintingFeeRate == mintingFeeRate) revert NoOpenChanges();
         if (block.timestamp < changeTimeLock) revert NotDoneWaiting(changeTimeLock);
         feeRate = nextFeeRate;
         savingsFeeRate = nextSavingsFeeRate;
-        emit RateChangesExecuted(_msgSender(), feeRate, savingsFeeRate);
+        mintingFeeRate = nextMintingFeeRate;
+        emit RateChangesExecuted(_msgSender(), feeRate, savingsFeeRate, mintingFeeRate);
     }
 
     function init(address savings, address mintingHub) external onlyOwner {

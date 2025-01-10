@@ -135,13 +135,13 @@ describe("FrontendGateway Tests", () => {
 
   describe("Governance Tests", () => {
     it("should be able to propose a change", async () => {
-      await frontendGateway.proposeChanges(100, 20, []);
+      await frontendGateway.proposeChanges(100, 20, 20, []);
 
       expect(await frontendGateway.nextFeeRate()).to.be.equal(100);
     });
 
     it("should be able to execute a change", async () => {
-      await frontendGateway.proposeChanges(100_000, 20_000, []);
+      await frontendGateway.proposeChanges(100_000, 20_000, 20_000, []);
 
       expect(await frontendGateway.feeRate()).to.be.equal(10_000);
 
@@ -153,7 +153,7 @@ describe("FrontendGateway Tests", () => {
 
     it("should be unable to propose a change", async () => {
       await expect(
-        frontendGateway.connect(alice).proposeChanges(100_000, 20_000, []),
+        frontendGateway.connect(alice).proposeChanges(100_000, 20_000, 20_000, []),
       ).to.revertedWithCustomError(equity, "NotQualified");
     });
 
@@ -165,7 +165,7 @@ describe("FrontendGateway Tests", () => {
     });
 
     it("should be unable to execute a change before 7 days", async () => {
-      await frontendGateway.proposeChanges(100, 100, []);
+      await frontendGateway.proposeChanges(100, 100, 100, []);
 
       await expect(frontendGateway.executeChanges()).to.revertedWithCustomError(
         frontendGateway,
