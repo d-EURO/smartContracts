@@ -89,9 +89,13 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice The interest in parts per million per year that is deducted when minting dEURO.
-     * To be paid upfront.
      */
     uint24 public immutable riskPremiumPPM;
+
+    /**
+     * @notice The locked-in rate (including riskPremiumPPM) for this position.
+     */
+    uint24 public fixedAnnualRatePPM;  
 
     /**
      * @notice The reserve contribution in parts per million of the minted amount.
@@ -200,6 +204,7 @@ contract Position is Ownable, IPosition, MathUtil {
         expiration = start + _duration;
         limit = _initialLimit;
         _setPrice(_liqPrice, _initialLimit);
+        _fixRateToLeadrate();
     }
 
     /**
@@ -211,6 +216,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (_expiration < block.timestamp || _expiration > Position(original).expiration()) revert InvalidExpiration(); // expiration must not be later than original
         expiration = _expiration;
         price = Position(parent).price();
+        fixedAnnualRatePPM = Position(parent).fixedAnnualRatePPM();
         _transferOwnership(hub);
     }
 
@@ -367,12 +373,13 @@ contract Position is Ownable, IPosition, MathUtil {
         emit MintingUpdate(collateralBalance, price, debt);
     }
 
+
     /**
-     * The applicable interest rate in ppm when minting more dEURO.
-     * It consists of the globally valid interest plus an individual risk premium.
+     * @notice Fixes the annual rate to the current leadrate plus the risk premium.
+     * This re-prices the entire position based on the current leadrate.
      */
-    function annualInterestPPM() public view returns (uint24) {
-        return IMintingHubGateway(hub).RATE().currentRatePPM() + riskPremiumPPM;
+    function _fixRateToLeadrate() internal {
+        fixedAnnualRatePPM = IMintingHubGateway(hub).RATE().currentRatePPM() + riskPremiumPPM;
     }
 
     /**
@@ -403,7 +410,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
         if (currentTime > lastAccrual && principal > 0) {
             uint256 delta = currentTime - lastAccrual;
-            interest += (principal * annualInterestPPM() * delta) / (365 days * 1_000_000);
+            interest += (principal * fixedAnnualRatePPM * delta) / (365 days * 1_000_000);
         }
 
         return principal + interest;
@@ -419,6 +426,8 @@ contract Position is Ownable, IPosition, MathUtil {
 
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
         if (amount > availableForMinting()) revert LimitExceeded(amount, availableForMinting());
+
+        _fixRateToLeadrate();
 
         Position(original).notifyMint(amount);
         deuro.mintWithReserve(target, amount, reserveContribution, 0);
