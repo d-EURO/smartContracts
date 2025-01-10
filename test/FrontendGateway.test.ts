@@ -120,10 +120,10 @@ describe("FrontendGateway Tests", () => {
 
       const frontendCode = ethers.randomBytes(32);
       await dEURO.approve(await savings.getAddress(), amount);
-      await frontendGateway.save(owner, amount, frontendCode);
+      await savings['save(address,uint192,bytes32)'](owner, amount, frontendCode);
       await evm_increaseTime(365 * 86_400);
 
-      await savings.withdraw(owner.address, 2n * amount); // as much as possible, 2x amount is enough
+      await savings['withdraw(address,uint192)'](owner.address, 2n * amount); // as much as possible, 2x amount is enough
 
       const c0 = (await frontendGateway.frontendCodes(frontendCode)).balance;
       const i1 = await dEURO.balanceOf(owner.address);

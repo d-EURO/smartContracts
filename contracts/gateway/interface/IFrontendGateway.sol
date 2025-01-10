@@ -23,10 +23,7 @@ interface IFrontendGateway {
     function redeem(address target, uint256 shares, bytes32 frontendCode) external returns (uint256);
     function unwrapAndSell(uint256 amount, bytes32 frontendCode) external returns (uint256);
 
-    function save(address owner, uint192 amount, bytes32 frontendCode) external;
-    function withdrawSaving(address target, uint192 amount, bytes32 frontendCode) external returns (uint256);
-    function adjustSaving(uint192 targetAmount, bytes32 frontendCode) external;
-
+    function updateSavingCode(address savingsOwner, bytes32 frontendCode) external;
     function updateSavingRewards(address saver, uint256 interest) external;
 
     function registerPosition(address position, bytes32 frontendCode) external;
