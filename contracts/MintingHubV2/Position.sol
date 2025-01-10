@@ -85,7 +85,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice Minimum acceptable collateral amount to prevent dust.
      */
-    uint256 public immutable override minimumCollateral; 
+    uint256 public immutable override minimumCollateral;
 
     /**
      * @notice The interest in parts per million per year that is deducted when minting dEURO.
