@@ -531,7 +531,7 @@ describe("Position Tests", () => {
       // - position fee (or clone fee)
       let reserveContributionPPM =
         await clonePositionContract.reserveContribution();
-      let yearlyInterestPPM = await clonePositionContract.annualInterestPPM();
+      let yearlyInterestPPM = await clonePositionContract.fixedAnnualRatePPM();
 
       let fBalanceAfter = await dEURO.balanceOf(alice.address);
       let mintAfterFees =
@@ -1663,4 +1663,101 @@ describe("Position Tests", () => {
       // TODO
     });
   });
+
+  describe("Fix interest rate tests", () => {
+    let fliqPrice = floatToDec18(5000);
+    let minCollateral = floatToDec18(1);
+    let fInitialCollateral = floatToDec18(initialCollateral);
+    let duration = BigInt(60 * 86_400);
+    let riskPremium = BigInt(fee * 1_000_000); // risk premium
+    let fReserve = BigInt(reserve * 1_000_000);
+    let challengePeriod = BigInt(3 * 86400);
+    let initialLeadratePPM = BigInt(30000); // initial lead rate
+    let positionContract: Position;
+
+    beforeEach(async () => {
+      // Set initial lead rate
+      await savings.proposeChange(initialLeadratePPM, []);
+      const timePassed = BigInt(7 * 86_400 + 60);
+      await evm_increaseTime(timePassed);
+      await savings.applyChange();
+
+      // Open position
+      await mockVOL
+        .connect(owner)
+        .approve(await mintingHub.getAddress(), 2n * fInitialCollateral);
+      let tx = await mintingHub.openPosition(
+        await mockVOL.getAddress(),
+        minCollateral,
+        fInitialCollateral,
+        initialLimit * 2n,
+        7n * 24n * 3600n,
+        duration,
+        challengePeriod,
+        riskPremium,
+        fliqPrice,
+        fReserve,
+      );
+      let rc = await tx.wait();
+      const topic =
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+      let log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
+      const positionAddr = "0x" + log?.topics[2].substring(26);
+      positionContract = await ethers.getContractAt(
+        "Position",
+        positionAddr,
+        owner,
+      );
+      await evm_increaseTimeTo(await positionContract.start());
+    });
+
+    it("should fix rate on creation and not update if lead rate changes later (repay at old rate)", async () => {
+      const expectedAnnualRate = initialLeadratePPM + riskPremium;
+      expect(await positionContract.fixedAnnualRatePPM()).to.be.equal(expectedAnnualRate);
+
+      const initialMintAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, initialMintAmount);
+      const newLeadratePPM = initialLeadratePPM + 20000n;
+      await savings.proposeChange(newLeadratePPM, []);
+      const timePassed = BigInt(7 * 86_400 + 60);
+      await evm_increaseTime(timePassed);
+      await savings.applyChange();
+      expect(await savings.currentRatePPM()).to.be.equal(newLeadratePPM);
+
+      await evm_increaseTime(timePassed);
+      const debtAfter = await positionContract.getDebt();
+      const expectedInterest = (initialMintAmount * expectedAnnualRate * (2n * timePassed)) / (1000000n * 365n * 86400n);
+      expect(debtAfter - initialMintAmount).to.be.approximately(expectedInterest, floatToDec18(0.001));
+    })
+    it("should update to new lead rate when the loan is increased", async () => {
+      const initialMintAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, initialMintAmount)
+      const timeAtInitialLeadrate = BigInt(5 * 86_400);
+      await evm_increaseTime(timeAtInitialLeadrate);
+
+      const newLeadratePPM = initialLeadratePPM + 20000n;
+      await savings.proposeChange(newLeadratePPM, []);
+      const proposalDuration = BigInt(7 * 86_400 + 60);
+      await evm_increaseTime(proposalDuration);
+      await savings.applyChange();
+      expect(await savings.currentRatePPM()).to.be.eq(newLeadratePPM)
+
+      const timeAtNewLeadrateBeforeMint = BigInt(3 * 86_400);
+      await evm_increaseTime(timeAtNewLeadrateBeforeMint);
+      const totalLoanTime = timeAtInitialLeadrate + proposalDuration + timeAtNewLeadrateBeforeMint;
+      const expectedInterestBeforeMint = (initialMintAmount * (initialLeadratePPM + riskPremium) * totalLoanTime) / (1000000n * 365n * 86400n);
+      expect(await positionContract.getDebt() - initialMintAmount).to.be.approximately(expectedInterestBeforeMint, floatToDec18(0.001));
+    
+      const newMintAmount = floatToDec18(500)
+      await positionContract.mint(owner.address, newMintAmount)
+      const principalAfterMint = await positionContract.principal();
+      expect(principalAfterMint).to.be.equal(initialMintAmount + newMintAmount)
+
+      const timeAtNewLeadrateAfterMint = BigInt(8 * 86_400);
+      await evm_increaseTime(timeAtNewLeadrateAfterMint);
+  
+      const expectedDebt = principalAfterMint + expectedInterestBeforeMint + (newMintAmount * (newLeadratePPM + riskPremium) * timeAtNewLeadrateAfterMint) / (1000000n * 365n * 86400n);
+      expect(await positionContract.getDebt()).to.be.approximately(expectedDebt, floatToDec18(2));
+    })
+  })
 });

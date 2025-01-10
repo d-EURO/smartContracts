@@ -357,7 +357,7 @@ describe("Minting Tests", () => {
       // - position fee (or clone fee)
       const reserveContributionPPM =
         await clonePositionContract.reserveContribution();
-      const yearlyInterestPPM = await clonePositionContract.annualInterestPPM();
+      const yearlyInterestPPM = await clonePositionContract.fixedAnnualRatePPM();
 
       const fBalanceAfter = await dEURO.balanceOf(alice.address);
       const mintAfterFees =
