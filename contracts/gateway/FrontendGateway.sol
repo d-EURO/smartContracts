@@ -161,6 +161,9 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
 
     function _withdrawRewardsTo(bytes32 frontendCode, address to) internal returns (uint256) {
         uint256 amount = frontendCodes[frontendCode].balance;
+
+        if (IDecentralizedEURO(address(DEURO)).equity() < amount) revert EquityTooLow();
+
         frontendCodes[frontendCode].balance = 0;
         IDecentralizedEURO(address(DEURO)).coverLoss(to, amount);
         emit FrontendCodeRewardsWithdrawn(to, amount, frontendCode);
@@ -171,17 +174,29 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
      * @notice Proposes new referral rates that will available to be executed after seven days.
      * To cancel a proposal, just overwrite it with a new one proposing the current rate.
      */
-    function proposeChanges(uint24 newFeeRatePPM_, uint24 newSavingsFeeRatePPM_, uint24 newMintingFeeRatePPM_, address[] calldata helpers) external {
+    function proposeChanges(
+        uint24 newFeeRatePPM_,
+        uint24 newSavingsFeeRatePPM_,
+        uint24 newMintingFeeRatePPM_,
+        address[] calldata helpers
+    ) external {
         EQUITY.checkQualified(_msgSender(), helpers);
         nextFeeRate = newFeeRatePPM_;
         nextSavingsFeeRate = newSavingsFeeRatePPM_;
         nextMintingFeeRate = newMintingFeeRatePPM_;
         changeTimeLock = block.timestamp + 7 days;
-        emit RateChangesProposed(_msgSender(), newFeeRatePPM_, newSavingsFeeRatePPM_, newMintingFeeRatePPM_, changeTimeLock);
+        emit RateChangesProposed(
+            _msgSender(),
+            newFeeRatePPM_,
+            newSavingsFeeRatePPM_,
+            newMintingFeeRatePPM_,
+            changeTimeLock
+        );
     }
 
     function executeChanges() external {
-        if (nextFeeRate == feeRate && nextSavingsFeeRate == savingsFeeRate && nextMintingFeeRate == mintingFeeRate) revert NoOpenChanges();
+        if (nextFeeRate == feeRate && nextSavingsFeeRate == savingsFeeRate && nextMintingFeeRate == mintingFeeRate)
+            revert NoOpenChanges();
         if (block.timestamp < changeTimeLock) revert NotDoneWaiting(changeTimeLock);
         feeRate = nextFeeRate;
         savingsFeeRate = nextSavingsFeeRate;
