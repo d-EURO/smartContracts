@@ -669,7 +669,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function notifyChallengeSucceeded(
         address _bidder,
         uint256 _size
-    ) external onlyHub returns (address, uint256, uint256, uint32) {
+    ) external onlyHub returns (address, uint256, uint256, uint256, uint32) {
         uint256 debt = _accrueInterest();
 
         challengedAmount -= _size;
@@ -678,13 +678,13 @@ contract Position is Ownable, IPosition, MathUtil {
             _size = colBal;
         }
 
-        // Determine how much must be repaid based on challenged collateral
-        uint256 repayment = (colBal == 0) ? 0 : (debt * _size) / colBal;
-
-        // First account for paid down accrued interest, then principal
-        repayment -= (accruedInterest > repayment) ? repayment : accruedInterest;
-        repayment = (principal > repayment) ? repayment : principal;
-        _notifyRepaid(repayment);
+        // Determine how much of the debt must be repaid based on challenged collateral
+        uint256 interestToPay = accruedInterest;
+        uint256 principalToPay = (colBal == 0) ? 0 : (principal * _size) / colBal;
+        accruedInterest -= interestToPay;
+        principal -= principalToPay;
+        _notifyInterestPaid(interestToPay);
+        _notifyRepaid(principalToPay);
 
         // Transfer the challenged collateral to the bidder
         uint256 newBalance = _sendCollateral(_bidder, _size);
@@ -693,6 +693,6 @@ contract Position is Ownable, IPosition, MathUtil {
         // Give time for additional challenges before the owner can mint again.
         _restrictMinting(3 days);
 
-        return (owner(), _size, repayment, reserveContribution);
+        return (owner(), _size, principalToPay, interestToPay, reserveContribution);
     }
 }

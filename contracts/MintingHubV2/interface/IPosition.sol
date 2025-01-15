@@ -83,5 +83,5 @@ interface IPosition {
     function notifyChallengeSucceeded(
         address _bidder,
         uint256 _size
-    ) external returns (address, uint256, uint256, uint32);
+    ) external returns (address, uint256, uint256, uint256, uint32);
 }

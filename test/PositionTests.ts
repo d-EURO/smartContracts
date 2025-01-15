@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { floatToDec18, dec18ToFloat, DECIMALS } from "../scripts/math";
+import { floatToDec18, dec18ToFloat, DECIMALS, mulDec18 } from "../scripts/math";
 import { ethers } from "hardhat";
 import { evm_increaseTime, evm_increaseTimeTo } from "./helper";
 import {
@@ -1086,7 +1086,8 @@ describe("Position Tests", () => {
       const challengeData = await positionContract.challengeData();
       await evm_increaseTime(challengeData.phase);
       const bidAmountdEURO = (challengeData.liqPrice * floatToDec18(bidSize)) / DECIMALS;
-      await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidAmountdEURO);
+      const interest = await cloneContract.getDebt() - await cloneContract.principal();
+      await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidAmountdEURO + interest);
       let tx = await mintingHub
         .connect(alice)
         .bid(challengeNumber, floatToDec18(bidSize), false);
@@ -1508,6 +1509,8 @@ describe("Position Tests", () => {
     it("should transfer loss amount from reserve to minting hub when notify loss", async () => {
       await evm_increaseTime(86400 * 6);
       await dEURO.transfer(await equity.getAddress(), floatToDec18(400_000));
+      const interest = await clonePositionContract.getDebt() - await clonePositionContract.principal();
+      await dEURO.connect(bob).approve(await mintingHub.getAddress(), floatToDec18(400_000) + interest);
       let tx = await mintingHub
         .connect(bob)
         .bid(challengeNumber, fchallengeAmount, false);
@@ -1661,6 +1664,105 @@ describe("Position Tests", () => {
 
     it("roll into clone", async () => {
       // TODO
+    });
+  });
+  describe("Liquidation tests" , () => {
+    let collateral: string;
+    let fliqPrice = floatToDec18(5000);
+    let minCollateral = floatToDec18(1);
+    let fInitialCollateral = floatToDec18(initialCollateral);
+    let duration = 2n * 365n * 86_400n;
+    let fFees = BigInt(fee * 1_000_000);
+    let fReserve = BigInt(reserve * 1_000_000);
+    let challengePeriod = BigInt(3 * 86400); // 3 days
+
+    before(async () => {
+      collateral = await mockVOL.getAddress();
+    });
+
+    it("distinguish between interest & principal repayment during liquidation", async () => {
+      await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      let tx = await mintingHub.openPosition(
+        collateral,
+        minCollateral,
+        fInitialCollateral,
+        initialLimit,
+        7n * 86_400n,
+        duration,
+        challengePeriod,
+        fFees,
+        fliqPrice,
+        fReserve,
+      );
+      let rc = await tx.wait();
+      const topic =
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+      const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
+      positionAddr = "0x" + log?.topics[2].substring(26);
+      positionContract = await ethers.getContractAt(
+        "Position",
+        positionAddr,
+        owner,
+      );
+      await evm_increaseTimeTo(await positionContract.start());
+
+      await savings.proposeChange(BigInt(10000), []);
+      const timePassed = BigInt(7 * 86_400 + 60);
+      await evm_increaseTime(timePassed);
+      await savings.applyChange();
+
+      const initialMintAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, initialMintAmount);
+      await evm_increaseTime(BigInt(86400 * 365));
+      
+      challengeAmount = initialCollateralClone / 2;
+      const fChallengeAmount = floatToDec18(challengeAmount);
+      const price = await positionContract.price();
+      await mockVOL.approve(await mintingHub.getAddress(), fChallengeAmount);
+      tx = await mintingHub.challenge(positionAddr, fChallengeAmount, price);
+      challengeNumber++;
+      const challenge = await mintingHub.challenges(challengeNumber);
+      const challengerAddress = challenge.challenger;
+      const challengeData = await positionContract.challengeData();
+      
+      await evm_increaseTime(challengeData.phase);
+      let liqPrice = await mintingHub.price(challengeNumber);
+      expect(liqPrice).to.be.lte(price);
+      
+      const interest = await positionContract.getDebt() - initialMintAmount;
+      const bidSize = interest / liqPrice;
+      await dEURO.connect(bob).approve(await mintingHub.getAddress(), liqPrice + interest);
+      let volBalanceBeforeBob = await mockVOL.balanceOf(bob.address);
+      let balanceBeforeBob = await dEURO.balanceOf(bob.address);
+      let balanceBeforeEquity = await dEURO.balanceOf(await equity.getAddress());
+      let balanceBeforeMintingHub = await dEURO.balanceOf(await mintingHub.getAddress());
+      let debtBefore = await positionContract.getDebt();
+      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, false);
+      let volBalanceAfterBob = await mockVOL.balanceOf(bob.address);
+      let balanceAfterBob = await dEURO.balanceOf(bob.address);
+      let balanceAfterEquity = await dEURO.balanceOf(await equity.getAddress());
+      let balanceAfterMintingHub = await dEURO.balanceOf(await mintingHub.getAddress());
+      let debtAfter = await positionContract.getDebt();
+      // (5.1)  
+      liqPrice = await mintingHub.price(challengeNumber);
+      let offer = (floatToDec18(bidSize) * liqPrice) / DECIMALS
+      await expect(tx)
+        .to.emit(mintingHub, "ChallengeSucceeded")
+        .withArgs(
+          challenge.position,
+          challengeNumber,
+          offer,
+          floatToDec18(bidSize),
+          floatToDec18(bidSize),
+        );
+      expect(balanceAfterMintingHub).to.be.eq(balanceBeforeMintingHub);
+      expect(volBalanceAfterBob - volBalanceBeforeBob).to.be.eq(bidSize);
+      expect(balanceBeforeBob - balanceAfterBob).to.be.approximately(offer + interest, floatToDec18(1));
+      // (5.2) As only interest was repaid, equity should not receive any profit
+      // as there is no reserve allocated for the interest portion of the debt
+      expect(balanceAfterEquity).to.be.eq(balanceBeforeEquity);
+      // (5.3) The debt should be reduced by the amount repaid
+      expect(debtAfter).to.be.lt(debtBefore);
     });
   });
 });

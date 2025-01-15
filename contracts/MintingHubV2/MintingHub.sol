@@ -242,15 +242,15 @@ contract MintingHub is IMintingHub, ERC165 {
         uint256 size
     ) internal returns (uint256, uint256) {
         // Repayments depend on what was actually minted, whereas bids depend on the available collateral
-        (address owner, uint256 collateral, uint256 repayment, uint32 reservePPM) = _challenge
+        (address owner, uint256 collateral, uint256 repayment, uint256 interest, uint32 reservePPM) = _challenge
             .position
             .notifyChallengeSucceeded(msg.sender, size);
 
         // No overflow possible thanks to invariant (col * price <= limit * 10**18)
         // enforced in Position.setPrice and knowing that collateral <= col.
         uint256 offer = (_calculatePrice(_challenge.start + phase, phase, liqPrice) * collateral) / 10 ** 18;
-        DEURO.transferFrom(msg.sender, address(this), offer); // get money from bidder
-        uint256 reward = (offer * CHALLENGER_REWARD) / 1000_000;
+        DEURO.transferFrom(msg.sender, address(this), offer + interest); // get money from bidder
+        uint256 reward = (offer * CHALLENGER_REWARD) / 1_000_000;
         DEURO.transfer(_challenge.challenger, reward); // pay out the challenger reward
         uint256 fundsAvailable = offer - reward; // funds available after reward
 
@@ -264,13 +264,14 @@ contract MintingHub is IMintingHub, ERC165 {
             // response to an unreasonable increase of the liquidation price, such that we have to use this heuristic
             // for excess fund distribution, which make position owners that maxed out their positions slightly better
             // off in comparison to those who did not.
-            uint256 profits = (reservePPM * (fundsAvailable - repayment)) / 1000_000;
+            uint256 profits = (reservePPM * (fundsAvailable - repayment)) / 1_000_000;
             DEURO.collectProfits(address(this), profits);
             DEURO.transfer(owner, fundsAvailable - repayment - profits);
         } else if (fundsAvailable < repayment) {
             DEURO.coverLoss(address(this), repayment - fundsAvailable); // ensure we have enough to pay everything
         }
         DEURO.burnWithoutReserve(repayment, reservePPM); // Repay the challenged part, example: 50 deur leading to 10 deur in implicit profits
+        DEURO.burn(interest); // Repay the interest
         return (collateral, offer);
     }
 
