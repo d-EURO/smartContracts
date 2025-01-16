@@ -249,7 +249,11 @@ contract MintingHub is IMintingHub, ERC165 {
         // No overflow possible thanks to invariant (col * price <= limit * 10**18)
         // enforced in Position.setPrice and knowing that collateral <= col.
         uint256 offer = (_calculatePrice(_challenge.start + phase, phase, liqPrice) * collateral) / 10 ** 18;
-        DEURO.transferFrom(msg.sender, address(this), offer + interest); // get money from bidder
+        // The funds for the interest (proportional to the collateral size) are taken from the liquidator separately.
+        // If instead the interest is taken from the offer amount, there may be insufficient funds to cover the repayment.
+        // As a consequence, the system would have to cover the deficit, which is not the intention, as the system doesn't
+        // have enough reserve to cover interest payments.
+        DEURO.transferFrom(msg.sender, address(this), offer + interest); // get money from bidder 
         uint256 reward = (offer * CHALLENGER_REWARD) / 1_000_000;
         DEURO.transfer(_challenge.challenger, reward); // pay out the challenger reward
         uint256 fundsAvailable = offer - reward; // funds available after reward
@@ -271,7 +275,7 @@ contract MintingHub is IMintingHub, ERC165 {
             DEURO.coverLoss(address(this), repayment - fundsAvailable); // ensure we have enough to pay everything
         }
         DEURO.burnWithoutReserve(repayment, reservePPM); // Repay the challenged part, example: 50 deur leading to 10 deur in implicit profits
-        DEURO.burn(interest); // Repay the interest
+        DEURO.collectProfits(address(this), interest); // Collect interest as profits
         return (collateral, offer);
     }
 
@@ -404,12 +408,17 @@ contract MintingHub is IMintingHub, ERC165 {
         uint256 amount = upToAmount > max ? max : upToAmount;
         uint256 forceSalePrice = expiredPurchasePrice(pos);
         uint256 costs = (forceSalePrice * amount) / 10 ** 18;
+        // Interest (part of debt) is not covered by the reserves, we therefore require liquidators to cover it separately.
+        // If we do not do this, eventually there may be no more collateral left but still interest to be paid, which would
+        // result in it being covered by the system, which is not the intention and for which there isn't sufficient reserve.
+        uint256 totInterest = pos.getDebt() - pos.principal();
+        uint256 propInterest = max > 0 ? (totInterest * amount) / max : 0;
 
         if (max - amount > 0 && ((forceSalePrice * (max - amount)) / 10 ** 18) < (OPENING_FEE)) {
             revert LeaveNoDust(max - amount);
         }
 
-        pos.forceSale(msg.sender, amount, costs);
+        pos.forceSale(msg.sender, amount, costs + propInterest);
         emit ForcedSale(address(pos), amount, forceSalePrice);
         return amount;
     }

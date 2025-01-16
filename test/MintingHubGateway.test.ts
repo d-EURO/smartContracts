@@ -991,7 +991,11 @@ describe("Minting Tests", () => {
     it("force sale should succeed after expiration", async () => {
       await evm_increaseTimeTo(await pos.expiration());
       const frontendCodeBefore = (await gateway.frontendCodes(await test.frontendCode())).balance;
-      await test.approveDEURO(await pos.getAddress(), floatToDec18(10_000));
+      const totInterest = await pos.getDebt() - await pos.principal();
+      const collateralContract = await ethers.getContractAt("IERC20", await pos.collateral());
+      const totCollateral = await collateralContract.balanceOf(pos.getAddress());
+      const propInterest = (totInterest * 1n) / totCollateral;
+      await test.approveDEURO(await pos.getAddress(), floatToDec18(10_000) + propInterest);
       await test.forceBuy(pos.getAddress(), 1n);
       expect(
         (await gateway.frontendCodes(await test.frontendCode())).balance
@@ -1012,14 +1016,17 @@ describe("Minting Tests", () => {
       const frontendCodeBefore = (
         await gateway.frontendCodes(await test.frontendCode())
       ).balance;
-
-      await test.approveDEURO(await pos.getAddress(), floatToDec18(35_000));
+      const totInterest = await pos.getDebt() - await pos.principal();
+      const collateralContract = await ethers.getContractAt("IERC20", await pos.collateral());
+      const totCollateral = await collateralContract.balanceOf(pos.getAddress());
+      const propInterest = (totInterest * 35n) / totCollateral;
+      await test.approveDEURO(await pos.getAddress(), floatToDec18(35_000) + propInterest);
       await test.forceBuy(pos.getAddress(), 35n); // Total collateral is 100
       const debtAfter = await pos.getDebt();
       const forceSalePrice = await mintingHub.expiredPurchasePrice(
         pos.getAddress(),
       );
-      const expectedDebtPayoff = (forceSalePrice * 35n) / 10n ** 18n;
+      const expectedDebtPayoff = (forceSalePrice * 35n) / 10n ** 18n + propInterest;
       expect(debtBefore - debtAfter).to.be.approximately(
         expectedDebtPayoff,
         floatToDec18(1),

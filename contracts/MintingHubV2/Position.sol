@@ -494,19 +494,19 @@ contract Position is Ownable, IPosition, MathUtil {
      * to handle the principal and reserve portions automatically.
      *
      * @param buyer       The address buying the collateral. This address provides `proceeds` in dEURO to repay the outstanding debt.
-     * @param collAmount  The amount of collateral to be forcibly sold and transferred to the `buyer`.
+     * @param colAmount  The amount of collateral to be forcibly sold and transferred to the `buyer`.
      * @param proceeds    The amount of dEURO proceeds provided by the `buyer` to repay interest and principal.
      *
      * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and minted amount after the forced sale.
      */
-    function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external onlyHub expired noChallenge {
+    function forceSale(address buyer, uint256 colAmount, uint256 proceeds) external onlyHub expired noChallenge {
         uint256 debt = _accrueInterest(); // ensure latest state
 
-        // send collateral to buyer
-        uint256 remainingCollateral = _sendCollateral(buyer, collAmount);
+        uint256 colBalance = _collateralBalance();
+        uint256 remainingCollateral = _sendCollateral(buyer, colAmount); // Send collateral to buyer
 
+        // No debt, everything goes to owner if proceeds > 0
         if (debt == 0) {
-            // No debt, everything goes to owner if proceeds > 0
             if (proceeds > 0) {
                 deuro.transferFrom(buyer, owner(), proceeds);
             }
@@ -514,17 +514,39 @@ contract Position is Ownable, IPosition, MathUtil {
             return;
         }
 
-        // Pay down debt from `buyer` up to `proceeds`.
-        uint256 used = _payDownDebt(buyer, proceeds);
-        uint256 leftover = proceeds > used ? (proceeds - used) : 0;
-        debt = used > debt ? 0 : debt - used;
+        deuro.transferFrom(buyer, address(this), proceeds); 
+        // Pay down debt. First paying the proportional amount of interest w.r.t. the claimed collateral amount, 
+        // then any principal that can be covered by the remaining proceeds. If proceeds still remain,
+        // it is used to cover any remaining interest, any excess thereafter is profit for the owner.
+        uint256 propInterest = colBalance > 0 ? (accruedInterest * colAmount) / colBalance : 0; 
+        uint256 principalToPay = proceeds - propInterest > principal ? principal : proceeds - propInterest;
+        uint256 interestToPay = proceeds - principalToPay > accruedInterest ? accruedInterest : proceeds - principalToPay;
 
-        if (debt == 0 && leftover > 0) {
-            // All debt paid, leftover is profit for owner
-            deuro.transferFrom(buyer, owner(), leftover);
+        // Pay accrued interest first
+        if (interestToPay > 0) {
+            deuro.collectProfits(address(this), interestToPay);
+            _notifyInterestPaid(interestToPay);
+            accruedInterest -= interestToPay;
+            proceeds -= interestToPay;
+        }
+
+        // Pay principal next
+        if (principalToPay > 0) {
+            uint256 reservePortion = deuro.calculateAssignedReserve(principalToPay, reserveContribution);
+            uint256 repaid = deuro.burnWithReserve(principalToPay - reservePortion, reserveContribution);
+            principal -= principalToPay;
+            proceeds -= principalToPay;
+            _notifyRepaid(repaid);
+        }
+
+        debt = principal + accruedInterest;
+        if (debt == 0 && proceeds > 0) {
+            // All debt paid, leftover proceeds is profit for owner
+            deuro.transferFrom(buyer, owner(), proceeds);
         } else if (debt > 0 && remainingCollateral == 0) {
             uint256 deficit = debt;
             // Shortfall scenario, cover the loss if needed
+            // TODO: Is it possible here that accruedInterest > 0?
             deuro.coverLoss(buyer, deficit);
             _payDownDebt(buyer, deficit);
         }
@@ -679,7 +701,7 @@ contract Position is Ownable, IPosition, MathUtil {
         }
 
         // Determine how much of the debt must be repaid based on challenged collateral
-        uint256 interestToPay = accruedInterest;
+        uint256 interestToPay = (colBal == 0) ? 0 : (accruedInterest * _size) / colBal;
         uint256 principalToPay = (colBal == 0) ? 0 : (principal * _size) / colBal;
         accruedInterest -= interestToPay;
         principal -= principalToPay;
