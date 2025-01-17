@@ -89,21 +89,6 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         return actualProceeds;
     }
 
-    function save(address owner, uint192 amount, bytes32 frontendCode) external {
-        lastUsedFrontendCode[_msgSender()] = frontendCode;
-        SAVINGS.saveFor(_msgSender(), owner, amount);
-    }
-
-    function withdrawSaving(address target, uint192 amount, bytes32 frontendCode) external returns (uint256) {
-        lastUsedFrontendCode[_msgSender()] = frontendCode;
-        return SAVINGS.withdrawFor(_msgSender(), target, amount);
-    }
-
-    function adjustSaving(uint192 targetAmount, bytes32 frontendCode) external {
-        lastUsedFrontendCode[_msgSender()] = frontendCode;
-        SAVINGS.adjustFor(_msgSender(), targetAmount);
-    }
-
     ///////////////////
     // Accounting Logic
     ///////////////////
@@ -111,6 +96,13 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     function updateFrontendAccount(bytes32 frontendCode, uint256 amount) internal {
         lastUsedFrontendCode[_msgSender()] = frontendCode;
         frontendCodes[frontendCode].balance += (amount * feeRate) / 1_000_000;
+    }
+
+    function updateSavingCode(
+        address savingsOwner,
+        bytes32 frontendCode
+    ) external onlyGatewayService(address(SAVINGS)) {
+        lastUsedFrontendCode[savingsOwner] = frontendCode;
     }
 
     function updateSavingRewards(address saver, uint256 interest) external onlyGatewayService(address(SAVINGS)) {
