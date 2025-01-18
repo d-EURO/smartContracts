@@ -87,6 +87,32 @@ describe("FrontendGateway Tests", () => {
     expect(claimableBalance).to.be.equal(0);
   });
 
+  it("Should fail to add empty code", async () => {
+    const frontendCode = ethers.ZeroHash;
+
+    await expect(
+      frontendGateway.registerFrontendCode(frontendCode),
+    ).to.be.revertedWithCustomError(
+      frontendGateway,
+      "FrontendCodeAlreadyExists",
+    );
+  });
+
+  it("Should not add to empty code balance", async () => {
+    const frontendCode = ethers.ZeroHash;
+    const expected = await equity.calculateShares(floatToDec18(1000));
+    await dEURO.approve(
+      await frontendGateway.getAddress(),
+      floatToDec18(100000000),
+    );
+    await dEURO.approve(equity, floatToDec18(1000));
+    await frontendGateway.invest(floatToDec18(1000), expected, frontendCode);
+
+    let claimableBalance = (await frontendGateway.frontendCodes(frontendCode))
+      .balance;
+    expect(claimableBalance).to.be.equal(0);
+  });
+
   describe("Saving Frontend Rewards", () => {
     let savings: SavingsGateway;
 
@@ -120,10 +146,14 @@ describe("FrontendGateway Tests", () => {
 
       const frontendCode = ethers.randomBytes(32);
       await dEURO.approve(await savings.getAddress(), amount);
-      await savings['save(address,uint192,bytes32)'](owner, amount, frontendCode);
+      await savings["save(address,uint192,bytes32)"](
+        owner,
+        amount,
+        frontendCode,
+      );
       await evm_increaseTime(365 * 86_400);
 
-      await savings['withdraw(address,uint192)'](owner.address, 2n * amount); // as much as possible, 2x amount is enough
+      await savings["withdraw(address,uint192)"](owner.address, 2n * amount); // as much as possible, 2x amount is enough
 
       const c0 = (await frontendGateway.frontendCodes(frontendCode)).balance;
       const i1 = await dEURO.balanceOf(owner.address);
@@ -153,7 +183,9 @@ describe("FrontendGateway Tests", () => {
 
     it("should be unable to propose a change", async () => {
       await expect(
-        frontendGateway.connect(alice).proposeChanges(100_000, 20_000, 20_000, []),
+        frontendGateway
+          .connect(alice)
+          .proposeChanges(100_000, 20_000, 20_000, []),
       ).to.revertedWithCustomError(equity, "NotQualified");
     });
 
