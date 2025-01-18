@@ -21,7 +21,7 @@ interface IFrontendGateway {
     error EquityTooLow();
 
     function invest(uint256 amount, uint256 expectedShares, bytes32 frontendCode) external returns (uint256);
-    function redeem(address target, uint256 shares, bytes32 frontendCode) external returns (uint256);
+    function redeem(address target, uint256 shares, uint256 expectedProceeds, bytes32 frontendCode) external returns (uint256);
     function unwrapAndSell(uint256 amount, bytes32 frontendCode) external returns (uint256);
 
     function updateSavingCode(address savingsOwner, bytes32 frontendCode) external;

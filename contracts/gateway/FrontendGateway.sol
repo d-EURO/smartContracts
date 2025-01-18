@@ -72,8 +72,12 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         return actualShares;
     }
 
-    function redeem(address target, uint256 shares, bytes32 frontendCode) external returns (uint256) {
-        uint256 expectedProceeds = EQUITY.calculateProceeds(shares);
+    function redeem(
+        address target,
+        uint256 shares,
+        uint256 expectedProceeds,
+        bytes32 frontendCode
+    ) external returns (uint256) {
         uint256 actualProceeds = EQUITY.redeemFrom(_msgSender(), target, shares, expectedProceeds);
 
         updateFrontendAccount(frontendCode, actualProceeds);
@@ -94,6 +98,7 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     ///////////////////
 
     function updateFrontendAccount(bytes32 frontendCode, uint256 amount) internal {
+        if (frontendCode == bytes32(0)) return;
         lastUsedFrontendCode[_msgSender()] = frontendCode;
         frontendCodes[frontendCode].balance += (amount * feeRate) / 1_000_000;
     }
@@ -102,10 +107,12 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         address savingsOwner,
         bytes32 frontendCode
     ) external onlyGatewayService(address(SAVINGS)) {
+        if (frontendCode == bytes32(0)) return;
         lastUsedFrontendCode[savingsOwner] = frontendCode;
     }
 
     function updateSavingRewards(address saver, uint256 interest) external onlyGatewayService(address(SAVINGS)) {
+        if (lastUsedFrontendCode[saver] == bytes32(0)) return;
         frontendCodes[lastUsedFrontendCode[saver]].balance += (interest * savingsFeeRate) / 1_000_000;
     }
 
@@ -117,6 +124,7 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     }
 
     function updatePositionRewards(address position, uint256 amount) external onlyGatewayService(address(MINTING_HUB)) {
+        if (referredPositions[position] == bytes32(0)) return;
         frontendCodes[referredPositions[position]].balance += (amount * mintingFeeRate) / 1_000_000;
     }
 
@@ -125,7 +133,8 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     //////////////////////
 
     function registerFrontendCode(bytes32 frontendCode) external returns (bool) {
-        if (frontendCodes[frontendCode].owner != address(0)) revert FrontendCodeAlreadyExists();
+        if (frontendCodes[frontendCode].owner != address(0) || frontendCode == bytes32(0))
+            revert FrontendCodeAlreadyExists();
         frontendCodes[frontendCode].owner = _msgSender();
         emit FrontendCodeRegistered(_msgSender(), frontendCode);
         return true;
