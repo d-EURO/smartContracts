@@ -16,6 +16,7 @@ interface IFrontendGateway {
     error FrontendCodeAlreadyExists();
     error NotFrontendCodeOwner();
     error NotGatewayService();
+    error ProposedChangesToHigh();
     error NoOpenChanges();
     error NotDoneWaiting(uint256 minmumExecutionTime);
     error EquityTooLow();

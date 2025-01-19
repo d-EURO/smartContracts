@@ -181,6 +181,8 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         uint24 newMintingFeeRatePPM_,
         address[] calldata helpers
     ) external {
+        if (newFeeRatePPM_ > 20_000 || newSavingsFeeRatePPM_ > 1_000_000 || newMintingFeeRatePPM_ > 1_000_000)
+            revert ProposedChangesToHigh();
         EQUITY.checkQualified(_msgSender(), helpers);
         nextFeeRate = newFeeRatePPM_;
         nextSavingsFeeRate = newSavingsFeeRatePPM_;
