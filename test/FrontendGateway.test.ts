@@ -87,6 +87,32 @@ describe("FrontendGateway Tests", () => {
     expect(claimableBalance).to.be.equal(0);
   });
 
+  it("Should fail to add empty code", async () => {
+    const frontendCode = ethers.ZeroHash;
+
+    await expect(
+      frontendGateway.registerFrontendCode(frontendCode),
+    ).to.be.revertedWithCustomError(
+      frontendGateway,
+      "FrontendCodeAlreadyExists",
+    );
+  });
+
+  it("Should not add to empty code balance", async () => {
+    const frontendCode = ethers.ZeroHash;
+    const expected = await equity.calculateShares(floatToDec18(1000));
+    await dEURO.approve(
+      await frontendGateway.getAddress(),
+      floatToDec18(100000000),
+    );
+    await dEURO.approve(equity, floatToDec18(1000));
+    await frontendGateway.invest(floatToDec18(1000), expected, frontendCode);
+
+    let claimableBalance = (await frontendGateway.frontendCodes(frontendCode))
+      .balance;
+    expect(claimableBalance).to.be.equal(0);
+  });
+
   describe("Saving Frontend Rewards", () => {
     let savings: SavingsGateway;
 
@@ -120,10 +146,14 @@ describe("FrontendGateway Tests", () => {
 
       const frontendCode = ethers.randomBytes(32);
       await dEURO.approve(await savings.getAddress(), amount);
-      await frontendGateway.save(owner, amount, frontendCode);
+      await savings["save(address,uint192,bytes32)"](
+        owner,
+        amount,
+        frontendCode,
+      );
       await evm_increaseTime(365 * 86_400);
 
-      await savings.withdraw(owner.address, 2n * amount); // as much as possible, 2x amount is enough
+      await savings["withdraw(address,uint192)"](owner.address, 2n * amount); // as much as possible, 2x amount is enough
 
       const c0 = (await frontendGateway.frontendCodes(frontendCode)).balance;
       const i1 = await dEURO.balanceOf(owner.address);
@@ -135,25 +165,27 @@ describe("FrontendGateway Tests", () => {
 
   describe("Governance Tests", () => {
     it("should be able to propose a change", async () => {
-      await frontendGateway.proposeChanges(100, 20, []);
+      await frontendGateway.proposeChanges(100, 20, 20, []);
 
       expect(await frontendGateway.nextFeeRate()).to.be.equal(100);
     });
 
     it("should be able to execute a change", async () => {
-      await frontendGateway.proposeChanges(100, 20, []);
+      await frontendGateway.proposeChanges(20_000, 20_000, 20_000, []);
 
-      expect(await frontendGateway.feeRate()).to.be.equal(10);
+      expect(await frontendGateway.feeRate()).to.be.equal(10_000);
 
       await evm_increaseTime(7 * 86_400);
 
       await frontendGateway.executeChanges();
-      expect(await frontendGateway.feeRate()).to.be.equal(100);
+      expect(await frontendGateway.feeRate()).to.be.equal(20_000);
     });
 
     it("should be unable to propose a change", async () => {
       await expect(
-        frontendGateway.connect(alice).proposeChanges(100, 20, []),
+        frontendGateway
+          .connect(alice)
+          .proposeChanges(20_000, 20_000, 20_000, []),
       ).to.revertedWithCustomError(equity, "NotQualified");
     });
 
@@ -165,12 +197,26 @@ describe("FrontendGateway Tests", () => {
     });
 
     it("should be unable to execute a change before 7 days", async () => {
-      await frontendGateway.proposeChanges(100, 100, []);
+      await frontendGateway.proposeChanges(100, 100, 100, []);
 
       await expect(frontendGateway.executeChanges()).to.revertedWithCustomError(
         frontendGateway,
         "NotDoneWaiting",
       );
+    });
+
+    it("should be unable to propose to high changes", async () => {
+      await expect(
+        frontendGateway.proposeChanges(20_001, 0, 0, []),
+      ).to.revertedWithCustomError(frontendGateway, "ProposedChangesToHigh");
+
+      await expect(
+        frontendGateway.proposeChanges(0, 1_000_001, 0, []),
+      ).to.revertedWithCustomError(frontendGateway, "ProposedChangesToHigh");
+
+      await expect(
+        frontendGateway.proposeChanges(0, 0, 1_000_001, []),
+      ).to.revertedWithCustomError(frontendGateway, "ProposedChangesToHigh");
     });
   });
 });

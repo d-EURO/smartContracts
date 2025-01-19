@@ -990,11 +990,13 @@ describe("Minting Tests", () => {
 
     it("force sale should succeed after expiration", async () => {
       await evm_increaseTimeTo(await pos.expiration());
-      const frontendCodeBefore = (await gateway.frontendCodes(await test.frontendCode())).balance;
+      const frontendCodeBefore = (
+        await gateway.frontendCodes(await test.frontendCode())
+      ).balance;
       await test.approveDEURO(await pos.getAddress(), floatToDec18(10_000));
       await test.forceBuy(pos.getAddress(), 1n);
       expect(
-        (await gateway.frontendCodes(await test.frontendCode())).balance
+        (await gateway.frontendCodes(await test.frontendCode())).balance,
       ).to.be.greaterThan(frontendCodeBefore);
     });
 
