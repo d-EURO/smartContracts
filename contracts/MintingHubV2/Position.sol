@@ -174,7 +174,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @dev See MintingHub.openPosition
      *
-     * @param _riskPremiumPPM       ppm of minted amount that is added to the applicable minting fee as a risk premium
+     * @param _riskPremiumPPM ppm of minted amount that is added to the applicable minting fee as a risk premium
      */
     constructor(
         address _owner,
@@ -387,7 +387,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * 
      * This function calculates the interest based on the time elapsed since the last accrual,
      * the principal amount, and the annual interest rate. The calculated interest is then added
-     * to the accrued interest and the total minted amount is updated.
+     * to the accrued interest balance and the last accrual time is updated.
      */
     function _accrueInterest() internal returns (uint256 debt) {
         uint40 nowTime = uint40(block.timestamp);
@@ -455,12 +455,11 @@ contract Position is Ownable, IPosition, MathUtil {
     *      - The function can be called while there are challenges, though in that scenario, collateral withdrawals remain 
     *        blocked until all challenges are resolved.
     * 
-    *      To fully close the position (bring `minted` to 0), the amount required generally follows the formula:
-    *      `minted = principal + accruedInterest + deuro.calculateAssignedReserve(principal + accruedInterest, reservePPM)`.
-    *      Under normal conditions, this simplifies to:
-    *      `amount = (principal + accruedInterest) * (1000000 - reservePPM) / 1000000`.
+    *      To fully close the position (bring `debt` to 0), the amount required generally follows the formula:
+    *      `debt = principal + accruedInterest`. Under normal conditions, this simplifies to:
+    *      `amount = (principal * (1000000 - reservePPM)) / 1000000 + accruedInterest`.
     * 
-    *      For example, if `principal` is 40, `accruedInterest` is 10, and `reservePPM` is 200000, repaying 40 dEURO 
+    *      For example, if `principal` is 40, `accruedInterest` is 10, and `reservePPM` is 200000, repaying 42 dEURO 
     *      is required to fully close the position.
     * 
     * @param amount The maximum amount of dEURO that `msg.sender` is willing to repay.
@@ -506,7 +505,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * @param colAmount  The amount of collateral to be forcibly sold and transferred to the `buyer`.
      * @param proceeds    The amount of dEURO proceeds provided by the `buyer` to repay interest and principal.
      *
-     * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and minted amount after the forced sale.
+     * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and debt after the forced sale.
      */
     function forceSale(address buyer, uint256 colAmount, uint256 proceeds) external onlyHub expired noChallenge {
         uint256 debt = _accrueInterest(); // ensure latest state
@@ -523,17 +522,18 @@ contract Position is Ownable, IPosition, MathUtil {
             return;
         }
 
-        deuro.transferFrom(buyer, address(this), proceeds); 
         // Pay down debt. First paying the proportional amount of interest w.r.t. the claimed collateral amount, 
         // then any principal that can be covered by the remaining proceeds. If proceeds still remain,
         // it is used to cover any remaining interest, any excess thereafter is profit for the owner.
+        // In the special case where there is no collateral left, the excess proceeds are used to pay down the 
+        // remaining debt, with the system covering any shortfall.
         uint256 propInterest = colBalance > 0 ? (accruedInterest * colAmount) / colBalance : 0; 
         uint256 principalToPay = proceeds - propInterest > principal ? principal : proceeds - propInterest;
         uint256 interestToPay = proceeds - principalToPay > accruedInterest ? accruedInterest : proceeds - principalToPay;
 
         // Pay accrued interest first
         if (interestToPay > 0) {
-            deuro.collectProfits(address(this), interestToPay);
+            deuro.collectProfits(buyer, interestToPay);
             _notifyInterestPaid(interestToPay);
             accruedInterest -= interestToPay;
             proceeds -= interestToPay;
@@ -541,23 +541,32 @@ contract Position is Ownable, IPosition, MathUtil {
 
         // Pay principal next
         if (principalToPay > 0) {
-            uint256 reservePortion = deuro.calculateAssignedReserve(principalToPay, reserveContribution);
-            uint256 repaid = deuro.burnWithReserve(principalToPay - reservePortion, reserveContribution);
+            uint256 availableReserve = deuro.calculateAssignedReserve(principalToPay, reserveContribution);
+            uint256 returnedReserve = deuro.burnFromWithReserve(buyer, principalToPay, reserveContribution);
+            assert(returnedReserve == availableReserve);
             principal -= principalToPay;
-            proceeds -= principalToPay;
-            _notifyRepaid(repaid);
+            proceeds -= (principalToPay - availableReserve);
+            _notifyRepaid(principalToPay);
         }
 
         debt = principal + accruedInterest;
-        if (debt == 0 && proceeds > 0) {
+
+        // If remaining collateral is 0 and there is still debt, pay it down
+        if (remainingCollateral == 0 && debt > 0) {
+            uint256 deficit = debt > proceeds ? debt - proceeds : 0;
+            if (deficit > 0) {
+                // Shortfall scenario, cover the loss if needed
+                deuro.coverLoss(buyer, deficit);
+                proceeds = 0;
+            } else {
+                proceeds -= debt;
+            }
+            _payDownDebt(buyer, debt);
+        } 
+        
+        if (proceeds > 0) {
             // All debt paid, leftover proceeds is profit for owner
             deuro.transferFrom(buyer, owner(), proceeds);
-        } else if (debt > 0 && remainingCollateral == 0) {
-            uint256 deficit = debt;
-            // Shortfall scenario, cover the loss if needed
-            // TODO: Is it possible here that accruedInterest > 0?
-            deuro.coverLoss(buyer, deficit);
-            _payDownDebt(buyer, deficit);
         }
 
         emit MintingUpdate(_collateralBalance(), price, debt);
@@ -625,7 +634,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _payDownDebt(address payer, uint256 amount) internal returns (uint256 repaidAmount) {
-        uint256 debt = _accrueInterest(); // ensure principal, accruedInterest, minted are up-to-date
+        uint256 debt = _accrueInterest(); // ensure accrued interest is up-to-date
 
         if (amount == 0) {
             return 0;
@@ -652,11 +661,11 @@ contract Position is Ownable, IPosition, MathUtil {
             uint256 principalToPay = (principal > remaining) ? remaining : principal;
             if (principalToPay > 0) {
                 uint256 reservePortion = deuro.calculateAssignedReserve(principalToPay, reserveContribution);
-                uint256 repaid = deuro.burnWithReserve(principalToPay - reservePortion, reserveContribution);
+                uint256 repayment = deuro.burnWithReserve(principalToPay - reservePortion, reserveContribution);
                 principal -= principalToPay;
                 remaining -= principalToPay;
                 repaidAmount += principalToPay;
-                _notifyRepaid(repaid);
+                _notifyRepaid(repayment);
             }
         }
     }

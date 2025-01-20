@@ -12,7 +12,8 @@ import {
   TestToken,
 } from "../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { evm_increaseTime, evm_mine_blocks } from "./helper";
+import { evm_increaseTime, evm_increaseTimeTo } from "./helper";
+import { EventLog } from "ethers";
 
 describe("ForceSale Tests", () => {
   let owner: HardhatEthersSigner;
@@ -260,6 +261,46 @@ describe("ForceSale Tests", () => {
       await mintingHub.buyExpiredCollateral(position, col * 10n); // try buying way too much
       expect(await position.getDebt()).to.be.eq(0);
       expect(await dEURO.equity()).to.be.lessThan(equity);
+    });
+  });
+
+  describe("post expiration tests with interest", () => {
+    it("buy with excess proceeds going to owner after paying off debt", async () => {
+      await evm_increaseTimeTo(await position.cooldown() + 60n);
+      const loan = floatToDec18(10_000);
+      await position.mint(owner, loan);
+      expect(await position.getDebt()).to.be.equal(loan);
+
+      await evm_increaseTimeTo(await position.expiration() + 60n);
+      const size = floatToDec18(1.1);
+      const expP = await mintingHub.connect(alice).expiredPurchasePrice(position);
+      const totCollateral = await coin.balanceOf(await position.getAddress());
+      const expCost = (size * expP) / 10n ** 18n;
+      const expTotInterest = await position.getDebt() - await position.principal();
+      const expPropInterest = (expTotInterest * size) / totCollateral;
+      const expCostWithInterest = expCost + expPropInterest;
+
+      const balanceBeforeAlice = await dEURO.balanceOf(alice.address);
+      const colBalanceBeforeAlice = await coin.balanceOf(alice.address);
+      await dEURO.connect(alice).approve(position, expCostWithInterest + floatToDec18(1000)); // TODO: Added 1000 here due to the allowance spending in burnFromWithReserve function (despite returning some funds again - the assigned reserve amount)
+      const tx = await mintingHub.connect(alice).buyExpiredCollateral(position, size);
+      const receipt = await tx.wait();
+      const balanceAfterAlice = await dEURO.balanceOf(alice.address);
+      const colBalanceAfterAlice = await coin.balanceOf(alice.address);
+
+      const forcedSaleEvent = receipt?.logs.find(
+        (log: any) => log.fragment?.name === "ForcedSale"
+      ) as EventLog;
+      expect(forcedSaleEvent).to.not.be.undefined;
+      const { pos, amount, priceE36MinusDecimals, interest } = forcedSaleEvent?.args;
+      expect(pos).to.be.equal(ethers.getAddress(await position.getAddress()));
+      expect(amount).to.be.equal(size);
+      expect(priceE36MinusDecimals).to.be.approximately(expP, floatToDec18(5));
+      expect(interest).to.be.approximately(expPropInterest, floatToDec18(0.0001));
+
+      expect(await position.getDebt()).to.be.equal(0n); // as expCost is significantly higher than debt
+      expect(colBalanceAfterAlice - colBalanceBeforeAlice).to.be.equal(size);
+      expect(balanceBeforeAlice - balanceAfterAlice).to.be.equal(((priceE36MinusDecimals * size) / 10n ** 18n) + interest); // slight deviation as one block passed
     });
   });
 });

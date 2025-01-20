@@ -63,7 +63,7 @@ contract MintingHub is IMintingHub, ERC165 {
         uint256 challengeSize
     );
     event PostponedReturn(address collateral, address indexed beneficiary, uint256 amount);
-    event ForcedSale(address pos, uint256 amount, uint256 priceE36MinusDecimals);
+    event ForcedSale(address pos, uint256 amount, uint256 priceE36MinusDecimals, uint256 interest);
 
     error UnexpectedPrice();
     error InvalidPos();
@@ -419,7 +419,7 @@ contract MintingHub is IMintingHub, ERC165 {
         }
 
         pos.forceSale(msg.sender, amount, costs + propInterest);
-        emit ForcedSale(address(pos), amount, forceSalePrice);
+        emit ForcedSale(address(pos), amount, forceSalePrice, propInterest);
         return amount;
     }
 
