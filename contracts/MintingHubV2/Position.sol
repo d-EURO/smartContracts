@@ -527,7 +527,7 @@ contract Position is Ownable, IPosition, MathUtil {
         // it is used to cover any remaining interest, any excess thereafter is profit for the owner.
         // In the special case where there is no collateral left, the excess proceeds are used to pay down the 
         // remaining debt, with the system covering any shortfall.
-        uint256 propInterest = colBalance > 0 ? (accruedInterest * colAmount) / colBalance : 0; 
+        uint256 propInterest = colBalance > 0 ? (accruedInterest * colAmount) / colBalance : 0;
         uint256 principalToPay = proceeds - propInterest > principal ? principal : proceeds - propInterest;
         uint256 interestToPay = proceeds - principalToPay > accruedInterest ? accruedInterest : proceeds - principalToPay;
 
@@ -549,27 +549,32 @@ contract Position is Ownable, IPosition, MathUtil {
             _notifyRepaid(principalToPay);
         }
 
-        debt = principal + accruedInterest;
-
         // If remaining collateral is 0 and there is still debt, pay it down
-        if (remainingCollateral == 0 && debt > 0) {
-            uint256 deficit = debt > proceeds ? debt - proceeds : 0;
+        // Note: It is not possible for the accrued interest to be > 0 if collateral is 0, 
+        // as propInterst would be equal to accruedInterest and hence be paid off in full above.
+        // Therefore, the system never covers a loss containing accrued interest.
+        if (remainingCollateral == 0 && principal > 0) {
+            deuro.transferFrom(buyer, address(this), proceeds);
+            uint256 deficit = principal > proceeds ? principal - proceeds : 0;
+            
+            // Shortfall scenario
             if (deficit > 0) {
-                // Shortfall scenario, cover the loss if needed
-                deuro.coverLoss(buyer, deficit);
-                proceeds = 0;
-            } else {
-                proceeds -= debt;
+                deuro.coverLoss(address(this), deficit);
             }
-            _payDownDebt(buyer, debt);
-        } 
-        
-        if (proceeds > 0) {
+
+            deuro.burnWithoutReserve(principal, reserveContribution);
+            _notifyRepaid(principal);
+            proceeds -= (principal - deficit);
+            principal = 0;
+
+            // Any remainder is profit for the owner
+            deuro.transfer(owner(), proceeds);
+        } else if (proceeds > 0) {
             // All debt paid, leftover proceeds is profit for owner
             deuro.transferFrom(buyer, owner(), proceeds);
         }
 
-        emit MintingUpdate(_collateralBalance(), price, debt);
+        emit MintingUpdate(_collateralBalance(), price, principal + accruedInterest);
     }
 
     /**
