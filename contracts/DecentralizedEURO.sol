@@ -267,10 +267,10 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         uint256 targetTotalBurnAmount,
         uint32 reservePPM
     ) external override minterOnly returns (uint256) {
-        _spendAllowance(payer, msg.sender, targetTotalBurnAmount);
         uint256 assigned = calculateAssignedReserve(targetTotalBurnAmount, reservePPM);
-        _transfer(address(reserve), payer, assigned); // send reserve to owner
-        _burn(payer, targetTotalBurnAmount); // and burn the full amount from the owner's address
+        _spendAllowance(payer, msg.sender, targetTotalBurnAmount - assigned); // spend amount excluding the reserve
+        _burn(address(reserve), assigned); // burn reserve amount from the reserve
+        _burn(payer, targetTotalBurnAmount - assigned); // burn remaining amount from the payer
         minterReserveE6 -= targetTotalBurnAmount * reservePPM; // reduce reserve requirements by original ratio
         return assigned;
     }

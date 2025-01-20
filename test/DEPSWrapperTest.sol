@@ -45,8 +45,6 @@ contract nDEPSWrapperTest is Test {
         uint256 tot = nDEPS.totalVotes();
         wnDEPS.halveHoldingDuration(new address[](0));
         uint256 votesAfter = nDEPS.votes(address(wnDEPS));
-        console.log("wnDEPS votes ", nDEPS.votes(address(wnDEPS)));
-        console.log("total votes ", nDEPS.totalVotes());
         require(votesAfter == votesBefore / 2);
         require(nDEPS.totalVotes() == tot + votesAfter - votesBefore);
         vm.expectRevert();

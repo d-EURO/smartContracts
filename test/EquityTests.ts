@@ -220,6 +220,7 @@ describe("Equity Tests", () => {
     it("should allow redemption after time passed", async () => {
       await evm_increaseTime(90 * 86_400 + 60);
       expect(await equity.canRedeem(owner.address)).to.be.true;
+      expect(await equity.holdingDuration(owner.address)).to.be.approximately(90 * 86_400 + 60, 60);
 
       await expect(
         equity.calculateProceeds((await equity.totalSupply()) * 2n),
