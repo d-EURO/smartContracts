@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IDecentralizedEURO} from "./interface/IDecentralizedEURO.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 /**
@@ -10,6 +11,8 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
  * @notice A minting contract for another Euro stablecoin ('source stablecoin') that we trust.
  */
 contract StablecoinBridge {
+    using SafeERC20 for IERC20;
+
     IERC20 public immutable eur; // the source stablecoin
     IDecentralizedEURO public immutable dEURO; // the dEURO
     uint8 private immutable eurDecimals;
@@ -53,7 +56,7 @@ contract StablecoinBridge {
      * @param amount The amount of the source stablecoin to bridge (convert).
      */
     function mintTo(address target, uint256 amount) public {
-        eur.transferFrom(msg.sender, address(this), amount);
+        eur.safeTransferFrom(msg.sender, address(this), amount);
         
         uint256 targetAmount = _convertAmount(amount, eurDecimals, dEURODecimals);
         _mint(target, targetAmount);
@@ -84,7 +87,7 @@ contract StablecoinBridge {
     function _burn(address dEUROHolder, address target, uint256 amount) internal {
         uint256 sourceAmount = _convertAmount(amount, dEURODecimals, eurDecimals);
         dEURO.burnFrom(dEUROHolder, amount);
-        eur.transfer(target, sourceAmount);
+        eur.safeTransfer(target, sourceAmount);
         minted -= amount;
     }
 
