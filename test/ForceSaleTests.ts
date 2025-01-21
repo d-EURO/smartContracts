@@ -283,7 +283,7 @@ describe("ForceSale Tests", () => {
       const balanceBeforeAlice = await dEURO.balanceOf(alice.address);
       const colBalanceBeforeAlice = await coin.balanceOf(alice.address);
       const balanceBeforeEquity = await dEURO.equity();
-      await dEURO.connect(alice).approve(position, expCostWithInterest + floatToDec18(1000)); // TODO: Added 1000 here due to the allowance spending in burnFromWithReserve function (despite returning some funds again - the assigned reserve amount)
+      await dEURO.connect(alice).approve(position, expCostWithInterest);
       const tx = await mintingHub.connect(alice).buyExpiredCollateral(position, size);
       const receipt = await tx.wait();
       const balanceAfterAlice = await dEURO.balanceOf(alice.address);

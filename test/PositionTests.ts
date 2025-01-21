@@ -940,9 +940,6 @@ describe("Position Tests", () => {
       const bidSize = fchallengeAmount
       expect(bidSize).to.be.equal(2n * availableCollateral);
       let bidAmountdEURO = (liqPrice * bidSize) / DECIMALS;
-      console.log("bidSize", bidSize);
-      console.log("availableCollateral", availableCollateral);
-      console.log("bidAmountdEURO", bidAmountdEURO);
       await dEURO.transfer(bob.address, bidAmountdEURO);
       await dEURO
         .connect(bob)
