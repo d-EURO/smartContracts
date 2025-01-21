@@ -541,11 +541,9 @@ contract Position is Ownable, IPosition, MathUtil {
 
         // Pay principal next
         if (principalToPay > 0) {
-            uint256 availableReserve = deuro.calculateAssignedReserve(principalToPay, reserveContribution);
             uint256 returnedReserve = deuro.burnFromWithReserve(buyer, principalToPay, reserveContribution);
-            assert(returnedReserve == availableReserve);
             principal -= principalToPay;
-            proceeds -= (principalToPay - availableReserve);
+            proceeds -= (principalToPay - returnedReserve);
             _notifyRepaid(principalToPay);
         }
 
