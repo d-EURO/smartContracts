@@ -910,6 +910,48 @@ describe("Position Tests", () => {
       volBalanceAfter = await mockVOL.balanceOf(challengerAddress);
       expect(balanceAfterChallenger).to.be.equal(balanceBeforeChallenger);
     });
+    it("bid on challenge with amount larger than collateral balance of position", async () => {
+      await evm_increaseTimeTo(await positionContract.cooldown() + 1n);
+      const reduceCollateralByAmount = await mockVOL.balanceOf(positionAddr) - floatToDec18(5n);
+      await positionContract.withdrawCollateral(owner.address, reduceCollateralByAmount);
+      let availableCollateral = await mockVOL.balanceOf(positionAddr);
+      const fchallengeAmount = availableCollateral * 2n;
+      const price = await positionContract.price();
+      await mockVOL.approve(await mintingHub.getAddress(), fchallengeAmount);
+      let tx = await mintingHub.challenge(
+        positionAddr,
+        fchallengeAmount,
+        price,
+      );
+      challengeNumber++;
+      const challenge = await mintingHub.challenges(challengeNumber);
+      const challengeData = await positionContract.challengeData();
+      expect(challenge.size).to.be.equal(fchallengeAmount);
+
+      // Flat sale
+      await evm_increaseTimeTo(await challenge.start + challengeData.phase + 1n);
+      let liqPrice = await mintingHub.price(challengeNumber);
+      expect(liqPrice).to.be.approximately(
+        price,
+        liqPrice / 100n,
+      );
+
+      // bob sends a bid
+      const bidSize = fchallengeAmount
+      expect(bidSize).to.be.equal(2n * availableCollateral);
+      let bidAmountdEURO = (liqPrice * bidSize) / DECIMALS;
+      console.log("bidSize", bidSize);
+      console.log("availableCollateral", availableCollateral);
+      console.log("bidAmountdEURO", bidAmountdEURO);
+      await dEURO.transfer(bob.address, bidAmountdEURO);
+      await dEURO
+        .connect(bob)
+        .approve(await mintingHub.getAddress(), bidAmountdEURO);
+      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, true);
+      await expect(tx)
+        .to.emit(mintingHub, "ChallengeSucceeded")
+        .emit(dEURO, "Profit");
+    });
     it("bid on challenged, auction sale, not expired position", async () => {
       challengeAmount = initialCollateralClone / 2;
       const fchallengeAmount = floatToDec18(challengeAmount);

@@ -265,7 +265,7 @@ describe("ForceSale Tests", () => {
   });
 
   describe("post expiration tests with interest", () => {
-    it("buy with excess proceeds going to owner after paying off debt", async () => {
+    it("buy some expired collateral with excess proceeds going to owner (after paying off debt)", async () => {
       await evm_increaseTimeTo(await position.cooldown() + 60n);
       const loan = floatToDec18(10_000);
       await position.mint(owner, loan);
@@ -282,11 +282,13 @@ describe("ForceSale Tests", () => {
 
       const balanceBeforeAlice = await dEURO.balanceOf(alice.address);
       const colBalanceBeforeAlice = await coin.balanceOf(alice.address);
+      const balanceBeforeEquity = await dEURO.equity();
       await dEURO.connect(alice).approve(position, expCostWithInterest + floatToDec18(1000)); // TODO: Added 1000 here due to the allowance spending in burnFromWithReserve function (despite returning some funds again - the assigned reserve amount)
       const tx = await mintingHub.connect(alice).buyExpiredCollateral(position, size);
       const receipt = await tx.wait();
       const balanceAfterAlice = await dEURO.balanceOf(alice.address);
       const colBalanceAfterAlice = await coin.balanceOf(alice.address);
+      const balanceAfterEquity = await dEURO.equity();
 
       const forcedSaleEvent = receipt?.logs.find(
         (log: any) => log.fragment?.name === "ForcedSale"
@@ -301,6 +303,43 @@ describe("ForceSale Tests", () => {
       expect(await position.getDebt()).to.be.equal(0n); // as expCost is significantly higher than debt
       expect(colBalanceAfterAlice - colBalanceBeforeAlice).to.be.equal(size);
       expect(balanceBeforeAlice - balanceAfterAlice).to.be.equal(((priceE36MinusDecimals * size) / 10n ** 18n) + interest); // slight deviation as one block passed
+      expect(balanceAfterEquity - balanceBeforeEquity).to.be.approximately(expTotInterest, floatToDec18(0.0001));
     });
+    // it("buy remaining expired collateral with excess proceeds going to owner (after paying off debt)", async () => {
+    //   await evm_increaseTimeTo(await position.expiration() + 60n);
+    //   const totCollateral = await coin.balanceOf(await position.getAddress());
+    //   const expP = await mintingHub.connect(alice).expiredPurchasePrice(position);
+    //   const expCost = (totCollateral * expP) / 10n ** 18n;
+    //   const expTotInterest = await position.getDebt() - await position.principal();
+    //   const expPropInterest = expTotInterest;
+    //   const expCostWithInterest = expCost + expPropInterest;
+
+    //   await dEURO.mint(alice.address, expCostWithInterest);
+    //   const balanceBeforeAlice = await dEURO.balanceOf(alice.address);
+    //   const colBalanceBeforeAlice = await coin.balanceOf(alice.address);
+    //   console.log("totCollateral", totCollateral);
+    //   console.log("balanceBeforeAlice", balanceBeforeAlice);
+    //   console.log("expertedCost", expCostWithInterest);
+
+    //   await dEURO.connect(alice).approve(position, expCostWithInterest); 
+    //   const tx = await mintingHub.connect(alice).buyExpiredCollateral(position, totCollateral);
+    //   const receipt = await tx.wait();
+    //   const balanceAfterAlice = await dEURO.balanceOf(alice.address);
+    //   const colBalanceAfterAlice = await coin.balanceOf(alice.address);
+
+    //   const forcedSaleEvent = receipt?.logs.find(
+    //     (log: any) => log.fragment?.name === "ForcedSale"
+    //   ) as EventLog;
+    //   expect(forcedSaleEvent).to.not.be.undefined;
+    //   const { pos, amount, priceE36MinusDecimals, interest } = forcedSaleEvent?.args;
+    //   expect(pos).to.be.equal(ethers.getAddress(await position.getAddress()));
+    //   expect(amount).to.be.equal(totCollateral);
+    //   expect(priceE36MinusDecimals).to.be.approximately(expP, floatToDec18(5));
+    //   expect(interest).to.be.approximately(expPropInterest, floatToDec18(0.0001));
+
+    //   expect(await position.getDebt()).to.be.equal(0n); // as expCost is significantly higher than debt
+    //   expect(colBalanceAfterAlice - colBalanceBeforeAlice).to.be.equal(totCollateral);
+    //   expect(balanceBeforeAlice - balanceAfterAlice).to.be.equal(((priceE36MinusDecimals * totCollateral) / 10n ** 18n) + interest); // slight deviation as one block passed
+    // });
   });
 });
