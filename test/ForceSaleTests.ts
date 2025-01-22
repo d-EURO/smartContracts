@@ -248,19 +248,30 @@ describe("ForceSale Tests", () => {
       let col = await coin.balanceOf(await position.getAddress());
       let max = ((await position.price()) * col) / 10n ** 18n;
       await position.mint(owner, max);
-      expect(await position.getDebt()).to.be.eq(max);
+      expect(await position.principal()).to.be.eq(max);
 
       const period = await position.challengePeriod();
       await evm_increaseTime(100n * 86_400n + (period * 3n) / 2n + 300n); // consider expired
       const expP = await mintingHub
         .connect(alice)
         .expiredPurchasePrice(position);
-      const repaymentNeeded = (max * 9n) / 10n;
-      expect((expP * col) / 10n ** 18n).to.be.lessThan(repaymentNeeded);
+      const interest = await position.getDebt() - await position.principal();
+      const expCost = (col * expP) / 10n ** 18n + interest;
+      expect(expCost).to.be.lessThan(await position.getDebt());
+      const deficit = await position.getDebt() - expCost;
       const equity = await dEURO.equity();
-      await mintingHub.buyExpiredCollateral(position, col * 10n); // try buying way too much
+      const reserveBalanceBefore = await dEURO.balanceOf(await dEURO.reserve());
+      let tx = await mintingHub.buyExpiredCollateral(position, col * 10n); // try buying way too much
+      expect(tx).to.emit(position, "ForcedSale").withArgs(
+        await position.getAddress(),
+        col,
+        expP,
+        interest,
+      );
+      const reserveBalanceAfter = await dEURO.balanceOf(await dEURO.reserve());
       expect(await position.getDebt()).to.be.eq(0);
-      expect(await dEURO.equity()).to.be.lessThan(equity);
+      expect(reserveBalanceBefore + interest - deficit).to.be.approximately(reserveBalanceAfter, floatToDec18(1));
+      // expect(await dEURO.equity()).to.be.lt(equity);
     });
   });
 
@@ -269,7 +280,7 @@ describe("ForceSale Tests", () => {
       await evm_increaseTimeTo(await position.cooldown() + 60n);
       const loan = floatToDec18(10_000);
       await position.mint(owner, loan);
-      expect(await position.getDebt()).to.be.equal(loan);
+      expect(await position.principal()).to.be.equal(loan);
 
       await evm_increaseTimeTo(await position.expiration() + 60n);
       const size = floatToDec18(1.1);

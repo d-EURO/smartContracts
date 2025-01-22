@@ -70,6 +70,7 @@ contract MintingHub is IMintingHub, ERC165 {
     error IncompatibleCollateral();
     error InsufficientCollateral();
     error LeaveNoDust(uint256 amount);
+    error ExceedsMaxIntereset(uint256 interest, uint256 maxInterest);
 
     modifier validPos(address position) {
         if (DEURO.getPositionParent(position) != address(this)) revert InvalidPos();
@@ -219,8 +220,9 @@ contract MintingHub is IMintingHub, ERC165 {
      * @param size                      how much of the collateral the caller wants to bid for at most
      *                                  (automatically reduced to the available amount)
      * @param postponeCollateralReturn  To postpone the return of the collateral to the challenger. Usually false.
+     * @param maxInterest               Maximum intereset the liquidator is willing to pay
      */
-    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn) external {
+    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, uint256 maxInterest) external {
         Challenge memory _challenge = challenges[_challengeNumber];
         (uint256 liqPrice, uint40 phase) = _challenge.position.challengeData();
         size = _challenge.size < size ? _challenge.size : size; // cannot bid for more than the size of the challenge
@@ -230,25 +232,29 @@ contract MintingHub is IMintingHub, ERC165 {
             emit ChallengeAverted(address(_challenge.position), _challengeNumber, size);
         } else {
             _returnChallengerCollateral(_challenge, _challengeNumber, size, postponeCollateralReturn);
-            (uint256 transferredCollateral, uint256 offer) = _finishChallenge(_challenge, liqPrice, phase, size);
+            (uint256 transferredCollateral, uint256 offer) = _finishChallenge(_challenge, size, maxInterest);
             emit ChallengeSucceeded(address(_challenge.position), _challengeNumber, offer, transferredCollateral, size);
         }
     }
 
     function _finishChallenge(
         Challenge memory _challenge,
-        uint256 liqPrice,
-        uint40 phase,
-        uint256 size
+        uint256 size,
+        uint256 maxInterest
     ) internal returns (uint256, uint256) {
         // Repayments depend on what was actually minted, whereas bids depend on the available collateral
         (address owner, uint256 collateral, uint256 repayment, uint256 interest, uint32 reservePPM) = _challenge
             .position
             .notifyChallengeSucceeded(msg.sender, size);
 
+        // TODO: Write a unit test
+        if (interest > maxInterest) {
+            revert ExceedsMaxIntereset(interest, maxInterest);
+        }
+
         // No overflow possible thanks to invariant (col * price <= limit * 10**18)
         // enforced in Position.setPrice and knowing that collateral <= col.
-        uint256 offer = (_calculatePrice(_challenge.start + phase, phase, liqPrice) * collateral) / 10 ** 18;
+        uint256 offer = _calculateOffer(_challenge, collateral);
         // The funds for the interest (proportional to the collateral size) are taken from the liquidator separately.
         // If instead the interest is taken from the offer amount, there may be insufficient funds to cover the repayment.
         // As a consequence, the system would have to cover the deficit, which is not the intention, as the system doesn't
@@ -330,6 +336,15 @@ contract MintingHub is IMintingHub, ERC165 {
             uint256 timeLeft = phase2 - (timeNow - start);
             return (liqPrice / phase2) * timeLeft;
         }
+    }
+
+    /**
+     * @notice Calculates the offer amount for the given challenge.
+     * @dev The offer is calculated as the current price times the collateral amount.
+     */
+    function _calculateOffer(Challenge memory _challenge, uint256 collateral) internal view returns (uint256) {
+        (uint256 liqPrice, uint40 phase) = _challenge.position.challengeData();
+        return (_calculatePrice(_challenge.start + phase, phase, liqPrice) * collateral) / 10 ** 18;
     }
 
     /**

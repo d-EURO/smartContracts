@@ -117,7 +117,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     uint40 public lastAccrual;
 
-    event MintingUpdate(uint256 collateral, uint256 price, uint256 minted);
+    event MintingUpdate(uint256 collateral, uint256 price, uint256 principal);
     event PositionDenied(address indexed sender, string message); // emitted if closed by governance
 
     error InsufficientCollateral(uint256 needed, uint256 available);
@@ -244,9 +244,8 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function availableForClones() external view returns (uint256) {
         // reserve capacity for the original to the extent the owner provided collateral
-        uint256 debt = principal + accruedInterest;
         uint256 potential = (_collateralBalance() * price) / ONE_DEC18;
-        uint256 unusedPotential = debt > potential ? 0 : potential - debt;
+        uint256 unusedPotential = principal > potential ? 0 : potential - principal;
         if (totalMinted + unusedPotential >= limit) {
             return 0;
         } else {
@@ -308,30 +307,30 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice "All in one" function to adjust the outstanding amount of deuro, the collateral amount,
+     * @notice "All in one" function to adjust the principal, the collateral amount,
      * and the price in one transaction.
      */
-    function adjust(uint256 newDebt, uint256 newCollateral, uint256 newPrice) external onlyOwner {
-        uint256 debt = _accrueInterest();
+    function adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice) external onlyOwner {
         uint256 colbal = _collateralBalance();
         if (newCollateral > colbal) {
             collateral.transferFrom(msg.sender, address(this), newCollateral - colbal);
         }
         // Must be called after collateral deposit, but before withdrawal
-        if (newDebt < debt) {
-            _payDownDebt(msg.sender, debt - newDebt);
+        if (newPrincipal < principal) {
+            uint256 debt = _accrueInterest();
+            _payDownDebt(msg.sender, debt - newPrincipal);
         }
         if (newCollateral < colbal) {
             _withdrawCollateral(msg.sender, colbal - newCollateral);
         }
         // Must be called after collateral withdrawal
-        if (newDebt > debt) {
-            _mint(msg.sender, newDebt - debt, newCollateral);
+        if (newPrincipal > principal) {
+            _mint(msg.sender, newPrincipal - principal, newCollateral);
         }
         if (newPrice != price) {
             _adjustPrice(newPrice);
         }
-        emit MintingUpdate(newCollateral, newPrice, newDebt);
+        emit MintingUpdate(newCollateral, newPrice, newPrincipal);
     }
 
     /**
@@ -341,7 +340,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function adjustPrice(uint256 newPrice) public onlyOwner {
         _adjustPrice(newPrice);
-        emit MintingUpdate(_collateralBalance(), price, principal + accruedInterest);
+        emit MintingUpdate(_collateralBalance(), price, principal);
     }
 
     function _adjustPrice(uint256 newPrice) internal noChallenge alive backed {
@@ -350,7 +349,7 @@ contract Position is Ownable, IPosition, MathUtil {
         } else {
             _checkCollateral(_collateralBalance(), newPrice);
         }
-        _setPrice(newPrice, principal + accruedInterest + availableForMinting());
+        _setPrice(newPrice, principal + availableForMinting());
     }
 
     function _setPrice(uint256 newPrice, uint256 bounds) internal {
@@ -367,10 +366,10 @@ contract Position is Ownable, IPosition, MathUtil {
      * and there is sufficient collateral.
      */
     function mint(address target, uint256 amount) public ownerOrRoller {
-        uint256 debt = _accrueInterest();
+        _accrueInterest();
         uint256 collateralBalance = _collateralBalance();
         _mint(target, amount, collateralBalance);
-        emit MintingUpdate(collateralBalance, price, debt);
+        emit MintingUpdate(collateralBalance, price, principal);
     }
 
 
@@ -469,7 +468,7 @@ contract Position is Ownable, IPosition, MathUtil {
     */
     function repay(uint256 amount) public returns (uint256) {
         uint256 used = _payDownDebt(msg.sender, amount);
-        emit MintingUpdate(_collateralBalance(), price, principal + accruedInterest);
+        emit MintingUpdate(_collateralBalance(), price, principal);
         return used;
     }
 
@@ -518,7 +517,7 @@ contract Position is Ownable, IPosition, MathUtil {
             if (proceeds > 0) {
                 deuro.transferFrom(buyer, owner(), proceeds);
             }
-            emit MintingUpdate(_collateralBalance(), price, debt);
+            emit MintingUpdate(_collateralBalance(), price, principal);
             return;
         }
 
@@ -572,7 +571,7 @@ contract Position is Ownable, IPosition, MathUtil {
             deuro.transferFrom(buyer, owner(), proceeds);
         }
 
-        emit MintingUpdate(_collateralBalance(), price, principal + accruedInterest);
+        emit MintingUpdate(_collateralBalance(), price, principal);
     }
 
     /**
@@ -597,7 +596,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function withdrawCollateral(address target, uint256 amount) public ownerOrRoller {
         uint256 balance = _withdrawCollateral(target, amount);
-        emit MintingUpdate(balance, price, principal + accruedInterest);
+        emit MintingUpdate(balance, price, principal);
     }
 
     function _withdrawCollateral(address target, uint256 amount) internal noChallenge returns (uint256) {
@@ -707,13 +706,13 @@ contract Position is Ownable, IPosition, MathUtil {
      *
      * @param _bidder address of the bidder that receives the collateral
      * @param _size   amount of the collateral bid for
-     * @return (position owner, effective challenge size in deuro, amount to be repaid, reserve ppm)
+     * @return (position owner, effective challenge size in deuro, amount of principal to repay, amount of interest to pay, reserve ppm)
      */
     function notifyChallengeSucceeded(
         address _bidder,
         uint256 _size
     ) external onlyHub returns (address, uint256, uint256, uint256, uint32) {
-        uint256 debt = _accrueInterest();
+        _accrueInterest();
 
         challengedAmount -= _size;
         uint256 colBal = _collateralBalance();
@@ -731,7 +730,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
         // Transfer the challenged collateral to the bidder
         uint256 newBalance = _sendCollateral(_bidder, _size);
-        emit MintingUpdate(newBalance, price, debt);
+        emit MintingUpdate(newBalance, price, principal);
 
         // Give time for additional challenges before the owner can mint again.
         _restrictMinting(3 days);
