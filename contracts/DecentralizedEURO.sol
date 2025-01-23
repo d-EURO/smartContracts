@@ -116,10 +116,15 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
             return explicit; // don't waste gas checking minter
         }
 
-        if (isMinter(owner) || positions[owner] != address(0) || owner == address(reserve)) {
-            if (isMinter(spender) || isMinter(getPositionParent(spender)) || spender == address(reserve)) {
-                return 1 << 255;
-            }
+        if (spender == address(reserve)) {
+            return 1 << 255;
+        }
+
+        if (
+            (isMinter(spender) || isMinter(getPositionParent(spender))) &&
+            (isMinter(owner) || positions[owner] != address(0) || owner == address(reserve))
+        ) {
+            return 1 << 255;
         }
 
         return 0;
@@ -354,7 +359,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
         return
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(ERC20Permit).interfaceId ||
