@@ -70,7 +70,7 @@ contract MintingHub is IMintingHub, ERC165 {
     error IncompatibleCollateral();
     error InsufficientCollateral();
     error LeaveNoDust(uint256 amount);
-    error ExceedsMaxIntereset(uint256 interest, uint256 maxInterest);
+    error ExceedsMaxInterest(uint256 interest, uint256 maxInterest);
 
     modifier validPos(address position) {
         if (DEURO.getPositionParent(position) != address(this)) revert InvalidPos();
@@ -247,9 +247,8 @@ contract MintingHub is IMintingHub, ERC165 {
             .position
             .notifyChallengeSucceeded(msg.sender, size);
 
-        // TODO: Write a unit test
         if (interest > maxInterest) {
-            revert ExceedsMaxIntereset(interest, maxInterest);
+            revert ExceedsMaxInterest(interest, maxInterest);
         }
 
         // No overflow possible thanks to invariant (col * price <= limit * 10**18)

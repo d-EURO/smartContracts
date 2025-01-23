@@ -760,6 +760,34 @@ describe("Minting Tests", () => {
         "Challenged",
       );
     });
+    it("bid rejects if max interest is too low", async () => {
+      const bidSize = challengeAmount / 2;
+      const exp = await cloneContract.expiration();
+      await evm_increaseTimeTo(exp - 5n);
+      const fchallengeAmount = floatToDec18(challengeAmount);
+      await mockVOL.approve(mintingHub.getAddress(), fchallengeAmount);
+      await mintingHub.challenge(
+        cloneContract.getAddress(),
+        fchallengeAmount,
+        await cloneContract.price(),
+      );
+      challengeNumber++;
+      const challenge = await mintingHub.challenges(challengeNumber);
+      const positionsAddress = challenge.position;
+
+      const challengeData = await positionContract.challengeData();
+      await evm_increaseTime(challengeData.phase);
+      const totCollateral = await mockVOL.balanceOf(positionsAddress);
+      const interest = await cloneContract.getDebt() - await cloneContract.principal();
+      const propInterest = (interest * floatToDec18(bidSize)) / totCollateral;
+      const tx = mintingHub
+        .connect(alice)
+        .bid(challengeNumber, floatToDec18(bidSize), false, propInterest - floatToDec18(0.001));
+      await expect(tx).to.be.revertedWithCustomError(
+        mintingHub,
+          "ExceedsMaxInterest",
+        );
+    });
     it("bid on challenged, expired position", async () => {
       const bidSize = challengeAmount / 2;
       const exp = await cloneContract.expiration();
