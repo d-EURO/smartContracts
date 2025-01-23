@@ -87,6 +87,24 @@ describe("FrontendGateway Tests", () => {
     expect(claimableBalance).to.be.equal(0);
   });
 
+  it("Should fail to transfer code ownership if triggered by non-owner", async () => {
+    const frontendCode = ethers.randomBytes(32);
+    await frontendGateway.connect(alice).registerFrontendCode(frontendCode);
+    await expect(
+      frontendGateway.transferFrontendCode(frontendCode, owner.address)
+    ).to.revertedWithCustomError(frontendGateway, "NotFrontendCodeOwner");
+  });
+
+  it("Should successfully transfer code ownership if triggered by owner", async () => {
+    const frontendCode = ethers.randomBytes(32);
+    await frontendGateway.connect(alice).registerFrontendCode(frontendCode);
+    let frontendCodeBefore = await frontendGateway.frontendCodes(frontendCode);
+    await frontendGateway.connect(alice).transferFrontendCode(frontendCode, owner.address);
+    let frontendCodeAfter = await frontendGateway.frontendCodes(frontendCode);
+    expect(frontendCodeBefore.owner).to.be.equal(alice.address);
+    expect(frontendCodeAfter.owner).to.be.equal(owner.address);
+  });
+
   it("Should fail to add empty code", async () => {
     const frontendCode = ethers.ZeroHash;
 
@@ -111,6 +129,160 @@ describe("FrontendGateway Tests", () => {
     let claimableBalance = (await frontendGateway.frontendCodes(frontendCode))
       .balance;
     expect(claimableBalance).to.be.equal(0);
+  });
+
+  describe("Redeeming Tests", () => {
+    const MIN_HOLDING_DURATION = 90 * 86400; // 90 days
+
+    let frontendCode: Uint8Array;
+    let investAmount: bigint;
+    let expectedShares: bigint;
+    let balanceBefore: bigint;
+    let balanceAfter: bigint;
+
+    beforeEach(async () => {
+      frontendCode = ethers.randomBytes(32);
+      investAmount = floatToDec18(1000);
+      expectedShares = await equity.calculateShares(investAmount);
+      await frontendGateway.registerFrontendCode(frontendCode);
+      await dEURO.approve(
+        await frontendGateway.getAddress(),
+        floatToDec18(100000000),
+      );
+      await dEURO.approve(equity, investAmount);
+      balanceBefore = await equity.balanceOf(owner.address);
+      await frontendGateway.invest(investAmount, expectedShares, frontendCode);
+      balanceAfter = await equity.balanceOf(owner.address);
+      let frontendCodeStruct = await frontendGateway.frontendCodes(frontendCode);
+      expect(balanceAfter - balanceBefore).to.be.equal(expectedShares);
+      expect(frontendCodeStruct.balance).to.be.equal(floatToDec18(10));
+      expect(frontendCodeStruct.owner).to.be.equal(owner.address);
+    });
+
+    it("Should fail to redeem if not enough time has passed", async () => {
+      // This test requires a large block time increase, breaking other unit tests.
+      // Therefore, we snapshot the state of the blockchain before running the test
+      // and revert to that state after the test is done.
+      const snapshotId = await ethers.provider.send("evm_snapshot", []);
+
+      try {
+        await evm_increaseTime(MIN_HOLDING_DURATION - 86400); // 89 days
+
+        await expect(
+          frontendGateway.redeem(
+            await owner.getAddress(),
+            expectedShares,
+            0,
+            frontendCode,
+          ),
+        ).to.be.reverted;
+
+        await evm_increaseTime(86400); // 1 additional day for 90 days total
+
+        await equity.approve(frontendGateway.getAddress(), expectedShares);
+        await expect(
+          frontendGateway.redeem(
+            await owner.getAddress(),
+            expectedShares,
+            0,
+            frontendCode,
+          ),
+        ).to.emit(equity, "Trade");
+      } finally {
+        // Revert to the original blockchain state
+        await ethers.provider.send("evm_revert", [snapshotId]);
+      }
+    });
+
+    it("Should successfully redeem", async () => {
+      const snapshotId = await ethers.provider.send("evm_snapshot", []);
+
+      try {
+        await evm_increaseTime(MIN_HOLDING_DURATION);
+        const redeemAmount = expectedShares / 2n;
+        const expectedRedeemAmount = await equity.calculateProceeds(redeemAmount);
+        const balanceBeforeAlice = await dEURO.balanceOf(await alice.getAddress());
+        const nDEPSbalanceBeforeOwner = await equity.balanceOf(await owner.getAddress());
+        await equity.approve(frontendGateway.getAddress(), redeemAmount);
+        const tx = frontendGateway.redeem(
+          await alice.getAddress(),
+          redeemAmount,
+          expectedRedeemAmount,
+          frontendCode,
+        );
+        const expPrice = (await equity.VALUATION_FACTOR() * await dEURO.equity() * floatToDec18(1)) / await equity.totalSupply();
+        expect(await equity.price()).to.be.eq(expPrice);
+        await expect(tx).to.emit(equity, "Trade").withArgs(
+          ethers.getAddress(await owner.getAddress()),
+          -redeemAmount,
+          expectedRedeemAmount,
+          expPrice,
+        );
+        const balanceAfterAlice = await dEURO.balanceOf(await alice.getAddress());
+        const nDEPSbalanceAfterOwner = await equity.balanceOf(await owner.getAddress());
+        expect(balanceAfterAlice - balanceBeforeAlice).to.be.equal(expectedRedeemAmount);
+        expect(nDEPSbalanceBeforeOwner - nDEPSbalanceAfterOwner).to.be.equal(redeemAmount);
+      } finally {
+        // Revert to the original blockchain state
+        await ethers.provider.send("evm_revert", [snapshotId]);
+      }
+    });
+
+    it("Should successfully unwrap and sell", async () => {
+      const snapshotId = await ethers.provider.send("evm_snapshot", []);
+
+      try {
+        await equity.approve(wrapper.getAddress(), expectedShares);
+        await wrapper.wrap(expectedShares);
+        const initWrappedBalance = await equity.balanceOf(wrapper.getAddress());
+        expect(initWrappedBalance).to.be.equal(expectedShares);
+        
+        await evm_increaseTime(MIN_HOLDING_DURATION);
+        const unwrapAmount = initWrappedBalance / 2n;
+        const frontendCodeBalanceBefore = (await frontendGateway.frontendCodes(frontendCode)).balance;
+        const balanceBefore1 = await dEURO.balanceOf(await owner.getAddress());
+        await wrapper.approve(frontendGateway.getAddress(), unwrapAmount);
+        const tx = frontendGateway.unwrapAndSell(unwrapAmount, frontendCode);
+        const expectedRedeemAmount = await equity.calculateProceeds(unwrapAmount);
+        await expect(tx).to.emit(equity, "Trade").withArgs(
+          ethers.getAddress(await wrapper.getAddress()),
+          -unwrapAmount,
+          expectedRedeemAmount,
+          await equity.price()
+        );
+        const wrappedBalanceAfter = await equity.balanceOf(wrapper.getAddress());
+        const balanceAfter1 = await dEURO.balanceOf(await owner.getAddress());
+        const frontendCodeBalanceAfter = (await frontendGateway.frontendCodes(frontendCode)).balance;
+        const frontendGatewayFee = await frontendGateway.feeRate();
+        expect(balanceAfter1 - balanceBefore1).to.be.equal(expectedRedeemAmount);
+        expect(initWrappedBalance - wrappedBalanceAfter).to.be.equal(unwrapAmount);
+        expect(frontendCodeBalanceAfter - frontendCodeBalanceBefore).to.be.equal((expectedRedeemAmount * frontendGatewayFee) / 1_000_000n );
+      } finally {
+        // Revert to the original blockchain state
+        await ethers.provider.send("evm_revert", [snapshotId]);
+      }
+    });
+
+    it("Should fail to withdraw rewards to if non-owner", async () => {
+      expect(await frontendGateway.withdrawRewardsTo(
+        frontendCode, await alice.getAddress()
+      )).to.be.revertedWithCustomError(frontendGateway, "NotFrontendCodeOwner");
+    });
+
+    it("Should successfully withdraw rewards to", async () => {
+      const balanceBeforeAlice = await dEURO.balanceOf(await alice.getAddress());
+      const balanceBeforeEquity = await dEURO.balanceOf(await equity.getAddress());
+      const frontendCodeBalance = (await frontendGateway.frontendCodes(frontendCode)).balance;
+      const tx = frontendGateway.withdrawRewardsTo(frontendCode, await alice.getAddress());
+      await expect(tx).to.emit(dEURO, "Loss").withArgs(
+        await alice.getAddress(),
+        frontendCodeBalance,
+      );
+      const balanceAfterAlice = await dEURO.balanceOf(await alice.getAddress());
+      const balanceAfterEquity = await dEURO.balanceOf(await equity.getAddress());
+      expect(balanceAfterAlice - balanceBeforeAlice).to.be.equal(frontendCodeBalance);
+      expect(balanceBeforeEquity - balanceAfterEquity).to.be.equal(frontendCodeBalance);
+    });
   });
 
   describe("Saving Frontend Rewards", () => {
