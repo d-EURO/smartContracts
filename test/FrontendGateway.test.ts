@@ -245,7 +245,7 @@ describe("FrontendGateway Tests", () => {
         const tx = frontendGateway.unwrapAndSell(unwrapAmount, frontendCode);
         const expectedRedeemAmount = await equity.calculateProceeds(unwrapAmount);
         await expect(tx).to.emit(equity, "Trade").withArgs(
-          ethers.getAddress(await wrapper.getAddress()),
+          ethers.getAddress(await wrapper.getAddress()), // @review: Does this make sense or should it be owner?
           -unwrapAmount,
           expectedRedeemAmount,
           await equity.price()
@@ -312,14 +312,18 @@ describe("FrontendGateway Tests", () => {
       await evm_increaseTime(86400 * 11);
     });
 
+    it("Should initially have no savings", async () => {
+      const account = await savings.savings(owner.address);
+      expect(account.saved).to.be.equal(0);
+    });
+
     it("any interests after 365days", async () => {
       const i0 = await dEURO.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
 
       const frontendCode = ethers.randomBytes(32);
       await dEURO.approve(await savings.getAddress(), amount);
-      await savings["save(address,uint192,bytes32)"](
-        owner,
+      await savings.connect(owner)["save(uint192,bytes32)"](
         amount,
         frontendCode,
       );
@@ -332,6 +336,108 @@ describe("FrontendGateway Tests", () => {
 
       expect(dec18ToFloat(i1 - i0)).to.be.equal(200); // Because 20% of 10_000 dEURO are 200 dEURO
       expect(dec18ToFloat(c0)).to.be.equal(10); // Because 1% of 10_000 dEURO are 10 dEURO
+    });
+
+    it("save with different owner", async () => {
+      const amount = floatToDec18(10_000);
+
+      const frontendCode = ethers.randomBytes(32);
+      const balanceBeforeOwner = await dEURO.balanceOf(owner.address);
+
+      await dEURO.approve(await savings.getAddress(), amount);
+      const tx = savings.connect(owner)["save(address,uint192,bytes32)"](
+        alice,
+        amount,
+        frontendCode,
+      );
+      await expect(tx).to.emit(savings, "Saved").withArgs(
+        owner.address, // @review: Is this correct, should this be alice? (see @review in SavingsGateway.sol)
+        amount,
+      );
+
+      const balanceAfterOwner = await dEURO.balanceOf(owner.address);
+      const account = await savings.savings(owner.address);
+      expect(balanceBeforeOwner - balanceAfterOwner).to.be.equal(amount);
+      expect(account.saved).to.be.equal(amount);
+      // const lastUsedFrontendCodeAlice = await frontendGateway.lastUsedFrontendCode(alice.address);
+      // expect(lastUsedFrontendCodeAlice).to.be.equal(frontendCode);
+    });
+
+    it("adjust saving amount", async () => {
+      await savings.refreshBalance(owner.address);
+      const savings1 = (await savings.savings(owner.address)).saved;
+      
+      // save some initial amount
+      const amount = floatToDec18(10_000);
+      const frontendCode = ethers.randomBytes(32);
+      await dEURO.approve(await savings.getAddress(), amount);
+      await savings.connect(owner)["save(uint192,bytes32)"](
+        amount,
+        frontendCode,
+      );
+      await savings.refreshBalance(owner.address);
+      const savings2 = (await savings.savings(owner.address)).saved;
+      expect(savings2).to.be.approximately(amount + savings1, 10n ** 15n);
+
+      // adjust upwards
+      const targetAmount = savings2 + floatToDec18(20_000);
+      const balanceBefore1 = await dEURO.balanceOf(owner.address);
+      await dEURO.approve(await savings.getAddress(), targetAmount);
+      const tx = await savings.connect(owner)["adjust(uint192,bytes32)"](targetAmount, frontendCode);
+      const receipt = await tx.wait();
+      const event = receipt?.logs
+        .map((log) => savings.interface.parseLog(log))
+        .find((parsedLog) => parsedLog?.name === "Saved");
+      const [eOwner, eAmount] = event?.args ?? [];
+      const balanceAfter1 = await dEURO.balanceOf(owner.address);
+      const savings3 = (await savings.savings(owner.address)).saved;
+      expect(eOwner).to.be.equal(owner.address);
+      expect(eAmount).to.be.approximately(targetAmount - savings2, 10n ** 15n);
+      expect(savings3).to.be.equal(targetAmount);
+      expect(balanceBefore1 - balanceAfter1).to.be.equal(eAmount);
+
+      // adjust downwards
+      const targetAmount2 = floatToDec18(12_000);
+      const balanceBefore2 = await dEURO.balanceOf(owner.address);
+      const tx2 = await savings.connect(owner)["adjust(uint192,bytes32)"](targetAmount2, frontendCode);
+      const receipt2 = await tx2.wait();
+      const event2 = receipt2?.logs
+        .map((log) => savings.interface.parseLog(log))
+        .find((parsedLog) => parsedLog?.name === "Withdrawn");
+      const [eOwner2, eAmount2] = event2?.args ?? [];
+      const balanceAfter2 = await dEURO.balanceOf(owner.address);
+      const savings4 = (await savings.savings(owner.address)).saved;
+      expect(eOwner2).to.be.equal(owner.address);
+      expect(eAmount2).to.be.approximately(savings3 - targetAmount2, 10n ** 15n);
+      expect(savings4).to.be.equal(targetAmount2);
+      expect(balanceAfter2 - balanceBefore2).to.be.equal(eAmount2);
+    });
+
+    it("Should withdraw full amount and delete savings entry", async () => {
+      const amount = floatToDec18(10_000);
+      const frontendCode = ethers.randomBytes(32);
+      await dEURO.approve(await savings.getAddress(), amount);
+      await savings.connect(owner)["save(uint192,bytes32)"](
+        amount,
+        frontendCode,
+      );
+      const savedAmount = (await savings.savings(owner.address)).saved;
+      expect(savedAmount).to.be.gt(0);
+
+      const balanceBefore = await dEURO.balanceOf(owner.address);
+      const tx = await savings.connect(owner)["withdraw(address,uint192,bytes32)"](owner.address, savedAmount * 2n, frontendCode);
+      const receipt = await tx.wait();
+      const event = receipt?.logs
+        .map((log) => savings.interface.parseLog(log))
+        .find((parsedLog) => parsedLog?.name === "Withdrawn");
+      const [eAccount, eAmount] = event?.args ?? [];
+      const savingsObj = await savings.savings(owner.address);
+      const balanceAfter = await dEURO.balanceOf(owner.address);
+      expect(eAccount).to.be.equal(owner.address);
+      expect(eAmount).to.be.approximately(savedAmount, 10n ** 15n);
+      expect(balanceAfter - balanceBefore).to.be.equal(eAmount);
+      expect(savingsObj.saved).to.be.equal(0);
+      expect(savingsObj.ticks).to.be.equal(0);
     });
   });
 
