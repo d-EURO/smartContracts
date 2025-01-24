@@ -35,8 +35,8 @@ contract SavingsGateway is Savings, Context {
     }
 
     function save(address owner, uint192 amount, bytes32 frontendCode) public {
-        GATEWAY.updateSavingCode(owner, frontendCode);
-        save(_msgSender(), amount); // @review: Should this be owner, else owner is only used to update frontendCode?
+        GATEWAY.updateSavingCode(_msgSender(), frontendCode);
+        save(owner, amount);
     }
 
     function adjust(uint192 targetAmount, bytes32 frontendCode) public {

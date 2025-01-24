@@ -91,7 +91,7 @@ describe("FrontendGateway Tests", () => {
     const frontendCode = ethers.randomBytes(32);
     await frontendGateway.connect(alice).registerFrontendCode(frontendCode);
     await expect(
-      frontendGateway.transferFrontendCode(frontendCode, owner.address)
+      frontendGateway.transferFrontendCode(frontendCode, owner.address),
     ).to.revertedWithCustomError(frontendGateway, "NotFrontendCodeOwner");
   });
 
@@ -99,7 +99,9 @@ describe("FrontendGateway Tests", () => {
     const frontendCode = ethers.randomBytes(32);
     await frontendGateway.connect(alice).registerFrontendCode(frontendCode);
     let frontendCodeBefore = await frontendGateway.frontendCodes(frontendCode);
-    await frontendGateway.connect(alice).transferFrontendCode(frontendCode, owner.address);
+    await frontendGateway
+      .connect(alice)
+      .transferFrontendCode(frontendCode, owner.address);
     let frontendCodeAfter = await frontendGateway.frontendCodes(frontendCode);
     expect(frontendCodeBefore.owner).to.be.equal(alice.address);
     expect(frontendCodeAfter.owner).to.be.equal(owner.address);
@@ -119,14 +121,11 @@ describe("FrontendGateway Tests", () => {
   it("Should not add to empty code balance", async () => {
     const frontendCode = ethers.ZeroHash;
     const expected = await equity.calculateShares(floatToDec18(1000));
-    await dEURO.approve(
-      await frontendGateway.getAddress(),
-      floatToDec18(100000000),
-    );
+    await dEURO.approve(frontendGateway.getAddress(), floatToDec18(100000000));
     await dEURO.approve(equity, floatToDec18(1000));
     await frontendGateway.invest(floatToDec18(1000), expected, frontendCode);
 
-    let claimableBalance = (await frontendGateway.frontendCodes(frontendCode))
+    const claimableBalance = (await frontendGateway.frontendCodes(frontendCode))
       .balance;
     expect(claimableBalance).to.be.equal(0);
   });
@@ -146,14 +145,16 @@ describe("FrontendGateway Tests", () => {
       expectedShares = await equity.calculateShares(investAmount);
       await frontendGateway.registerFrontendCode(frontendCode);
       await dEURO.approve(
-        await frontendGateway.getAddress(),
+        frontendGateway.getAddress(),
         floatToDec18(100000000),
       );
       await dEURO.approve(equity, investAmount);
       balanceBefore = await equity.balanceOf(owner.address);
       await frontendGateway.invest(investAmount, expectedShares, frontendCode);
       balanceAfter = await equity.balanceOf(owner.address);
-      let frontendCodeStruct = await frontendGateway.frontendCodes(frontendCode);
+      let frontendCodeStruct =
+        await frontendGateway.frontendCodes(frontendCode);
+
       expect(balanceAfter - balanceBefore).to.be.equal(expectedShares);
       expect(frontendCodeStruct.balance).to.be.equal(floatToDec18(10));
       expect(frontendCodeStruct.owner).to.be.equal(owner.address);
@@ -170,7 +171,7 @@ describe("FrontendGateway Tests", () => {
 
         await expect(
           frontendGateway.redeem(
-            await owner.getAddress(),
+            owner.getAddress(),
             expectedShares,
             0,
             frontendCode,
@@ -182,7 +183,7 @@ describe("FrontendGateway Tests", () => {
         await equity.approve(frontendGateway.getAddress(), expectedShares);
         await expect(
           frontendGateway.redeem(
-            await owner.getAddress(),
+            owner.getAddress(),
             expectedShares,
             0,
             frontendCode,
@@ -200,28 +201,44 @@ describe("FrontendGateway Tests", () => {
       try {
         await evm_increaseTime(MIN_HOLDING_DURATION);
         const redeemAmount = expectedShares / 2n;
-        const expectedRedeemAmount = await equity.calculateProceeds(redeemAmount);
-        const balanceBeforeAlice = await dEURO.balanceOf(await alice.getAddress());
-        const nDEPSbalanceBeforeOwner = await equity.balanceOf(await owner.getAddress());
+        const expectedRedeemAmount =
+          await equity.calculateProceeds(redeemAmount);
+        const balanceBeforeAlice = await dEURO.balanceOf(alice.getAddress());
+        const nDEPSbalanceBeforeOwner = await equity.balanceOf(
+          owner.getAddress(),
+        );
         await equity.approve(frontendGateway.getAddress(), redeemAmount);
         const tx = frontendGateway.redeem(
-          await alice.getAddress(),
+          alice.getAddress(),
           redeemAmount,
           expectedRedeemAmount,
           frontendCode,
         );
-        const expPrice = (await equity.VALUATION_FACTOR() * await dEURO.equity() * floatToDec18(1)) / await equity.totalSupply();
+        const expPrice =
+          ((await equity.VALUATION_FACTOR()) *
+            (await dEURO.equity()) *
+            floatToDec18(1)) /
+          (await equity.totalSupply());
         expect(await equity.price()).to.be.eq(expPrice);
-        await expect(tx).to.emit(equity, "Trade").withArgs(
-          ethers.getAddress(await owner.getAddress()),
-          -redeemAmount,
-          expectedRedeemAmount,
-          expPrice,
+        await expect(tx)
+          .to.emit(equity, "Trade")
+          .withArgs(
+            owner.getAddress(),
+            -redeemAmount,
+            expectedRedeemAmount,
+            expPrice,
+          );
+        const balanceAfterAlice = await dEURO.balanceOf(alice.getAddress());
+        const nDEPSbalanceAfterOwner = await equity.balanceOf(
+          owner.getAddress(),
         );
-        const balanceAfterAlice = await dEURO.balanceOf(await alice.getAddress());
-        const nDEPSbalanceAfterOwner = await equity.balanceOf(await owner.getAddress());
-        expect(balanceAfterAlice - balanceBeforeAlice).to.be.equal(expectedRedeemAmount);
-        expect(nDEPSbalanceBeforeOwner - nDEPSbalanceAfterOwner).to.be.equal(redeemAmount);
+
+        expect(balanceAfterAlice - balanceBeforeAlice).to.be.equal(
+          expectedRedeemAmount,
+        );
+        expect(nDEPSbalanceBeforeOwner - nDEPSbalanceAfterOwner).to.be.equal(
+          redeemAmount,
+        );
       } finally {
         // Revert to the original blockchain state
         await ethers.provider.send("evm_revert", [snapshotId]);
@@ -235,28 +252,47 @@ describe("FrontendGateway Tests", () => {
         await equity.approve(wrapper.getAddress(), expectedShares);
         await wrapper.wrap(expectedShares);
         const initWrappedBalance = await equity.balanceOf(wrapper.getAddress());
+
         expect(initWrappedBalance).to.be.equal(expectedShares);
-        
+
         await evm_increaseTime(MIN_HOLDING_DURATION);
         const unwrapAmount = initWrappedBalance / 2n;
-        const frontendCodeBalanceBefore = (await frontendGateway.frontendCodes(frontendCode)).balance;
-        const balanceBefore1 = await dEURO.balanceOf(await owner.getAddress());
+        const frontendCodeBalanceBefore = (
+          await frontendGateway.frontendCodes(frontendCode)
+        ).balance;
+        const balanceBefore1 = await dEURO.balanceOf(owner.getAddress());
         await wrapper.approve(frontendGateway.getAddress(), unwrapAmount);
         const tx = frontendGateway.unwrapAndSell(unwrapAmount, frontendCode);
-        const expectedRedeemAmount = await equity.calculateProceeds(unwrapAmount);
-        await expect(tx).to.emit(equity, "Trade").withArgs(
-          ethers.getAddress(await wrapper.getAddress()), // @review: Does this make sense or should it be owner?
-          -unwrapAmount,
-          expectedRedeemAmount,
-          await equity.price()
+        const expectedRedeemAmount =
+          await equity.calculateProceeds(unwrapAmount);
+
+        await expect(tx)
+          .to.emit(equity, "Trade")
+          .withArgs(
+            wrapper.getAddress(),
+            -unwrapAmount,
+            expectedRedeemAmount,
+            await equity.price(),
+          );
+
+        const wrappedBalanceAfter = await equity.balanceOf(
+          wrapper.getAddress(),
         );
-        const wrappedBalanceAfter = await equity.balanceOf(wrapper.getAddress());
-        const balanceAfter1 = await dEURO.balanceOf(await owner.getAddress());
-        const frontendCodeBalanceAfter = (await frontendGateway.frontendCodes(frontendCode)).balance;
+        const balanceAfter1 = await dEURO.balanceOf(owner.getAddress());
+        const frontendCodeBalanceAfter = (
+          await frontendGateway.frontendCodes(frontendCode)
+        ).balance;
         const frontendGatewayFee = await frontendGateway.feeRate();
-        expect(balanceAfter1 - balanceBefore1).to.be.equal(expectedRedeemAmount);
-        expect(initWrappedBalance - wrappedBalanceAfter).to.be.equal(unwrapAmount);
-        expect(frontendCodeBalanceAfter - frontendCodeBalanceBefore).to.be.equal((expectedRedeemAmount * frontendGatewayFee) / 1_000_000n );
+
+        expect(balanceAfter1 - balanceBefore1).to.be.equal(
+          expectedRedeemAmount,
+        );
+        expect(initWrappedBalance - wrappedBalanceAfter).to.be.equal(
+          unwrapAmount,
+        );
+        expect(
+          frontendCodeBalanceAfter - frontendCodeBalanceBefore,
+        ).to.be.equal((expectedRedeemAmount * frontendGatewayFee) / 1_000_000n);
       } finally {
         // Revert to the original blockchain state
         await ethers.provider.send("evm_revert", [snapshotId]);
@@ -264,24 +300,36 @@ describe("FrontendGateway Tests", () => {
     });
 
     it("Should fail to withdraw rewards to if non-owner", async () => {
-      expect(await frontendGateway.withdrawRewardsTo(
-        frontendCode, await alice.getAddress()
-      )).to.be.revertedWithCustomError(frontendGateway, "NotFrontendCodeOwner");
+      expect(
+        await frontendGateway.withdrawRewardsTo(
+          frontendCode,
+          alice.getAddress(),
+        ),
+      ).to.be.revertedWithCustomError(frontendGateway, "NotFrontendCodeOwner");
     });
 
     it("Should successfully withdraw rewards to", async () => {
-      const balanceBeforeAlice = await dEURO.balanceOf(await alice.getAddress());
-      const balanceBeforeEquity = await dEURO.balanceOf(await equity.getAddress());
-      const frontendCodeBalance = (await frontendGateway.frontendCodes(frontendCode)).balance;
-      const tx = frontendGateway.withdrawRewardsTo(frontendCode, await alice.getAddress());
-      await expect(tx).to.emit(dEURO, "Loss").withArgs(
-        await alice.getAddress(),
+      const balanceBeforeAlice = await dEURO.balanceOf(alice.getAddress());
+      const balanceBeforeEquity = await dEURO.balanceOf(equity.getAddress());
+      const frontendCodeBalance = (
+        await frontendGateway.frontendCodes(frontendCode)
+      ).balance;
+      const tx = frontendGateway.withdrawRewardsTo(
+        frontendCode,
+        alice.getAddress(),
+      );
+      await expect(tx)
+        .to.emit(dEURO, "Loss")
+        .withArgs(alice.getAddress(), frontendCodeBalance);
+      const balanceAfterAlice = await dEURO.balanceOf(alice.getAddress());
+      const balanceAfterEquity = await dEURO.balanceOf(equity.getAddress());
+
+      expect(balanceAfterAlice - balanceBeforeAlice).to.be.equal(
         frontendCodeBalance,
       );
-      const balanceAfterAlice = await dEURO.balanceOf(await alice.getAddress());
-      const balanceAfterEquity = await dEURO.balanceOf(await equity.getAddress());
-      expect(balanceAfterAlice - balanceBeforeAlice).to.be.equal(frontendCodeBalance);
-      expect(balanceBeforeEquity - balanceAfterEquity).to.be.equal(frontendCodeBalance);
+      expect(balanceBeforeEquity - balanceAfterEquity).to.be.equal(
+        frontendCodeBalance,
+      );
     });
   });
 
@@ -322,11 +370,10 @@ describe("FrontendGateway Tests", () => {
       const amount = floatToDec18(10_000);
 
       const frontendCode = ethers.randomBytes(32);
-      await dEURO.approve(await savings.getAddress(), amount);
-      await savings.connect(owner)["save(uint192,bytes32)"](
-        amount,
-        frontendCode,
-      );
+      await dEURO.approve(savings.getAddress(), amount);
+      await savings
+        .connect(owner)
+        ["save(uint192,bytes32)"](amount, frontendCode);
       await evm_increaseTime(365 * 86_400);
 
       await savings["withdraw(address,uint192)"](owner.address, 2n * amount); // as much as possible, 2x amount is enough
@@ -344,19 +391,17 @@ describe("FrontendGateway Tests", () => {
       const frontendCode = ethers.randomBytes(32);
       const balanceBeforeOwner = await dEURO.balanceOf(owner.address);
 
-      await dEURO.approve(await savings.getAddress(), amount);
-      const tx = savings.connect(owner)["save(address,uint192,bytes32)"](
-        alice,
-        amount,
-        frontendCode,
-      );
-      await expect(tx).to.emit(savings, "Saved").withArgs(
-        owner.address, // @review: Is this correct, should this be alice? (see @review in SavingsGateway.sol)
-        amount,
-      );
+      await dEURO.approve(savings.getAddress(), amount);
+      const tx = savings
+        .connect(owner)
+        ["save(address,uint192,bytes32)"](alice, amount, frontendCode);
+      await expect(tx)
+        .to.emit(savings, "Saved")
+        .withArgs(alice.address, amount);
 
       const balanceAfterOwner = await dEURO.balanceOf(owner.address);
-      const account = await savings.savings(owner.address);
+      const account = await savings.savings(alice.address);
+
       expect(balanceBeforeOwner - balanceAfterOwner).to.be.equal(amount);
       expect(account.saved).to.be.equal(amount);
       // const lastUsedFrontendCodeAlice = await frontendGateway.lastUsedFrontendCode(alice.address);
@@ -366,24 +411,26 @@ describe("FrontendGateway Tests", () => {
     it("adjust saving amount", async () => {
       await savings.refreshBalance(owner.address);
       const savings1 = (await savings.savings(owner.address)).saved;
-      
+
       // save some initial amount
       const amount = floatToDec18(10_000);
       const frontendCode = ethers.randomBytes(32);
-      await dEURO.approve(await savings.getAddress(), amount);
-      await savings.connect(owner)["save(uint192,bytes32)"](
-        amount,
-        frontendCode,
-      );
+      await dEURO.approve(savings.getAddress(), amount);
+      await savings
+        .connect(owner)
+        ["save(uint192,bytes32)"](amount, frontendCode);
       await savings.refreshBalance(owner.address);
       const savings2 = (await savings.savings(owner.address)).saved;
+
       expect(savings2).to.be.approximately(amount + savings1, 10n ** 15n);
 
       // adjust upwards
       const targetAmount = savings2 + floatToDec18(20_000);
       const balanceBefore1 = await dEURO.balanceOf(owner.address);
-      await dEURO.approve(await savings.getAddress(), targetAmount);
-      const tx = await savings.connect(owner)["adjust(uint192,bytes32)"](targetAmount, frontendCode);
+      await dEURO.approve(savings.getAddress(), targetAmount);
+      const tx = await savings
+        .connect(owner)
+        ["adjust(uint192,bytes32)"](targetAmount, frontendCode);
       const receipt = await tx.wait();
       const event = receipt?.logs
         .map((log) => savings.interface.parseLog(log))
@@ -391,6 +438,7 @@ describe("FrontendGateway Tests", () => {
       const [eOwner, eAmount] = event?.args ?? [];
       const balanceAfter1 = await dEURO.balanceOf(owner.address);
       const savings3 = (await savings.savings(owner.address)).saved;
+
       expect(eOwner).to.be.equal(owner.address);
       expect(eAmount).to.be.approximately(targetAmount - savings2, 10n ** 15n);
       expect(savings3).to.be.equal(targetAmount);
@@ -399,7 +447,9 @@ describe("FrontendGateway Tests", () => {
       // adjust downwards
       const targetAmount2 = floatToDec18(12_000);
       const balanceBefore2 = await dEURO.balanceOf(owner.address);
-      const tx2 = await savings.connect(owner)["adjust(uint192,bytes32)"](targetAmount2, frontendCode);
+      const tx2 = await savings
+        .connect(owner)
+        ["adjust(uint192,bytes32)"](targetAmount2, frontendCode);
       const receipt2 = await tx2.wait();
       const event2 = receipt2?.logs
         .map((log) => savings.interface.parseLog(log))
@@ -407,8 +457,12 @@ describe("FrontendGateway Tests", () => {
       const [eOwner2, eAmount2] = event2?.args ?? [];
       const balanceAfter2 = await dEURO.balanceOf(owner.address);
       const savings4 = (await savings.savings(owner.address)).saved;
+
       expect(eOwner2).to.be.equal(owner.address);
-      expect(eAmount2).to.be.approximately(savings3 - targetAmount2, 10n ** 15n);
+      expect(eAmount2).to.be.approximately(
+        savings3 - targetAmount2,
+        10n ** 15n,
+      );
       expect(savings4).to.be.equal(targetAmount2);
       expect(balanceAfter2 - balanceBefore2).to.be.equal(eAmount2);
     });
@@ -416,16 +470,20 @@ describe("FrontendGateway Tests", () => {
     it("Should withdraw full amount and delete savings entry", async () => {
       const amount = floatToDec18(10_000);
       const frontendCode = ethers.randomBytes(32);
-      await dEURO.approve(await savings.getAddress(), amount);
-      await savings.connect(owner)["save(uint192,bytes32)"](
-        amount,
-        frontendCode,
-      );
+      await dEURO.approve(savings.getAddress(), amount);
+      await savings
+        .connect(owner)
+        ["save(uint192,bytes32)"](amount, frontendCode);
       const savedAmount = (await savings.savings(owner.address)).saved;
+
       expect(savedAmount).to.be.gt(0);
 
       const balanceBefore = await dEURO.balanceOf(owner.address);
-      const tx = await savings.connect(owner)["withdraw(address,uint192,bytes32)"](owner.address, savedAmount * 2n, frontendCode);
+      const tx = await savings
+        .connect(owner)
+        [
+          "withdraw(address,uint192,bytes32)"
+        ](owner.address, savedAmount * 2n, frontendCode);
       const receipt = await tx.wait();
       const event = receipt?.logs
         .map((log) => savings.interface.parseLog(log))
@@ -433,6 +491,7 @@ describe("FrontendGateway Tests", () => {
       const [eAccount, eAmount] = event?.args ?? [];
       const savingsObj = await savings.savings(owner.address);
       const balanceAfter = await dEURO.balanceOf(owner.address);
+
       expect(eAccount).to.be.equal(owner.address);
       expect(eAmount).to.be.approximately(savedAmount, 10n ** 15n);
       expect(balanceAfter - balanceBefore).to.be.equal(eAmount);
