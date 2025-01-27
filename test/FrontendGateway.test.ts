@@ -18,13 +18,14 @@ describe("FrontendGateway Tests", () => {
   let XEUR: TestToken;
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
+  let bob: HardhatEthersSigner;
   let frontendGateway: FrontendGateway;
   let bridge: StablecoinBridge;
   let equity: Equity;
   let wrapper: DEPSWrapper;
 
   before(async () => {
-    [owner, alice] = await ethers.getSigners();
+    [owner, alice, bob] = await ethers.getSigners();
   });
 
   before(async () => {
@@ -195,6 +196,60 @@ describe("FrontendGateway Tests", () => {
       }
     });
 
+    it("Should fail to unwrap and sell DEPS if the average hold time is insufficient ", async () => {
+      // This test requires a large block time increase, breaking other unit tests.
+      // Therefore, we snapshot the state of the blockchain before running the test
+      // and revert to that state after the test is done.
+      const snapshotId = await ethers.provider.send("evm_snapshot", []);
+
+      try {
+        // 1000 dEURO to Alice, 1 dEURO to Bob
+        const amountAlice = floatToDec18(1000);
+        const amountBob = floatToDec18(10);
+        await dEURO.transfer(await alice.getAddress(), amountAlice);
+        await dEURO.transfer(await bob.getAddress(), amountBob);
+        
+        // Alice invests 1000 nDEPS and wraps them
+        await dEURO.connect(alice).approve(equity, amountAlice); 
+        await equity.connect(alice).invest(amountAlice, 0);
+        const aliceShares = await equity.calculateShares(amountAlice);
+        await equity.connect(alice).approve(wrapper.getAddress(), aliceShares);
+        await wrapper.connect(alice).wrap(aliceShares);
+
+        // Increase time by 90 days
+        await evm_increaseTime(MIN_HOLDING_DURATION); 
+
+        // Bob invests 10 nDEPS and wraps them
+        const frontendCodeBob = ethers.randomBytes(32);
+        await dEURO.connect(bob).approve(equity, amountBob);
+        await dEURO.connect(bob).approve(await frontendGateway.getAddress(), amountBob);
+        await frontendGateway.connect(bob).invest(amountBob, 0, frontendCodeBob);
+        const bobShares = await equity.calculateShares(amountBob);
+        await equity.connect(bob).approve(wrapper.getAddress(), bobShares);
+        await wrapper.connect(bob).wrap(bobShares);
+
+        // Increase time by 1 day
+        await evm_increaseTime(86400);
+        
+        // @review: At this point Bob's holding duration (equity.holdingDuration) is ~86_400 seconds (1 day)
+        // on the other hand, the wrapper's holding duration is just above 7776000 seconds (90 days)
+        // If we trace the `unwrapAndSell` function call below (`FrontendGateway.unwrapAndSell > 
+        // DEPSWrapper.unwrapAndSell > Equity.redeem > Equity._redeemFrom`), we notice that `canRedeem` is 
+        // called on the equity contract with the address of the wrapper contract, not Bob's address.
+        // As a result, Bob is able to redeem and their nDEPS proceeds using the `unwrapAndSell` function 
+        // after only 1 day of holding, instead of the required 90 days.
+        await wrapper.connect(bob).approve(frontendGateway.getAddress(), bobShares);
+        expect(await equity.canRedeem(await bob.getAddress())).to.be.false; // Bob should not be able to redeem
+        const tx = frontendGateway.connect(bob).unwrapAndSell(bobShares, frontendCodeBob);
+        await expect(
+          tx,
+        ).to.be.revertedWithCustomError(equity, "BelowMinimumHoldingPeriod");
+      } finally {
+        // Revert to the original blockchain state
+        await ethers.provider.send("evm_revert", [snapshotId]);
+      }
+    });
+
     it("Should successfully redeem", async () => {
       const snapshotId = await ethers.provider.send("evm_snapshot", []);
 
@@ -252,9 +307,10 @@ describe("FrontendGateway Tests", () => {
         await equity.approve(wrapper.getAddress(), expectedShares);
         await wrapper.wrap(expectedShares);
         const initWrappedBalance = await equity.balanceOf(wrapper.getAddress());
-
+        const initWrappednDEPSbalance = await wrapper.balanceOf(owner.getAddress());
         expect(initWrappedBalance).to.be.equal(expectedShares);
-
+        expect(initWrappednDEPSbalance).to.be.equal(expectedShares);
+        
         await evm_increaseTime(MIN_HOLDING_DURATION);
         const unwrapAmount = initWrappedBalance / 2n;
         const frontendCodeBalanceBefore = (
@@ -269,30 +325,23 @@ describe("FrontendGateway Tests", () => {
         await expect(tx)
           .to.emit(equity, "Trade")
           .withArgs(
-            wrapper.getAddress(),
+            // @review: Should be owner's address or else owner is able to redeem prematurely, 
+            // see "Should fail to unwrap and sell if not enough time has passed" for more details.
+            wrapper.getAddress(), 
             -unwrapAmount,
             expectedRedeemAmount,
             await equity.price(),
           );
 
-        const wrappedBalanceAfter = await equity.balanceOf(
-          wrapper.getAddress(),
-        );
-        const balanceAfter1 = await dEURO.balanceOf(owner.getAddress());
-        const frontendCodeBalanceAfter = (
-          await frontendGateway.frontendCodes(frontendCode)
-        ).balance;
+        const wrappedBalanceAfter = await equity.balanceOf(wrapper.getAddress());
+        const wrappednDEPSbalanceAfter = await wrapper.balanceOf(owner.getAddress());
+        const balanceAfter1 = await dEURO.balanceOf(await owner.getAddress());
+        const frontendCodeBalanceAfter = (await frontendGateway.frontendCodes(frontendCode)).balance;
         const frontendGatewayFee = await frontendGateway.feeRate();
-
-        expect(balanceAfter1 - balanceBefore1).to.be.equal(
-          expectedRedeemAmount,
-        );
-        expect(initWrappedBalance - wrappedBalanceAfter).to.be.equal(
-          unwrapAmount,
-        );
-        expect(
-          frontendCodeBalanceAfter - frontendCodeBalanceBefore,
-        ).to.be.equal((expectedRedeemAmount * frontendGatewayFee) / 1_000_000n);
+        expect(balanceAfter1 - balanceBefore1).to.be.equal(expectedRedeemAmount);
+        expect(initWrappedBalance - wrappedBalanceAfter).to.be.equal(unwrapAmount);
+        expect(initWrappednDEPSbalance - wrappednDEPSbalanceAfter).to.be.equal(unwrapAmount);
+        expect(frontendCodeBalanceAfter - frontendCodeBalanceBefore).to.be.equal((expectedRedeemAmount * frontendGatewayFee) / 1_000_000n );
       } finally {
         // Revert to the original blockchain state
         await ethers.provider.send("evm_revert", [snapshotId]);

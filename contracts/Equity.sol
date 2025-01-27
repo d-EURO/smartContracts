@@ -91,6 +91,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     event Delegation(address indexed from, address indexed to); // indicates a delegation
     event Trade(address who, int256 amount, uint256 totPrice, uint256 newprice); // amount pos or neg for mint or redemption
 
+    error BelowMinimumHoldingPeriod();
     error NotQualified();
     error NotMinter();
     error InsufficientEquity();
@@ -392,7 +393,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     function _redeemFrom(address owner, address target, uint256 shares) internal returns (uint256) {
-        require(canRedeem(owner));
+        if(!canRedeem(owner)) revert BelowMinimumHoldingPeriod();
         uint256 proceeds = calculateProceeds(shares);
         _burn(owner, shares);
         dEURO.transfer(target, proceeds);
