@@ -366,7 +366,6 @@ contract Position is Ownable, IPosition, MathUtil {
      * and there is sufficient collateral.
      */
     function mint(address target, uint256 amount) public ownerOrRoller {
-        _accrueInterest();
         uint256 collateralBalance = _collateralBalance();
         _mint(target, amount, collateralBalance);
         emit MintingUpdate(collateralBalance, price, principal);
@@ -426,6 +425,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
         if (amount > availableForMinting()) revert LimitExceeded(amount, availableForMinting());
 
+        _accrueInterest();
         _fixRateToLeadrate();
 
         Position(original).notifyMint(amount);

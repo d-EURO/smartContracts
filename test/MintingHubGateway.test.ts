@@ -16,7 +16,6 @@ import {
   TestToken,
 } from "../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { ContractTransactionResponse } from "ethers";
 
 const weeks = 30;
@@ -929,11 +928,14 @@ describe("Minting Tests", () => {
       const amount = floatToDec18(100);
 
       const beforedEUROBal = await dEURO.balanceOf(owner.address);
+      const lastAccrualTimeBefore = await positionContract.lastAccrual(); 
       await positionContract.adjust(minted + amount, colBalance, price);
+      const lastAccrualTimeAfter = await positionContract.lastAccrual();
       const afterdEUROBal = await dEURO.balanceOf(owner.address);
       const reservePPM = await positionContract.reserveContribution();
       const expecteddEUROReceived = amount - (amount * reservePPM) / 1000000n;
       expect(afterdEUROBal - beforedEUROBal).to.be.equal(expecteddEUROReceived);
+      expect(lastAccrualTimeAfter).to.be.greaterThan(lastAccrualTimeBefore); // should accrue interest
 
       expect((await gateway.frontendCodes(frontendCode)).balance).to.be.equal(
         0,

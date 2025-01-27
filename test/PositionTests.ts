@@ -459,6 +459,27 @@ describe("Position Tests", () => {
         positionContract.initialize(positionAddr, 0),
       ).to.be.revertedWithCustomError(positionContract, "NotHub");
     });
+    it("should successfully mint for position owner", async () => {
+      await evm_increaseTime(86400 * 7)
+      const amount = floatToDec18(5);
+      const reserveContribution = await positionContract.reserveContribution();
+      const ownerBalanceBefore = await dEURO.balanceOf(owner.address);
+      const reserveBalanceBefore = await dEURO.balanceOf(await dEURO.reserve());
+      const principalBefore = await positionContract.principal();
+      const lastAccrualTimeBefore = await positionContract.lastAccrual();
+      await positionContract
+        .connect(owner)
+        .mint(owner.address, amount);
+      const ownerBalanceAfter = await dEURO.balanceOf(owner.address);
+      const reserveBalanceAfter = await dEURO.balanceOf(await dEURO.reserve());
+      const principalAfter = await positionContract.principal();
+      const lastAccrualTimeAfter = await positionContract.lastAccrual();
+      const expReserveContribution = (amount * reserveContribution) / 1_000_000n;
+      expect(lastAccrualTimeAfter).to.be.greaterThan(lastAccrualTimeBefore);
+      expect(principalAfter - principalBefore).to.be.equal(amount);
+      expect(ownerBalanceAfter - ownerBalanceBefore).to.be.equal(amount - expReserveContribution);
+      expect(reserveBalanceAfter - reserveBalanceBefore).to.be.equal(expReserveContribution);
+    });
     it("should revert cloning position with insufficient initial collateral", async () => {
       let expiration = await positionContract.expiration();
       await expect(
