@@ -364,6 +364,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(ERC20Permit).interfaceId ||
             interfaceId == type(ERC3009).interfaceId ||
+            interfaceId == type(IDecentralizedEURO).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

@@ -224,7 +224,7 @@ describe("Equity Tests", () => {
       expect(await equity.canRedeem(owner.address)).to.be.false;
       await expect(
         equity.redeem(owner.address, floatToDec18(0.1)),
-      ).to.be.revertedWithoutReason();
+      ).to.be.revertedWithCustomError(equity, "BelowMinimumHoldingPeriod")
     });
 
     it("should allow redemption after time passed", async () => {

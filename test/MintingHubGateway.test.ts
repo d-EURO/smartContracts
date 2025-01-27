@@ -1029,7 +1029,7 @@ describe("Minting Tests", () => {
       await test.approveDEURO(await pos.getAddress(), floatToDec18(10_000) + propInterest);
       await test.forceBuy(pos.getAddress(), 1n);
       expect(
-        (await gateway.frontendCodes(await test.frontendCode())).balance
+        (await gateway.frontendCodes(await test.frontendCode())).balance,
       ).to.be.greaterThan(frontendCodeBefore);
     });
 
