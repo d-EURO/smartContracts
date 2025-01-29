@@ -237,28 +237,6 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     }
 
     /**
-     * @notice Burns the provided number of tokens plus whatever reserves are associated with that amount given the reserve
-     * requirement. The caller is only allowed to use this method for tokens also minted through the caller with the
-     * same _reservePPM amount.
-     *
-     * Example: the calling contract has previously minted 100 dEURO with a reserve ratio of 20% (i.e. 200000 ppm).
-     * Now they have 41 dEURO that they do not need so they decide to repay that amount. Assuming the reserves are
-     * only 90% covered, the call to burnWithReserve will burn the 41 plus 9 from the reserve, reducing the outstanding
-     * 'debt' of the caller by 50 dEURO in total. This total is returned by the method so the caller knows how much less
-     * they owe.
-     */
-    function burnWithReserve(
-        uint256 _amountExcludingReserve,
-        uint32 _reservePPM
-    ) external override minterOnly returns (uint256) {
-        uint256 freedAmount = calculateFreedAmount(_amountExcludingReserve, _reservePPM); // 50 in the example
-        minterReserveE6 -= freedAmount * _reservePPM; // reduce reserve requirements by original ratio
-        _transfer(address(reserve), msg.sender, freedAmount - _amountExcludingReserve); // collect assigned reserve
-        _burn(msg.sender, freedAmount); // burn the rest of the freed amount
-        return freedAmount;
-    }
-
-    /**
      * @notice Burns the target amount taking the tokens to be burned from the payer and the payer's reserve.
      * Only use this method for tokens also minted by the caller with the same _reservePPM.
      *
@@ -271,13 +249,30 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         address payer,
         uint256 targetTotalBurnAmount,
         uint32 reservePPM
-    ) external override minterOnly returns (uint256) {
+    ) public override minterOnly returns (uint256) {
         uint256 assigned = calculateAssignedReserve(targetTotalBurnAmount, reservePPM);
         _spendAllowance(payer, msg.sender, targetTotalBurnAmount - assigned); // spend amount excluding the reserve
         _burn(address(reserve), assigned); // burn reserve amount from the reserve
         _burn(payer, targetTotalBurnAmount - assigned); // burn remaining amount from the payer
         minterReserveE6 -= targetTotalBurnAmount * reservePPM; // reduce reserve requirements by original ratio
         return assigned;
+    }
+
+    /**
+     * @notice Burns the target amount taking the tokens to be burned from the payer and the payer's reserve.
+     * The caller is only allowed to use this method for tokens also minted through the caller with the
+     * same _reservePPM amount.
+     *
+     * Example: the calling contract has previously minted 100 dEURO with a reserve ratio of 20% (i.e. 200000 ppm).
+     * To burn half of that again, the minter calls burnFromWithReserve with a target amount of 50 dEURO. Assuming 
+     * that reserves are only 90% covered, this call will deduct 41 dEURO from the payer's balance and 9 from the 
+     * reserve, while reducing the minter reserve by 10.
+     */
+    function burnWithReserve(
+        uint256 targetTotalBurnAmount,
+        uint32 reservePPM
+    ) external override minterOnly returns (uint256) {
+        return burnFromWithReserve(msg.sender, targetTotalBurnAmount, reservePPM);
     }
 
     /**

@@ -635,6 +635,7 @@ contract Position is Ownable, IPosition, MathUtil {
         }
     }
 
+    // TODO: Does a refactor into _payDownPrincipal (auto-pays interest) and _payDownInterest make sense? 
     function _payDownDebt(address payer, uint256 amount) internal returns (uint256 repaidAmount) {
         uint256 debt = _accrueInterest(); // ensure accrued interest is up-to-date
 
@@ -662,13 +663,16 @@ contract Position is Ownable, IPosition, MathUtil {
         if (principal > 0 && remaining > 0) {
             uint256 principalToPay = (principal > remaining) ? remaining : principal;
             if (principalToPay > 0) {
-                uint256 reservePortion = deuro.calculateAssignedReserve(principalToPay, reserveContribution);
-                uint256 repayment = deuro.burnWithReserve(principalToPay - reservePortion, reserveContribution);
+                uint256 returnedReserve = deuro.burnWithReserve(principalToPay, reserveContribution);
+                _notifyRepaid(principalToPay);
                 principal -= principalToPay;
-                remaining -= principalToPay;
+                remaining -= (principalToPay - returnedReserve);
                 repaidAmount += principalToPay;
-                _notifyRepaid(repayment);
             }
+        }
+
+        if (remaining > 0) {
+            deuro.transfer(payer, remaining);
         }
     }
 

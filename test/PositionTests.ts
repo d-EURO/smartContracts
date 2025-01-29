@@ -1384,6 +1384,46 @@ describe("Position Tests", () => {
       await positionContract.adjust(minted, collbal, price * 2n);
       expect(await positionContract.price()).to.be.equal(price * 2n);
     });
+    it("owner can repay debt partially", async () => {
+      await evm_increaseTime(86400 * 8);
+      const loanAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, loanAmount);
+      await evm_increaseTime(86400 * 5);
+      expect(await positionContract.getDebt()).to.be.gte(loanAmount);
+
+      const interest = await positionContract.getDebt() - await positionContract.principal();
+      const amountToRepay = loanAmount / 2n + interest;
+      const ownerBalBefore = await dEURO.balanceOf(owner.address);
+      const posBalBefore = await dEURO.balanceOf(positionAddr);
+      const debt = await positionContract.getDebt();
+      await dEURO.approve(positionAddr, debt + floatToDec18(1));
+      await positionContract.repay(amountToRepay);
+      const ownerBalAfter = await dEURO.balanceOf(owner.address);
+      const posBalAfter = await dEURO.balanceOf(positionAddr);
+      const returnedReserve = await dEURO.calculateAssignedReserve(amountToRepay, await positionContract.reserveContribution());
+      expect(ownerBalBefore - ownerBalAfter).to.be.approximately(amountToRepay - returnedReserve, floatToDec18(0.1));
+      expect(posBalBefore).to.be.equal(0);
+      expect(posBalAfter).to.be.equal(0); // AssertionError: expected 100000000000000000000 to equal 0.
+    });
+    it("owner can repay debt in full", async () => {
+      await evm_increaseTime(86400 * 8);
+      const loanAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, loanAmount);
+      await evm_increaseTime(86400 * 5);
+      expect(await positionContract.getDebt()).to.be.gte(loanAmount);
+
+      const ownerBalBefore = await dEURO.balanceOf(owner.address);
+      const posBalBefore = await dEURO.balanceOf(positionAddr);
+      const debt = await positionContract.getDebt();
+      await dEURO.approve(positionAddr, debt + floatToDec18(1));
+      await positionContract.repayFull();
+      const ownerBalAfter = await dEURO.balanceOf(owner.address);
+      const posBalAfter = await dEURO.balanceOf(positionAddr);
+      const returnedReserve = await dEURO.calculateAssignedReserve(debt, await positionContract.reserveContribution());
+      expect(ownerBalBefore - ownerBalAfter).to.be.approximately(debt - returnedReserve, floatToDec18(0.1));
+      expect(posBalBefore).to.be.equal(0);
+      expect(posBalAfter).to.be.equal(0); // AssertionError: expected 100000000000000000000 to equal 0.
+    });
   });
 
   describe("withdrawing collaterals", () => {
