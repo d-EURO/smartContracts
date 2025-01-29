@@ -425,7 +425,7 @@ contract MintingHub is IMintingHub, ERC165 {
         // Interest (part of debt) is not covered by the reserves, we therefore require liquidators to cover it separately.
         // If we do not do this, eventually there may be no more collateral left but still interest to be paid, which would
         // result in it being covered by the system, which is not the intention and for which there isn't sufficient reserve.
-        uint256 totInterest = pos.getDebt() - pos.principal();
+        uint256 totInterest = pos.getInterest();
         uint256 propInterest = max > 0 ? (totInterest * amount) / max : 0;
 
         if (max - amount > 0 && ((forceSalePrice * (max - amount)) / 10 ** 18) < (OPENING_FEE)) {

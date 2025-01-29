@@ -482,7 +482,7 @@ describe("Roller Tests", () => {
       await evm_increaseTime(5 * 86_400); // 5 days to accrue some interest
 
       const p1 = await pos1.principal();
-      const i1 = await pos1.getDebt() - p1;
+      const i1 = await pos1.getInterest();
       const ownerInitBal = await deuro.balanceOf(owner.address);
       await deuro.transfer(bob.address, ownerInitBal - (i1 + floatToDec18(1))); // remove all deuro for testing, except to cover interest
       const b1 = await deuro.balanceOf(owner.address);
@@ -509,7 +509,7 @@ describe("Roller Tests", () => {
       const p2 = await clone1.principal();
       const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
-      const i1After = await pos1.getDebt() - p1After;
+      const i1After = await pos1.getInterest();
       const targetPrice = await pos2.price();
       let usableAmount = await pos1.getUsableMint(p1);
       let mintAmount = await pos2.getMintAmount(usableAmount); // divide by reserve ratio
@@ -551,7 +551,7 @@ describe("Roller Tests", () => {
       expect(targetPrice).to.be.lessThan(sourcePrice);
 
       const p1 = await pos1.principal();                                              // 10_000 dEURO (principal P1)
-      const i1 = await pos1.getDebt() - p1;
+      const i1 = await pos1.getInterest();
       const collBal = await coin.balanceOf(await pos1.getAddress());                  // 10 coin (collateral P1)
       let usableAmount = await pos1.getUsableMint(p1);                                // 9_000 dEURO (usable mint P1)
       let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 dEURO (principal P2)
@@ -585,7 +585,7 @@ describe("Roller Tests", () => {
       const p2 = await clone1.principal();
       const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
-      const i1After = await pos1.getDebt() - p1After;
+      const i1After = await pos1.getInterest();
       
       expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
       expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
@@ -621,7 +621,7 @@ describe("Roller Tests", () => {
       expect(targetPrice).to.be.lessThan(sourcePrice);
 
       const p1 = await pos1.principal();                                              
-      const i1 = await pos1.getDebt() - p1;
+      const i1 = await pos1.getInterest();
       const collBal = await coin.balanceOf(await pos1.getAddress());                  
       let usableAmount = await pos1.getUsableMint(p1);                                
       let mintAmount = await pos2.getMintAmount(usableAmount);                        
@@ -648,7 +648,7 @@ describe("Roller Tests", () => {
       const p2 = await clone1.principal();
       const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
-      const i1After = await pos1.getDebt() - p1After;
+      const i1After = await pos1.getInterest();
       const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
       const bDiff = p1 + eInterest - await pos2.getUsableMint(p2) - p1Reserve;
       
@@ -687,7 +687,7 @@ describe("Roller Tests", () => {
       expect(targetPrice).to.be.lessThan(sourcePrice);
 
       const p1 = await pos1.principal();                                             
-      const i1 = await pos1.getDebt() - p1;
+      const i1 = await pos1.getInterest();
       const collBal = await coin.balanceOf(await pos1.getAddress());                 
       let usableAmount = await pos1.getUsableMint(p1);                               
       let mintAmount = await pos2.getMintAmount(usableAmount);                       
@@ -723,7 +723,7 @@ describe("Roller Tests", () => {
 
       const ownerColBalBefore = await coin.balanceOf(owner.address);
       const p1 = await pos1.principal();                                              // 10_000 dEURO (principal P1)
-      const i1 = await pos1.getDebt() - p1;                                           // (interest P1)
+      const i1 = await pos1.getInterest();                                            // (interest P1)
       const collBal = await coin.balanceOf(await pos1.getAddress());                  // 10 coin (collateral P1)
       let usableAmount = await pos1.getUsableMint(p1);                                // 9_000 dEURO (usable mint P1)
       let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 dEURO (principal P2)
@@ -750,7 +750,7 @@ describe("Roller Tests", () => {
       const p2 = await clone1.getDebt();
       const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
-      const i1After = await pos1.getDebt() - p1After;
+      const i1After = await pos1.getInterest();
       const ownerColBalAfter = await coin.balanceOf(owner.address);
       
       expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));

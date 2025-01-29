@@ -65,7 +65,7 @@ contract PositionExpirationTest {
         uint256 price = hub.expiredPurchasePrice(Position(pos));
         uint256 balanceBefore = deuro.balanceOf(address(this));
         uint256 colBalBefore = col.balanceOf(address(this));
-        uint256 totInterest = Position(pos).getDebt() - Position(pos).principal();
+        uint256 totInterest = Position(pos).getInterest();
         uint256 posCollateral = col.balanceOf(pos);
         uint256 propInterest = (totInterest * amount) / posCollateral;
         amount = hub.buyExpiredCollateral(Position(pos), amount);

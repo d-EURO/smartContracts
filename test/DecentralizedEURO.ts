@@ -281,7 +281,7 @@ describe("DecentralizedEURO", () => {
       ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
-    it("should succeed minting with reserve & burning from with reserve if minter", async () => {
+    it("should succeed minting with reserve & burning (from) with reserve if minter", async () => {
       // make bob minter for this test
       await dEURO.suggestMinter(
         bob.address,
@@ -312,10 +312,11 @@ describe("DecentralizedEURO", () => {
         floatToDec18(50),
       ); // 5% of 1000
 
+      // burnFromWithReserve
       await dEURO.connect(alice).approve(bob.address, amount);
       await dEURO
         .connect(bob)
-        .burnFromWithReserve(alice.address, amount, reservePPM); // burnFromWithReserve
+        .burnFromWithReserve(alice.address, amount, reservePPM);
       let balanceAfterBurnAlice = await dEURO.balanceOf(alice.address);
       let balanceAfterBurnReserve = await dEURO.balanceOf(
         await dEURO.reserve(),
@@ -326,6 +327,21 @@ describe("DecentralizedEURO", () => {
       expect(balanceAfterMintReserve - balanceAfterBurnReserve).to.be.eq(
         floatToDec18(50),
       );
+
+      // burnWithReserve
+      await dEURO
+        .connect(bob)
+        .mintWithReserve(bob.address, amount, reservePPM, 0);
+      const balanceBeforeBob = await dEURO.balanceOf(bob.address);
+      const balanceBeforeReserve = await dEURO.balanceOf(await dEURO.reserve());
+      await dEURO
+        .connect(bob)
+        .burnWithReserve(amount, reservePPM); 
+      const balanceAfterBob = await dEURO.balanceOf(alice.address);
+      const balanceAfterReserve = await dEURO.balanceOf(await dEURO.reserve());
+      const expectedReservePortion = amount * reservePPM / 1_000_000n;
+      expect(balanceBeforeBob - amount + expectedReservePortion).to.be.eq(balanceAfterBob);
+      expect(balanceBeforeReserve - balanceAfterReserve).to.be.eq(expectedReservePortion);
     });
 
     it("should revert covering loss from non minters", async () => {

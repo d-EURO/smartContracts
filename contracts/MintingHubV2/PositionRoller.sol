@@ -87,7 +87,7 @@ contract PositionRoller {
         uint256 collDeposit,
         uint40 expiration
     ) public valid(source) valid(target) own(source) {
-        uint256 interest = source.getDebt() - source.principal();
+        uint256 interest = source.getInterest();
         uint256 totRepayment = repay + interest; // add interest to repay
         deuro.mint(address(this), totRepayment); // take a flash loan
         uint256 used = source.repay(totRepayment);

@@ -255,7 +255,7 @@ describe("ForceSale Tests", () => {
       const expP = await mintingHub
         .connect(alice)
         .expiredPurchasePrice(position);
-      const interest = await position.getDebt() - await position.principal();
+      const interest = await position.getInterest();
       const expCost = (col * expP) / 10n ** 18n + interest;
       expect(expCost).to.be.lessThan(await position.getDebt());
       const deficit = await position.getDebt() - expCost;
@@ -287,7 +287,7 @@ describe("ForceSale Tests", () => {
       const expP = await mintingHub.connect(alice).expiredPurchasePrice(position);
       const totCollateral = await coin.balanceOf(await position.getAddress());
       const expCost = (size * expP) / 10n ** 18n;
-      const expTotInterest = await position.getDebt() - await position.principal();
+      const expTotInterest = await position.getInterest();
       const expPropInterest = (expTotInterest * size) / totCollateral;
       const expCostWithInterest = expCost + expPropInterest;
 
@@ -321,7 +321,7 @@ describe("ForceSale Tests", () => {
     //   const totCollateral = await coin.balanceOf(await position.getAddress());
     //   const expP = await mintingHub.connect(alice).expiredPurchasePrice(position);
     //   const expCost = (totCollateral * expP) / 10n ** 18n;
-    //   const expTotInterest = await position.getDebt() - await position.principal();
+    //   const expTotInterest = await position.getInterest();
     //   const expPropInterest = expTotInterest;
     //   const expCostWithInterest = expCost + expPropInterest;
 

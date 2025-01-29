@@ -32,7 +32,7 @@ interface IPosition {
 
     function principal() external view returns (uint256);
 
-    function accruedInterest() external view returns (uint256);
+    function interest() external view returns (uint256);
 
     function lastAccrual() external view returns (uint40);
 
@@ -61,6 +61,8 @@ interface IPosition {
     function mint(address target, uint256 amount) external;
 
     function getDebt() external view returns (uint256);
+
+    function getInterest() external view returns (uint256);
 
     function repay(uint256 amount) external returns (uint256);
 

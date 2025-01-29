@@ -412,7 +412,7 @@ describe("Position Tests", () => {
 
       let fdEUROBefore = await dEURO.balanceOf(owner.address);
       await positionContract.connect(owner).mint(owner.address, totalMint); //).to.emit("PositionOpened");
-      let interest = await positionContract.getDebt() - await positionContract.principal();
+      let interest = await positionContract.getInterest();
       expect(interest).to.be.eq(0); // no interest yet
 
       let fdEUROAfter = await dEURO.balanceOf(owner.address);
@@ -514,7 +514,7 @@ describe("Position Tests", () => {
       );
       let newStart = await clonePositionContract.start();
       let newExpirationActual = await clonePositionContract.expiration();
-      let newInterest = await clonePositionContract.getDebt() - await clonePositionContract.principal();
+      let newInterest = await clonePositionContract.getInterest();
       expect(newExpirationActual).to.be.eq(newExpiration);
       expect(newInterest).to.be.eq(0);
     });
@@ -761,7 +761,7 @@ describe("Position Tests", () => {
         positionAddr,
         owner,
       );
-      let currentInterest = await positionContract.getDebt() - await positionContract.principal();
+      let currentInterest = await positionContract.getInterest();
       expect(currentInterest).to.be.eq(0);
     });
     it("deny challenge", async () => {
@@ -944,7 +944,7 @@ describe("Position Tests", () => {
       // bob sends a bid
       const bidSize = fchallengeAmount
       expect(bidSize).to.be.equal(2n * availableCollateral);
-      const interest = await positionContract.getDebt() - await positionContract.principal();
+      const interest = await positionContract.getInterest();
       const propInterest = (interest * bidSize) / availableCollateral;
       let bidAmountdEURO = (liqPrice * bidSize) / DECIMALS;
       await dEURO.transfer(bob.address, bidAmountdEURO + propInterest);
@@ -1371,7 +1371,7 @@ describe("Position Tests", () => {
       const amount = floatToDec18(100);
       await positionContract.adjust(principal + amount, colBalance, price);
       expect(await positionContract.principal()).to.be.equal(principal + amount);
-      const interest = await positionContract.getDebt() - await positionContract.principal();
+      const interest = await positionContract.getInterest();
       await dEURO.approve(positionAddr, amount + interest + floatToDec18(1));
       await positionContract.adjust(principal, colBalance, price);
       expect(await positionContract.principal()).to.be.equal(principal);
@@ -1391,7 +1391,7 @@ describe("Position Tests", () => {
       await evm_increaseTime(86400 * 5);
       expect(await positionContract.getDebt()).to.be.gte(loanAmount);
 
-      const interest = await positionContract.getDebt() - await positionContract.principal();
+      const interest = await positionContract.getInterest();
       const amountToRepay = loanAmount / 2n + interest;
       const ownerBalBefore = await dEURO.balanceOf(owner.address);
       const posBalBefore = await dEURO.balanceOf(positionAddr);

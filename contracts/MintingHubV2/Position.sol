@@ -108,9 +108,9 @@ contract Position is Ownable, IPosition, MathUtil {
     uint256 public principal;
 
     /**
-     * @notice The total interest accrued but not yet paid.
+     * @notice The outstanding interest to be paid.
      */
-    uint256 public accruedInterest;
+    uint256 public interest;
 
     /**
      * @notice The timestamp of the last interest accrual update.
@@ -317,7 +317,7 @@ contract Position is Ownable, IPosition, MathUtil {
         }
         // Must be called after collateral deposit, but before withdrawal
         if (newPrincipal < principal) {
-            uint256 debt = _accrueInterest();
+            uint256 debt = principal + _accrueInterest();
             _payDownDebt(debt - newPrincipal);
         }
         if (newCollateral < colbal) {
@@ -382,44 +382,50 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Accrues interest on the principal amount since the last accrual time.
-     * 
-     * This function calculates the interest based on the time elapsed since the last accrual,
-     * the principal amount, and the annual interest rate. The calculated interest is then added
-     * to the accrued interest balance and the last accrual time is updated.
+     * @return newInterest The total outstanding interest to be paid.
      */
-    function _accrueInterest() internal returns (uint256 debt) {
-        uint40 nowTime = uint40(block.timestamp);
-        debt = _getDebtAtTime(nowTime);
+    function _accrueInterest() internal returns (uint256 newInterest) {
+        newInterest = _calculateInterest();
 
-        if (debt - principal > accruedInterest) {
-            accruedInterest = debt - principal;
+        if (newInterest > interest) {
+            interest = newInterest;
         }
 
-        lastAccrual = nowTime;
+        lastAccrual = uint40(block.timestamp);
     }
 
     /**
-     * @notice Internal helper to calculate debt based on a given timestamp
-     * @param currentTime The current block timestamp for calculation
-     * @return The total debt (principal + interest accrued up to currentTime)
+     * @notice Computes the total outstanding interest, including newly accrued interest.
+     * @dev This function calculates interest accumulated since the last accrual based on
+     * the principal amount, the annual interest rate, and the elapsed time. 
+     * The newly accrued interest is added to the current outstanding interest.
+     * @return newInterest The total outstanding interest, including newly accrued interest.
      */
-    function _getDebtAtTime(uint40 currentTime) internal view returns (uint256) {
-        uint256 interest = accruedInterest;
+    function _calculateInterest() internal view returns (uint256 newInterest) {
+        uint256 timestamp = uint40(block.timestamp);
+        newInterest = interest;
 
-        if (currentTime > lastAccrual && principal > 0) {
-            uint256 delta = currentTime - lastAccrual;
-            interest += (principal * fixedAnnualRatePPM * delta) / (365 days * 1_000_000);
+        if (timestamp > lastAccrual && principal > 0) {
+            uint256 delta = timestamp - lastAccrual;
+            newInterest += (principal * fixedAnnualRatePPM * delta) / (365 days * 1_000_000);
         }
 
-        return principal + interest;
+        return newInterest;
     }
 
     /**
-     * @notice Public function to calculate current debt without modifying state
-     * @return The total current debt (principal + accrued interest up to now)
+     * @notice Public function to calculate current debt
+     * @return The total current debt (principal + current accrued interest)
      */
     function getDebt() public view returns (uint256) {
-        return _getDebtAtTime(uint40(block.timestamp));
+        return principal + _calculateInterest();
+    }
+
+    /**
+     * @notice Public function to get the current accrued interest
+     */
+    function getInterest() public view returns (uint256) {
+        return _calculateInterest();
     }
 
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
@@ -445,7 +451,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
     * @notice Repays a specified amount of debt from `msg.sender`, prioritizing accrued interest first and then principal.
     * @dev This method integrates the logic of paying accrued interest before principal, as introduced in the continuous
-    *      interest accrual model. Any interest repaid is collected as profit, and principal repayment uses `burnWithReserve`.
+    *      interest accrual model. Any interest repaid is collected as profit, and principal repayment uses `burnFromWithReserve`.
     * 
     *      Unlike previous implementations, this function delegates the actual repayment steps to `_payDownDebt`, ensuring
     *      a clean separation of logic. As a result:
@@ -455,10 +461,10 @@ contract Position is Ownable, IPosition, MathUtil {
     *        blocked until all challenges are resolved.
     * 
     *      To fully close the position (bring `debt` to 0), the amount required generally follows the formula:
-    *      `debt = principal + accruedInterest`. Under normal conditions, this simplifies to:
-    *      `amount = (principal * (1000000 - reservePPM)) / 1000000 + accruedInterest`.
+    *      `debt = principal + interest`. Under normal conditions, this simplifies to:
+    *      `amount = (principal * (1000000 - reservePPM)) / 1000000 + interest`.
     * 
-    *      For example, if `principal` is 40, `accruedInterest` is 10, and `reservePPM` is 200000, repaying 42 dEURO 
+    *      For example, if `principal` is 40, `interest` is 10, and `reservePPM` is 200000, repaying 42 dEURO 
     *      is required to fully close the position.
     * 
     * @param amount The maximum amount of dEURO that `msg.sender` is willing to repay.
@@ -473,7 +479,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function repayFull() external returns (uint256) {
-        return repay(_accrueInterest());
+        return repay(principal + _accrueInterest());
     }
 
     /**
@@ -489,16 +495,12 @@ contract Position is Ownable, IPosition, MathUtil {
      * - Can only be called by the minting hub once the position is expired.
      * - Requires that there are no open challenges, ensuring that a forced sale is not used to circumvent the challenge process.
      * - The proceeds from the sale are first used to repay any accrued interest (treated as profit, collected via `collectProfits`),
-     *   and then the principal (via `burnWithReserve`). This ensures correct accounting, where interest is always realized as profit before principal is returned.
+     *   and then the principal (via `burnFromWithReserve`). This ensures correct accounting, where interest is always realized as profit before principal is returned.
      * - If all debt is fully repaid and there are surplus proceeds, these are transferred to the position owner.
      * - If there is a shortfall (not enough proceeds to fully repay the debt) and no remaining collateral, the system covers the loss.
      *
      * Do not allow a forced sale as long as there is an open challenge. Otherwise, a forced sale by the owner
      * himself could remove any incentive to launch challenges shortly before the expiration. (CS-ZCHF2-001)
-     *
-     * In the old model, `forceSale` would rely on `calculateAssignedReserve` and treat `minted` as a lump sum including principal, reserve, and fees.
-     * Now, with principal and interest separated, `forceSale` no longer needs manual calculation of reserves. Instead, it uses `burnWithReserve` 
-     * to handle the principal and reserve portions automatically.
      *
      * @param buyer       The address buying the collateral. This address provides `proceeds` in dEURO to repay the outstanding debt.
      * @param colAmount  The amount of collateral to be forcibly sold and transferred to the `buyer`.
@@ -507,7 +509,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and debt after the forced sale.
      */
     function forceSale(address buyer, uint256 colAmount, uint256 proceeds) external onlyHub expired noChallenge {
-        uint256 debt = _accrueInterest(); // ensure latest state
+        uint256 debt = principal + _accrueInterest();
 
         uint256 colBalance = _collateralBalance();
         uint256 remainingCollateral = _sendCollateral(buyer, colAmount); // Send collateral to buyer
@@ -526,29 +528,29 @@ contract Position is Ownable, IPosition, MathUtil {
         // it is used to cover any remaining interest, any excess thereafter is profit for the owner.
         // In the special case where there is no collateral left, the excess proceeds are used to pay down the 
         // remaining debt, with the system covering any shortfall.
-        uint256 propInterest = colBalance > 0 ? (accruedInterest * colAmount) / colBalance : 0;
+        uint256 propInterest = colBalance > 0 ? (interest * colAmount) / colBalance : 0;
         uint256 principalToPay = proceeds - propInterest > principal ? principal : proceeds - propInterest;
-        uint256 interestToPay = proceeds - principalToPay > accruedInterest ? accruedInterest : proceeds - principalToPay;
+        uint256 interestToPay = proceeds - principalToPay > interest ? interest : proceeds - principalToPay;
 
         // Pay accrued interest first
         if (interestToPay > 0) {
             deuro.collectProfits(buyer, interestToPay);
             _notifyInterestPaid(interestToPay);
-            accruedInterest -= interestToPay;
+            interest -= interestToPay;
             proceeds -= interestToPay;
         }
 
         // Pay principal next
         if (principalToPay > 0) {
             uint256 returnedReserve = deuro.burnFromWithReserve(buyer, principalToPay, reserveContribution);
+            _notifyRepaid(principalToPay);
             principal -= principalToPay;
             proceeds -= (principalToPay - returnedReserve);
-            _notifyRepaid(principalToPay);
         }
 
         // If remaining collateral is 0 and there is still debt, pay it down
         // Note: It is not possible for the accrued interest to be > 0 if collateral is 0, 
-        // as propInterst would be equal to accruedInterest and hence be paid off in full above.
+        // as propInterst would be equal to interest and hence be paid off in full above.
         // Therefore, the system never covers a loss containing accrued interest.
         if (remainingCollateral == 0 && principal > 0) {
             deuro.transferFrom(buyer, address(this), proceeds);
@@ -639,9 +641,8 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice Repays a specified amount of debt from `msg.sender`, prioritizing accrued interest first and then principal.
      * @return The actual amount of dEURO used for interest and principal repayment.
      */
-    // TODO: Does a refactor into _payDownPrincipal (auto-pays interest) and _payDownInterest make sense?
     function _payDownDebt(uint256 amount) internal returns (uint256) {
-        uint256 debt = _accrueInterest();
+        uint256 debt = principal + _accrueInterest();
 
         if (amount == 0) {
             return 0;
@@ -650,12 +651,12 @@ contract Position is Ownable, IPosition, MathUtil {
         uint256 remaining = amount > debt ? debt : amount;
 
         // 1) Pay interest
-        if (accruedInterest > 0) {
-            uint256 interestToPay = (accruedInterest > remaining) ? remaining : accruedInterest;
+        if (interest > 0) {
+            uint256 interestToPay = (interest > remaining) ? remaining : interest;
             if (interestToPay > 0) {
                 deuro.collectProfits(msg.sender, interestToPay);
                 _notifyInterestPaid(interestToPay);
-                accruedInterest -= interestToPay;
+                interest -= interestToPay;
                 remaining -= interestToPay;
             }
         }
@@ -723,9 +724,9 @@ contract Position is Ownable, IPosition, MathUtil {
         }
 
         // Determine how much of the debt must be repaid based on challenged collateral
-        uint256 interestToPay = (colBal == 0) ? 0 : (accruedInterest * _size) / colBal;
+        uint256 interestToPay = (colBal == 0) ? 0 : (interest * _size) / colBal;
         uint256 principalToPay = (colBal == 0) ? 0 : (principal * _size) / colBal;
-        accruedInterest -= interestToPay;
+        interest -= interestToPay;
         principal -= principalToPay;
         _notifyInterestPaid(interestToPay);
         _notifyRepaid(principalToPay);

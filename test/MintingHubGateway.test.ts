@@ -288,7 +288,7 @@ describe("Minting Tests", () => {
 
       const fdEUROBefore = await dEURO.balanceOf(owner.address);
       await positionContract.connect(owner).mint(owner.address, totalMint); //).to.emit("PositionOpened");
-      const interest = await positionContract.getDebt() - await positionContract.principal();
+      const interest = await positionContract.getInterest();
       expect(interest).to.be.equal(0); // no interest yet
 
       const fdEUROAfter = await dEURO.balanceOf(owner.address);
@@ -317,7 +317,7 @@ describe("Minting Tests", () => {
       await clonePositionContract.start();
 
       const newExpirationActual = await clonePositionContract.expiration();
-      const newInterest = await clonePositionContract.getDebt() - await clonePositionContract.principal();
+      const newInterest = await clonePositionContract.getInterest();
       expect(newExpirationActual).to.be.equal(newExpiration);
       expect(newInterest).to.be.eq(0);
     });
@@ -486,7 +486,7 @@ describe("Minting Tests", () => {
         owner,
       );
 
-      const interest = await positionContract.getDebt() - await positionContract.principal()
+      const interest = await positionContract.getInterest();
       expect(interest).to.be.equal(0);
     });
     it("deny challenge", async () => {
@@ -633,7 +633,7 @@ describe("Minting Tests", () => {
       const balanceBeforeBob = await dEURO.balanceOf(bob.address);
       const balanceBeforeChallenger = await dEURO.balanceOf(challengerAddress);
       const volBalanceBefore = await mockVOL.balanceOf(bob.address);
-      const interest = await positionContract.getDebt() - await positionContract.principal();
+      const interest = await positionContract.getInterest();
       const propInterest = (interest * bidSize) / availableCollateral;
       await dEURO
         .connect(bob)
@@ -777,7 +777,7 @@ describe("Minting Tests", () => {
       const challengeData = await positionContract.challengeData();
       await evm_increaseTime(challengeData.phase);
       const totCollateral = await mockVOL.balanceOf(positionsAddress);
-      const interest = await cloneContract.getDebt() - await cloneContract.principal();
+      const interest = await cloneContract.getInterest();
       const propInterest = (interest * floatToDec18(bidSize)) / totCollateral;
       const tx = mintingHub
         .connect(alice)
@@ -810,7 +810,7 @@ describe("Minting Tests", () => {
       const bidAmountdEURO =
         (challengeData.liqPrice * floatToDec18(bidSize)) / DECIMALS;
       const totCollateral = await mockVOL.balanceOf(positionsAddress);
-      const interest = await cloneContract.getDebt() - await cloneContract.principal();
+      const interest = await cloneContract.getInterest();
       const propInterest = (interest * floatToDec18(bidSize)) / totCollateral;
       await dEURO
         .connect(bob)
@@ -955,7 +955,7 @@ describe("Minting Tests", () => {
         0,
       );
 
-      const interest = await positionContract.getDebt() - await positionContract.principal();
+      const interest = await positionContract.getInterest();
       await dEURO.approve(positionAddr, amount + interest + floatToDec18(1));
       await positionContract.adjust(principal, colBalance, price);
       expect(await positionContract.principal()).to.be.equal(principal);
@@ -1024,7 +1024,7 @@ describe("Minting Tests", () => {
     it("force sale should succeed after expiration", async () => {
       await evm_increaseTimeTo(await pos.expiration());
       const frontendCodeBefore = (await gateway.frontendCodes(await test.frontendCode())).balance;
-      const totInterest = await pos.getDebt() - await pos.principal();
+      const totInterest = await pos.getInterest();
       const collateralContract = await ethers.getContractAt("IERC20", await pos.collateral());
       const totCollateral = await collateralContract.balanceOf(pos.getAddress());
       const propInterest = (totInterest * 1n) / totCollateral;
@@ -1049,7 +1049,7 @@ describe("Minting Tests", () => {
       const frontendCodeBefore = (
         await gateway.frontendCodes(await test.frontendCode())
       ).balance;
-      const totInterest = await pos.getDebt() - await pos.principal();
+      const totInterest = await pos.getInterest();
       const collateralContract = await ethers.getContractAt("IERC20", await pos.collateral());
       const totCollateral = await collateralContract.balanceOf(pos.getAddress());
       const propInterest = (totInterest * 35n) / totCollateral;
@@ -1079,7 +1079,7 @@ describe("Minting Tests", () => {
         await gateway.frontendCodes(await test.frontendCode())
       ).balance;
       
-      const totInterest = await pos.getDebt() - await pos.principal();
+      const totInterest = await pos.getInterest();
       await dEURO.transfer(test, totInterest);
       await test.approveDEURO(await pos.getAddress(), floatToDec18(64_000) + totInterest);
       await test.forceBuy(pos.getAddress(), 64n);

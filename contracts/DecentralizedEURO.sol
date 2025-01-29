@@ -268,6 +268,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * that reserves are only 90% covered, this call will deduct 41 dEURO from the payer's balance and 9 from the 
      * reserve, while reducing the minter reserve by 10.
      */
+    // TODO: Unused - can be removed
     function burnWithReserve(
         uint256 targetTotalBurnAmount,
         uint32 reservePPM
