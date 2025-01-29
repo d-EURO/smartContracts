@@ -318,7 +318,7 @@ contract Position is Ownable, IPosition, MathUtil {
         // Must be called after collateral deposit, but before withdrawal
         if (newPrincipal < principal) {
             uint256 debt = _accrueInterest();
-            _payDownDebt(msg.sender, debt - newPrincipal);
+            _payDownDebt(debt - newPrincipal);
         }
         if (newCollateral < colbal) {
             _withdrawCollateral(msg.sender, colbal - newCollateral);
@@ -467,7 +467,7 @@ contract Position is Ownable, IPosition, MathUtil {
     * Emits a {MintingUpdate} event.
     */
     function repay(uint256 amount) public returns (uint256) {
-        uint256 used = _payDownDebt(msg.sender, amount);
+        uint256 used = _payDownDebt(amount);
         emit MintingUpdate(_collateralBalance(), price, principal);
         return used;
     }
@@ -635,46 +635,43 @@ contract Position is Ownable, IPosition, MathUtil {
         }
     }
 
+    /**
+     * @notice Repays a specified amount of debt from `msg.sender`, prioritizing accrued interest first and then principal.
+     * @return The actual amount of dEURO used for interest and principal repayment.
+     */
     // TODO: Does a refactor into _payDownPrincipal (auto-pays interest) and _payDownInterest make sense?
-    // TODO: Refactor repaidAmount to "used" (receives back reserve portion!)
-    function _payDownDebt(address payer, uint256 amount) internal returns (uint256 repaidAmount) {
-        uint256 debt = _accrueInterest(); // ensure accrued interest is up-to-date
+    function _payDownDebt(uint256 amount) internal returns (uint256) {
+        uint256 debt = _accrueInterest();
 
         if (amount == 0) {
             return 0;
         }
 
         uint256 remaining = amount > debt ? debt : amount;
-        IERC20(deuro).transferFrom(payer, address(this), remaining);
-        repaidAmount = 0;
 
-        // 1) Pay accrued interest first
+        // 1) Pay interest
         if (accruedInterest > 0) {
             uint256 interestToPay = (accruedInterest > remaining) ? remaining : accruedInterest;
             if (interestToPay > 0) {
-                deuro.collectProfits(address(this), interestToPay);
+                deuro.collectProfits(msg.sender, interestToPay);
                 _notifyInterestPaid(interestToPay);
                 accruedInterest -= interestToPay;
                 remaining -= interestToPay;
-                repaidAmount += interestToPay;
             }
         }
 
-        // 2) Pay principal next
+        // 2) Repay principal
         if (principal > 0 && remaining > 0) {
             uint256 principalToPay = (principal > remaining) ? remaining : principal;
             if (principalToPay > 0) {
-                uint256 returnedReserve = deuro.burnWithReserve(principalToPay, reserveContribution);
+                uint256 returnedReserve = deuro.burnFromWithReserve(msg.sender, principalToPay, reserveContribution);
                 _notifyRepaid(principalToPay);
                 principal -= principalToPay;
                 remaining -= (principalToPay - returnedReserve);
-                repaidAmount += principalToPay;
             }
         }
 
-        if (remaining > 0) {
-            deuro.transfer(payer, remaining);
-        }
+        return amount - remaining;
     }
 
     /**

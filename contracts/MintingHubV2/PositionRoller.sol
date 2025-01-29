@@ -90,8 +90,7 @@ contract PositionRoller {
         uint256 interest = source.getDebt() - source.principal();
         uint256 totRepayment = repay + interest; // add interest to repay
         deuro.mint(address(this), totRepayment); // take a flash loan
-        // TODO (optional): Refactor w/ repayPrincipal(principalToRepay) which first pays any outstanding interest
-        source.repay(totRepayment);
+        uint256 used = source.repay(totRepayment);
         source.withdrawCollateral(msg.sender, collWithdraw);
         if (mint > 0) {
             IERC20 targetCollateral = IERC20(target.collateral());
@@ -111,9 +110,8 @@ contract PositionRoller {
         }
 
         // Transfer remaining flash loan to caller for repayment
-        // TODO: Compute remaining from `uint256 used = source.repay(totRepayment);`
-        if (IERC20(deuro).balanceOf(address(this)) > 0) {
-            deuro.transfer(msg.sender, IERC20(deuro).balanceOf(address(this)));
+        if (totRepayment > used) {
+            deuro.transfer(msg.sender, totRepayment - used);
         }
 
         deuro.burnFrom(msg.sender, totRepayment); // repay the flash loan
