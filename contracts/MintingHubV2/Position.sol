@@ -635,7 +635,8 @@ contract Position is Ownable, IPosition, MathUtil {
         }
     }
 
-    // TODO: Does a refactor into _payDownPrincipal (auto-pays interest) and _payDownInterest make sense? 
+    // TODO: Does a refactor into _payDownPrincipal (auto-pays interest) and _payDownInterest make sense?
+    // TODO: Refactor repaidAmount to "used" (receives back reserve portion!)
     function _payDownDebt(address payer, uint256 amount) internal returns (uint256 repaidAmount) {
         uint256 debt = _accrueInterest(); // ensure accrued interest is up-to-date
 

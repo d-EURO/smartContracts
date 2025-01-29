@@ -293,22 +293,6 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     }
 
     /**
-     * @notice Calculate the amount that is freed when returning amountExcludingReserve given a reserve ratio of reservePPM,
-     * taking into account potential losses. Example values in the comments.
-     */
-    function calculateFreedAmount(
-        uint256 amountExcludingReserve /* 41 */,
-        uint32 reservePPM /* 20% */
-    ) public view returns (uint256) {
-        uint256 currentReserve = balanceOf(address(reserve)); // 18, 10% below what we should have
-        uint256 minterReserve_ = minterReserve(); // 20
-        uint256 adjustedReservePPM = currentReserve < minterReserve_
-            ? (reservePPM * currentReserve) / minterReserve_
-            : reservePPM; // 18%
-        return (1000000 * amountExcludingReserve) / (1000000 - adjustedReservePPM); // 41 / (1-18%) = 50
-    }
-
-    /**
      * @notice Notify the DecentralizedEURO that a minter lost economic access to some coins. This does not mean that the coins are
      * literally lost. It just means that some dEURO will likely never be repaid and that in order to bring the system
      * back into balance, the lost amount of dEURO must be removed from the reserve instead.

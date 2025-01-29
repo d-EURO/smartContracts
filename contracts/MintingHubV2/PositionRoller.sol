@@ -111,6 +111,7 @@ contract PositionRoller {
         }
 
         // Transfer remaining flash loan to caller for repayment
+        // TODO: Compute remaining from `uint256 used = source.repay(totRepayment);`
         if (IERC20(deuro).balanceOf(address(this)) > 0) {
             deuro.transfer(msg.sender, IERC20(deuro).balanceOf(address(this)));
         }
