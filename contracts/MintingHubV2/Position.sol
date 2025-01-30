@@ -108,12 +108,12 @@ contract Position is Ownable, IPosition, MathUtil {
     uint256 public principal;
 
     /**
-     * @notice The outstanding interest to be paid.
+     * @notice The total outstanding interest.
      */
     uint256 public interest;
 
     /**
-     * @notice The timestamp of the last interest accrual update.
+     * @notice The timestamp of the last interest accrual.
      */
     uint40 public lastAccrual;
 
@@ -402,7 +402,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * @return newInterest The total outstanding interest, including newly accrued interest.
      */
     function _calculateInterest() internal view returns (uint256 newInterest) {
-        uint256 timestamp = uint40(block.timestamp);
+        uint256 timestamp = block.timestamp;
         newInterest = interest;
 
         if (timestamp > lastAccrual && principal > 0) {
@@ -422,7 +422,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice Public function to get the current accrued interest
+     * @notice Public function to get the current outstanding interest
      */
     function getInterest() public view returns (uint256) {
         return _calculateInterest();
@@ -532,26 +532,13 @@ contract Position is Ownable, IPosition, MathUtil {
         uint256 principalToPay = proceeds - propInterest > principal ? principal : proceeds - propInterest;
         uint256 interestToPay = proceeds - principalToPay > interest ? interest : proceeds - principalToPay;
 
-        // Pay accrued interest first
-        if (interestToPay > 0) {
-            deuro.collectProfits(buyer, interestToPay);
-            _notifyInterestPaid(interestToPay);
-            interest -= interestToPay;
-            proceeds -= interestToPay;
-        }
-
-        // Pay principal next
-        if (principalToPay > 0) {
-            uint256 returnedReserve = deuro.burnFromWithReserve(buyer, principalToPay, reserveContribution);
-            _notifyRepaid(principalToPay);
-            principal -= principalToPay;
-            proceeds -= (principalToPay - returnedReserve);
-        }
-
+        proceeds -= (interestToPay - _repayInterest(buyer, interestToPay)); // Repay interest
+        proceeds -= (principalToPay - _repayPrincipal(buyer, principalToPay)); // Repay principal
+        
         // If remaining collateral is 0 and there is still debt, pay it down
-        // Note: It is not possible for the accrued interest to be > 0 if collateral is 0, 
-        // as propInterst would be equal to interest and hence be paid off in full above.
-        // Therefore, the system never covers a loss containing accrued interest.
+        // Note: It is not possible for the outstanding interest to be > 0 if collateral is 0, 
+        // as propInterest would be equal to interest and hence be paid off in full above.
+        // Therefore, the system never covers a loss containing outstanding interest.
         if (remainingCollateral == 0 && principal > 0) {
             deuro.transferFrom(buyer, address(this), proceeds);
             uint256 deficit = principal > proceeds ? principal - proceeds : 0;
@@ -642,37 +629,46 @@ contract Position is Ownable, IPosition, MathUtil {
      * @return The actual amount of dEURO used for interest and principal repayment.
      */
     function _payDownDebt(uint256 amount) internal returns (uint256) {
-        uint256 debt = principal + _accrueInterest();
+        _accrueInterest();
 
-        if (amount == 0) {
-            return 0;
-        }
+        if (amount == 0) return 0;
 
-        uint256 remaining = amount > debt ? debt : amount;
-
-        // 1) Pay interest
-        if (interest > 0) {
-            uint256 interestToPay = (interest > remaining) ? remaining : interest;
-            if (interestToPay > 0) {
-                deuro.collectProfits(msg.sender, interestToPay);
-                _notifyInterestPaid(interestToPay);
-                interest -= interestToPay;
-                remaining -= interestToPay;
-            }
-        }
-
-        // 2) Repay principal
-        if (principal > 0 && remaining > 0) {
-            uint256 principalToPay = (principal > remaining) ? remaining : principal;
-            if (principalToPay > 0) {
-                uint256 returnedReserve = deuro.burnFromWithReserve(msg.sender, principalToPay, reserveContribution);
-                _notifyRepaid(principalToPay);
-                principal -= principalToPay;
-                remaining -= (principalToPay - returnedReserve);
-            }
-        }
+        uint256 remaining = amount;
+        remaining = _repayInterest(msg.sender, remaining); // Repay interest
+        remaining = _repayPrincipal(msg.sender, remaining); // Repay principal
 
         return amount - remaining;
+    }
+
+    /**
+     * @notice Repays a specified amount of interest from `msg.sender`.
+     * @dev Assumes that _accrueInterest has been called before this function.
+     * @return amount remaining after interest repayment.
+     */
+    function _repayInterest(address payer, uint256 amount) internal returns (uint256) {
+        uint256 repayment = (interest > amount) ? amount : interest;
+        if (repayment > 0) {
+            deuro.collectProfits(payer, repayment);
+            _notifyInterestPaid(repayment);
+            interest -= repayment;
+            return amount - repayment;
+        }
+        return amount;
+    }
+
+    /**
+     * @notice Repays a specified amount of principal from `msg.sender`.
+     * @return amount remaining after principal repayment.
+     */
+    function _repayPrincipal(address payer, uint256 amount) internal returns (uint256) {
+        uint256 repayment = (principal > amount) ? amount : principal;
+        if (repayment > 0) {
+            uint256 returnedReserve = deuro.burnFromWithReserve(payer, repayment, reserveContribution);
+            _notifyRepaid(repayment);
+            principal -= repayment;
+            return amount - (repayment - returnedReserve);
+        }
+        return amount;
     }
 
     /**
