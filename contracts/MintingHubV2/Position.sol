@@ -372,7 +372,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * It consists of the globally valid interest plus an individual risk premium.
      */
     function annualInterestPPM() public view returns (uint24) {
-        return IMintingHubGateway(hub).RATE().currentRatePPM() + riskPremiumPPM;
+        return IMintingHub(hub).RATE().currentRatePPM() + riskPremiumPPM;
     }
 
     /**

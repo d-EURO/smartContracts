@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-
+import "hardhat/console.sol";
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
-import {IReserve} from "../interface/IReserve.sol";
-
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
+import {IMintingHub} from "./interface/IMintingHub.sol";
 import {IPosition} from "./interface/IPosition.sol";
+import {IReserve} from "../interface/IReserve.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title PositionRoller
@@ -93,9 +95,26 @@ contract PositionRoller {
             if (Ownable(address(target)).owner() != msg.sender || expiration != target.expiration()) {
                 targetCollateral.transferFrom(msg.sender, address(this), collDeposit); // get the new collateral
                 targetCollateral.approve(target.hub(), collDeposit); // approve the new collateral and clone:
-                target = IPosition(
-                    IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration)
-                );
+                if (IERC165(target.hub()).supportsInterface(type(IMintingHubGateway).interfaceId)) {
+                    bytes32 frontendCode = IMintingHubGateway(target.hub()).GATEWAY().getPositionFrontendCode(
+                        address(source)
+                    );
+                    console.log("frontendCode");
+                    target = IPosition(
+                        IMintingHubGateway(target.hub()).clone(
+                            msg.sender,
+                            address(target),
+                            collDeposit,
+                            mint,
+                            expiration,
+                            frontendCode
+                        )
+                    );
+                } else {
+                    target = IPosition(
+                        IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration)
+                    );
+                }
             } else {
                 // We can roll into the provided existing position.
                 // We do not verify whether the target position was created by the known minting hub in order
@@ -117,14 +136,4 @@ contract PositionRoller {
         if (deuro.getPositionParent(address(pos)) == address(0x0)) revert NotPosition(address(pos));
         _;
     }
-}
-
-interface IMintingHub {
-    function clone(
-        address owner,
-        address parent,
-        uint256 _initialCollateral,
-        uint256 _initialMint,
-        uint40 expiration
-    ) external returns (address);
 }
