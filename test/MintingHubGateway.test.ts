@@ -984,8 +984,9 @@ describe('Minting Tests', () => {
     });
   });
 
-  describe('position rolling', () => {
-    let frontendCode: Uint8Array;
+  describe('position rolling with frontend code', () => {
+    let frontendCode1: Uint8Array;
+    let frontendCode2: Uint8Array;
     let pos1: Position;
     let pos2: Position;
 
@@ -993,7 +994,8 @@ describe('Minting Tests', () => {
       await mockVOL.approve(await mintingHub.getAddress(), floatToDec18(10));
       await mockVOL.connect(alice).approve(await mintingHub.getAddress(), floatToDec18(10));
 
-      frontendCode = ethers.randomBytes(32);
+      frontendCode1 = ethers.randomBytes(32);
+      frontendCode2 = ethers.randomBytes(32);
       // ---------------------------------------------------------------------------
       // give OWNER a position
       const txPos1 = await mintingHub[
@@ -1009,12 +1011,13 @@ describe('Minting Tests', () => {
         10000,
         floatToDec18(6000),
         100000,
-        frontendCode,
+        frontendCode1,
       );
       const pos1Addr = await getPositionAddressFromTX(txPos1);
       pos1 = await ethers.getContractAt('Position', pos1Addr, owner);
+      expect(await gateway.referredPositions(pos1Addr)).to.be.equal(ethers.hexlify(frontendCode1));
       // ---------------------------------------------------------------------------
-      // give OWNER a second position
+      // give ALICE a position
       const txPos2 = await mintingHub
         .connect(alice)
         ['openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'](
@@ -1028,13 +1031,14 @@ describe('Minting Tests', () => {
           10000,
           floatToDec18(6000),
           100000,
-          frontendCode,
+          frontendCode2,
         );
       const pos2Addr = await getPositionAddressFromTX(txPos2);
       pos2 = await ethers.getContractAt('Position', pos2Addr, owner);
+      expect(await gateway.referredPositions(pos2Addr)).to.be.equal(ethers.hexlify(frontendCode2));
     });
 
-    it('merge full into existing position, consider pos1 closed', async () => {
+    it('cloned target position should have the same frontend code as the rolled source position', async () => {
       await evm_increaseTime(10 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
@@ -1043,7 +1047,8 @@ describe('Minting Tests', () => {
       const rollerTx = await roller.rollFully(pos1.getAddress(), pos2.getAddress());
       const rolledPosAddr = await getPositionAddressFromTX(rollerTx);
 
-      expect(await gateway.referredPositions(rolledPosAddr)).to.be.equal(ethers.hexlify(frontendCode));
+      expect(await pos1.isClosed()).to.be.true;
+      expect(await gateway.referredPositions(rolledPosAddr)).to.be.equal(ethers.hexlify(frontendCode1));
     });
   });
 });
