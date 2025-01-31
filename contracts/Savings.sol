@@ -60,7 +60,7 @@ contract Savings is Leadrate {
             uint192 earnedInterest = calculateInterest(account, ticks);
             if (earnedInterest > 0) {
                 // collect interest as you go and trigger accounting event
-                (IDecentralizedEURO(address(deuro))).coverLoss(address(this), earnedInterest);
+                (IDecentralizedEURO(address(deuro))).distributeProfits(address(this), earnedInterest);
                 account.saved += earnedInterest;
                 emit InterestCollected(accountOwner, earnedInterest);
             }

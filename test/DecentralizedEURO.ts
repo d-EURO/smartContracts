@@ -10,13 +10,14 @@ const weeks = 30;
 describe("DecentralizedEURO", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
+  let bob: HardhatEthersSigner;
 
   let dEURO: DecentralizedEURO;
   let mockXEUR: TestToken;
   let bridge: StablecoinBridge;
 
   before(async () => {
-    [owner, alice] = await ethers.getSigners();
+    [owner, alice, bob] = await ethers.getSigners();
     // create contracts
     // 10 day application period
     const decentralizedEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
@@ -113,6 +114,25 @@ describe("DecentralizedEURO", () => {
       await expect(
         dEURO.denyMinter(owner.address, [], "")
       ).to.be.revertedWithCustomError(dEURO, "TooLate");
+    });
+
+    it("should send application fee for minter to reserve", async () => {
+      let reserveBalanceBefore = await dEURO.balanceOf(await dEURO.reserve());
+      await dEURO.suggestMinter(
+        bob.address,
+        10 * 86400,
+        floatToDec18(1000),
+        "",
+      );
+      let reserveBalanceAfter = await dEURO.balanceOf(await dEURO.reserve());
+      expect(dec18ToFloat(reserveBalanceAfter - reserveBalanceBefore)).to.be.eq(
+        1000,
+      );
+    });
+
+    it("should be minter when application period ends", async () => {
+      await evm_increaseTime(11 * 86400);
+      expect(await dEURO.isMinter(bob.address)).to.be.true;
     });
   });
 
@@ -249,28 +269,97 @@ describe("DecentralizedEURO", () => {
       ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
-    it("should revert burning with reserve from non minters", async () => {
-      await expect(
-        dEURO.burnWithReserve(owner.address, 1000)
-      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
-    });
-
     it("should revert burning from with reserve from non minters", async () => {
       await expect(
         dEURO.burnFromWithReserve(owner.address, 0, 0)
       ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
-    it("should revert covering loss from non minters", async () => {
-      await expect(dEURO.coverLoss(owner.address, 0)).to.be.revertedWithCustomError(
-        dEURO,
-        "NotMinter"
+    it("should succeed minting with reserve & burning (from) with reserve if minter", async () => {
+      // make bob minter for this test
+      await dEURO.suggestMinter(
+        bob.address,
+        10 * 86400,
+        floatToDec18(1000),
+        "",
       );
+      evm_increaseTime(86400 * 11);
+      // test
+      let amount = floatToDec18(1000);
+      let reservePPM = 50_000n; // 5%
+
+      let balanceBeforeMintAlice = await dEURO.balanceOf(alice.address);
+      let balanceBeforeMintReserve = await dEURO.balanceOf(
+        await dEURO.reserve(),
+      );
+      await dEURO
+        .connect(bob)
+        .mintWithReserve(alice.address, amount, reservePPM, 0); // mintWithReserve
+      let balanceAfterMintAlice = await dEURO.balanceOf(alice.address);
+      let balanceAfterMintReserve = await dEURO.balanceOf(
+        await dEURO.reserve(),
+      );
+      expect(balanceAfterMintAlice - balanceBeforeMintAlice).to.be.eq(
+        floatToDec18(950),
+      ); // 1000 - 50 (5% reserve)
+      expect(balanceAfterMintReserve - balanceBeforeMintReserve).to.be.eq(
+        floatToDec18(50),
+      ); // 5% of 1000
+
+      // burnFromWithReserve
+      await dEURO.connect(alice).approve(bob.address, amount);
+      await dEURO
+        .connect(bob)
+        .burnFromWithReserve(alice.address, amount, reservePPM);
+      let balanceAfterBurnAlice = await dEURO.balanceOf(alice.address);
+      let balanceAfterBurnReserve = await dEURO.balanceOf(
+        await dEURO.reserve(),
+      );
+      expect(balanceAfterMintAlice - balanceAfterBurnAlice).to.be.eq(
+        floatToDec18(950),
+      );
+      expect(balanceAfterMintReserve - balanceAfterBurnReserve).to.be.eq(
+        floatToDec18(50),
+      );
+    });
+
+    it("should revert covering loss from non minters", async () => {
+      await expect(
+        dEURO.coverLoss(owner.address, 0),
+      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
+    });
+
+    it("should succeed covering loss within reserve balance if minter", async () => {
+      let balanceBeforeAlice = await dEURO.balanceOf(alice.address);
+      let balanceBeforeReserve = await dEURO.balanceOf(await dEURO.reserve());
+      let lossAmount = balanceBeforeReserve / 2n;
+      let tx = await dEURO.connect(bob).coverLoss(alice.address, lossAmount);
+      await expect(tx)
+        .to.emit(dEURO, "Loss")
+        .withArgs(alice.address, lossAmount);
+      let balanceAfterAlice = await dEURO.balanceOf(alice.address);
+      let balanceAfterReserve = await dEURO.balanceOf(await dEURO.reserve());
+      expect(balanceAfterAlice - balanceBeforeAlice).to.be.eq(lossAmount);
+      expect(balanceBeforeReserve - balanceAfterReserve).to.be.eq(lossAmount);
+    });
+
+    it("should succeed covering loss above reserve balance if minter", async () => {
+      let balanceBeforeAlice = await dEURO.balanceOf(alice.address);
+      let balanceBeforeReserve = await dEURO.balanceOf(await dEURO.reserve());
+      let lossAmount = balanceBeforeReserve * 2n;
+      let tx = await dEURO.connect(bob).coverLoss(alice.address, lossAmount);
+      await expect(tx)
+        .to.emit(dEURO, "Loss")
+        .withArgs(alice.address, lossAmount);
+      let balanceAfterAlice = await dEURO.balanceOf(alice.address);
+      let balanceAfterReserve = await dEURO.balanceOf(await dEURO.reserve());
+      expect(balanceAfterAlice - balanceBeforeAlice).to.be.eq(lossAmount);
+      expect(balanceAfterReserve).to.be.eq(0);
     });
 
     it("should revert collecting profits from non minters", async () => {
       await expect(dEURO.collectProfits(owner.address, 7)).to.be.revertedWithCustomError(
-        dEURO,
+        dEURO, 
         "NotMinter"
       );
     });

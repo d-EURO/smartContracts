@@ -8,7 +8,7 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, network } = hre;
   const { get } = deployments;
   const chainId = network.config["chainId"];
-
+  
   if (chainId === undefined) {
     throw new Error("Chain ID is undefined");
   }
@@ -16,17 +16,19 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Fetch constructor arguments
   const params = getParams("paramsSavings", chainId);
   const decentralizedEURODeployment = await get("DecentralizedEURO");
-
-  const decentralizedEURO = decentralizedEURODeployment.address;
-  const initialRatePPM = params.initialRatePPM;
-  const args = [decentralizedEURO, initialRatePPM];
+  const frontendGatewayDeployment = await get("FrontendGateway");
   
+  const initialRatePPM = params.initialRatePPM;
+  const decentralizedEURO = decentralizedEURODeployment.address;
+  const frontendGateway = frontendGatewayDeployment.address;
+  const args = [decentralizedEURO, initialRatePPM, frontendGateway];
+
   // Deploy contract
-  const deployment = await deployContract(hre, "Savings", args);
+  const deployment = await deployContract(hre, "SavingsGateway", args);
 
   // Verify contract
   const deploymentAddress = await deployment.getAddress();
-
+ 
   if(network.name === "mainnet" && process.env.ETHERSCAN_API_KEY){
     await verify(deploymentAddress, args);
   } else {
@@ -37,5 +39,6 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   console.log("-------------------------------------------------------------------");
 };
+
 export default deploy;
-deploy.tags = ["main", "Savings"];
+deploy.tags = ["main", "SavingsGateway"];

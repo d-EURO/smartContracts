@@ -15,9 +15,11 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   // Fetch constructor arguments
   const decentralizedEURODeployment = await get("DecentralizedEURO");
+  const depsWrapperDeployment = await get("DEPSWrapper");
 
   const decentralizedEURO = decentralizedEURODeployment.address;
-  const args = [decentralizedEURO];
+  const depsWrapper = depsWrapperDeployment.address;
+  const args = [decentralizedEURO, depsWrapper];
 
   // Deploy contract
   const deployment = await deployContract(hre, "FrontendGateway", args);

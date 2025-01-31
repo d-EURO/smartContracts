@@ -22,8 +22,6 @@ interface IDecentralizedEURO is IERC20 {
 
     function calculateAssignedReserve(uint256 mintedAmount, uint32 _reservePPM) external view returns (uint256);
 
-    function calculateFreedAmount(uint256 amountExcludingReserve, uint32 reservePPM) external view returns (uint256);
-
     function equity() external view returns (uint256);
 
     function isMinter(address minter) external view returns (bool);
@@ -34,19 +32,27 @@ interface IDecentralizedEURO is IERC20 {
 
     function mintWithReserve(address target, uint256 amount, uint32 reservePPM, uint32 feePPM) external;
 
+    function burn(uint256 amount) external;
+
     function burnFrom(address target, uint256 amount) external;
 
-    function burnWithoutReserve(uint256 amountIncludingReserve, uint32 reservePPM) external;
+    function burnWithoutReserve(uint256 amount, uint32 reservePPM) external;
+
+    function burnFromWithReserveNet(
+        address payer,
+        uint256 amountExcludingReserve,
+        uint32 reservePPM
+    ) external returns (uint256);
 
     function burnFromWithReserve(
         address payer,
         uint256 targetTotalBurnAmount,
-        uint32 _reservePPM
+        uint32 reservePPM
     ) external returns (uint256);
 
-    function burnWithReserve(uint256 amountExcludingReserve, uint32 reservePPM) external returns (uint256);
-
     function coverLoss(address source, uint256 amount) external;
+
+    function distributeProfits(address recipient, uint256 amount) external;
 
     function collectProfits(address source, uint256 _amount) external;
 }
