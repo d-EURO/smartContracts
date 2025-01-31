@@ -22,7 +22,7 @@ contract PositionRoller {
     error NotPosition(address pos);
     error Log(uint256, uint256, uint256);
 
-    event Roll(address source, uint256 collWithdraw, uint256 repay, address target, uint256 collDeposit, uint256 mint);
+    event Roll(address source, uint256 collWithdraw, uint256 repay, uint256 interest, address target, uint256 collDeposit, uint256 mint);
 
     constructor(address deuro_) {
         deuro = IDecentralizedEURO(deuro_);
@@ -48,8 +48,9 @@ contract PositionRoller {
      */
     function rollFullyWithExpiration(IPosition source, IPosition target, uint40 expiration) public {
         require(source.collateral() == target.collateral());
-        uint256 repay = source.getDebt();
-        uint256 mintAmount = target.getMintAmount(repay);
+        uint256 repay = source.principal();
+        uint256 usableMint = source.getUsableMint(repay);
+        uint256 mintAmount = target.getMintAmount(usableMint);
         uint256 collateralToWithdraw = IERC20(source.collateral()).balanceOf(address(source));
         uint256 targetPrice = target.price();
         uint256 depositAmount = (mintAmount * 10 ** 18 + targetPrice - 1) / targetPrice; // round up
@@ -59,6 +60,7 @@ contract PositionRoller {
             depositAmount = collateralToWithdraw;
             mintAmount = (depositAmount * target.price()) / 10 ** 18; // round down, rest will be taken from caller
         }
+
         roll(source, repay, collateralToWithdraw, target, mintAmount, depositAmount, expiration);
     }
 
@@ -85,8 +87,10 @@ contract PositionRoller {
         uint256 collDeposit,
         uint40 expiration
     ) public valid(source) valid(target) own(source) {
-        deuro.mint(address(this), repay); // take a flash loan
-        source.repay(repay);
+        uint256 interest = source.getInterest();
+        uint256 totRepayment = repay + interest; // add interest to repay
+        deuro.mint(address(this), totRepayment); // take a flash loan
+        uint256 used = source.repay(totRepayment);
         source.withdrawCollateral(msg.sender, collWithdraw);
         if (mint > 0) {
             IERC20 targetCollateral = IERC20(target.collateral());
@@ -104,8 +108,14 @@ contract PositionRoller {
                 target.mint(msg.sender, mint);
             }
         }
-        deuro.burnFrom(msg.sender, repay); // repay the flash loan
-        emit Roll(address(source), collWithdraw, repay, address(target), collDeposit, mint);
+
+        // Transfer remaining flash loan to caller for repayment
+        if (totRepayment > used) {
+            deuro.transfer(msg.sender, totRepayment - used);
+        }
+
+        deuro.burnFrom(msg.sender, totRepayment); // repay the flash loan
+        emit Roll(address(source), collWithdraw, repay, interest, address(target), collDeposit, mint);
     }
 
     modifier own(IPosition pos) {

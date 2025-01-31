@@ -32,7 +32,7 @@ interface IPosition {
 
     function principal() external view returns (uint256);
 
-    function accruedInterest() external view returns (uint256);
+    function interest() external view returns (uint256);
 
     function lastAccrual() external view returns (uint40);
 
@@ -60,15 +60,15 @@ interface IPosition {
 
     function mint(address target, uint256 amount) external;
 
-    function annualInterestPPM() external view returns (uint24);
-
     function getDebt() external view returns (uint256);
+
+    function getInterest() external view returns (uint256);
 
     function repay(uint256 amount) external returns (uint256);
 
     function repayFull() external returns (uint256);
 
-    function forceSale(address buyer, uint256 collAmount, uint256 proceeds) external;
+    function forceSale(address buyer, uint256 colAmount, uint256 proceeds, uint256 propInterest) external;
 
     function withdraw(address token, address target, uint256 amount) external;
 
@@ -83,5 +83,5 @@ interface IPosition {
     function notifyChallengeSucceeded(
         address _bidder,
         uint256 _size
-    ) external returns (address, uint256, uint256, uint32);
+    ) external returns (address, uint256, uint256, uint256, uint32);
 }

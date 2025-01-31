@@ -21,4 +21,25 @@ contract TestToken is ERC20,  EIP712, ERC3009, ERC20Burnable {
     function mint(address _account, uint256 _amount) external {
         _mint(_account, _amount);
     }
+
+    // Note: Doesn't revert on failure, instead returns false (same as EURS token).
+    // This behaviour is used in BasicTests.ts (SafeERC20 test).
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public override returns (bool) {
+        uint256 currentAllowance = allowance(from, msg.sender);
+        if (currentAllowance < amount) {
+            return false;
+        }
+
+        if (balanceOf(from) < amount) {
+            return false;
+        }
+
+        _approve(from, msg.sender, currentAllowance - amount); // Update allowance
+        _transfer(from, to, amount); // Perform the transfer
+        return true;
+    }
 }
