@@ -432,7 +432,7 @@ contract MintingHub is IMintingHub, ERC165 {
             revert LeaveNoDust(max - amount);
         }
 
-        pos.forceSale(msg.sender, amount, costs + propInterest);
+        pos.forceSale(msg.sender, amount, costs, propInterest);
         emit ForcedSale(address(pos), amount, forceSalePrice, propInterest);
         return amount;
     }

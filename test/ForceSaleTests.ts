@@ -159,6 +159,7 @@ describe("ForceSale Tests", () => {
         owner.address,
         floatToDec18(1000),
         floatToDec18(1000),
+        floatToDec18(100),
       );
       await expect(r).to.be.revertedWithCustomError(position, "NotHub");
     });
@@ -184,6 +185,7 @@ describe("ForceSale Tests", () => {
         owner.address,
         floatToDec18(1000),
         floatToDec18(1000),
+        floatToDec18(100),
       );
       await expect(r).to.be.revertedWithCustomError(position, "NotHub");
     });

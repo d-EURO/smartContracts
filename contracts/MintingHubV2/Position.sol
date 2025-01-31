@@ -502,16 +502,15 @@ contract Position is Ownable, IPosition, MathUtil {
      * Do not allow a forced sale as long as there is an open challenge. Otherwise, a forced sale by the owner
      * himself could remove any incentive to launch challenges shortly before the expiration. (CS-ZCHF2-001)
      *
-     * @param buyer       The address buying the collateral. This address provides `proceeds` in dEURO to repay the outstanding debt.
-     * @param colAmount  The amount of collateral to be forcibly sold and transferred to the `buyer`.
-     * @param proceeds    The amount of dEURO proceeds provided by the `buyer` to repay interest and principal.
+     * @param buyer         The address buying the collateral. This address provides `proceeds` in dEURO to repay the outstanding debt.
+     * @param colAmount     The amount of collateral to be forcibly sold and transferred to the `buyer`.
+     * @param proceeds      The amount of dEURO proceeds provided by the `buyer` to repay the principal and in the case of a surplus, the interest.
+     * @param propInterest  The proportional interest to be repaid based on the claimed collateral amount.
      *
      * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and debt after the forced sale.
      */
-    function forceSale(address buyer, uint256 colAmount, uint256 proceeds) external onlyHub expired noChallenge {
+    function forceSale(address buyer, uint256 colAmount, uint256 proceeds, uint256 propInterest) external onlyHub expired noChallenge {
         uint256 debt = principal + _accrueInterest();
-
-        uint256 colBalance = _collateralBalance();
         uint256 remainingCollateral = _sendCollateral(buyer, colAmount); // Send collateral to buyer
 
         // No debt, everything goes to owner if proceeds > 0
@@ -523,38 +522,23 @@ contract Position is Ownable, IPosition, MathUtil {
             return;
         }
 
-        // Pay down debt. First paying the proportional amount of interest w.r.t. the claimed collateral amount, 
-        // then any principal that can be covered by the remaining proceeds. If proceeds still remain,
-        // it is used to cover any remaining interest, any excess thereafter is profit for the owner.
-        // In the special case where there is no collateral left, the excess proceeds are used to pay down the 
-        // remaining debt, with the system covering any shortfall.
-        uint256 propInterest = colBalance > 0 ? (interest * colAmount) / colBalance : 0;
-        uint256 principalToPay = proceeds - propInterest > principal ? principal : proceeds - propInterest;
-        uint256 interestToPay = proceeds - principalToPay > interest ? interest : proceeds - principalToPay;
-
-        proceeds -= (interestToPay - _repayInterest(buyer, interestToPay)); // Repay interest
-        proceeds -= (principalToPay - _repayPrincipal(buyer, principalToPay)); // Repay principal
+        // Note: Proceeds are used to repay the `principal` and if any remains, the `interest`.
+        // We cover `principal` first to ensure that in the case of a shortfall the sytem
+        // doesn't have to compensate for a mispending of the `proceeds` on `interest`.
+        _repayInterest(buyer, propInterest);
+        proceeds = _repayPrincipalNet(buyer, proceeds);
+        proceeds = _repayInterest(buyer, proceeds);
         
-        // If remaining collateral is 0 and there is still debt, pay it down
-        // Note: It is not possible for the outstanding interest to be > 0 if collateral is 0, 
-        // as propInterest would be equal to interest and hence be paid off in full above.
-        // Therefore, the system never covers a loss containing outstanding interest.
+        // If remaining collateral is 0 and `principal` > 0, cover the shortfall with the system.
+        // Note: It is not possible for the outstanding `interest` to be > 0 if collateral is 0, 
+        // as `propInterest` would be equal to `interest` and hence be paid off in full above.
+        // Therefore, the system never covers a loss containing outstanding `interest`.
         if (remainingCollateral == 0 && principal > 0) {
-            deuro.transferFrom(buyer, address(this), proceeds);
-            uint256 deficit = principal > proceeds ? principal - proceeds : 0;
-            
-            // Shortfall scenario
-            if (deficit > 0) {
-                deuro.coverLoss(address(this), deficit);
-            }
-
+            assert(proceeds == 0); // TODO: Remove?
+            deuro.coverLoss(address(this), principal);
             deuro.burnWithoutReserve(principal, reserveContribution);
             _notifyRepaid(principal);
-            proceeds -= (principal - deficit);
             principal = 0;
-
-            // Any remainder is profit for the owner
-            deuro.transfer(owner(), proceeds);
         } else if (proceeds > 0) {
             // All debt paid, leftover proceeds is profit for owner
             deuro.transferFrom(buyer, owner(), proceeds);
@@ -622,6 +606,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (IERC165(hub).supportsInterface(type(IMintingHubGateway).interfaceId)) {
             IMintingHubGateway(hub).notifyInterestPaid(amount);
         }
+        
     }
 
     /**
@@ -643,7 +628,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice Repays a specified amount of interest from `msg.sender`.
      * @dev Assumes that _accrueInterest has been called before this function.
-     * @return amount remaining after interest repayment.
+     * @return `amount` remaining after interest repayment.
      */
     function _repayInterest(address payer, uint256 amount) internal returns (uint256) {
         uint256 repayment = (interest > amount) ? amount : interest;
@@ -658,15 +643,50 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Repays a specified amount of principal from `msg.sender`.
-     * @return amount remaining after principal repayment.
+     * @return `amount` remaining after principal repayment.
      */
     function _repayPrincipal(address payer, uint256 amount) internal returns (uint256) {
         uint256 repayment = (principal > amount) ? amount : principal;
         if (repayment > 0) {
             uint256 returnedReserve = deuro.burnFromWithReserve(payer, repayment, reserveContribution);
             _notifyRepaid(repayment);
-            principal -= repayment;
+            principal -= repayment; // TODO: Can we add this principal subtraction to _notifyRepaid (and same with interest)?
             return amount - (repayment - returnedReserve);
+        }
+        return amount;
+    }
+
+    /**
+     * @notice Repays principal from `payer` using the net repayment amount (excluding reserves).
+     * 
+     * Repayment occurs in two steps:
+     * (1) Burn with reserve: Uses `burnFromWithReserveNet` to repay up to `getUsableMint(principal)`, 
+     *     covering both principal and its reserve portion.
+     * (2) Direct burn: If principal remains, `burnFrom` burns the remaining principal directly from `payer`.
+     *
+     * To repay an exact amount including reserves, use `_repayPrincipal(address payer, uint256 amount)`.
+     *
+     * @param payer The address of the entity repaying the debt.
+     * @param amount The repayment amount, excluding the reserve portion, i.e. the net amount.
+     * @return The remaining `amount` that was not applied to principal repayment.
+     */
+    function _repayPrincipalNet(address payer, uint256 amount) internal returns (uint256) {
+        uint256 remaining = amount;
+        uint256 repayment = (remaining > principal) ? principal : remaining;
+        if (repayment > 0) {
+            uint256 maxUsableMint = getUsableMint(principal);
+            uint256 repayWithReserve = maxUsableMint > repayment ? repayment : maxUsableMint;
+            uint256 actualRepaid = deuro.burnFromWithReserveNet(payer, repayWithReserve, reserveContribution);
+            remaining -= repayWithReserve;
+            principal -= actualRepaid;
+            if (principal > 0 && remaining > 0) {
+                uint256 amountToBurn = remaining > principal ? principal : remaining;
+                deuro.burnFrom(payer, amountToBurn);
+                principal -= amountToBurn;
+                remaining -= amountToBurn;
+            }
+            _notifyRepaid(amount - remaining);
+            return remaining;
         }
         return amount;
     }

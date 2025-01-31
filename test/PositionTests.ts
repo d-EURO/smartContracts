@@ -1724,35 +1724,54 @@ describe("Position Tests", () => {
     });
 
     it("force sale at liquidation price should succeed in cleaning up position", async () => {
-      const debtBefore = await pos.getDebt();
-
-      const totInterest = (await pos.getDebt()) - (await pos.principal());
-      const collateralContract = await ethers.getContractAt(
-        "IERC20",
-        await pos.collateral(),
-      );
-      const totCollateral = await collateralContract.balanceOf(
-        pos.getAddress(),
-      );
+      const totInterest = await pos.getInterest();
+      const principal = await pos.principal();
+      const collateralContract = await ethers.getContractAt("IERC20", await pos.collateral());
+      const totCollateral = await collateralContract.balanceOf(pos.getAddress());
       const propInterest = (totInterest * 35n) / totCollateral;
-      await test.approveDEURO(
-        pos.getAddress(),
-        floatToDec18(35_000) + propInterest,
-      );
-      await test.forceBuy(pos.getAddress(), 35n); // Total collateral is 100
+      const debtBefore = await pos.getDebt();
+      const colBalPosBefore = await collateralContract.balanceOf(pos.getAddress());
+      const deuroBalPosBefore = await dEURO.balanceOf(pos.getAddress());
 
+      // forceBuy
+      await test.approveDEURO(await pos.getAddress(), floatToDec18(35_000) + propInterest);
+      const tx = await test.forceBuy(pos.getAddress(), 35n); // Total collateral is 100
+      const receipt = await tx.wait();
+      
+      // Emitted event
+      const event = receipt?.logs
+      .map((log) => mintingHub.interface.parseLog(log))
+      .find((parsedLog) => parsedLog?.name === 'ForcedSale');
+      const [ePos, eAmount, ePriceE36MinusDecimals, eInterest] = event?.args ?? [];
+      
+      expect(ePos).to.be.equal(ethers.getAddress(await pos.getAddress()));
+      expect(eAmount).to.be.equal(35n);
+      expect(ePriceE36MinusDecimals).to.be.equal(await mintingHub.expiredPurchasePrice(pos.getAddress()));
+      expect(eInterest).to.be.approximately(propInterest, floatToDec18(0.001));
+
+      const colBalPosAfter = await collateralContract.balanceOf(pos.getAddress());
+      const deuroBalPosAfter = await dEURO.balanceOf(pos.getAddress());
       const debtAfter = await pos.getDebt();
-      const forceSalePrice = await mintingHub.expiredPurchasePrice(
-        pos.getAddress(),
-      );
-      const expectedDebtPayoff =
-        (forceSalePrice * 35n) / 10n ** 18n + propInterest;
+      let proceeds = (ePriceE36MinusDecimals * BigInt(eAmount)) / 10n ** 18n;
+      const maxPrincipalExclReserve = await pos.getUsableMint(principal);
+      const principalToRepayExclReserve = maxPrincipalExclReserve > proceeds ? proceeds : maxPrincipalExclReserve; 
+      proceeds -= principalToRepayExclReserve;
+      const principalToRepayWithReserve = await dEURO.calculateFreedAmount(principalToRepayExclReserve, await pos.reserveContribution());
+      const remainingPrincipal = principal - principalToRepayWithReserve;
+      const principalToRepayDirectly = proceeds > remainingPrincipal ? remainingPrincipal : proceeds;
+      const principalToRepay = principalToRepayWithReserve + principalToRepayDirectly;
+      proceeds -= principalToRepayDirectly;
+      const remainingInterest = eInterest < totInterest ? totInterest - eInterest : 0n;
+      const additionalInterestToRepay = proceeds > remainingInterest ? remainingInterest : proceeds;
+      const interestToRepay = eInterest + additionalInterestToRepay;
+      proceeds -= additionalInterestToRepay;
+      const expectedDebtPayoff = principalToRepay + interestToRepay;
 
-      expect(debtBefore - debtAfter).to.be.approximately(
-        expectedDebtPayoff,
-        floatToDec18(1),
-      );
-      expect(await pos.isClosed()).to.be.false; // still more than 10 collateral left
+      expect(debtBefore - debtAfter).to.be.approximately(expectedDebtPayoff, floatToDec18(0.001));
+      expect(colBalPosBefore - colBalPosAfter).to.be.equal(35n);
+      expect(deuroBalPosBefore).to.be.equal(deuroBalPosAfter);
+      expect(debtAfter).to.be.gt(0);
+      expect(await pos.isClosed()).to.be.false; // still collateral left
     });
 
     it("should revert due to dust protection", async () => {

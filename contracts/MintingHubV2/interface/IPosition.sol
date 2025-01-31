@@ -68,7 +68,7 @@ interface IPosition {
 
     function repayFull() external returns (uint256);
 
-    function forceSale(address buyer, uint256 colAmount, uint256 proceeds) external;
+    function forceSale(address buyer, uint256 colAmount, uint256 proceeds, uint256 propInterest) external;
 
     function withdraw(address token, address target, uint256 amount) external;
 
