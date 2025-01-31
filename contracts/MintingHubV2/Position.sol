@@ -204,7 +204,7 @@ contract Position is Ownable, IPosition, MathUtil {
         expiration = start + _duration;
         limit = _initialLimit;
         _setPrice(_liqPrice, _initialLimit);
-        _fixRateToLeadrate();
+        _fixRateToLeadrate(_riskPremiumPPM);
     }
 
     /**
@@ -216,7 +216,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (_expiration < block.timestamp || _expiration > Position(original).expiration()) revert InvalidExpiration(); // expiration must not be later than original
         expiration = _expiration;
         price = Position(parent).price();
-        fixedAnnualRatePPM = Position(parent).fixedAnnualRatePPM();
+        _fixRateToLeadrate(Position(parent).riskPremiumPPM());
         _transferOwnership(hub);
     }
 
@@ -376,8 +376,8 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice Fixes the annual rate to the current leadrate plus the risk premium.
      * This re-prices the entire position based on the current leadrate.
      */
-    function _fixRateToLeadrate() internal {
-        fixedAnnualRatePPM = IMintingHub(hub).RATE().currentRatePPM() + riskPremiumPPM;
+    function _fixRateToLeadrate(uint24 _riskPremiumPPM) internal {
+        fixedAnnualRatePPM = IMintingHub(hub).RATE().currentRatePPM() + _riskPremiumPPM;
     }
 
     /**
@@ -431,8 +431,8 @@ contract Position is Ownable, IPosition, MathUtil {
     function _mint(address target, uint256 amount, uint256 collateral_) internal noChallenge noCooldown alive backed {
         if (amount > availableForMinting()) revert LimitExceeded(amount, availableForMinting());
 
-        _accrueInterest();
-        _fixRateToLeadrate();
+        _accrueInterest(); // accrue interest
+        _fixRateToLeadrate(riskPremiumPPM); // sync interest rate with leadrate
 
         Position(original).notifyMint(amount);
         deuro.mintWithReserve(target, amount, reserveContribution, 0);

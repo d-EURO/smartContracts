@@ -771,4 +771,86 @@ describe("Roller Tests", () => {
       await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
     });
   });
+
+  describe("roll tests with different lead rates", () => {
+    let riskPremium = 10000n;
+    let newRate = BigInt(23123n);
+    let prevRate: bigint;
+    let pos1FixedAnnualRate: bigint;
+    let pos2FixedAnnualRate: bigint;
+
+    beforeEach("give owner and alice a position", async () => {
+      prevRate = await savings.currentRatePPM();
+
+      // ---------------------------------------------------------------------------
+      // give OWNER a position
+      await coin.approve(await mintingHub.getAddress(), floatToDec18(10));
+      const txPos1 = await (
+        await mintingHub.openPosition(
+          await coin.getAddress(),
+          floatToDec18(1), // min size
+          floatToDec18(10), // size
+          floatToDec18(100_000), // mint limit
+          3 * 86_400,
+          100 * 86_400,
+          86_400,
+          riskPremium,
+          floatToDec18(6000),
+          100000,
+        )
+      ).wait();
+      const pos1Addr = await getPositionAddress(txPos1!);
+      pos1 = await ethers.getContractAt("Position", pos1Addr, owner);
+      pos1FixedAnnualRate = await pos1.fixedAnnualRatePPM();
+      expect(pos1FixedAnnualRate).to.be.equal(prevRate + riskPremium);
+
+      // ---------------------------------------------------------------------------
+      // give ALICE a position
+      await coin.connect(alice).approve(await mintingHub.getAddress(), floatToDec18(10));
+      const txPos2 = await (
+        await mintingHub.connect(alice).openPosition(
+          await coin.getAddress(),
+          floatToDec18(1), // min size
+          floatToDec18(10), // size
+          floatToDec18(100_000), // mint limit
+          3 * 86_400,
+          100 * 86_400,
+          86_400,
+          riskPremium,
+          floatToDec18(6000),
+          100000,
+        )
+      ).wait();
+      const pos2Addr = await getPositionAddress(txPos2!);
+      pos2 = await ethers.getContractAt("Position", pos2Addr, owner);
+      pos2FixedAnnualRate = await pos2.fixedAnnualRatePPM();
+      expect(pos2FixedAnnualRate).to.be.equal(prevRate + riskPremium);
+      expect(pos1FixedAnnualRate).to.be.equal(pos2FixedAnnualRate);
+
+      // ---------------------------------------------------------------------------
+      // change leadrate
+      await savings.proposeChange(newRate, []);
+      await evm_increaseTime(7 * 86_400 + 60);
+      expect(await savings.currentRatePPM()).to.be.eq(prevRate);
+      await savings.applyChange();
+      expect(await savings.currentRatePPM()).to.be.eq(newRate);
+      expect(prevRate).to.not.equal(newRate);
+    });
+
+    it('cloned source position should have its interest rate synced with latest lead rate', async () => {
+      await evm_increaseTime(10 * 86_400 + 300);
+      await pos1.mint(owner.address, floatToDec18(10_000));
+
+      await coin.approve(roller.getAddress(), floatToDec18(10_000));
+      await deuro.approve(roller.getAddress(), floatToDec18(20_000));
+      const rollerTx = await roller.rollFully(pos1.getAddress(), pos2.getAddress());
+      const rolledPosAddr = await getPositionAddress((await rollerTx.wait())!);
+      const rolledPosition = await ethers.getContractAt("Position", rolledPosAddr, owner);
+
+      const rolledFixedAnnualRate = await rolledPosition.fixedAnnualRatePPM();
+      expect(await pos1.isClosed()).to.be.true;
+      expect(rolledFixedAnnualRate).to.be.equal(newRate + await pos2.riskPremiumPPM());
+      expect(rolledFixedAnnualRate).to.not.equal(pos1FixedAnnualRate);
+    });
+  });
 });
