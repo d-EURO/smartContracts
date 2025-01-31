@@ -50,6 +50,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     event MinterDenied(address indexed minter, string message);
     event Loss(address indexed reportingMinter, uint256 amount);
     event Profit(address indexed reportingMinter, uint256 amount);
+    event ProfitDistributed(address indexed recipient, uint256 amount);
 
     error PeriodTooShort();
     error FeeTooLow();
@@ -318,14 +319,19 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * by the reserve.
      */
     function coverLoss(address source, uint256 _amount) external override minterOnly {
-        uint256 reserveLeft = balanceOf(address(reserve));
-        if (reserveLeft >= _amount) {
-            _transfer(address(reserve), source, _amount);
-        } else {
-            _transfer(address(reserve), source, reserveLeft);
-            _mint(source, _amount - reserveLeft);
-        }
+        _withdrawFromReserve(source, _amount);
         emit Loss(source, _amount);
+    }
+
+    /**
+     * @notice Distribute profits (e.g., savings interest) from the reserve to recipients.
+     *
+     * @param recipient The address receiving the payout.
+     * @param amount The amount of dEURO to distribute.
+    */
+    function distributeProfits(address recipient, uint256 amount) external override minterOnly {
+        _withdrawFromReserve(recipient, amount);
+        emit ProfitDistributed(recipient, amount);
     }
 
     function collectProfits(address source, uint256 _amount) external override minterOnly {
@@ -335,6 +341,21 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     function _collectProfits(address minter, address source, uint256 _amount) internal {
         _transfer(source, address(reserve), _amount);
         emit Profit(minter, _amount);
+    }
+
+    /**
+     * @notice Transfers the specified amount from the reserve if possible; mints the remainder if necessary.
+     * @param recipient The address receiving the funds.
+     * @param amount The total amount to be paid.
+    */
+    function _withdrawFromReserve(address recipient, uint256 amount) internal {
+        uint256 reserveLeft = balanceOf(address(reserve));
+        if (reserveLeft >= amount) {
+            _transfer(address(reserve), recipient, amount);
+        } else {
+            _transfer(address(reserve), recipient, reserveLeft);
+            _mint(recipient, amount - reserveLeft);
+        }
     }
 
     /**

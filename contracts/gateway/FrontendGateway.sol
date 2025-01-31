@@ -171,7 +171,7 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         if (IDecentralizedEURO(address(DEURO)).equity() < amount) revert EquityTooLow();
 
         frontendCodes[frontendCode].balance = 0;
-        IDecentralizedEURO(address(DEURO)).coverLoss(to, amount);
+        IDecentralizedEURO(address(DEURO)).distributeProfits(to, amount);
         emit FrontendCodeRewardsWithdrawn(to, amount, frontendCode);
         return amount;
     }

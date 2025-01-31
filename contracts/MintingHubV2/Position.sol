@@ -749,12 +749,12 @@ contract Position is Ownable, IPosition, MathUtil {
         _notifyInterestPaid(interestToPay);
         _notifyRepaid(principalToPay);
 
+        // Give time for additional challenges before the owner can mint again.
+        _restrictMinting(3 days);
+
         // Transfer the challenged collateral to the bidder
         uint256 newBalance = _sendCollateral(_bidder, _size);
         emit MintingUpdate(newBalance, price, principal);
-
-        // Give time for additional challenges before the owner can mint again.
-        _restrictMinting(3 days);
 
         return (owner(), _size, principalToPay, interestToPay, reserveContribution);
     }
