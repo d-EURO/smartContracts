@@ -293,7 +293,7 @@ describe('FrontendGateway Tests', () => {
       const balanceBeforeEquity = await dEURO.balanceOf(equity.getAddress());
       const frontendCodeBalance = (await frontendGateway.frontendCodes(frontendCode)).balance;
       const tx = frontendGateway.withdrawRewardsTo(frontendCode, alice.getAddress());
-      await expect(tx).to.emit(dEURO, 'Loss').withArgs(alice.getAddress(), frontendCodeBalance);
+      await expect(tx).to.emit(dEURO, 'ProfitDistributed').withArgs(alice.getAddress(), frontendCodeBalance);
       const balanceAfterAlice = await dEURO.balanceOf(alice.getAddress());
       const balanceAfterEquity = await dEURO.balanceOf(equity.getAddress());
 
@@ -407,6 +407,11 @@ describe('FrontendGateway Tests', () => {
       expect(eAmount2).to.be.approximately(savings3 - targetAmount2, 10n ** 15n);
       expect(savings4).to.be.equal(targetAmount2);
       expect(balanceAfter2 - balanceBefore2).to.be.equal(eAmount2);
+
+      await evm_increaseTime(86400 * 3);
+      const refreshTx = await savings.refreshBalance(owner.address);
+      const savings5 = (await savings.savings(owner.address)).saved;
+      await expect(refreshTx).to.emit(dEURO, 'ProfitDistributed').withArgs(savings, savings5 - savings4);
     });
 
     it('Should withdraw full amount and delete savings entry', async () => {

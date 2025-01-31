@@ -20,7 +20,7 @@ contract SavingsGateway is Savings, Context {
             uint192 earnedInterest = calculateInterest(account, ticks);
             if (earnedInterest > 0) {
                 // collect interest as you go and trigger accounting event
-                (IDecentralizedEURO(address(deuro))).coverLoss(address(this), earnedInterest);
+                (IDecentralizedEURO(address(deuro))).distributeProfits(address(this), earnedInterest);
                 account.saved += earnedInterest;
                 GATEWAY.updateSavingRewards(accountOwner, earnedInterest);
                 emit InterestCollected(accountOwner, earnedInterest);

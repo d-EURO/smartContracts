@@ -50,9 +50,9 @@ interface IDecentralizedEURO is IERC20 {
         uint32 reservePPM
     ) external returns (uint256);
 
-    function burnWithReserve(uint256 targetTotalBurnAmount, uint32 reservePPM) external returns (uint256);
-
     function coverLoss(address source, uint256 amount) external;
+
+    function distributeProfits(address recipient, uint256 amount) external;
 
     function collectProfits(address source, uint256 _amount) external;
 }

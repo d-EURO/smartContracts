@@ -50,6 +50,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     event MinterDenied(address indexed minter, string message);
     event Loss(address indexed reportingMinter, uint256 amount);
     event Profit(address indexed reportingMinter, uint256 amount);
+    event ProfitDistributed(address indexed recipient, uint256 amount);
 
     error PeriodTooShort();
     error FeeTooLow();
@@ -259,24 +260,6 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     }
 
     /**
-     * @notice Burns the target amount taking the tokens to be burned from the payer and the payer's reserve.
-     * The caller is only allowed to use this method for tokens also minted through the caller with the
-     * same reservePPM amount.
-     *
-     * Example: the calling contract has previously minted 100 dEURO with a reserve ratio of 20% (i.e. 200000 ppm).
-     * To burn half of that again, the minter calls burnFromWithReserve with a target amount of 50 dEURO. Assuming 
-     * that reserves are only 90% covered, this call will deduct 41 dEURO from the payer's balance and 9 from the 
-     * reserve, while reducing the minter reserve by 10.
-     */
-    // TODO: Unused - can be removed
-    function burnWithReserve(
-        uint256 targetTotalBurnAmount,
-        uint32 reservePPM
-    ) external override minterOnly returns (uint256) {
-        return burnFromWithReserve(msg.sender, targetTotalBurnAmount, reservePPM);
-    }
-
-    /**
      * @notice Burns `amountExcludingReserve * (1e6 / (1e6 - reservePPM)) from payer with an adjustment for 
      * incurred reserve losses (handled by `calculateFreedAmount`). That is, `amountExcludingReserve` is the
      * amount to be burnt excluding the reserve portion, i.e. the net amount.
@@ -336,14 +319,19 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * by the reserve.
      */
     function coverLoss(address source, uint256 _amount) external override minterOnly {
-        uint256 reserveLeft = balanceOf(address(reserve));
-        if (reserveLeft >= _amount) {
-            _transfer(address(reserve), source, _amount);
-        } else {
-            _transfer(address(reserve), source, reserveLeft);
-            _mint(source, _amount - reserveLeft);
-        }
+        _withdrawFromReserve(source, _amount);
         emit Loss(source, _amount);
+    }
+
+    /**
+     * @notice Distribute profits (e.g., savings interest) from the reserve to recipients.
+     *
+     * @param recipient The address receiving the payout.
+     * @param amount The amount of dEURO to distribute.
+    */
+    function distributeProfits(address recipient, uint256 amount) external override minterOnly {
+        _withdrawFromReserve(recipient, amount);
+        emit ProfitDistributed(recipient, amount);
     }
 
     function collectProfits(address source, uint256 _amount) external override minterOnly {
@@ -353,6 +341,21 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     function _collectProfits(address minter, address source, uint256 _amount) internal {
         _transfer(source, address(reserve), _amount);
         emit Profit(minter, _amount);
+    }
+
+    /**
+     * @notice Transfers the specified amount from the reserve if possible; mints the remainder if necessary.
+     * @param recipient The address receiving the funds.
+     * @param amount The total amount to be paid.
+    */
+    function _withdrawFromReserve(address recipient, uint256 amount) internal {
+        uint256 reserveLeft = balanceOf(address(reserve));
+        if (reserveLeft >= amount) {
+            _transfer(address(reserve), recipient, amount);
+        } else {
+            _transfer(address(reserve), recipient, reserveLeft);
+            _mint(recipient, amount - reserveLeft);
+        }
     }
 
     /**
