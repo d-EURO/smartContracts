@@ -483,10 +483,24 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice Notifies the original position that a portion of the debt (principal) has been repaid.
+     * @notice Updates oustanding principal and notifies the original position that a portion of the total 
+     * minted has been repaid.
      */
     function _notifyRepaid(uint256 amount) internal {
+        if (amount > principal) revert RepaidTooMuch(amount - principal);
         Position(original).notifyRepaid(amount);
+        principal -= amount;
+    }
+    
+    /**
+     * @notice Updates outstanding interest and notifies the minting hub gateway that interest has been paid.
+     */
+    function _notifyInterestPaid(uint256 amount) internal {
+        if (amount > interest) revert RepaidTooMuch(amount - interest);
+        if (IERC165(hub).supportsInterface(type(IMintingHubGateway).interfaceId)) {
+            IMintingHubGateway(hub).notifyInterestPaid(amount);
+        }
+        interest -= amount;
     }
 
     /**
@@ -525,6 +539,7 @@ contract Position is Ownable, IPosition, MathUtil {
         // Note: Proceeds are used to repay the `principal` and if any remains, the `interest`.
         // We cover `principal` first to ensure that in the case of a shortfall the sytem
         // doesn't have to compensate for a mispending of the `proceeds` on `interest`.
+        // A postcondition of _repayPrincipalNet is `principal > 0 => proceeds == 0` (see assert below).
         _repayInterest(buyer, propInterest);
         proceeds = _repayPrincipalNet(buyer, proceeds);
         proceeds = _repayInterest(buyer, proceeds);
@@ -534,11 +549,10 @@ contract Position is Ownable, IPosition, MathUtil {
         // as `propInterest` would be equal to `interest` and hence be paid off in full above.
         // Therefore, the system never covers a loss containing outstanding `interest`.
         if (remainingCollateral == 0 && principal > 0) {
-            assert(proceeds == 0); // TODO: Remove?
+            assert(proceeds == 0);
             deuro.coverLoss(address(this), principal);
             deuro.burnWithoutReserve(principal, reserveContribution);
             _notifyRepaid(principal);
-            principal = 0;
         } else if (proceeds > 0) {
             // All debt paid, leftover proceeds is profit for owner
             deuro.transferFrom(buyer, owner(), proceeds);
@@ -602,13 +616,6 @@ contract Position is Ownable, IPosition, MathUtil {
         }
     }
 
-    function _notifyInterestPaid(uint256 amount) internal {
-        if (IERC165(hub).supportsInterface(type(IMintingHubGateway).interfaceId)) {
-            IMintingHubGateway(hub).notifyInterestPaid(amount);
-        }
-
-    }
-
     /**
      * @notice Repays a specified amount of debt from `msg.sender`, prioritizing accrued interest first and then principal.
      * @return The actual amount of dEURO used for interest and principal repayment.
@@ -635,7 +642,6 @@ contract Position is Ownable, IPosition, MathUtil {
         if (repayment > 0) {
             deuro.collectProfits(payer, repayment);
             _notifyInterestPaid(repayment);
-            interest -= repayment;
             return amount - repayment;
         }
         return amount;
@@ -650,7 +656,6 @@ contract Position is Ownable, IPosition, MathUtil {
         if (repayment > 0) {
             uint256 returnedReserve = deuro.burnFromWithReserve(payer, repayment, reserveContribution);
             _notifyRepaid(repayment);
-            principal -= repayment; // TODO: Can we add this principal subtraction to _notifyRepaid (and same with interest)?
             return amount - (repayment - returnedReserve);
         }
         return amount;
@@ -677,15 +682,14 @@ contract Position is Ownable, IPosition, MathUtil {
             uint256 maxUsableMint = getUsableMint(principal);
             uint256 repayWithReserve = maxUsableMint > repayment ? repayment : maxUsableMint;
             uint256 actualRepaid = deuro.burnFromWithReserveNet(payer, repayWithReserve, reserveContribution);
+            _notifyRepaid(actualRepaid);
             remaining -= repayWithReserve;
-            principal -= actualRepaid;
             if (principal > 0 && remaining > 0) {
                 uint256 amountToBurn = remaining > principal ? principal : remaining;
                 deuro.burnFrom(payer, amountToBurn);
-                principal -= amountToBurn;
+                _notifyRepaid(amountToBurn);
                 remaining -= amountToBurn;
             }
-            _notifyRepaid(amount - remaining);
             return remaining;
         }
         return amount;
@@ -742,8 +746,6 @@ contract Position is Ownable, IPosition, MathUtil {
         // Determine how much of the debt must be repaid based on challenged collateral
         uint256 interestToPay = (colBal == 0) ? 0 : (interest * _size) / colBal;
         uint256 principalToPay = (colBal == 0) ? 0 : (principal * _size) / colBal;
-        interest -= interestToPay;
-        principal -= principalToPay;
         _notifyInterestPaid(interestToPay);
         _notifyRepaid(principalToPay);
 

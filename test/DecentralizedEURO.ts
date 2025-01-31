@@ -269,12 +269,6 @@ describe("DecentralizedEURO", () => {
       ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
-    it("should revert burning with reserve from non minters", async () => {
-      await expect(
-        dEURO.burnWithReserve(owner.address, 1000)
-      ).to.be.revertedWithCustomError(dEURO, "NotMinter");
-    });
-
     it("should revert burning from with reserve from non minters", async () => {
       await expect(
         dEURO.burnFromWithReserve(owner.address, 0, 0)
@@ -327,21 +321,6 @@ describe("DecentralizedEURO", () => {
       expect(balanceAfterMintReserve - balanceAfterBurnReserve).to.be.eq(
         floatToDec18(50),
       );
-
-      // burnWithReserve
-      await dEURO
-        .connect(bob)
-        .mintWithReserve(bob.address, amount, reservePPM, 0);
-      const balanceBeforeBob = await dEURO.balanceOf(bob.address);
-      const balanceBeforeReserve = await dEURO.balanceOf(await dEURO.reserve());
-      await dEURO
-        .connect(bob)
-        .burnWithReserve(amount, reservePPM); 
-      const balanceAfterBob = await dEURO.balanceOf(alice.address);
-      const balanceAfterReserve = await dEURO.balanceOf(await dEURO.reserve());
-      const expectedReservePortion = amount * reservePPM / 1_000_000n;
-      expect(balanceBeforeBob - amount + expectedReservePortion).to.be.eq(balanceAfterBob);
-      expect(balanceBeforeReserve - balanceAfterReserve).to.be.eq(expectedReservePortion);
     });
 
     it("should revert covering loss from non minters", async () => {
