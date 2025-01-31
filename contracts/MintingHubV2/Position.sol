@@ -95,7 +95,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice The locked-in rate (including riskPremiumPPM) for this position.
      */
-    uint24 public fixedAnnualRatePPM;  
+    uint24 public fixedAnnualRatePPM;
 
     /**
      * @notice The reserve contribution in parts per million of the minted amount.
@@ -377,7 +377,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * This re-prices the entire position based on the current leadrate.
      */
     function _fixRateToLeadrate() internal {
-        fixedAnnualRatePPM = IMintingHubGateway(hub).RATE().currentRatePPM() + riskPremiumPPM;
+        fixedAnnualRatePPM = IMintingHub(hub).RATE().currentRatePPM() + riskPremiumPPM;
     }
 
     /**
@@ -397,7 +397,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice Computes the total outstanding interest, including newly accrued interest.
      * @dev This function calculates interest accumulated since the last accrual based on
-     * the principal amount, the annual interest rate, and the elapsed time. 
+     * the principal amount, the annual interest rate, and the elapsed time.
      * The newly accrued interest is added to the current outstanding interest.
      * @return newInterest The total outstanding interest, including newly accrued interest.
      */
@@ -464,7 +464,7 @@ contract Position is Ownable, IPosition, MathUtil {
     *      `debt = principal + interest`. Under normal conditions, this simplifies to:
     *      `amount = (principal * (1000000 - reservePPM)) / 1000000 + interest`.
     * 
-    *      For example, if `principal` is 40, `interest` is 10, and `reservePPM` is 200000, repaying 42 dEURO 
+    *      For example, if `principal` is 40, `interest` is 10, and `reservePPM` is 200000, repaying 42 dEURO
     *      is required to fully close the position.
     * 
     * @param amount The maximum amount of dEURO that `msg.sender` is willing to repay.
@@ -528,9 +528,9 @@ contract Position is Ownable, IPosition, MathUtil {
         _repayInterest(buyer, propInterest);
         proceeds = _repayPrincipalNet(buyer, proceeds);
         proceeds = _repayInterest(buyer, proceeds);
-        
+
         // If remaining collateral is 0 and `principal` > 0, cover the shortfall with the system.
-        // Note: It is not possible for the outstanding `interest` to be > 0 if collateral is 0, 
+        // Note: It is not possible for the outstanding `interest` to be > 0 if collateral is 0,
         // as `propInterest` would be equal to `interest` and hence be paid off in full above.
         // Therefore, the system never covers a loss containing outstanding `interest`.
         if (remainingCollateral == 0 && principal > 0) {
@@ -606,7 +606,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (IERC165(hub).supportsInterface(type(IMintingHubGateway).interfaceId)) {
             IMintingHubGateway(hub).notifyInterestPaid(amount);
         }
-        
+
     }
 
     /**
@@ -658,9 +658,9 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Repays principal from `payer` using the net repayment amount (excluding reserves).
-     * 
+     *
      * Repayment occurs in two steps:
-     * (1) Burn with reserve: Uses `burnFromWithReserveNet` to repay up to `getUsableMint(principal)`, 
+     * (1) Burn with reserve: Uses `burnFromWithReserveNet` to repay up to `getUsableMint(principal)`,
      *     covering both principal and its reserve portion.
      * (2) Direct burn: If principal remains, `burnFrom` burns the remaining principal directly from `payer`.
      *

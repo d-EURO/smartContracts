@@ -21,4 +21,6 @@ interface IMintingHub {
     function returnPostponedCollateral(address collateral, address target) external;
 
     function buyExpiredCollateral(IPosition pos, uint256 upToAmount) external returns (uint256);
+
+    function clone(address owner, address parent, uint256 _initialCollateral, uint256 _initialMint, uint40 expiration) external returns (address);
 }

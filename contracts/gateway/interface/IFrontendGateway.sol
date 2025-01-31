@@ -10,6 +10,7 @@ interface IFrontendGateway {
     event FrontendCodeRegistered(address owner, bytes32 frontendCode);
     event FrontendCodeTransferred(address from, address to, bytes32 frontendCode);
     event FrontendCodeRewardsWithdrawn(address to, uint256 amount, bytes32 frontendCode);
+    event NewPositionRegistered(address position, bytes32 frontendCode);
     event RateChangesProposed(address who, uint24 nextFeeRate, uint24 nextSavingsFeeRate, uint24 nextMintingFeeRate, uint256 nextChange);
     event RateChangesExecuted(address who, uint24 nextFeeRate, uint24 nextSavingsFeeRate, uint24 nextMintingFeeRate);
 
@@ -30,6 +31,7 @@ interface IFrontendGateway {
 
     function registerPosition(address position, bytes32 frontendCode) external;
     function updatePositionRewards(address position, uint256 amount) external;
+    function getPositionFrontendCode(address position)view external  returns(bytes32);
 
     // Frontend Code Logic
     function registerFrontendCode(bytes32 frontendCode) external returns (bool);

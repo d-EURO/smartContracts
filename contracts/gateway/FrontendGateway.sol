@@ -121,11 +121,16 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         bytes32 frontendCode
     ) external onlyGatewayService(address(MINTING_HUB)) {
         referredPositions[position] = frontendCode;
+        emit NewPositionRegistered(position, frontendCode);
     }
 
     function updatePositionRewards(address position, uint256 amount) external onlyGatewayService(address(MINTING_HUB)) {
         if (referredPositions[position] == bytes32(0)) return;
         frontendCodes[referredPositions[position]].balance += (amount * mintingFeeRate) / 1_000_000;
+    }
+
+    function getPositionFrontendCode(address position) external view returns (bytes32) {
+        return referredPositions[position];
     }
 
     //////////////////////
