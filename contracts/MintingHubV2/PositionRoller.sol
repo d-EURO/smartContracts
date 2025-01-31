@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -24,7 +23,7 @@ contract PositionRoller {
     error NotPosition(address pos);
     error Log(uint256, uint256, uint256);
 
-    event Roll(address source, uint256 collWithdraw, uint256 repay, address target, uint256 collDeposit, uint256 mint);
+    event Roll(address source, uint256 collWithdraw, uint256 repay, uint256 interest, address target, uint256 collDeposit, uint256 mint);
 
     constructor(address deuro_) {
         deuro = IDecentralizedEURO(deuro_);
@@ -50,8 +49,9 @@ contract PositionRoller {
      */
     function rollFullyWithExpiration(IPosition source, IPosition target, uint40 expiration) public {
         require(source.collateral() == target.collateral());
-        uint256 repay = source.getDebt();
-        uint256 mintAmount = target.getMintAmount(repay);
+        uint256 repay = source.principal();
+        uint256 usableMint = source.getUsableMint(repay);
+        uint256 mintAmount = target.getMintAmount(usableMint);
         uint256 collateralToWithdraw = IERC20(source.collateral()).balanceOf(address(source));
         uint256 targetPrice = target.price();
         uint256 depositAmount = (mintAmount * 10 ** 18 + targetPrice - 1) / targetPrice; // round up
@@ -61,6 +61,7 @@ contract PositionRoller {
             depositAmount = collateralToWithdraw;
             mintAmount = (depositAmount * target.price()) / 10 ** 18; // round down, rest will be taken from caller
         }
+
         roll(source, repay, collateralToWithdraw, target, mintAmount, depositAmount, expiration);
     }
 
@@ -87,34 +88,17 @@ contract PositionRoller {
         uint256 collDeposit,
         uint40 expiration
     ) public valid(source) valid(target) own(source) {
-        deuro.mint(address(this), repay); // take a flash loan
-        source.repay(repay);
+        uint256 interest = source.getInterest();
+        uint256 totRepayment = repay + interest; // add interest to repay
+        deuro.mint(address(this), totRepayment); // take a flash loan
+        uint256 used = source.repay(totRepayment);
         source.withdrawCollateral(msg.sender, collWithdraw);
         if (mint > 0) {
             IERC20 targetCollateral = IERC20(target.collateral());
             if (Ownable(address(target)).owner() != msg.sender || expiration != target.expiration()) {
                 targetCollateral.transferFrom(msg.sender, address(this), collDeposit); // get the new collateral
                 targetCollateral.approve(target.hub(), collDeposit); // approve the new collateral and clone:
-                if (IERC165(target.hub()).supportsInterface(type(IMintingHubGateway).interfaceId)) {
-                    bytes32 frontendCode = IMintingHubGateway(target.hub()).GATEWAY().getPositionFrontendCode(
-                        address(source)
-                    );
-                    console.log("frontendCode");
-                    target = IPosition(
-                        IMintingHubGateway(target.hub()).clone(
-                            msg.sender,
-                            address(target),
-                            collDeposit,
-                            mint,
-                            expiration,
-                            frontendCode
-                        )
-                    );
-                } else {
-                    target = IPosition(
-                        IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration)
-                    );
-                }
+                target = _cloneTargetPosition(target, source, collDeposit, mint, expiration);
             } else {
                 // We can roll into the provided existing position.
                 // We do not verify whether the target position was created by the known minting hub in order
@@ -123,8 +107,45 @@ contract PositionRoller {
                 target.mint(msg.sender, mint);
             }
         }
-        deuro.burnFrom(msg.sender, repay); // repay the flash loan
-        emit Roll(address(source), collWithdraw, repay, address(target), collDeposit, mint);
+
+        // Transfer remaining flash loan to caller for repayment
+        if (totRepayment > used) {
+            deuro.transfer(msg.sender, totRepayment - used);
+        }
+
+        deuro.burnFrom(msg.sender, totRepayment); // repay the flash loan
+        emit Roll(address(source), collWithdraw, repay, interest, address(target), collDeposit, mint);
+    }
+
+    /**
+     * Clones the target position and mints the specified amount using the given collateral.
+     */
+    function _cloneTargetPosition (
+        IPosition target,
+        IPosition source,
+        uint256 collDeposit,
+        uint256 mint,
+        uint40 expiration
+    ) internal returns (IPosition) {
+        if (IERC165(target.hub()).supportsInterface(type(IMintingHubGateway).interfaceId)) {
+            bytes32 frontendCode = IMintingHubGateway(target.hub()).GATEWAY().getPositionFrontendCode(
+                address(source)
+            );
+            return IPosition(
+                IMintingHubGateway(target.hub()).clone(
+                    msg.sender,
+                    address(target),
+                    collDeposit,
+                    mint,
+                    expiration,
+                    frontendCode // use the same frontend code
+                )
+            );
+        } else {
+            return IPosition(
+                IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration)
+            );
+        }
     }
 
     modifier own(IPosition pos) {

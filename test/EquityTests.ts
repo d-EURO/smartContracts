@@ -36,10 +36,11 @@ describe("Equity Tests", () => {
 
     let supply = floatToDec18(1000_000);
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
+    const maxUint96 = floatToDec18(2n ** 96n - 1n);
     bridge = await bridgeFactory.deploy(
       await XEUR.getAddress(),
       await dEURO.getAddress(),
-      floatToDec18(100_000_000_000),
+      maxUint96 * 2n,
       30,
     );
     await dEURO.initialize(await bridge.getAddress(), "");
@@ -86,6 +87,16 @@ describe("Equity Tests", () => {
   });
 
   describe("minting shares", () => {
+    it("equity does not require approval", async () => {
+      const allowance = await dEURO.allowance(owner.address, equity);
+      const maxAllowance = BigInt(1) << BigInt(255);
+      expect(allowance).to.equal(maxAllowance);
+      let balanceBefore = await equity.balanceOf(owner.address);
+      await equity.invest(floatToDec18(1000), 0);
+      let balanceAfter = await equity.balanceOf(owner.address);
+      expect(balanceAfter).to.be.gt(balanceBefore);
+    });
+
     it("should revert minting less than minimum equity amount", async () => {
       await dEURO.approve(equity, floatToDec18(1000));
       await expect(
@@ -101,17 +112,16 @@ describe("Equity Tests", () => {
       ).to.be.revertedWithoutReason();
     });
 
-    // it("should revert minting when total supply exceeds max of uint96", async () => {
-    //   await equity.invest(floatToDec18(1000), 0);
-    //   const amount = floatToDec18(80_000_000_000);
-    //   await XEUR.mint(owner.address, amount);
-    //   await XEUR.approve(await bridge.getAddress(), amount);
-    //   await bridge.mint(amount);
-    //   await equity.invest(amount, 0);
-    //   await expect(equity.invest(amount, 0)).to.be.revertedWith(
-    //     "total supply exceeded"
-    //   );
-    // });
+    it("should revert minting when total supply exceeds max of uint96", async () => {
+      await equity.invest(floatToDec18(1000), 0);
+      const maxUint96 = floatToDec18(2n ** 96n - 1n);
+      await XEUR.mint(owner.address, maxUint96);
+      await XEUR.approve(await bridge.getAddress(), maxUint96);
+      await bridge.mint(maxUint96);
+      await expect(equity.invest(maxUint96, 0)).to.be.revertedWithCustomError(
+        equity, "TotalSupplyExceeded"
+      );
+    });
 
     it("should create an initial share", async () => {
       const expected = await equity.calculateShares(floatToDec18(1000));
@@ -220,6 +230,7 @@ describe("Equity Tests", () => {
     it("should allow redemption after time passed", async () => {
       await evm_increaseTime(90 * 86_400 + 60);
       expect(await equity.canRedeem(owner.address)).to.be.true;
+      expect(await equity.holdingDuration(owner.address)).to.be.approximately(90 * 86_400 + 60, 60);
 
       await expect(
         equity.calculateProceeds((await equity.totalSupply()) * 2n),

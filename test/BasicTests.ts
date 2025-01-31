@@ -157,6 +157,11 @@ describe("Basic Tests", () => {
         expect(isSenderBalanceCorrect).to.be.true;
       }
     });
+    it("minter of XEUR-bridge with insufficient XEUR allowance should revert (SafeERC20)", async () => {
+      let amount = floatToDec18(5000);
+      await mockXEUR.approve(bridgeAddr, amount - 10n);
+      await expect(bridge.mint(amount)).to.be.reverted;
+    });
     it("should revert initialization when there is supply", async () => {
       await expect(
         dEURO.initialize(bridgeAddr, "Bridge"),

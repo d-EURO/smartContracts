@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { floatToDec18 } from "../scripts/math";
+import { DECIMALS, floatToDec18 } from "../scripts/math";
 import { ethers } from "hardhat";
 import {
   Equity,
@@ -13,7 +13,7 @@ import {
 } from "../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { evm_increaseTime } from "./helper";
-import { ContractTransactionReceipt } from "ethers";
+import { ContractTransactionReceipt, EventLog } from "ethers";
 
 describe("Roller Tests", () => {
   let owner: HardhatEthersSigner;
@@ -451,68 +451,324 @@ describe("Roller Tests", () => {
       );
     });
 
+    it("should fail to rollFully if owner balance insufficient to cover interest", async () => {
+      await evm_increaseTime(3 * 86400 + 300);
+      await pos1.mint(owner.address, floatToDec18(10_000));
+
+      await evm_increaseTime(5 * 86_400); // 5 days to accrue some interest
+
+      const ownerInitBal = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, ownerInitBal); // remove all deuro from owner
+      const b1 = await deuro.balanceOf(owner.address);
+      expect(b1).to.be.equal(0);
+
+      const debt = await pos1.getDebt();
+      const collBal = await coin.balanceOf(await pos1.getAddress());
+      await coin.approve(await roller.getAddress(), collBal);
+      await deuro.approve(await roller.getAddress(), debt + floatToDec18(1)); // add 1 to cover timestamp difference
+      const tx = roller.rollFully(
+        await pos1.getAddress(),
+        await pos2.getAddress(),
+      );
+      expect(tx).to.be.revertedWithoutReason;
+
+      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
+    });
+
     it("rollFully check interests and rolled amount", async () => {
       await evm_increaseTime(3 * 86400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
-      const m1 = await pos1.getDebt();
+      await evm_increaseTime(5 * 86_400); // 5 days to accrue some interest
+
+      const p1 = await pos1.principal();
+      const i1 = await pos1.getInterest();
+      const ownerInitBal = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, ownerInitBal - (i1 + floatToDec18(1))); // remove all deuro for testing, except to cover interest
       const b1 = await deuro.balanceOf(owner.address);
-      await deuro.transfer(bob.address, b1); // remove all deuro for testing
 
       const collBal = await coin.balanceOf(await pos1.getAddress());
       await coin.approve(await roller.getAddress(), collBal);
-
+      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
       const tx = await roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
       );
+      const receipt = await tx.wait();
+
+      // roll event
+      const rollEvent = receipt?.logs
+        .map((log) => roller.interface.parseLog(log))
+        .find((parsedLog) => parsedLog?.name === 'Roll');
+      const [eSource, eCollWithdraw, eRepay, eInterest, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
+
+      // new position
+      const cloneAddr = await getPositionAddress(receipt!);
+      clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
+
+      const p2 = await clone1.principal();
+      const b2 = await deuro.balanceOf(owner.address);
+      const p1After = await pos1.principal();
+      const i1After = await pos1.getInterest();
+      const targetPrice = await pos2.price();
+      let usableAmount = await pos1.getUsableMint(p1);
+      let mintAmount = await pos2.getMintAmount(usableAmount); // divide by reserve ratio
+      let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice;
+      depositAmount = depositAmount > collBal ? collBal : depositAmount;
+      mintAmount = depositAmount * targetPrice / 10n ** 18n;  
+      expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
+      expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
+      expect(eCollWithdraw).to.be.equal(collBal);
+      expect(eCollDeposit).to.be.equal(depositAmount);
+      expect(eRepay).to.be.equal(p1);
+      expect(eMint).to.be.approximately(mintAmount, 1e4);
+      expect(eInterest).to.be.approximately(i1, floatToDec18(0.001));
+      expect(b1 - BigInt(eInterest)).to.equal(b2);
+      expect(p2).to.be.equal(p1); // The rolled principal should be the same
+      expect(p2).to.be.approximately(mintAmount, 1e4);
+      expect(p1After).to.be.equal(0);
+      expect(i1After).to.be.equal(0);
+      expect(await pos1.isClosed()).to.be.equal(true);
+
+      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
+    });
+
+    it("rollFully from overcollaterlized source with lower target collateral price (equal target collateral required)", async () => {
+      // In this unit test equal collateral to the source position is required to maintain the same principle.
+      // This is because the source position was heavily overcollateralized (it could have minted more dEURO or 
+      // done with less collateral).
+      await evm_increaseTime(3 * 86_400 + 300);
+      await pos1.mint(owner.address, floatToDec18(10_000));
+      const ownerInitBal = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, ownerInitBal - floatToDec18(1)); // remove some deuro for testing, add 1 to cover interest
+      const b1 = await deuro.balanceOf(owner.address);
+      expect(b1).to.be.equal(floatToDec18(1));
+
+      // decrease collateral price to balanced collateral value
+      await pos2.adjustPrice(1000n * 10n ** 18n); 
+      const sourcePrice = await pos1.price();                                         // 6_000 dEURO/coin (price P1)
+      const targetPrice = await pos2.price();                                         // 1_000 dEURO/coin (price P2)
+      expect(targetPrice).to.be.lessThan(sourcePrice);
+
+      const p1 = await pos1.principal();                                              // 10_000 dEURO (principal P1)
+      const i1 = await pos1.getInterest();
+      const collBal = await coin.balanceOf(await pos1.getAddress());                  // 10 coin (collateral P1)
+      let usableAmount = await pos1.getUsableMint(p1);                                // 9_000 dEURO (usable mint P1)
+      let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 dEURO (principal P2)
+      let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice; // 10 coin (collateral P2)
+      depositAmount = depositAmount > collBal ? collBal : depositAmount;              // 10 coin (collateral P2)
+      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          // 10_000 dEURO (principal P2)
+
+      // The principal of P1 is 10_000 dEURO (principal P1). The collateral value of P1 is 60_000 dEURO (collateral value P1).
+      // This means the position is heavily overcollateralized. The usable mint of P1 is 9_000 dEURO (usable mint P1).
+      // To obtain the same usable mint in P2, we need to mint 10_000 dEURO (principal P2) (in this example both P1 and P2
+      // have the same reserve ratio of 10%). Now at a lowered price of 1_000 dEURO/coin (price P2), we need to deposit
+      // 10 coin (collateral P2) to mint 10_000 dEURO (principal P2). This is the exact amount of collateral P1 has.
+      // This means the principal and collateral value of P2 will have the same dEURO value (not overcollateralized anymore).
+
+      await coin.approve(await roller.getAddress(), p1);
+      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
+      const tx = await roller.rollFully(
+        await pos1.getAddress(),
+        await pos2.getAddress(),
+      );
+      const receipt = await tx.wait();
+
+      // roll event
+      const rollEvent = receipt?.logs
+      .map((log) => roller.interface.parseLog(log))
+      .find((parsedLog) => parsedLog?.name === 'Roll');
+      const [eSource, eCollWithdraw, eRepay, eInterest, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
-
-      const m2 = await clone1.getDebt();
+      const p2 = await clone1.principal();
       const b2 = await deuro.balanceOf(owner.address);
-      expect(b2).to.equal(0n, "owner deuro balance should be 0");
+      const p1After = await pos1.principal();
+      const i1After = await pos1.getInterest();
+      
+      expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
+      expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
+      expect(eCollWithdraw).to.be.equal(collBal);
+      expect(eCollDeposit).to.be.equal(depositAmount);
+      expect(eRepay).to.be.equal(p1);
+      expect(eMint).to.be.approximately(mintAmount, 1e4);
+      expect(eInterest).to.be.approximately(i1, floatToDec18(0.001));
+      expect(b1 - BigInt(eInterest)).to.equal(b2);
+      expect(p2).to.be.equal(p1); // The rolled principal should be the same
+      expect(p2).to.be.approximately(mintAmount, 1e4);
+      expect(p1After).to.be.equal(0);
+      expect(i1After).to.be.equal(0);
+      expect(await pos1.isClosed()).to.be.equal(true);
 
-      expect(m2).to.be.gte(m1, "The rolled debt must cover old debt plus overhead");
-
-      await deuro.connect(bob).transfer(owner.address, b1); // refund deuro for testing
+      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
     });
 
-    it("rollFully check interests and rolled amount, with 1000 deuro in wallet", async () => {
+    it("rollFully with lower target collateral price (capped target principal)", async () => {
+      // In this unit test the target collateral price is lowered. This requires a higher minimum collateral in the target position
+      // to maintain the same principal. If the source position is not sufficiently overcollateralized, the target position will be
+      // capped at the source collateral and the principal will be less than the source principal. Here we assume that the owner has
+      // sufficient funds to repay the flash loan and doesn't depend on the new mint from the target position which would be
+      // insufficient as target principal < source principal ~ flash loan.
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const b1 = await deuro.balanceOf(owner.address);
-      await deuro.transfer(bob.address, b1 - floatToDec18(1_001)); // remove some deuro for testing, add 1 to cover interest
-      expect(await deuro.balanceOf(owner.address)).to.be.equal(
-        floatToDec18(1001),
-        "you should have 1001 deuro left in your wallet",
-      );
 
-      await pos2.adjustPrice(1000n * 10n ** 18n);
-      await coin.approve(
-        await roller.getAddress(),
-        await coin.balanceOf(await pos1.getAddress()),
-      );
+      // decrease collateral price from 6_000 dEURO/coin to 500 dEURO/coin
+      await pos2.adjustPrice(500n * 10n ** 18n); 
+      const sourcePrice = await pos1.price();                                         
+      const targetPrice = await pos2.price();                                         
+      expect(targetPrice).to.be.lessThan(sourcePrice);
 
+      const p1 = await pos1.principal();                                              
+      const i1 = await pos1.getInterest();
+      const collBal = await coin.balanceOf(await pos1.getAddress());                  
+      let usableAmount = await pos1.getUsableMint(p1);                                
+      let mintAmount = await pos2.getMintAmount(usableAmount);                        
+      let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice; 
+      depositAmount = depositAmount > collBal ? collBal : depositAmount;              
+      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          
+
+      await coin.approve(await roller.getAddress(), p1);
+      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
       const tx = await roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
       );
+      const receipt = await tx.wait();
+
+      // roll event
+      const rollEvent = receipt?.logs
+      .map((log) => roller.interface.parseLog(log))
+      .find((parsedLog) => parsedLog?.name === 'Roll');
+      const [eSource, eCollWithdraw, eRepay, eInterest, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
-      const m2 = await clone1.getDebt();
+      const p2 = await clone1.principal();
       const b2 = await deuro.balanceOf(owner.address);
-      expect(b2).to.be.lt(
-        floatToDec18(1),
-        "some of the owner balance should be used to cover the interest of the new position",
-      );
+      const p1After = await pos1.principal();
+      const i1After = await pos1.getInterest();
+      const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
+      const bDiff = p1 + eInterest - await pos2.getUsableMint(p2) - p1Reserve;
+      
+      expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
+      expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
+      expect(eCollWithdraw).to.be.equal(collBal);
+      expect(eCollDeposit).to.be.equal(depositAmount);
+      expect(eRepay).to.be.equal(p1);
+      expect(eMint).to.be.approximately(mintAmount, 1e4);
+      expect(eInterest).to.be.approximately(i1, floatToDec18(0.001));
+      expect(b1 - bDiff).to.equal(b2);
+      expect(p2).to.be.equal(collBal * await pos2.price() / DECIMALS); // The rolled principal should be less
+      expect(p2).to.be.approximately(mintAmount, 1e4);
+      expect(p1After).to.be.equal(0);
+      expect(i1After).to.be.equal(0);
+      expect(await pos1.isClosed()).to.be.equal(true);
+    });
 
-      expect(m2).to.be.equal(
-        floatToDec18(10_000),
-        "as interest was covered by sender, minted amount should stay the same given same liquidation price",
+    it("rollFully with lower target collateral price fails for underfunded owner and insufficient source collateral", async () => {
+      // Target liquidation price (collateral price) is lowered. This means the minimum collateral required for the target
+      // is more than the minimum collateral required for the source. If the source position is not sufficiently overcollateralized
+      // this additionally required collateral will be missing. Consequently, the target collateral is capped at the source collateral
+      // and the minted amount will be less than the principal of the source position. If the owner does not have sufficient funds
+      // repaying the flash loan will fail as he receives less dEURO than he has to repay (target principal < source principal).
+      await evm_increaseTime(3 * 86_400 + 300);
+      await pos1.mint(owner.address, floatToDec18(10_000));
+      const ownerInitBal = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, ownerInitBal - floatToDec18(1)); // remove some deuro for testing, add 1 to cover interest
+      const b1 = await deuro.balanceOf(owner.address);
+      expect(b1).to.be.equal(floatToDec18(1));
+
+      // decrease collateral price from 6_000 dEURO/coin to 500 dEURO/coin
+      await pos2.adjustPrice(500n * 10n ** 18n); 
+      const sourcePrice = await pos1.price();                                        
+      const targetPrice = await pos2.price();                                        
+      expect(targetPrice).to.be.lessThan(sourcePrice);
+
+      const p1 = await pos1.principal();                                             
+      const i1 = await pos1.getInterest();
+      const collBal = await coin.balanceOf(await pos1.getAddress());                 
+      let usableAmount = await pos1.getUsableMint(p1);                               
+      let mintAmount = await pos2.getMintAmount(usableAmount);                       
+      let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice;
+      depositAmount = depositAmount > collBal ? collBal : depositAmount;             
+      mintAmount = depositAmount * targetPrice / 10n ** 18n;                         
+
+      await coin.approve(await roller.getAddress(), p1);
+      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
+      const tx = roller.rollFully(
+        await pos1.getAddress(),
+        await pos2.getAddress(),
       );
+      expect(tx).to.be.revertedWithoutReason;
+
+      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
+    });
+
+    it("rollFully with higher target collateral price (less collateral required for target)", async () => {
+      await evm_increaseTime(3 * 86_400 + 300);
+      await pos1.mint(owner.address, floatToDec18(10_000));
+      const ownerInitBal = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, ownerInitBal - floatToDec18(1_001)); // remove some deuro for testing, add 1 to cover interest
+      const b1 = await deuro.balanceOf(owner.address);
+      expect(b1).to.be.equal(floatToDec18(1001));
+
+      // increase collateral price from 6_000 dEURO/coin to 9_000 dEURO/coin (requires 3 day cooldown to allow cloning)
+      await pos2.adjustPrice(9_000n * 10n ** 18n);
+      await evm_increaseTime(3 * 86_400 + 300);
+      const sourcePrice = await pos1.price();                                         // 6_000 dEURO/coin (price P1)
+      const targetPrice = await pos2.price();                                         // 9_000 dEURO/coin (price P2)
+      expect(targetPrice).to.be.greaterThan(sourcePrice);
+
+      const ownerColBalBefore = await coin.balanceOf(owner.address);
+      const p1 = await pos1.principal();                                              // 10_000 dEURO (principal P1)
+      const i1 = await pos1.getInterest();                                            // (interest P1)
+      const collBal = await coin.balanceOf(await pos1.getAddress());                  // 10 coin (collateral P1)
+      let usableAmount = await pos1.getUsableMint(p1);                                // 9_000 dEURO (usable mint P1)
+      let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 dEURO (principal P2)
+      let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice; // 1.111... coin (collateral P2)
+      depositAmount = depositAmount > collBal ? collBal : depositAmount;              // 1.111... coin (collateral P2)
+      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          // 10_000 dEURO (principal P2)
+
+      await coin.approve(await roller.getAddress(), p1);
+      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
+      const tx = await roller.rollFully(
+        await pos1.getAddress(),
+        await pos2.getAddress(),
+      );
+      const receipt = await tx.wait();
+
+      // roll event
+      const rollEvent = receipt?.logs
+      .map((log) => roller.interface.parseLog(log))
+      .find((parsedLog) => parsedLog?.name === 'Roll');
+      const [eSource, eCollWithdraw, eRepay, eInterest, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
+
+      const cloneAddr = await getPositionAddress((await tx.wait())!);
+      clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
+      const p2 = await clone1.getDebt();
+      const b2 = await deuro.balanceOf(owner.address);
+      const p1After = await pos1.principal();
+      const i1After = await pos1.getInterest();
+      const ownerColBalAfter = await coin.balanceOf(owner.address);
+      
+      expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
+      expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
+      expect(eCollWithdraw).to.be.equal(collBal);
+      expect(eCollDeposit).to.be.equal(depositAmount);
+      expect(eRepay).to.be.equal(p1);
+      expect(eMint).to.be.approximately(mintAmount, 1e4);
+      expect(eInterest).to.be.approximately(i1, floatToDec18(0.001));
+      expect(b1 - BigInt(eInterest)).to.equal(b2);
+      expect(p2).to.be.equal(p1); // The rolled principal should be the same
+      expect(p2).to.be.approximately(mintAmount, 1e4);
+      expect(ownerColBalAfter - ownerColBalBefore).to.be.equal(collBal - eCollDeposit);
+      expect(p1After).to.be.equal(0);
+      expect(i1After).to.be.equal(0);
+      expect(await pos1.isClosed()).to.be.equal(true);
+
+      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
     });
   });
 });

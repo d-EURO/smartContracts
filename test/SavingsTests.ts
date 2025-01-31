@@ -107,7 +107,7 @@ describe("Savings Tests", () => {
       await savings["save(uint192)"](amount); // @dev: will collect interest
       const r = await savings.savings(owner.address);
       expect(r.saved).to.be.greaterThanOrEqual(amount * 3n);
-      expect(r.saved * 10n).to.be.lessThan(amount * 31n); 
+      expect(r.saved * 10n).to.be.lessThan(amount * 31n);
     });
 
     it("should allow to withdraw", async () => {
@@ -162,7 +162,7 @@ describe("Savings Tests", () => {
       const iDiff = i1 - i0;
       const tDiff = t1! - t0!;
       const toCheck =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff))) /
+        (floatToDec18(10_000) * 20000n * BigInt(tDiff)) /
         (365n * 86_400n * 1_000_000n);
       expect(iDiff).to.be.equal(toCheck);
     });
@@ -182,7 +182,7 @@ describe("Savings Tests", () => {
       const bDiff = b1 - b0;
       const tDiff = t1! - t0!;
       const toCheck =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff))) /
+        (floatToDec18(10_000) * 20000n * BigInt(tDiff)) /
         (365n * 86_400n * 1_000_000n);
       expect(bDiff).to.be.equal(toCheck);
     });
@@ -207,7 +207,7 @@ describe("Savings Tests", () => {
       const tDiff0 = t1! - t0!;
       const tDiff1 = t2! - t1!;
       const toCheck0 =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff0))) /
+        (floatToDec18(10_000) * 20000n * BigInt(tDiff0)) /
         (365n * 86_400n * 1_000_000n);
       const toCheck1 =
         ((floatToDec18(10_000) + toCheck0) *
@@ -215,7 +215,7 @@ describe("Savings Tests", () => {
           (BigInt(tDiff1) - 0n * 86_400n)) /
         (365n * 86_400n * 1_000_000n);
       const toCheck2 =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff1))) /
+        (floatToDec18(10_000) * 20000n * BigInt(tDiff1)) /
         (365n * 86_400n * 1_000_000n);
       expect(bDiff).to.be.approximately(
         toCheck0 + toCheck1 + toCheck2,
@@ -235,7 +235,7 @@ describe("Savings Tests", () => {
       const t1 = await getTimeStamp();
       const tDiff = t1! - t0!;
       const toCheck =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff))) /
+        (floatToDec18(10_000) * 20000n * BigInt(tDiff)) /
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
@@ -254,11 +254,29 @@ describe("Savings Tests", () => {
       const t1 = await getTimeStamp();
       const tDiff = t1! - t0!;
       const toCheck =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff))) /
+        (floatToDec18(10_000) * 20000n * BigInt(tDiff)) /
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
       expect(r.saved).to.be.equal(amount + toCheck);
+    });
+
+    it("adjust savings upwards", async () => {
+      await savings["save(uint192)"](amount);
+      const r = await savings.savings(owner.address);
+      expect(r.saved).to.be.approximately(amount, 10 ** 12);
+      await savings.adjust(2n * amount);
+      const r2 = await savings.savings(owner.address);
+      expect(r2.saved).to.be.approximately(2n * amount, 10 ** 12);
+    });
+
+    it("adjust savings downwards", async () => {
+      await savings["save(uint192)"](amount);
+      const r = await savings.savings(owner.address);
+      expect(r.saved).to.be.approximately(amount, 10 ** 12);
+      await savings.adjust(amount / 2n);
+      const r2 = await savings.savings(owner.address);
+      expect(r2.saved).to.be.approximately(amount / 2n, 10 ** 12);
     });
 
     it("withdraw partial", async () => {
@@ -273,7 +291,7 @@ describe("Savings Tests", () => {
       const t1 = await getTimeStamp();
       const tDiff = t1! - t0!;
       const toCheck =
-        (floatToDec18(10_000) * 20000n * (BigInt(tDiff))) /
+        (floatToDec18(10_000) * 20000n * BigInt(tDiff)) /
         (365n * 86_400n * 1_000_000n);
 
       const r = await savings.savings(owner.address);
@@ -310,6 +328,85 @@ describe("Savings Tests", () => {
       );
       await savings.withdraw(owner.address, 10n * amount);
       expect((await savings.savings(owner.address)).saved).to.be.eq(0n);
+    });
+  });
+  describe("Accrued interest and calculate interest", () => {
+    const getTimeStamp = async () => {
+      const blockNumBefore = await ethers.provider.getBlockNumber();
+      const blockBefore = await ethers.provider.getBlock(blockNumBefore);
+      return blockBefore?.timestamp ?? null;
+    };
+
+    describe("accrued interest", () => {
+      it("should return 0 if nothing is saved", async () => {
+        const interest = await savings.accruedInterest(owner.address);
+        expect(interest).to.eq(0n);
+      });
+
+      it("should return some interest after time passes (without collecting)", async () => {
+        const amount = floatToDec18(10_000);
+        await deuro.approve(await savings.getAddress(), amount);
+        await savings["save(uint192)"](amount);
+        await evm_increaseTime(90 * 86400);
+
+        const interest = await savings.accruedInterest(owner.address);
+        expect(interest).to.be.gt(0n);
+
+        const savedStruct = await savings.savings(owner.address);
+        expect(savedStruct.saved).to.eq(amount); // no interest added yet
+      });
+
+      it("should reset to zero after interest is collected", async () => {
+        const amount = floatToDec18(10_000);
+        await deuro.approve(await savings.getAddress(), amount);
+        await savings["save(uint192)"](amount);
+        await evm_increaseTime(100 * 86400);
+
+        const accruedBefore = await savings.accruedInterest(owner.address);
+        expect(accruedBefore).to.be.gt(0n);
+
+        await savings.refreshMyBalance(); // collect interest
+        const accruedAfter = await savings.accruedInterest(owner.address);
+        expect(accruedAfter).to.eq(0n); 
+      });
+    });
+
+    describe("calculate interest", () => {
+      it("should calculate 0 interest if no ticks passed", async () => {
+        const amount = floatToDec18(5_000);
+        await savings["save(uint192)"](amount);
+        const savedStruct = await savings.savings(owner.address);
+        const systemTicks = await savings.currentTicks();
+        const interest = await savings.calculateInterest(
+          { saved: savedStruct.saved, ticks: savedStruct.ticks },
+          systemTicks,
+        );
+
+        expect(interest).to.eq(0n);
+      });
+
+      it("should cap at system's equity if interest exceeds it", async () => {
+        let balanceEquity = await deuro.balanceOf(await deuro.reserve());           // 500_000_000000000000000000
+        await deuro.burnFrom(await deuro.reserve(), (balanceEquity * 99n) / 100n);  // reduce equity by 99%
+        balanceEquity = await deuro.balanceOf(await deuro.reserve());               // 5_000_000000000000000000
+
+        const amount = floatToDec18(500_000);
+        await deuro.mint(owner.address, amount);
+        await deuro.approve(await savings.getAddress(), amount);
+        await savings["save(uint192)"](amount);
+        await evm_increaseTime(3 * 365 * 86400); // 3 years accrual time
+
+        const savedStruct = await savings.savings(owner.address);
+        const futureTicks = await savings.ticks((await getTimeStamp()) + 1);
+        const interestWithoutCap = ((futureTicks - savedStruct.ticks) * savedStruct.saved) / 1000000n / (365n * 86400n);
+        const interest = await savings.calculateInterest(
+          { saved: savedStruct.saved, ticks: savedStruct.ticks },
+          futureTicks,
+        );
+
+        expect(interest).to.be.lt(interestWithoutCap);
+        expect(interest).to.be.equal(balanceEquity);
+      });
     });
   });
 });
