@@ -1,95 +1,116 @@
 import { expect } from "chai";
-import { floatToDec18, dec18ToFloat, DECIMALS } from "../scripts/math";
+import {
+  floatToDec18,
+  dec18ToFloat,
+  DECIMALS,
+  mulDec18,
+} from "../scripts/math";
 import { ethers } from "hardhat";
 import { evm_increaseTime, evm_increaseTimeTo } from "./helper";
 import {
   Equity,
-  Frankencoin,
+  DecentralizedEURO,
   MintingHub,
   Position,
   Savings,
   PositionRoller,
   StablecoinBridge,
   TestToken,
+  PositionExpirationTest,
+  PositionRollingTest,
 } from "../typechain";
-import { PositionExpirationTest, PositionRollingTest } from "../typechain/test";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
+import { ContractTransactionResponse } from "ethers";
 
+const weeks = 30;
+
+const getPositionAddressFromTX = async (
+  tx: ContractTransactionResponse,
+): Promise<string> => {
+  const PositionOpenedTopic =
+    "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
+  const rc = await tx.wait();
+  const log = rc?.logs.find((x) => x.topics.indexOf(PositionOpenedTopic) >= 0);
+  return "0x" + log?.topics[2].substring(26);
+};
 
 describe("Position Tests", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
   let charles: HardhatEthersSigner;
-  
-  let zchf: Frankencoin;
+
+  let dEURO: DecentralizedEURO;
   let mintingHub: MintingHub;
   let bridge: StablecoinBridge;
   let savings: Savings;
   let roller: PositionRoller;
   let equity: Equity;
   let mockVOL: TestToken;
-  let mockXCHF: TestToken;
+  let mockXEUR: TestToken;
 
   let limit: bigint;
 
   before(async () => {
     [owner, alice, bob, charles] = await ethers.getSigners();
     // create contracts
-    const frankenCoinFactory = await ethers.getContractFactory("Frankencoin");
-    zchf = await frankenCoinFactory.deploy(10 * 86400);
-    equity = await ethers.getContractAt("Equity", await zchf.reserve());
+    const DecentralizedEUROFactory =
+      await ethers.getContractFactory("DecentralizedEURO");
+    dEURO = await DecentralizedEUROFactory.deploy(10 * 86400);
+    equity = await ethers.getContractAt("Equity", await dEURO.reserve());
 
-    const positionFactoryFactory = await ethers.getContractFactory(
-      "PositionFactory"
-    );
+    const positionFactoryFactory =
+      await ethers.getContractFactory("PositionFactory");
     const positionFactory = await positionFactoryFactory.deploy();
 
     const savingsFactory = await ethers.getContractFactory("Savings");
-    savings = await savingsFactory.deploy(zchf.getAddress(), 0n);
+    savings = await savingsFactory.deploy(dEURO.getAddress(), 0n);
 
     const rollerFactory = await ethers.getContractFactory("PositionRoller");
-    roller = await rollerFactory.deploy(zchf.getAddress());
+    roller = await rollerFactory.deploy(dEURO.getAddress());
 
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
-      await zchf.getAddress(),
+      await dEURO.getAddress(),
       await savings.getAddress(),
       await roller.getAddress(),
-      await positionFactory.getAddress()
+      await positionFactory.getAddress(),
     );
 
     // mocktoken
     const testTokenFactory = await ethers.getContractFactory("TestToken");
-    mockXCHF = await testTokenFactory.deploy("CryptoFranc", "XCHF", 18);
+    mockXEUR = await testTokenFactory.deploy("CryptoFranc", "XEUR", 18);
     // mocktoken bridge to bootstrap
     limit = floatToDec18(1_000_000);
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
     bridge = await bridgeFactory.deploy(
-      await mockXCHF.getAddress(),
-      await zchf.getAddress(),
-      limit
+      await mockXEUR.getAddress(),
+      await dEURO.getAddress(),
+      limit,
+      weeks,
     );
-    await zchf.initialize(await bridge.getAddress(), "XCHF Bridge");
-    // create a minting hub too while we have no ZCHF supply
-    await zchf.initialize(await mintingHub.getAddress(), "Minting Hub");
-    await zchf.initialize(await savings.getAddress(), "Savings");
-    await zchf.initialize(await roller.getAddress(), "Roller");
+    await dEURO.initialize(await bridge.getAddress(), "XEUR Bridge");
+    // create a minting hub too while we have no dEURO supply
+    await dEURO.initialize(await mintingHub.getAddress(), "Minting Hub");
+    await dEURO.initialize(await savings.getAddress(), "Savings");
+    await dEURO.initialize(await roller.getAddress(), "Roller");
 
     // wait for 1 block
     await evm_increaseTime(60);
-    // now we are ready to bootstrap ZCHF with Mock-XCHF
-    await mockXCHF.mint(owner.address, limit / 3n);
-    await mockXCHF.mint(alice.address, limit / 3n);
-    await mockXCHF.mint(bob.address, limit / 3n);
-    // mint some ZCHF to block bridges without veto
+    // now we are ready to bootstrap dEURO with Mock-XEUR
+    await mockXEUR.mint(owner.address, limit / 3n);
+    await mockXEUR.mint(alice.address, limit / 3n);
+    await mockXEUR.mint(bob.address, limit / 3n);
+    // mint some dEURO to block bridges without veto
     let amount = floatToDec18(20_000);
-    await mockXCHF.connect(alice).approve(await bridge.getAddress(), amount);
+    await mockXEUR.connect(alice).approve(await bridge.getAddress(), amount);
     await bridge.connect(alice).mint(amount);
-    await mockXCHF.connect(owner).approve(await bridge.getAddress(), limit / 3n);
+    await mockXEUR
+      .connect(owner)
+      .approve(await bridge.getAddress(), limit / 3n);
     await bridge.connect(owner).mint(limit / 3n); // owner should have plenty
-    await mockXCHF.connect(bob).approve(await bridge.getAddress(), amount);
+    await mockXEUR.connect(bob).approve(await bridge.getAddress(), amount);
     await bridge.connect(bob).mint(amount);
     // vol tokens
     mockVOL = await testTokenFactory.deploy("Volatile Token", "VOL", 18);
@@ -142,8 +163,8 @@ describe("Position Tests", () => {
           challengePeriod,
           fFees,
           fliqPrice,
-          fReserve
-        )
+          fReserve,
+        ),
       ).to.be.revertedWithoutReason();
     });
     it("should revert creating position when annual interest is less than 1M PPM", async () => {
@@ -158,8 +179,8 @@ describe("Position Tests", () => {
           challengePeriod,
           2 * 1_000_000,
           fliqPrice,
-          fReserve
-        )
+          fReserve,
+        ),
       ).to.be.revertedWithoutReason();
     });
     it("should revert creating position when reserve fee is less than 1M PPM", async () => {
@@ -174,8 +195,8 @@ describe("Position Tests", () => {
           challengePeriod,
           fFees,
           fliqPrice,
-          2 * 1_000_000
-        )
+          2 * 1_000_000,
+        ),
       ).to.be.revertedWithoutReason();
     });
     it("should revert creating position when initial collateral is less than minimal", async () => {
@@ -190,11 +211,11 @@ describe("Position Tests", () => {
           challengePeriod,
           fFees,
           fliqPrice,
-          fReserve
-        )
+          fReserve,
+        ),
       ).to.be.revertedWithCustomError(mintingHub, "InsufficientCollateral");
     });
-    it("should revert creating position when minimal collateral is not worth of at least 5k ZCHF", async () => {
+    it("should revert creating position when minimal collateral is not worth of at least 5k dEURO", async () => {
       await expect(
         mintingHub.openPosition(
           collateral,
@@ -206,8 +227,8 @@ describe("Position Tests", () => {
           challengePeriod,
           fFees,
           floatToDec18(4000),
-          fReserve
-        )
+          fReserve,
+        ),
       ).to.be.revertedWithCustomError(mintingHub, "InsufficientCollateral");
     });
     it("should revert creating position when collateral token has more than 24 decimals", async () => {
@@ -224,8 +245,8 @@ describe("Position Tests", () => {
           challengePeriod,
           fFees,
           floatToDec18(4000),
-          fReserve
-        )
+          fReserve,
+        ),
       ).to.be.revertedWithoutReason();
     });
     it("should revert creating position when collateral token does not revert on error", async () => {
@@ -242,14 +263,14 @@ describe("Position Tests", () => {
           challengePeriod,
           fFees,
           floatToDec18(4000),
-          fReserve
-        )
+          fReserve,
+        ),
       ).to.be.revertedWithCustomError(mintingHub, "IncompatibleCollateral");
     });
     it("create position", async () => {
-      let openingFeeZCHF = await mintingHub.OPENING_FEE();
+      let openingFeedEURO = await mintingHub.OPENING_FEE();
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
-      let balBefore = await zchf.balanceOf(owner.address);
+      let balBefore = await dEURO.balanceOf(owner.address);
       let balBeforeVOL = await mockVOL.balanceOf(owner.address);
       let tx = await mintingHub.openPosition(
         collateral,
@@ -261,7 +282,7 @@ describe("Position Tests", () => {
         challengePeriod,
         fFees,
         fliqPrice,
-        fReserve
+        fReserve,
       );
       let rc = await tx.wait();
       const topic =
@@ -271,16 +292,14 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner
+        owner,
       );
-      let balAfter = await zchf.balanceOf(owner.address);
+      let balAfter = await dEURO.balanceOf(owner.address);
       let balAfterVOL = await mockVOL.balanceOf(owner.address);
-      let dZCHF = dec18ToFloat(balAfter - balBefore);
+      let ddEURO = dec18ToFloat(balAfter - balBefore);
       let dVOL = dec18ToFloat(balAfterVOL - balBeforeVOL);
       expect(dVOL).to.be.equal(-initialCollateral);
-      expect(dZCHF).to.be.equal(-dec18ToFloat(openingFeeZCHF));
-      let currentFees = await positionContract.calculateCurrentFee();
-      expect(currentFees).to.be.eq(1643);
+      expect(ddEURO).to.be.equal(-dec18ToFloat(openingFeedEURO));
     });
     it("require cooldown", async () => {
       let tx = positionContract
@@ -290,8 +309,11 @@ describe("Position Tests", () => {
     });
     it("should revert minting from non owner", async () => {
       await expect(
-        positionContract.connect(alice).mint(owner.address, 100)
-      ).to.be.revertedWithCustomError(positionContract, "NotOwner");
+        positionContract.connect(alice).mint(owner.address, 100),
+      ).to.be.revertedWithCustomError(
+        positionContract,
+        "OwnableUnauthorizedAccount",
+      );
     });
     it("should revert minting when there is a challange", async () => {
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
@@ -305,7 +327,7 @@ describe("Position Tests", () => {
         challengePeriod,
         fFees,
         fliqPrice,
-        fReserve
+        fReserve,
       );
       let rc = await tx.wait();
       const topic =
@@ -315,7 +337,7 @@ describe("Position Tests", () => {
       const positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner
+        owner,
       );
       challengeAmount = initialCollateralClone / 2;
       let fchallengeAmount = floatToDec18(challengeAmount);
@@ -324,10 +346,10 @@ describe("Position Tests", () => {
       await mintingHub.challenge(
         await positionContract.getAddress(),
         fchallengeAmount,
-        price
+        price,
       );
       await expect(
-        positionContract.mint(owner.address, floatToDec18(10))
+        positionContract.mint(owner.address, floatToDec18(10)),
       ).to.be.revertedWithCustomError(positionContract, "Challenged");
     });
     it("try clone after 7 days but before collateral was withdrawn", async () => {
@@ -335,15 +357,15 @@ describe("Position Tests", () => {
       await evm_increaseTime(7 * 86_400 + 60);
 
       let fInitialCollateralClone = floatToDec18(initialCollateralClone);
-      let fZCHFAmount = floatToDec18(1000);
-      // send some collateral and ZCHF to the cloner
+      let fdEUROAmount = floatToDec18(1000);
+      // send some collateral and dEURO to the cloner
       await mockVOL.transfer(alice.address, fInitialCollateralClone);
-      await zchf.transfer(alice.address, fZCHFAmount);
+      await dEURO.transfer(alice.address, fdEUROAmount);
 
       await mockVOL
         .connect(alice)
         .approve(await mintingHub.getAddress(), fInitialCollateralClone);
-      fGlblZCHBalanceOfCloner = await zchf.balanceOf(alice.address);
+      fGlblZCHBalanceOfCloner = await dEURO.balanceOf(alice.address);
 
       let expiration = await positionContract.expiration();
       let availableLimit = await positionContract.availableForClones();
@@ -353,7 +375,7 @@ describe("Position Tests", () => {
         .clone(positionAddr, fInitialCollateralClone, fMintAmount, expiration);
       await expect(tx).to.be.revertedWithCustomError(
         positionContract,
-        "LimitExceeded"
+        "LimitExceeded",
       );
 
       let colbal1 = await mockVOL.balanceOf(positionAddr);
@@ -372,38 +394,34 @@ describe("Position Tests", () => {
       limit = dec18ToFloat(fLimit);
       let amount = BigInt(1e18) * 10_000n;
       expect(amount).to.be.lessThan(fLimit);
-      let fZCHFBefore = await zchf.balanceOf(owner.address);
       let targetAmount = BigInt(1e16) * 898548n;
-      let totalMint = (await positionContract.getMintAmount(targetAmount));
-      let expectedAmount = await positionContract.getUsableMint(
-        totalMint,
-        true
-      );
+      let totalMint = await positionContract.getMintAmount(targetAmount);
+      let expectedAmount = await positionContract.getUsableMint(totalMint);
       for (let testTarget = 0n; testTarget < 100n; testTarget++) {
         // make sure these functions are not susceptible to rounding errors
-        let testTotal = (await positionContract.getMintAmount(targetAmount + testTarget));
-        let testExpected = await positionContract.getUsableMint(
-          testTotal,
-          true
+        let testTotal = await positionContract.getMintAmount(
+          targetAmount + testTarget,
         );
+        let testExpected = await positionContract.getUsableMint(testTotal);
         expect(testExpected).to.be.eq(targetAmount + testTarget);
       }
 
-      expect(await positionContract.getUsableMint(amount, false)).to.be.equal(
-        9000n * BigInt(1e18)
+      expect(await positionContract.getUsableMint(amount)).to.be.equal(
+        9000n * BigInt(1e18),
       );
 
-      await positionContract.connect(owner).mint(owner.address, amount); //).to.emit("PositionOpened");
-      let currentFees = await positionContract.calculateCurrentFee();
-      expect(currentFees).to.be.eq(1452n); // 53 days of a 1% yearly interest
+      let fdEUROBefore = await dEURO.balanceOf(owner.address);
+      await positionContract.connect(owner).mint(owner.address, totalMint); //).to.emit("PositionOpened");
+      let interest = await positionContract.getInterest();
+      expect(interest).to.be.eq(0); // no interest yet
 
-      let fZCHFAfter = await zchf.balanceOf(owner.address);
-      let ZCHFMinted = fZCHFAfter - fZCHFBefore;
-      expect(expectedAmount).to.be.equal(ZCHFMinted);
+      let fdEUROAfter = await dEURO.balanceOf(owner.address);
+      let dEUROMinted = fdEUROAfter - fdEUROBefore;
+      expect(expectedAmount).to.be.equal(dEUROMinted);
     });
     it("should revert cloning for invalid position", async () => {
       let fInitialCollateralClone = floatToDec18(initialCollateralClone);
-      fGlblZCHBalanceOfCloner = await zchf.balanceOf(alice.address);
+      fGlblZCHBalanceOfCloner = await dEURO.balanceOf(alice.address);
 
       let start = await positionContract.start();
       let expiration = await positionContract.expiration();
@@ -416,13 +434,13 @@ describe("Position Tests", () => {
             owner.address,
             fInitialCollateralClone,
             fMintAmount,
-            newExpiration
-          )
+            newExpiration,
+          ),
       ).to.be.revertedWithCustomError(mintingHub, "InvalidPos");
     });
     it("should revert cloning when new expiration is greater than original one", async () => {
       let fInitialCollateralClone = floatToDec18(initialCollateralClone);
-      fGlblZCHBalanceOfCloner = await zchf.balanceOf(alice.address);
+      fGlblZCHBalanceOfCloner = await dEURO.balanceOf(alice.address);
 
       let expiration = await positionContract.expiration();
       await expect(
@@ -432,32 +450,46 @@ describe("Position Tests", () => {
             positionAddr,
             fInitialCollateralClone,
             fMintAmount,
-            expiration + 100n
-          )
-      ).to.be.revertedWithCustomError(
-        positionContract,
-        "InvalidExpiration"
-      );
+            expiration + 100n,
+          ),
+      ).to.be.revertedWithCustomError(positionContract, "InvalidExpiration");
     });
     it("should revert initializing again", async () => {
       await expect(
-        positionContract.initialize(positionAddr, 0)
+        positionContract.initialize(positionAddr, 0),
       ).to.be.revertedWithCustomError(positionContract, "NotHub");
+    });
+    it("should successfully mint for position owner", async () => {
+      await evm_increaseTime(86400 * 7)
+      const amount = floatToDec18(5);
+      const reserveContribution = await positionContract.reserveContribution();
+      const ownerBalanceBefore = await dEURO.balanceOf(owner.address);
+      const reserveBalanceBefore = await dEURO.balanceOf(await dEURO.reserve());
+      const principalBefore = await positionContract.principal();
+      const lastAccrualTimeBefore = await positionContract.lastAccrual();
+      await positionContract
+        .connect(owner)
+        .mint(owner.address, amount);
+      const ownerBalanceAfter = await dEURO.balanceOf(owner.address);
+      const reserveBalanceAfter = await dEURO.balanceOf(await dEURO.reserve());
+      const principalAfter = await positionContract.principal();
+      const lastAccrualTimeAfter = await positionContract.lastAccrual();
+      const expReserveContribution = (amount * reserveContribution) / 1_000_000n;
+      expect(lastAccrualTimeAfter).to.be.greaterThan(lastAccrualTimeBefore);
+      expect(principalAfter - principalBefore).to.be.equal(amount);
+      expect(ownerBalanceAfter - ownerBalanceBefore).to.be.equal(amount - expReserveContribution);
+      expect(reserveBalanceAfter - reserveBalanceBefore).to.be.equal(expReserveContribution);
     });
     it("should revert cloning position with insufficient initial collateral", async () => {
       let expiration = await positionContract.expiration();
       await expect(
-        mintingHub
-          .connect(alice)
-          .clone(positionAddr, 0, 0, expiration)
+        mintingHub.connect(alice).clone(positionAddr, 0, 0, expiration),
       ).to.be.revertedWithCustomError(mintingHub, "InsufficientCollateral");
     });
     it("clone position", async () => {
       let fInitialCollateralClone = floatToDec18(initialCollateralClone);
-      fGlblZCHBalanceOfCloner = await zchf.balanceOf(alice.address);
+      fGlblZCHBalanceOfCloner = await dEURO.balanceOf(alice.address);
 
-      let fees = await positionContract.calculateCurrentFee();
-      const timestamp1 = BigInt(await time.latest());
       let start = await positionContract.start();
       let expiration = await positionContract.expiration();
       let duration = (expiration - start) / 2n;
@@ -468,7 +500,7 @@ describe("Position Tests", () => {
           positionAddr,
           fInitialCollateralClone,
           fMintAmount,
-          newExpiration
+          newExpiration,
         );
       let rc = await tx.wait();
       const topic =
@@ -478,16 +510,13 @@ describe("Position Tests", () => {
       clonePositionContract = await ethers.getContractAt(
         "Position",
         clonePositionAddr,
-        alice
+        alice,
       );
       let newStart = await clonePositionContract.start();
       let newExpirationActual = await clonePositionContract.expiration();
+      let newInterest = await clonePositionContract.getInterest();
       expect(newExpirationActual).to.be.eq(newExpiration);
-      let newFees = await clonePositionContract.calculateCurrentFee();
-      const timestamp2 = BigInt(await time.latest());
-      expect(
-        (fees * (newExpiration - timestamp2)) / (expiration - timestamp1)
-      ).to.be.approximately(newFees, 1);
+      expect(newInterest).to.be.eq(0);
     });
     it("correct collateral", async () => {
       let col = await mockVOL.balanceOf(clonePositionAddr);
@@ -509,7 +538,7 @@ describe("Position Tests", () => {
       expect(fLimit0).to.be.equal(fLimit1);
 
       await expect(
-        clonePositionContract.mint(owner.address, fLimit0 + 100n)
+        clonePositionContract.mint(owner.address, fLimit0 + 100n),
       ).to.be.revertedWithCustomError(clonePositionContract, "LimitExceeded");
     });
     it("correct fees charged", async () => {
@@ -519,9 +548,9 @@ describe("Position Tests", () => {
       // - position fee (or clone fee)
       let reserveContributionPPM =
         await clonePositionContract.reserveContribution();
-      let yearlyInterestPPM = await clonePositionContract.annualInterestPPM();
+      let yearlyInterestPPM = await clonePositionContract.fixedAnnualRatePPM();
 
-      let fBalanceAfter = await zchf.balanceOf(alice.address);
+      let fBalanceAfter = await dEURO.balanceOf(alice.address);
       let mintAfterFees =
         (BigInt(mintAmount) *
           (1000_000n -
@@ -534,19 +563,19 @@ describe("Position Tests", () => {
     });
     it("clone position with too much mint", async () => {
       let fInitialCollateralClone = floatToDec18(initialCollateralClone);
-      let fZCHFAmount = floatToDec18(1000);
-      // send some collateral and ZCHF to the cloner
+      let fdEUROAmount = floatToDec18(1000);
+      // send some collateral and dEURO to the cloner
       await mockVOL.mint(alice.address, fInitialCollateralClone * 1000n);
-      await zchf.transfer(alice.address, fZCHFAmount);
+      await dEURO.transfer(alice.address, fdEUROAmount);
 
       const expiration = await positionContract.expiration();
       await mockVOL
         .connect(alice)
         .approve(
           await mintingHub.getAddress(),
-          fInitialCollateralClone * 1000n
+          fInitialCollateralClone * 1000n,
         );
-      fGlblZCHBalanceOfCloner = await zchf.balanceOf(alice.address);
+      fGlblZCHBalanceOfCloner = await dEURO.balanceOf(alice.address);
       let available = await positionContract.availableForClones();
       let price = await positionContract.price();
       let tx = mintingHub
@@ -554,7 +583,7 @@ describe("Position Tests", () => {
         .clone(positionAddr, fInitialCollateralClone, available, expiration);
       await expect(tx).to.be.revertedWithCustomError(
         positionContract,
-        "InsufficientCollateral"
+        "InsufficientCollateral",
       );
 
       let pendingTx = mintingHub
@@ -563,11 +592,11 @@ describe("Position Tests", () => {
           positionAddr,
           fInitialCollateralClone * 1000n,
           initialLimit,
-          expiration
+          expiration,
         );
       await expect(pendingTx).to.be.revertedWithCustomError(
         positionContract,
-        "LimitExceeded"
+        "LimitExceeded",
       );
     });
     it("repay position", async () => {
@@ -576,27 +605,27 @@ describe("Position Tests", () => {
       let fInitialCollateralClone = floatToDec18(initialCollateralClone);
       let withdrawTx = clonePositionContract.withdrawCollateral(
         cloneOwner,
-        fInitialCollateralClone
+        fInitialCollateralClone,
       );
       await expect(withdrawTx).to.be.revertedWithCustomError(
         clonePositionContract,
-        "InsufficientCollateral"
+        "InsufficientCollateral",
       );
 
-      let minted = await clonePositionContract.minted();
+      let principal = await clonePositionContract.principal();
+      let minted = await clonePositionContract.getDebt();
       let reservePPM = await clonePositionContract.reserveContribution();
-      let repayAmount = minted - (minted * reservePPM) / 1000000n;
-      let reserve = await zchf.calculateAssignedReserve(minted, reservePPM);
+      let repayAmount = minted - (principal * reservePPM) / 1000000n;
+      let reserve = await dEURO.calculateAssignedReserve(principal, reservePPM);
       expect(reserve + repayAmount).to.be.eq(minted);
 
-      await clonePositionContract.repay(repayAmount - reserve);
-      let minted1 = await clonePositionContract.minted();
-      let reserve1 = await zchf.calculateAssignedReserve(minted1, reservePPM);
-      let repayAmount1 = minted1 - reserve1;
-      await clonePositionContract.repay(repayAmount1);
+      await dEURO
+        .connect(alice)
+        .approve(clonePositionAddr, minted + floatToDec18(1));
+      await clonePositionContract.repayFull();
       await clonePositionContract.withdrawCollateral(
         cloneOwner,
-        fInitialCollateralClone
+        fInitialCollateralClone,
       );
       let result = await clonePositionContract.isClosed();
       await expect(result).to.be.true;
@@ -604,22 +633,23 @@ describe("Position Tests", () => {
     it("should revert minting when the position is expired", async () => {
       await evm_increaseTime(86400 * 61);
       await expect(
-        positionContract.mint(owner.address, floatToDec18(10))
+        positionContract.mint(owner.address, floatToDec18(10)),
       ).to.be.revertedWithCustomError(positionContract, "Expired");
     });
     it("should revert on price adjustments when expired", async () => {
       let currentPrice = await positionContract.price();
       await expect(
-        positionContract.adjustPrice(currentPrice / 2n)
+        positionContract.adjustPrice(currentPrice / 2n),
       ).to.be.revertedWithCustomError(positionContract, "Expired");
     });
     it("should revert on price adjustments when expired", async () => {
       let currentPrice = await positionContract.price();
-      let minted = await positionContract.minted();
+      let principal = await positionContract.principal();
       let collateralBalance = await mockVOL.balanceOf(positionAddr);
-      await positionContract.adjust(minted, collateralBalance, currentPrice); // don't revert if price is the same
+      await dEURO.connect(owner).approve(positionAddr, principal);
+      await positionContract.adjust(principal, collateralBalance, currentPrice); // don't revert if price is the same
       await expect(
-        positionContract.adjust(minted, collateralBalance, currentPrice / 2n)
+        positionContract.adjust(principal, collateralBalance, currentPrice / 2n),
       ).to.be.revertedWithCustomError(positionContract, "Expired");
     });
     it("should revert reducing limit from non hub", async () => {
@@ -634,7 +664,7 @@ describe("Position Tests", () => {
         challengePeriod,
         fFees,
         fliqPrice,
-        fReserve
+        fReserve,
       );
       let rc = await tx.wait();
       const topic =
@@ -644,30 +674,35 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner
+        owner,
       );
       await expect(
-        positionContract.assertCloneable()
+        positionContract.assertCloneable(),
       ).to.be.revertedWithCustomError(positionContract, "Hot");
       await evm_increaseTime(86400 * 7);
       await positionContract.assertCloneable();
       await expect(
-        positionContract.notifyMint(0)
+        positionContract.notifyMint(0),
       ).to.be.revertedWithCustomError(positionContract, "NotHub");
       await expect(
-        positionContract.notifyRepaid(0)
+        positionContract.notifyRepaid(0),
       ).to.be.revertedWithCustomError(positionContract, "NotHub");
     });
     it("should revert cloning when it is expired", async () => async () => {
       await evm_increaseTime(86400 * 61);
       let fInitialCollateralClone = floatToDec18(initialCollateralClone);
-      fGlblZCHBalanceOfCloner = await zchf.balanceOf(alice.address);
+      fGlblZCHBalanceOfCloner = await dEURO.balanceOf(alice.address);
       let expiration = await positionContract.expiration();
 
       await expect(
         mintingHub
           .connect(alice)
-          .clone(positionAddr, fInitialCollateralClone, fMintAmount, expiration)
+          .clone(
+            positionAddr,
+            fInitialCollateralClone,
+            fMintAmount,
+            expiration,
+          ),
       ).to.be.revertedWithCustomError(positionContract, "Expired");
     });
     it("should revert reducing limit when there is a challenge", async () => {
@@ -678,7 +713,7 @@ describe("Position Tests", () => {
       await mintingHub.challenge(positionAddr, fchallengeAmount, price);
       challengeNumber++;
       await expect(
-        positionContract.assertCloneable()
+        positionContract.assertCloneable(),
       ).to.be.revertedWithCustomError(positionContract, "Challenged");
     });
   });
@@ -691,12 +726,12 @@ describe("Position Tests", () => {
       let duration = BigInt(60 * 86_400);
       let fFees = BigInt(fee * 1_000_000);
       let fReserve = BigInt(reserve * 1_000_000);
-      let openingFeeZCHF = await mintingHub.OPENING_FEE();
+      let openingFeedEURO = await mintingHub.OPENING_FEE();
       let challengePeriod = BigInt(3 * 86400); // 3 days
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
-      let balBefore = await zchf.balanceOf(owner.address);
+      let balBefore = await dEURO.balanceOf(owner.address);
       let balBeforeVOL = await mockVOL.balanceOf(owner.address);
       let tx = await mintingHub.openPosition(
         collateral,
@@ -708,38 +743,38 @@ describe("Position Tests", () => {
         challengePeriod,
         fFees,
         fliqPrice,
-        fReserve
+        fReserve,
       );
       let rc = await tx.wait();
       const topic =
         "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
-      let balAfter = await zchf.balanceOf(owner.address);
+      let balAfter = await dEURO.balanceOf(owner.address);
       let balAfterVOL = await mockVOL.balanceOf(owner.address);
-      let dZCHF = dec18ToFloat(balAfter - balBefore);
+      let ddEURO = dec18ToFloat(balAfter - balBefore);
       let dVOL = dec18ToFloat(balAfterVOL - balBeforeVOL);
       expect(dVOL).to.be.equal(BigInt(-initialCollateral));
-      expect(dZCHF).to.be.equal(-dec18ToFloat(openingFeeZCHF));
+      expect(ddEURO).to.be.equal(-dec18ToFloat(openingFeedEURO));
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner
+        owner,
       );
-      let currentFees = await positionContract.calculateCurrentFee();
-      expect(currentFees).to.be.eq(1643);
+      let currentInterest = await positionContract.getInterest();
+      expect(currentInterest).to.be.eq(0);
     });
     it("deny challenge", async () => {
       expect(positionContract.deny([], "")).to.be.emit(
         positionContract,
-        "PositionDenied"
+        "PositionDenied",
       );
     });
     it("should revert denying challenge when challenge started", async () => {
       await evm_increaseTime(86400 * 8);
       await expect(positionContract.deny([], "")).to.be.revertedWithCustomError(
         positionContract,
-        "TooLate"
+        "TooLate",
       );
     });
   });
@@ -752,12 +787,12 @@ describe("Position Tests", () => {
       let duration = BigInt(60 * 86_400);
       let fFees = BigInt(fee * 1_000_000);
       let fReserve = BigInt(reserve * 1_000_000);
-      let openingFeeZCHF = await mintingHub.OPENING_FEE();
+      let openingFeedEURO = await mintingHub.OPENING_FEE();
       let challengePeriod = BigInt(3 * 86400); // 3 days
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
-      let balBefore = await zchf.balanceOf(owner.address);
+      let balBefore = await dEURO.balanceOf(owner.address);
       let balBeforeVOL = await mockVOL.balanceOf(owner.address);
       let tx = await mintingHub.openPosition(
         collateral,
@@ -769,36 +804,36 @@ describe("Position Tests", () => {
         challengePeriod,
         fFees,
         fliqPrice,
-        fReserve
+        fReserve,
       );
       let rc = await tx.wait();
       const topic =
         "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
       const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       positionAddr = "0x" + log?.topics[2].substring(26);
-      let balAfter = await zchf.balanceOf(owner.address);
+      let balAfter = await dEURO.balanceOf(owner.address);
       let balAfterVOL = await mockVOL.balanceOf(owner.address);
-      let dZCHF = dec18ToFloat(balAfter - balBefore);
+      let ddEURO = dec18ToFloat(balAfter - balBefore);
       let dVOL = dec18ToFloat(balAfterVOL - balBeforeVOL);
       expect(dVOL).to.be.equal(BigInt(-initialCollateral));
-      expect(dZCHF).to.be.equal(-dec18ToFloat(openingFeeZCHF));
+      expect(ddEURO).to.be.equal(-dec18ToFloat(openingFeedEURO));
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner
+        owner,
       );
     });
     it("should revert challenging from non minting hub address", async () => {
       challengeAmount = initialCollateralClone / 2;
       let fchallengeAmount = floatToDec18(challengeAmount);
       await expect(
-        positionContract.notifyChallengeStarted(fchallengeAmount)
+        positionContract.notifyChallengeStarted(fchallengeAmount),
       ).to.be.revertedWithCustomError(positionContract, "NotHub");
     });
     it("should revert challenging with zero collateral", async () => {
       let price = await positionContract.price();
       await expect(
-        mintingHub.challenge(positionAddr, 0, price)
+        mintingHub.challenge(positionAddr, 0, price),
       ).to.be.revertedWithCustomError(positionContract, "ChallengeTooSmall");
     });
     it("should revert challenging for invalid position address", async () => {
@@ -806,7 +841,7 @@ describe("Position Tests", () => {
       let fchallengeAmount = floatToDec18(challengeAmount);
       let price = await positionContract.price();
       await expect(
-        mintingHub.challenge(owner.address, fchallengeAmount, price)
+        mintingHub.challenge(owner.address, fchallengeAmount, price),
       ).to.be.revertedWithCustomError(mintingHub, "InvalidPos");
     });
     it("should revert challenging with different position price", async () => {
@@ -814,7 +849,7 @@ describe("Position Tests", () => {
       let fchallengeAmount = floatToDec18(challengeAmount);
       let price = await positionContract.price();
       await expect(
-        mintingHub.challenge(positionAddr, fchallengeAmount, price + 100n)
+        mintingHub.challenge(positionAddr, fchallengeAmount, price + 100n),
       ).to.be.revertedWithCustomError(mintingHub, "UnexpectedPrice");
     });
     it("should revert challenging zero amount or less than minimal collateral", async () => {
@@ -822,10 +857,10 @@ describe("Position Tests", () => {
       await mockVOL.approve(await mintingHub.getAddress(), floatToDec18(0.1));
 
       await expect(
-        mintingHub.challenge(positionAddr, 0, price)
+        mintingHub.challenge(positionAddr, 0, price),
       ).to.be.revertedWithCustomError(positionContract, "ChallengeTooSmall");
       await expect(
-        mintingHub.challenge(positionAddr, floatToDec18(0.1), price)
+        mintingHub.challenge(positionAddr, floatToDec18(0.1), price),
       ).to.be.revertedWithCustomError(positionContract, "ChallengeTooSmall");
     });
     it("bid on challenged, flat sale, not expired position", async () => {
@@ -836,7 +871,7 @@ describe("Position Tests", () => {
       let tx = await mintingHub.challenge(
         positionAddr,
         fchallengeAmount,
-        price
+        price,
       );
       challengeNumber++;
       const challenge = await mintingHub.challenges(challengeNumber);
@@ -849,33 +884,77 @@ describe("Position Tests", () => {
       expect(liqPrice).to.be.equal(price);
 
       const bidSize = floatToDec18(challengeAmount / 4);
-      let bidAmountZCHF = (liqPrice * bidSize) / DECIMALS;
-      let balanceBeforeBob = await zchf.balanceOf(bob.address);
-      let balanceBeforeChallenger = await zchf.balanceOf(challengerAddress);
+      let bidAmountdEURO = (liqPrice * bidSize) / DECIMALS;
+      let balanceBeforeBob = await dEURO.balanceOf(bob.address);
+      let balanceBeforeChallenger = await dEURO.balanceOf(challengerAddress);
       let volBalanceBefore = await mockVOL.balanceOf(bob.address);
 
-      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, false);
+      await dEURO
+        .connect(bob)
+        .approve(await mintingHub.getAddress(), bidAmountdEURO);
+      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, false, 0);
       await expect(tx).to.emit(mintingHub, "ChallengeAverted");
-      let balanceAfterChallenger = await zchf.balanceOf(challengerAddress);
-      let balanceAfterBob = await zchf.balanceOf(bob.address);
+      let balanceAfterChallenger = await dEURO.balanceOf(challengerAddress);
+      let balanceAfterBob = await dEURO.balanceOf(bob.address);
       let volBalanceAfter = await mockVOL.balanceOf(bob.address);
 
       expect(volBalanceAfter - volBalanceBefore).to.be.eq(bidSize);
-      expect(balanceBeforeBob - balanceAfterBob).to.be.equal(bidAmountZCHF);
+      expect(balanceBeforeBob - balanceAfterBob).to.be.equal(bidAmountdEURO);
       expect(balanceAfterChallenger - balanceBeforeChallenger).to.be.equal(
-        bidAmountZCHF
+        bidAmountdEURO,
       );
 
       // Self bidding, should reduce challenge size
-      balanceBeforeChallenger = await zchf.balanceOf(challengerAddress);
+      balanceBeforeChallenger = await dEURO.balanceOf(challengerAddress);
       volBalanceBefore = await mockVOL.balanceOf(challengerAddress);
 
       let updatedChallenge = await mintingHub.challenges(challengeNumber);
-      await mintingHub.bid(challengeNumber, updatedChallenge.size, true);
+      await mintingHub.bid(challengeNumber, updatedChallenge.size, true, 0);
 
-      balanceAfterChallenger = await zchf.balanceOf(challengerAddress);
+      balanceAfterChallenger = await dEURO.balanceOf(challengerAddress);
       volBalanceAfter = await mockVOL.balanceOf(challengerAddress);
       expect(balanceAfterChallenger).to.be.equal(balanceBeforeChallenger);
+    });
+    it("bid on challenge with amount larger than collateral balance of position", async () => {
+      await evm_increaseTimeTo(await positionContract.cooldown() + 1n);
+      const reduceCollateralByAmount = await mockVOL.balanceOf(positionAddr) - floatToDec18(5n);
+      await positionContract.withdrawCollateral(owner.address, reduceCollateralByAmount);
+      let availableCollateral = await mockVOL.balanceOf(positionAddr);
+      const fchallengeAmount = availableCollateral * 2n;
+      const price = await positionContract.price();
+      await mockVOL.approve(await mintingHub.getAddress(), fchallengeAmount);
+      let tx = await mintingHub.challenge(
+        positionAddr,
+        fchallengeAmount,
+        price,
+      );
+      challengeNumber++;
+      const challenge = await mintingHub.challenges(challengeNumber);
+      const challengeData = await positionContract.challengeData();
+      expect(challenge.size).to.be.equal(fchallengeAmount);
+
+      // Flat sale
+      await evm_increaseTimeTo(await challenge.start + challengeData.phase + 1n);
+      let liqPrice = await mintingHub.price(challengeNumber);
+      expect(liqPrice).to.be.approximately(
+        price,
+        liqPrice / 100n,
+      );
+
+      // bob sends a bid
+      const bidSize = fchallengeAmount
+      expect(bidSize).to.be.equal(2n * availableCollateral);
+      const interest = await positionContract.getInterest();
+      const propInterest = (interest * bidSize) / availableCollateral;
+      let bidAmountdEURO = (liqPrice * bidSize) / DECIMALS;
+      await dEURO.transfer(bob.address, bidAmountdEURO + propInterest);
+      await dEURO
+        .connect(bob)
+        .approve(await mintingHub.getAddress(), bidAmountdEURO + propInterest);
+      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, true, propInterest);
+      await expect(tx)
+        .to.emit(mintingHub, "ChallengeSucceeded")
+        .emit(dEURO, "Profit");
     });
     it("bid on challenged, auction sale, not expired position", async () => {
       challengeAmount = initialCollateralClone / 2;
@@ -898,7 +977,7 @@ describe("Position Tests", () => {
       let auctionPrice = await mintingHub.price(challengeNumber);
       expect(auctionPrice).to.be.approximately(
         liqPrice / 2n,
-        auctionPrice / 100n
+        auctionPrice / 100n,
       );
 
       const bidSize = floatToDec18(challengeAmount / 4);
@@ -907,40 +986,48 @@ describe("Position Tests", () => {
       expect(availableCollateral).to.be.above(bidSize);
 
       // bob sends a bid
-      let bidAmountZCHF = (auctionPrice * bidSize) / DECIMALS;
+      let bidAmountdEURO = (auctionPrice * bidSize) / DECIMALS;
       let challengerAddress = challenge.challenger;
-      await zchf.transfer(bob.address, bidAmountZCHF);
-      let balanceBeforeBob = await zchf.balanceOf(bob.address);
-      let balanceBeforeChallenger = await zchf.balanceOf(challengerAddress);
+      await dEURO.transfer(bob.address, bidAmountdEURO);
+      let balanceBeforeBob = await dEURO.balanceOf(bob.address);
+      let balanceBeforeChallenger = await dEURO.balanceOf(challengerAddress);
       let volBalanceBefore = await mockVOL.balanceOf(bob.address);
-      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, true);
+      await dEURO
+        .connect(bob)
+        .approve(await mintingHub.getAddress(), bidAmountdEURO);
+      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, true, 0);
       await expect(tx)
         .to.emit(mintingHub, "ChallengeSucceeded")
-        .emit(zchf, "Profit");
+        .emit(dEURO, "Profit");
 
-      let balanceAfterChallenger = await zchf.balanceOf(challengerAddress);
-      let balanceAfterBob = await zchf.balanceOf(bob.address);
+      let balanceAfterChallenger = await dEURO.balanceOf(challengerAddress);
+      let balanceAfterBob = await dEURO.balanceOf(bob.address);
       let volBalanceAfter = await mockVOL.balanceOf(bob.address);
       expect(volBalanceAfter - volBalanceBefore).to.be.eq(bidSize);
       expect(balanceBeforeBob - balanceAfterBob).to.be.approximately(
-        bidAmountZCHF,
-        bidAmountZCHF / 100n
+        bidAmountdEURO,
+        bidAmountdEURO / 100n,
       );
       expect(
-        balanceAfterChallenger - balanceBeforeChallenger
-      ).to.be.approximately(bidAmountZCHF / 50n, bidAmountZCHF / 5000n);
+        balanceAfterChallenger - balanceBeforeChallenger,
+      ).to.be.approximately(bidAmountdEURO / 50n, bidAmountdEURO / 5000n);
 
-      bidAmountZCHF = bidAmountZCHF * 2n;
-      await zchf.transfer(alice.address, bidAmountZCHF);
+      bidAmountdEURO = bidAmountdEURO * 2n;
+      await dEURO.transfer(alice.address, bidAmountdEURO);
+      await dEURO
+        .connect(alice)
+        .approve(
+          mintingHub,
+          (challengeData.liqPrice * challenge.size * 2n) / DECIMALS,
+        );
       await expect(
         mintingHub
           .connect(alice)
-          .bid(challengeNumber, challenge.size * 2n, true)
-      ).to.be.emit(mintingHub, "PostPonedReturn");
+          .bid(challengeNumber, challenge.size * 2n, true, 0),
+      ).to.be.emit(mintingHub, "PostponedReturn");
     });
   });
   describe("challenge clone", () => {
-
     let cloneContract: Position;
 
     beforeEach(async () => {
@@ -952,7 +1039,9 @@ describe("Position Tests", () => {
       let fFees = BigInt(fee * 1_000_000);
       let fReserve = BigInt(reserve * 1_000_000);
       let challengePeriod = BigInt(3 * 86400); // 3 days
-      await mockVOL.connect(owner).approve(await mintingHub.getAddress(), 2n*fInitialCollateral);
+      await mockVOL
+        .connect(owner)
+        .approve(await mintingHub.getAddress(), 2n * fInitialCollateral);
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -963,26 +1052,44 @@ describe("Position Tests", () => {
         challengePeriod,
         fFees,
         fliqPrice,
-        fReserve
+        fReserve,
       );
       let rc = await tx.wait();
-      const topic = "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+      const topic =
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
       let log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       const positionAddr = "0x" + log?.topics[2].substring(26);
-      const positionContract = await ethers.getContractAt("Position", positionAddr, owner);
+      const positionContract = await ethers.getContractAt(
+        "Position",
+        positionAddr,
+        owner,
+      );
       const expiration = await positionContract.expiration();
       await evm_increaseTimeTo(await positionContract.start());
-      tx = await mintingHub.clone(positionAddr, fInitialCollateral, initialLimit/2n, expiration);
+      tx = await mintingHub.clone(
+        positionAddr,
+        fInitialCollateral,
+        initialLimit / 2n,
+        expiration,
+      );
       rc = await tx.wait();
       log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       const clonePositionAddr = "0x" + log?.topics[2].substring(26);
-      cloneContract = (await ethers.getContractAt("Position", clonePositionAddr, alice));
+      cloneContract = await ethers.getContractAt(
+        "Position",
+        clonePositionAddr,
+        alice,
+      );
     });
     it("price should be zero at end of challenge", async () => {
       challengeAmount = initialCollateralClone / 2;
       let fchallengeAmount = floatToDec18(challengeAmount);
       await mockVOL.approve(await mintingHub.getAddress(), fchallengeAmount);
-      let tx = await mintingHub.challenge(await cloneContract.getAddress(), fchallengeAmount, await cloneContract.price());
+      let tx = await mintingHub.challenge(
+        await cloneContract.getAddress(),
+        fchallengeAmount,
+        await cloneContract.price(),
+      );
       await expect(tx).to.emit(mintingHub, "ChallengeStarted");
       challengeNumber++;
       await evm_increaseTime(86400 * 60 * 2);
@@ -992,13 +1099,22 @@ describe("Position Tests", () => {
       challengeAmount = initialCollateralClone / 2;
       let fchallengeAmount = floatToDec18(challengeAmount);
       await mockVOL.approve(await mintingHub.getAddress(), fchallengeAmount);
-      let tx = await mintingHub.challenge(await cloneContract.getAddress(), fchallengeAmount, await cloneContract.price());
+      let tx = await mintingHub.challenge(
+        await cloneContract.getAddress(),
+        fchallengeAmount,
+        await cloneContract.price(),
+      );
       await expect(tx).to.emit(mintingHub, "ChallengeStarted");
       challengeNumber++;
       let chprice = await mintingHub.price(challengeNumber);
       expect(chprice).to.be.eq(await cloneContract.price());
-      let tx2 = cloneContract.connect(owner).withdrawCollateral(clonePositionAddr, floatToDec18(1));
-      await expect(tx2).to.be.revertedWithCustomError(clonePositionContract, "Challenged");
+      let tx2 = cloneContract
+        .connect(owner)
+        .withdrawCollateral(clonePositionAddr, floatToDec18(1));
+      await expect(tx2).to.be.revertedWithCustomError(
+        clonePositionContract,
+        "Challenged",
+      );
     });
     it("bid on challenged, expired position", async () => {
       let liqPrice = dec18ToFloat(await cloneContract.price());
@@ -1007,13 +1123,17 @@ describe("Position Tests", () => {
       await evm_increaseTimeTo(exp - 5n);
       let fchallengeAmount = floatToDec18(challengeAmount);
       await mockVOL.approve(await mintingHub.getAddress(), fchallengeAmount);
-      let tx2 = await mintingHub.challenge(await cloneContract.getAddress(), fchallengeAmount, await cloneContract.price());
+      let tx2 = await mintingHub.challenge(
+        await cloneContract.getAddress(),
+        fchallengeAmount,
+        await cloneContract.price(),
+      );
       await expect(tx2).to.emit(mintingHub, "ChallengeStarted");
       challengeNumber++;
       const challenge = await mintingHub.challenges(challengeNumber);
       let challengerAddress = challenge.challenger;
       let positionsAddress = challenge.position;
-      // await mockXCHF.connect(alice).mint(alice.address, floatToDec18(bidSize));
+      // await mockXEUR.connect(alice).mint(alice.address, floatToDec18(bidSize));
 
       // console.log("Challenging challenge " + challengeNumber + " at price " + price + " instead of " + liqPrice);
       // Challenging challenge 3 at price 24999903549382556050 instead of 25
@@ -1021,13 +1141,22 @@ describe("Position Tests", () => {
       // console.log("Challenge started at " + challenge.start + " on position with start " + (await clonePositionContract.start()) + ", expiration " + (await clonePositionContract.expiration()) + ", challenge period " + (await clonePositionContract.challengePeriod()) + ", and now it is " + timestamp);
       // Challenge started at 1810451265 on position with start 1792911949, expiration 1795503949, challenge period 259200, and now it is 1810451266
       await mockVOL.mint(clonePositionAddr, floatToDec18(bidSize)); // ensure there is something to bid on
-      let balanceBeforeAlice = await zchf.balanceOf(alice.address);
+      let balanceBeforeAlice = await dEURO.balanceOf(alice.address);
       // console.log("Balance alice " + balanceBeforeAlice + " and bid size " + floatToDec18(bidSize) + " position collateral: " + await mockVOL.balanceOf(clonePositionAddr));
-      // let balanceBeforeChallenger = await zchf.balanceOf(challengerAddress);
+      // let balanceBeforeChallenger = await dEURO.balanceOf(challengerAddress);
       let volBalanceBefore = await mockVOL.balanceOf(alice.address);
       const challengeData = await positionContract.challengeData();
       await evm_increaseTime(challengeData.phase);
-      let tx = await mintingHub.connect(alice).bid(challengeNumber, floatToDec18(bidSize), false);
+      const bidAmountdEURO =
+        (challengeData.liqPrice * floatToDec18(bidSize)) / DECIMALS;
+      let interest =
+        (await cloneContract.getDebt()) - (await cloneContract.principal());
+      await dEURO
+        .connect(alice)
+        .approve(await mintingHub.getAddress(), bidAmountdEURO + interest);
+      let tx = await mintingHub
+        .connect(alice)
+        .bid(challengeNumber, floatToDec18(bidSize), false, interest);
       let price = await mintingHub.price(challengeNumber);
       await expect(tx)
         .to.emit(mintingHub, "ChallengeSucceeded")
@@ -1036,31 +1165,38 @@ describe("Position Tests", () => {
           challengeNumber,
           (floatToDec18(bidSize) * price) / DECIMALS,
           floatToDec18(bidSize),
-          floatToDec18(bidSize)
+          floatToDec18(bidSize),
         );
-      // let balanceAfterChallenger = await zchf.balanceOf(challengerAddress);
-      // let balanceAfterAlice = await zchf.balanceOf(alice.address);
+      // let balanceAfterChallenger = await dEURO.balanceOf(challengerAddress);
+      // let balanceAfterAlice = await dEURO.balanceOf(alice.address);
       let volBalanceAfter = await mockVOL.balanceOf(alice.address);
-      // expect(balanceBeforeAlice - balanceAfterAlice).to.be.eq(bidAmountZCHF);
-      // expect(balanceAfterChallenger - balanceBeforeChallenger).to.be.eq(bidAmountZCHF);
-      expect(volBalanceAfter - volBalanceBefore).to.be.eq(floatToDec18(bidSize));
+      // expect(balanceBeforeAlice - balanceAfterAlice).to.be.eq(bidAmountdEURO);
+      // expect(balanceAfterChallenger - balanceBeforeChallenger).to.be.eq(bidAmountdEURO);
+      expect(volBalanceAfter - volBalanceBefore).to.be.eq(
+        floatToDec18(bidSize),
+      );
       await evm_increaseTime(86400);
       // Challenging challenge 3 at price 16666280864197424200 instead of 25
-      await expect(mintingHub.bid(challengeNumber, floatToDec18(bidSize), false)).to.be.emit(mintingHub, "ChallengeSucceeded");
+      let approvalAmount = (price * floatToDec18(bidSize)) / DECIMALS;
+      interest = (await cloneContract.getDebt()) - (await cloneContract.principal());
+      await dEURO.approve(await mintingHub.getAddress(), approvalAmount);
+      await expect(
+        mintingHub.bid(challengeNumber, floatToDec18(bidSize), false, interest),
+      ).to.be.emit(mintingHub, "ChallengeSucceeded");
       expect(await mintingHub.price(challengeNumber)).to.be.eq(0);
     });
     it("bid on not existing challenge", async () => {
-      let tx = mintingHub.connect(bob).bid(42, floatToDec18(42), false);
+      let tx = mintingHub.connect(bob).bid(42, floatToDec18(42), false, 0);
       await expect(tx).to.be.revertedWithPanic();
     });
     it("should revert notify challenge succeed call from non hub", async () => {
       await expect(
-        positionContract.notifyChallengeSucceeded(owner.address, 100)
+        positionContract.notifyChallengeSucceeded(owner.address, 100),
       ).to.be.revertedWithCustomError(positionContract, "NotHub");
     });
     it("should revert notify challenge avert call from non hub", async () => {
       await expect(
-        positionContract.notifyChallengeAverted(100)
+        positionContract.notifyChallengeAverted(100),
       ).to.be.revertedWithCustomError(positionContract, "NotHub");
     });
   });
@@ -1087,7 +1223,7 @@ describe("Position Tests", () => {
         challengePeriod,
         fFees,
         fliqPrice,
-        fReserve
+        fReserve,
       );
       let rc = await tx.wait();
       const topic =
@@ -1097,13 +1233,16 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner
+        owner,
       );
     });
     it("should revert adjusting price from non position owner", async () => {
       await expect(
-        positionContract.connect(alice).adjustPrice(floatToDec18(1500))
-      ).to.be.revertedWithCustomError(positionContract, "NotOwner");
+        positionContract.connect(alice).adjustPrice(floatToDec18(1500)),
+      ).to.be.revertedWithCustomError(
+        positionContract,
+        "OwnableUnauthorizedAccount",
+      );
     });
     it("should revert adjusting price when there is pending challenge", async () => {
       challengeAmount = initialCollateralClone / 2;
@@ -1113,7 +1252,7 @@ describe("Position Tests", () => {
       await mintingHub.challenge(positionAddr, fchallengeAmount, price);
       challengeNumber++;
       await expect(
-        positionContract.adjustPrice(floatToDec18(1500))
+        positionContract.adjustPrice(floatToDec18(1500)),
       ).to.be.revertedWithCustomError(positionContract, "Challenged");
     });
     it("should increase cooldown for 3 days when submitted price is greater than the current price", async () => {
@@ -1121,7 +1260,7 @@ describe("Position Tests", () => {
       const prevCooldown = await positionContract.cooldown();
       await expect(positionContract.adjustPrice(floatToDec18(5500))).to.be.emit(
         positionContract,
-        "MintingUpdate"
+        "MintingUpdate",
       );
       expect(dec18ToFloat(await positionContract.price())).to.be.equal(5500n);
 
@@ -1133,16 +1272,16 @@ describe("Position Tests", () => {
       await positionContract.mint(owner.address, floatToDec18(1000 * 100));
 
       await expect(
-        positionContract.adjustPrice(floatToDec18(100))
+        positionContract.adjustPrice(floatToDec18(100)),
       ).to.be.revertedWithCustomError(
         positionContract,
-        "InsufficientCollateral"
+        "InsufficientCollateral",
       );
     });
     it("should revert adjusting price when new price is greater than minimum collateral value", async () => {
       const underPrice = initialLimit;
       await expect(
-        positionContract.adjustPrice(underPrice * 2n)
+        positionContract.adjustPrice(underPrice * 2n),
       ).to.be.revertedWithoutReason();
     });
   });
@@ -1170,7 +1309,7 @@ describe("Position Tests", () => {
         challengePeriod,
         fFees,
         fliqPrice,
-        fReserve
+        fReserve,
       );
       let rc = await tx.wait();
       const topic =
@@ -1180,14 +1319,17 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner
+        owner,
       );
       expect(await positionContract.isClosed()).to.be.false;
     });
     it("should revert adjusting position from non position owner", async () => {
       await expect(
-        positionContract.connect(alice).adjust(0, 0, 0)
-      ).to.be.revertedWithCustomError(positionContract, "NotOwner");
+        positionContract.connect(alice).adjust(0, 0, 0),
+      ).to.be.revertedWithCustomError(
+        positionContract,
+        "OwnableUnauthorizedAccount",
+      );
     });
     it("owner can provide more collaterals to the position", async () => {
       const colBalance = await mockVOL.balanceOf(positionAddr);
@@ -1207,38 +1349,80 @@ describe("Position Tests", () => {
       const newColBalance = await mockVOL.balanceOf(positionAddr);
       expect(colBalance - newColBalance).to.be.equal(amount);
     });
-    it("owner can mint new ZCHF", async () => {
+    it("owner can mint new dEURO", async () => {
       await evm_increaseTime(86400 * 8);
       const price = floatToDec18(1000);
       const colBalance = await mockVOL.balanceOf(positionAddr);
-      const minted = await positionContract.minted();
+      const minted = await positionContract.getDebt();
       const amount = floatToDec18(100);
 
-      const beforeZchfBal = await zchf.balanceOf(owner.address);
+      const beforedEUROBal = await dEURO.balanceOf(owner.address);
       await positionContract.adjust(minted + amount, colBalance, price);
-      const afterZchfBal = await zchf.balanceOf(owner.address);
-      expect(afterZchfBal - beforeZchfBal).to.be.equal(
-        ethers.parseEther("89.8384")
-      );
+      const afterdEUROBal = await dEURO.balanceOf(owner.address);
+      const reservePPM = await positionContract.reserveContribution();
+      const expecteddEUROReceived = amount - (amount * reservePPM) / 1000000n;
+      expect(afterdEUROBal - beforedEUROBal).to.be.equal(expecteddEUROReceived);
     });
-    it("owner can burn ZCHF", async () => {
+    it("owner can burn dEURO", async () => {
       await evm_increaseTime(86400 * 8);
       const price = floatToDec18(1000);
       const colBalance = await mockVOL.balanceOf(positionAddr);
-      const minted = await positionContract.minted();
+      const principal = await positionContract.principal();
       const amount = floatToDec18(100);
-      await positionContract.adjust(minted + amount, colBalance, price);
-
-      await positionContract.adjust(minted, colBalance, price);
-      expect(await positionContract.minted()).to.be.equal(minted);
+      await positionContract.adjust(principal + amount, colBalance, price);
+      expect(await positionContract.principal()).to.be.equal(principal + amount);
+      const interest = await positionContract.getInterest();
+      await dEURO.approve(positionAddr, amount + interest + floatToDec18(1));
+      await positionContract.adjust(principal, colBalance, price);
+      expect(await positionContract.principal()).to.be.equal(principal);
     });
     it("owner can adjust price", async () => {
       await evm_increaseTime(86400 * 8);
       const price = await positionContract.price();
-      let minted = await positionContract.minted();
+      let minted = await positionContract.getDebt();
       let collbal = await positionContract.minimumCollateral();
       await positionContract.adjust(minted, collbal, price * 2n);
       expect(await positionContract.price()).to.be.equal(price * 2n);
+    });
+    it("owner can repay debt partially", async () => {
+      await evm_increaseTime(86400 * 8);
+      const loanAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, loanAmount);
+      await evm_increaseTime(86400 * 5);
+      expect(await positionContract.getDebt()).to.be.gte(loanAmount);
+
+      const interest = await positionContract.getInterest();
+      const amountToRepay = loanAmount / 2n + interest;
+      const ownerBalBefore = await dEURO.balanceOf(owner.address);
+      const posBalBefore = await dEURO.balanceOf(positionAddr);
+      const debt = await positionContract.getDebt();
+      await dEURO.approve(positionAddr, debt + floatToDec18(1));
+      await positionContract.repay(amountToRepay);
+      const ownerBalAfter = await dEURO.balanceOf(owner.address);
+      const posBalAfter = await dEURO.balanceOf(positionAddr);
+      const returnedReserve = await dEURO.calculateAssignedReserve(amountToRepay, await positionContract.reserveContribution());
+      expect(ownerBalBefore - ownerBalAfter).to.be.approximately(amountToRepay - returnedReserve, floatToDec18(0.1));
+      expect(posBalBefore).to.be.equal(0);
+      expect(posBalAfter).to.be.equal(0); // AssertionError: expected 100000000000000000000 to equal 0.
+    });
+    it("owner can repay debt in full", async () => {
+      await evm_increaseTime(86400 * 8);
+      const loanAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, loanAmount);
+      await evm_increaseTime(86400 * 5);
+      expect(await positionContract.getDebt()).to.be.gte(loanAmount);
+
+      const ownerBalBefore = await dEURO.balanceOf(owner.address);
+      const posBalBefore = await dEURO.balanceOf(positionAddr);
+      const debt = await positionContract.getDebt();
+      await dEURO.approve(positionAddr, debt + floatToDec18(1));
+      await positionContract.repayFull();
+      const ownerBalAfter = await dEURO.balanceOf(owner.address);
+      const posBalAfter = await dEURO.balanceOf(positionAddr);
+      const returnedReserve = await dEURO.calculateAssignedReserve(debt, await positionContract.reserveContribution());
+      expect(ownerBalBefore - ownerBalAfter).to.be.approximately(debt - returnedReserve, floatToDec18(0.1));
+      expect(posBalBefore).to.be.equal(0);
+      expect(posBalAfter).to.be.equal(0); // AssertionError: expected 100000000000000000000 to equal 0.
     });
   });
 
@@ -1267,7 +1451,7 @@ describe("Position Tests", () => {
         challengePeriod,
         fFees,
         fliqPrice,
-        fReserve
+        fReserve,
       );
       let rc = await tx.wait();
       const topic =
@@ -1277,7 +1461,7 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner
+        owner,
       );
       await mockVOL.transfer(positionAddr, amount);
     });
@@ -1285,29 +1469,35 @@ describe("Position Tests", () => {
       await expect(
         positionContract
           .connect(alice)
-          .withdrawCollateral(owner.address, amount)
-      ).to.be.revertedWithCustomError(positionContract, "NotOwner");
+          .withdrawCollateral(owner.address, amount),
+      ).to.be.revertedWithCustomError(
+        positionContract,
+        "OwnableUnauthorizedAccount",
+      );
     });
     it("should revert withdrawing when it is in hot auctions", async () => {
       await expect(
-        positionContract.withdrawCollateral(owner.address, amount)
+        positionContract.withdrawCollateral(owner.address, amount),
       ).to.be.revertedWithCustomError(positionContract, "Hot");
     });
     it("should not revert when withdrawing portion of collaterals leaving dust", async () => {
       await positionContract.deny([], "");
       await evm_increaseTime(86400 * 7);
       const balance = await mockVOL.balanceOf(positionAddr);
-      await positionContract.withdrawCollateral(owner.address, balance - ethers.parseEther("0.5"));
+      await positionContract.withdrawCollateral(
+        owner.address,
+        balance - ethers.parseEther("0.5"),
+      );
     });
     it("owner should be able to withdraw collaterals after the auction is closed", async () => {
       await positionContract.deny([], "");
       const colBal = await mockVOL.balanceOf(positionAddr);
       expect(
-        positionContract.withdrawCollateral(owner.address, colBal)
+        positionContract.withdrawCollateral(owner.address, colBal),
       ).to.be.emit(positionContract, "MintingUpdate");
       expect(positionContract.withdrawCollateral(owner.address, 0)).to.be.emit(
         positionContract,
-        "MintingUpdate"
+        "MintingUpdate",
       );
     });
   });
@@ -1317,21 +1507,24 @@ describe("Position Tests", () => {
       await expect(
         positionContract
           .connect(alice)
-          .withdraw(await zchf.getAddress(), owner.address, amount)
-      ).to.be.revertedWithCustomError(positionContract, "NotOwner");
+          .withdraw(await dEURO.getAddress(), owner.address, amount),
+      ).to.be.revertedWithCustomError(
+        positionContract,
+        "OwnableUnauthorizedAccount",
+      );
     });
     it("owner can withdraw any erc20 tokens locked on position contract", async () => {
       await evm_increaseTime(86400 * 8);
       const amount = floatToDec18(1);
 
-      await zchf.transfer(positionAddr, amount);
-      const beforeBal = await zchf.balanceOf(positionAddr);
+      await dEURO.transfer(positionAddr, amount);
+      const beforeBal = await dEURO.balanceOf(positionAddr);
       await positionContract.withdraw(
-        await zchf.getAddress(),
+        await dEURO.getAddress(),
         owner.address,
-        amount
+        amount,
       );
-      const afterBal = await zchf.balanceOf(positionAddr);
+      const afterBal = await dEURO.balanceOf(positionAddr);
       expect(beforeBal - afterBal).to.be.equal(amount);
 
       // withdraw collaterals
@@ -1340,7 +1533,7 @@ describe("Position Tests", () => {
       await positionContract.withdraw(
         await mockVOL.getAddress(),
         owner.address,
-        amount
+        amount,
       );
       const afterColBal = await mockVOL.balanceOf(positionAddr);
       expect(beforeColBal - afterColBal).to.be.equal(amount);
@@ -1350,7 +1543,7 @@ describe("Position Tests", () => {
     it("should return pending postponed collaterals (Need to find more exact scenarios)", async () => {
       await mintingHub.returnPostponedCollateral(
         await mockVOL.getAddress(),
-        owner.address
+        owner.address,
       );
     });
   });
@@ -1381,7 +1574,7 @@ describe("Position Tests", () => {
         challengePeriod,
         fFees,
         fliqPrice,
-        fReserve
+        fReserve,
       );
       let rc = await tx.wait();
       let topic =
@@ -1391,7 +1584,7 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner
+        owner,
       );
       await mockVOL.transfer(positionAddr, amount);
 
@@ -1400,11 +1593,20 @@ describe("Position Tests", () => {
       await positionContract.assertCloneable();
       const cloneLimit = await positionContract.availableForClones();
       const expiration = await positionContract.expiration();
-      tx = await mintingHub.clone(positionAddr, fInitialCollateral, cloneLimit, expiration);
+      tx = await mintingHub.clone(
+        positionAddr,
+        fInitialCollateral,
+        cloneLimit,
+        expiration,
+      );
       rc = await tx.wait();
       log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
       clonePositionAddr = "0x" + log?.topics[2].substring(26);
-      clonePositionContract = await ethers.getContractAt("Position", clonePositionAddr, alice);
+      clonePositionContract = await ethers.getContractAt(
+        "Position",
+        clonePositionAddr,
+        alice,
+      );
 
       let price = await clonePositionContract.price();
       await mockVOL.approve(await mintingHub.getAddress(), fchallengeAmount);
@@ -1413,22 +1615,32 @@ describe("Position Tests", () => {
     });
     it("should transfer loss amount from reserve to minting hub when notify loss", async () => {
       await evm_increaseTime(86400 * 6);
-      await zchf.transfer(await equity.getAddress(), floatToDec18(400_000));
+      const liqPrice = await mintingHub.price(challengeNumber);
+      const interest =
+        (await clonePositionContract.getDebt()) -
+        (await clonePositionContract.principal());
+      const expOffer = (fchallengeAmount * liqPrice) / 10n ** 18n;
+      const expCost = expOffer + interest + floatToDec18(1)
+      await dEURO.transfer(bob.address, expCost);
+      await dEURO
+        .connect(bob)
+        .approve(
+          await mintingHub.getAddress(),
+          expCost
+        );
       let tx = await mintingHub
         .connect(bob)
-        .bid(challengeNumber, fchallengeAmount, false);
+        .bid(challengeNumber, fchallengeAmount, false, interest + floatToDec18(1));
       await expect(tx)
-        .to.emit(mintingHub, "ChallengeSucceeded")
-        .emit(zchf, "Loss");
-    });
-    it("should transfer loss amount from reserve to minting hub when notify loss", async () => {
-      await evm_increaseTime(86400 * 6);
-      let tx = await mintingHub
-        .connect(bob)
-        .bid(challengeNumber, fchallengeAmount, false);
-      await expect(tx)
-        .to.emit(mintingHub, "ChallengeSucceeded")
-        .emit(zchf, "Loss");
+        .to.emit(mintingHub, "ChallengeSucceeded").withArgs(
+          ethers.getAddress(clonePositionAddr),
+          challengeNumber,
+          expOffer,
+          fchallengeAmount,
+          fchallengeAmount
+        )
+        .emit(dEURO, "Loss");
+        // TODO: Finish this test
     });
   });
 
@@ -1436,68 +1648,149 @@ describe("Position Tests", () => {
     let test: PositionExpirationTest;
     let pos: Position;
 
-    it("initialize", async () => {
+    before(async () => {
       const factory = await ethers.getContractFactory("PositionExpirationTest");
-      test = await factory.deploy(await mintingHub.getAddress());
-      await zchf.transfer(await test.getAddress(), 1000n * 10n ** 18n);
-      let tx = await test.openPositionFor(await alice.getAddress());
-      let rc = await tx.wait();
-      const topic = "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
-      const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
-      let positionAddr = "0x" + log?.topics[2].substring(26);
+      test = await factory.deploy(mintingHub.getAddress());
+
+      await dEURO.transfer(await test.getAddress(), 1000n * 10n ** 18n);
+
+      const tx = await test.openPositionFor(
+        alice.getAddress(),
+        ethers.randomBytes(32),
+      );
+      const positionAddr = await getPositionAddressFromTX(tx);
       pos = await ethers.getContractAt("Position", positionAddr, owner);
 
       // ensure minter's reserve is at least half there to make tests more interesting
-      let target = await zchf.minterReserve();
-      let present = await zchf.balanceOf(await equity.getAddress());
-      if (present < target){
-        let amount = (target - present) / 2n;
-        zchf.connect(owner).transfer(await zchf.reserve(), amount);
+      const target = await dEURO.minterReserve();
+      const present = await dEURO.balanceOf(equity.getAddress());
+
+      if (present < target) {
+        const amount = (target - present) / 2n;
+        await dEURO.connect(owner).transfer(dEURO.reserve(), amount);
       }
     });
 
     it("should be possible to borrow after starting", async () => {
       await evm_increaseTimeTo(await pos.start());
-      let balanceBefore = await zchf.balanceOf(await alice.getAddress());
-      let mintedAmount = 50000n * 10n ** 18n;
-      let tx = await pos.connect(alice).mint(await alice.getAddress(), mintedAmount);
-      await tx.wait();
-      let balanceAfter = await zchf.balanceOf(await alice.getAddress());
-      expect(balanceAfter - balanceBefore).to.be.eq(39794550000000000000000n);
-      expect(await pos.minted()).to.be.eq(mintedAmount);
-      await zchf.transfer(await test.getAddress(), 39794550000000000000000n);
-      await zchf.transfer(await test.getAddress(), 100000000000000000000000n);
+
+      const balanceBefore = await dEURO.balanceOf(alice.getAddress());
+      const mintedAmount = 50000n * 10n ** 18n;
+
+      await pos.connect(alice).mint(alice.getAddress(), mintedAmount);
+
+      const balanceAfter = await dEURO.balanceOf(alice.getAddress());
+      const reservePPM = await pos.reserveContribution();
+      const expectedAmount =
+        mintedAmount - (mintedAmount * reservePPM) / 1_000_000n;
+
+      expect(balanceAfter - balanceBefore).to.be.eq(expectedAmount);
+      expect(await pos.getDebt()).to.be.eq(mintedAmount);
+
+      await dEURO.transfer(test.getAddress(), 39794550000000000000000n);
+      await dEURO.transfer(test.getAddress(), 100000000000000000000000n);
     });
 
     it("force sale should fail before expiration", async () => {
-      let tx = test.forceBuy(await pos.getAddress(), 1n);
-      expect(tx).to.be.revertedWithCustomError(pos, "Alive");
+      await expect(
+        test.forceBuy(pos.getAddress(), 1n),
+      ).to.be.revertedWithCustomError(pos, "Alive");
     });
 
     it("force sale should succeed after expiration", async () => {
       await evm_increaseTimeTo(await pos.expiration());
-      let tx = await test.forceBuy(await pos.getAddress(), 1n);
+      const totInterest = (await pos.getDebt()) - (await pos.principal());
+      const collateralContract = await ethers.getContractAt(
+        "IERC20",
+        await pos.collateral(),
+      );
+      const totCollateral = await collateralContract.balanceOf(
+        pos.getAddress(),
+      );
+      const propInterest = (totInterest * 1n) / totCollateral;
+      await test.approveDEURO(
+        pos.getAddress(),
+        floatToDec18(10_000) + propInterest,
+      );
+      await test.forceBuy(pos.getAddress(), 1n);
     });
 
     it("price should reach liq price after one period", async () => {
-      await evm_increaseTimeTo((await pos.expiration()) + (await pos.challengePeriod()));
-      let expPrice = await mintingHub.expiredPurchasePrice(await pos.getAddress());
-      let liqPrice = await pos.price();
-      expect(liqPrice).to.be.eq(expPrice);
+      await evm_increaseTimeTo(
+        (await pos.expiration()) + (await pos.challengePeriod()),
+      );
+      const expPrice = await mintingHub.expiredPurchasePrice(pos.getAddress());
+      expect(await pos.price()).to.be.eq(expPrice);
     });
-    
+
     it("force sale at liquidation price should succeed in cleaning up position", async () => {
-      let tx = await test.forceBuy(await pos.getAddress(), 35n);
-      expect(await pos.minted()).to.be.eq(0n);
-      expect(await pos.isClosed()).to.be.false; // still more than 10 collateral left
+      const totInterest = await pos.getInterest();
+      const principal = await pos.principal();
+      const collateralContract = await ethers.getContractAt("IERC20", await pos.collateral());
+      const totCollateral = await collateralContract.balanceOf(pos.getAddress());
+      const propInterest = (totInterest * 35n) / totCollateral;
+      const debtBefore = await pos.getDebt();
+      const colBalPosBefore = await collateralContract.balanceOf(pos.getAddress());
+      const deuroBalPosBefore = await dEURO.balanceOf(pos.getAddress());
+
+      // forceBuy
+      await test.approveDEURO(await pos.getAddress(), floatToDec18(35_000) + propInterest);
+      const tx = await test.forceBuy(pos.getAddress(), 35n); // Total collateral is 100
+      const receipt = await tx.wait();
+      
+      // Emitted event
+      const event = receipt?.logs
+      .map((log) => mintingHub.interface.parseLog(log))
+      .find((parsedLog) => parsedLog?.name === 'ForcedSale');
+      const [ePos, eAmount, ePriceE36MinusDecimals, eInterest] = event?.args ?? [];
+      
+      expect(ePos).to.be.equal(ethers.getAddress(await pos.getAddress()));
+      expect(eAmount).to.be.equal(35n);
+      expect(ePriceE36MinusDecimals).to.be.equal(await mintingHub.expiredPurchasePrice(pos.getAddress()));
+      expect(eInterest).to.be.approximately(propInterest, floatToDec18(0.001));
+
+      const colBalPosAfter = await collateralContract.balanceOf(pos.getAddress());
+      const deuroBalPosAfter = await dEURO.balanceOf(pos.getAddress());
+      const debtAfter = await pos.getDebt();
+      let proceeds = (ePriceE36MinusDecimals * BigInt(eAmount)) / 10n ** 18n;
+      const maxPrincipalExclReserve = await pos.getUsableMint(principal);
+      const principalToRepayExclReserve = maxPrincipalExclReserve > proceeds ? proceeds : maxPrincipalExclReserve; 
+      proceeds -= principalToRepayExclReserve;
+      const principalToRepayWithReserve = await dEURO.calculateFreedAmount(principalToRepayExclReserve, await pos.reserveContribution());
+      const remainingPrincipal = principal - principalToRepayWithReserve;
+      const principalToRepayDirectly = proceeds > remainingPrincipal ? remainingPrincipal : proceeds;
+      const principalToRepay = principalToRepayWithReserve + principalToRepayDirectly;
+      proceeds -= principalToRepayDirectly;
+      const remainingInterest = eInterest < totInterest ? totInterest - eInterest : 0n;
+      const additionalInterestToRepay = proceeds > remainingInterest ? remainingInterest : proceeds;
+      const interestToRepay = eInterest + additionalInterestToRepay;
+      proceeds -= additionalInterestToRepay;
+      const expectedDebtPayoff = principalToRepay + interestToRepay;
+
+      expect(debtBefore - debtAfter).to.be.approximately(expectedDebtPayoff, floatToDec18(0.001));
+      expect(colBalPosBefore - colBalPosAfter).to.be.equal(35n);
+      expect(deuroBalPosBefore).to.be.equal(deuroBalPosAfter);
+      expect(debtAfter).to.be.gt(0);
+      expect(await pos.isClosed()).to.be.false; // still collateral left
     });
-    
+
+    it("should revert due to dust protection", async () => {
+      await test.approveDEURO(pos.getAddress(), floatToDec18(63_000));
+      await expect(
+        test.forceBuy(pos.getAddress(), 63n),
+      ).to.revertedWithCustomError(mintingHub, "LeaveNoDust");
+    });
+
     it("get rest for cheap and close position", async () => {
-      await evm_increaseTimeTo((await pos.expiration()) + 2n * (await pos.challengePeriod()));
-      let tx = await test.forceBuy(await pos.getAddress(), 64n);
-      expect(await pos.minted()).to.be.eq(0n);
+      await evm_increaseTimeTo(
+        (await pos.expiration()) + 2n * (await pos.challengePeriod()),
+      );
+      await test.approveDEURO(pos.getAddress(), floatToDec18(64_000));
+      await test.forceBuy(pos.getAddress(), 64n);
+
+      expect(await pos.getDebt()).to.be.eq(0n);
       expect(await pos.isClosed()).to.be.true;
-      expect(await mockVOL.balanceOf(await pos.getAddress())).to.be.eq(0n); // still collateral left
+      expect(await mockVOL.balanceOf(pos.getAddress())).to.be.eq(0n); // still collateral left
     });
   });
 
@@ -1510,7 +1803,7 @@ describe("Position Tests", () => {
     it("initialize", async () => {
       const factory = await ethers.getContractFactory("PositionRollingTest");
       test = await factory.deploy(await mintingHub.getAddress());
-      await zchf.transfer(await test.getAddress(), floatToDec18(2_000)); // opening fee
+      await dEURO.transfer(await test.getAddress(), floatToDec18(2_000)); // opening fee
       await test.openTwoPositions();
       pos1 = await ethers.getContractAt("Position", await test.p1());
       pos2 = await ethers.getContractAt("Position", await test.p2());
@@ -1530,6 +1823,316 @@ describe("Position Tests", () => {
 
     it("roll into clone", async () => {
       // TODO
+    });
+  });
+
+  describe("Fix interest rate tests", () => {
+    let fliqPrice = floatToDec18(5000);
+    let minCollateral = floatToDec18(1);
+    let fInitialCollateral = floatToDec18(initialCollateral);
+    let duration = BigInt(60 * 86_400);
+    let riskPremium = BigInt(fee * 1_000_000); // risk premium
+    let fReserve = BigInt(reserve * 1_000_000);
+    let challengePeriod = BigInt(3 * 86400);
+    let initialLeadratePPM = BigInt(30000); // initial lead rate
+    let positionContract: Position;
+
+    beforeEach(async () => {
+      // Set initial lead rate
+      await savings.proposeChange(initialLeadratePPM, []);
+      const timePassed = BigInt(7 * 86_400 + 60);
+      await evm_increaseTime(timePassed);
+      await savings.applyChange();
+
+      // Open position
+      await mockVOL
+        .connect(owner)
+        .approve(await mintingHub.getAddress(), 2n * fInitialCollateral);
+      let tx = await mintingHub.openPosition(
+        await mockVOL.getAddress(),
+        minCollateral,
+        fInitialCollateral,
+        initialLimit * 2n,
+        7n * 24n * 3600n,
+        duration,
+        challengePeriod,
+        riskPremium,
+        fliqPrice,
+        fReserve,
+      );
+      let rc = await tx.wait();
+      const topic =
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+      let log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
+      const positionAddr = "0x" + log?.topics[2].substring(26);
+      positionContract = await ethers.getContractAt(
+        "Position",
+        positionAddr,
+        owner,
+      );
+      await evm_increaseTimeTo(await positionContract.start());
+    });
+
+    it("should fix rate on creation and not update if lead rate changes later (repay at old rate)", async () => {
+      const expectedAnnualRate = initialLeadratePPM + riskPremium;
+      expect(await positionContract.fixedAnnualRatePPM()).to.be.equal(
+        expectedAnnualRate,
+      );
+
+      const initialMintAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, initialMintAmount);
+      const newLeadratePPM = initialLeadratePPM + 20000n;
+      await savings.proposeChange(newLeadratePPM, []);
+      const timePassed = BigInt(7 * 86_400 + 60);
+      await evm_increaseTime(timePassed);
+      await savings.applyChange();
+      expect(await savings.currentRatePPM()).to.be.equal(newLeadratePPM);
+
+      await evm_increaseTime(timePassed);
+      const debtAfter = await positionContract.getDebt();
+      const expectedInterest =
+        (initialMintAmount * expectedAnnualRate * (2n * timePassed)) /
+        (1000000n * 365n * 86400n);
+      expect(debtAfter - initialMintAmount).to.be.approximately(
+        expectedInterest,
+        floatToDec18(0.001),
+      );
+    });
+    it("should update to new lead rate when the loan is increased", async () => {
+      const initialMintAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, initialMintAmount);
+      const timeAtInitialLeadrate = BigInt(5 * 86_400);
+      await evm_increaseTime(timeAtInitialLeadrate);
+
+      const newLeadratePPM = initialLeadratePPM + 20000n;
+      await savings.proposeChange(newLeadratePPM, []);
+      const proposalDuration = BigInt(7 * 86_400 + 60);
+      await evm_increaseTime(proposalDuration);
+      await savings.applyChange();
+      expect(await savings.currentRatePPM()).to.be.eq(newLeadratePPM);
+
+      const timeAtNewLeadrateBeforeMint = BigInt(3 * 86_400);
+      await evm_increaseTime(timeAtNewLeadrateBeforeMint);
+      const totalLoanTime =
+        timeAtInitialLeadrate + proposalDuration + timeAtNewLeadrateBeforeMint;
+      const expectedInterestBeforeMint =
+        (initialMintAmount *
+          (initialLeadratePPM + riskPremium) *
+          totalLoanTime) /
+        (1000000n * 365n * 86400n);
+      expect(
+        (await positionContract.getDebt()) - initialMintAmount,
+      ).to.be.approximately(expectedInterestBeforeMint, floatToDec18(0.001));
+
+      const newMintAmount = floatToDec18(500);
+      await positionContract.mint(owner.address, newMintAmount);
+      const principalAfterMint = await positionContract.principal();
+      expect(principalAfterMint).to.be.equal(initialMintAmount + newMintAmount);
+
+      const timeAtNewLeadrateAfterMint = BigInt(8 * 86_400);
+      await evm_increaseTime(timeAtNewLeadrateAfterMint);
+
+      const expectedDebt =
+        principalAfterMint +
+        expectedInterestBeforeMint +
+        (newMintAmount *
+          (newLeadratePPM + riskPremium) *
+          timeAtNewLeadrateAfterMint) /
+          (1000000n * 365n * 86400n);
+      expect(await positionContract.getDebt()).to.be.approximately(
+        expectedDebt,
+        floatToDec18(2),
+      );
+    });
+    it("should preserve old rate until rolling into a new position with extended expiry (new rate applies after roll)", async () => {
+      // Create a new target position with extended expiry
+      const extendedExpiry = BigInt(7 * 86400);
+      await mockVOL
+        .connect(owner)
+        .approve(await mintingHub.getAddress(), 2n * fInitialCollateral);
+      let tx = await mintingHub.openPosition(
+        await mockVOL.getAddress(),
+        minCollateral,
+        fInitialCollateral,
+        initialLimit * 2n,
+        7n * 24n * 3600n,
+        duration + extendedExpiry,
+        challengePeriod,
+        riskPremium,
+        fliqPrice,
+        fReserve,
+      );
+      let rc = await tx.wait();
+      const topic =
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+      let log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
+      const targetPositionAddr = "0x" + log?.topics[2].substring(26);
+      const targetPositionContract = await ethers.getContractAt(
+        "Position",
+        targetPositionAddr,
+        owner,
+      );
+      await evm_increaseTimeTo(await targetPositionContract.start());
+
+      // Mint in the old position
+      const initialMintAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, initialMintAmount);
+
+      const timeUnderOldRate = BigInt(5 * 86400);
+      await evm_increaseTime(timeUnderOldRate);
+
+      // Change the lead rate
+      const newLeadratePPM = initialLeadratePPM + 40000n;
+      await savings.proposeChange(newLeadratePPM, []);
+      const proposalDuration = BigInt(7 * 86400 + 60);
+      await evm_increaseTime(proposalDuration);
+      await savings.applyChange();
+
+      // Roll into the new position
+      await dEURO
+        .connect(owner)
+        .approve(await roller.getAddress(), 2n * initialMintAmount);
+      await mockVOL
+        .connect(owner)
+        .approve(
+          await roller.getAddress(),
+          await mockVOL.balanceOf(owner.address),
+        );
+      await roller.rollFullyWithExpiration(
+        await positionContract.getAddress(),
+        await targetPositionContract.getAddress(),
+        await targetPositionContract.expiration(),
+      );
+      expect(await positionContract.getDebt()).to.equal(0n);
+
+      const newFixedRate = await targetPositionContract.fixedAnnualRatePPM();
+      expect(newFixedRate).to.equal(newLeadratePPM + riskPremium);
+
+      const timeUnderNewRate = BigInt(10 * 86400);
+      await evm_increaseTime(timeUnderNewRate);
+      const newPosDebt = await targetPositionContract.getDebt();
+      const mintedInNewPos = await targetPositionContract.principal();
+      const expectedInterestNewPos =
+        (mintedInNewPos * newFixedRate * timeUnderNewRate) /
+        (1000000n * 365n * 86400n);
+      expect(newPosDebt - mintedInNewPos).to.be.approximately(
+        expectedInterestNewPos,
+        floatToDec18(0.01),
+      );
+    });
+  });
+
+  describe("Liquidation tests", () => {
+    let collateral: string;
+    let fliqPrice = floatToDec18(5);
+    let minCollateral = floatToDec18(1_000);
+    let fInitialCollateral = floatToDec18(initialCollateral * 1_000);
+    let challengeAmount = 4_000;
+    let duration = 2n * 365n * 86_400n;
+    let fFees = BigInt(fee * 1_000_000);
+    let fReserve = BigInt(reserve * 1_000_000);
+    let challengePeriod = BigInt(3 * 86_400); // 3 days
+
+    before(async () => {
+      collateral = await mockVOL.getAddress();
+    });
+
+    it("distinguish between interest & principal repayment during liquidation", async () => {
+      // mint suffcient collateral
+      await mockVOL.mint(owner.address, fInitialCollateral);
+      await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      let tx = await mintingHub.openPosition(
+        collateral,
+        minCollateral,
+        fInitialCollateral,
+        initialLimit,
+        7n * 86_400n,
+        duration,
+        challengePeriod,
+        fFees,
+        fliqPrice,
+        fReserve,
+      );
+      let rc = await tx.wait();
+      const topic =
+        "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175"; // PositionOpened
+      const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
+      const positionAddr = "0x" + log?.topics[2].substring(26);
+      positionContract = await ethers.getContractAt(
+        "Position",
+        positionAddr,
+        owner,
+      );
+      await evm_increaseTimeTo(await positionContract.start());
+
+      await savings.proposeChange(BigInt(10_000), []);
+      const timePassed = BigInt(7 * 86_400 + 60);
+      await evm_increaseTime(timePassed);
+      await savings.applyChange();
+
+      const initialMintAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, initialMintAmount);
+      await evm_increaseTime(BigInt(86400 * 365));
+
+      const fChallengeAmount = floatToDec18(challengeAmount);
+      const price = await positionContract.price();
+      await mockVOL.approve(await mintingHub.getAddress(), fChallengeAmount);
+      tx = await mintingHub.challenge(positionAddr, fChallengeAmount, price);
+      challengeNumber++;
+      const challenge = await mintingHub.challenges(challengeNumber);
+      const challengeData = await positionContract.challengeData();
+
+      await evm_increaseTime(challengeData.phase);
+      let liqPrice = await mintingHub.price(challengeNumber);
+      expect(liqPrice).to.be.lte(price);
+
+      const interest = (await positionContract.getDebt()) - initialMintAmount;
+      const bidSize = floatToDec18(interest / liqPrice);
+      await dEURO
+        .connect(bob)
+        .approve(await mintingHub.getAddress(), liqPrice + interest);
+      let colBalanceBeforePos = await mockVOL.balanceOf(positionAddr);
+      let volBalanceBeforeBob = await mockVOL.balanceOf(bob.address);
+      let balanceBeforeBob = await dEURO.balanceOf(bob.address);
+      let balanceBeforeEquity = await dEURO.balanceOf(
+        await equity.getAddress(),
+      );
+      let balanceBeforeMintingHub = await dEURO.balanceOf(
+        await mintingHub.getAddress(),
+      );
+      let debtBefore = await positionContract.getDebt();
+      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, false, interest);
+      let volBalanceAfterBob = await mockVOL.balanceOf(bob.address);
+      let balanceAfterBob = await dEURO.balanceOf(bob.address);
+      let balanceAfterEquity = await dEURO.balanceOf(await equity.getAddress());
+      let balanceAfterMintingHub = await dEURO.balanceOf(
+        await mintingHub.getAddress(),
+      );
+      let debtAfter = await positionContract.getDebt();
+
+      let expPrincipalToPay =
+        (initialMintAmount * bidSize) / colBalanceBeforePos;
+      let expInterestToPay = (interest * bidSize) / colBalanceBeforePos;
+      const propInterest = (interest * bidSize) / colBalanceBeforePos;
+      liqPrice = await mintingHub.price(challengeNumber);
+      let offer = (bidSize * liqPrice) / DECIMALS;
+      await expect(tx)
+        .to.emit(mintingHub, "ChallengeSucceeded")
+        .withArgs(challenge.position, challengeNumber, offer, bidSize, bidSize);
+      expect(balanceAfterMintingHub).to.be.eq(balanceBeforeMintingHub);
+      expect(volBalanceAfterBob - volBalanceBeforeBob).to.be.eq(bidSize);
+      expect(balanceBeforeBob - balanceAfterBob).to.be.approximately(
+        offer + propInterest,
+        floatToDec18(1),
+      );
+      // As only interest was repaid, equity should not receive any profit
+      // as there is no reserve allocated for the interest portion of the debt
+      // expect(balanceAfterEquity).to.be.eq(balanceBeforeEquity); // TODO: Could compute expected amount and adjust
+      // The debt should be reduced by the amount repaid
+      expect(debtBefore - debtAfter).to.be.approximately(
+        expPrincipalToPay + expInterestToPay,
+        floatToDec18(1),
+      );
     });
   });
 });
