@@ -345,3 +345,68 @@ const nextConfig = {
 
 module.exports = nextConfig;
 ```
+
+# 8. Updates (January 2025)
+
+### DecentralizedEURO.sol
+
+- `allowance`: Added `address(reserve))` to the spender addresses with unlimited dEURO allowance.
+- `burnWithReserve`: Removed unused function.
+- `burnFromWithReserve`: Use `_spendAllowance` to control spending power of `minters` based on `allowance`.
+- `burnFromWithReserveNet`: Renamed from `burnWithReserve`.
+- `distributeProfits`: New function to distinguish between reserve withdrawals due to losses vs interest payouts (e.g. to savings) -> `Loss` vs `ProfitDistributed` event.
+- `_withdrawFromReserve`: New helper function used by `coverLoss` and `distributeProfits`.
+- `supportsInterface`: Added `IDecentralizedEURO` support.
+
+### Equity.sol
+
+- `BelowMinimumHoldingPeriod`: New custom error for failed `!canRedeem(owner)` check.
+
+### MintingHub.sol
+
+- `_finishChallenge`: The `Position.notifyChallengeSucceeded` call now returns both the required prinicipal `repayment` amount and `interest` payment amount necessry to liquidate the challenged collateral. In `_finishChallenge`, the `interest` amount is then added separately to the funds taken from the `msg.sender` (liquidator/bidder): `DEURO.transferFrom(msg.sender, address(this), offer + interest);`. Both the challenger reward payout and subsequent principal repayment is done using the `repayment` funds. Even in the case of insufficient funds and a system loss, the `interest` funds remain untouched, as they are dedicated solely to the required interest payment which is done at the very end: `DEURO.collectProfits(address(this), interest);`.
+Also note that an additionl `maxInterest` function parameter was added to `_finishChallenge`. This sets a limit on the `interest` amount that can be charged, resulting in a `revert` if exceeded.
+The updates to this function cleanly separate principal and interest logic. For more details on the required `repayment` and `interest` amounts, refer to `Position.notifyChallengeSucceeded` below.
+- `_calculateOffer`: New helper function used by `_finishChallenge` (basic code refactoring).
+- `buyExpiredCollateral`: Similar to the update to `_finishChallenge`, we make a clean separation of funds used for the `principal` repayment and funds used for the `interest` payment. That is, `propInterest` becomes a new parameter which is passed to the `Position.forceSale` function call. The purpose of `propInterest` is to ensure that the liquidator covers a proportional part of the outstanding interest to the amount of the expired collateral they wish to buy. See `Position.forceSale` below for more details.
+
+### Position.sol
+
+- `fixedAnnualRatePPM`: The interest rate for a position is synced with the lead rate (`Leadrate.currentRatePPM`) at creation time (in the `constructor` or, in the case of cloning, in the `initialize` function) using the `_fixRateToLeadrate` function. From this point onwards, the interest rate for a particular position instance is fixed unless new tokens are minted (the loan is increased), at which point it is re-synced with the lead rate. It is expected that in the case of lowered interest rates, position owners will roll their current positions into new ones (for free) to benefit from it.
+- `availableForClones`: This function now only considers the `principal` amount in its calculations. This is because the (accrued) `interest` does not belong to the minted dEURO tokens of a position and therefore do not belong in this calculation.
+- `adjust`: The `newDebt` parameter was changed to `newPrincipal`. Consequently, owners are able to control their `principal` amount without having the outstanding interest amount tied to it. Naturally, if they wish to reduce their principal, they must first pay any outstanding interest. This is handled automatically by the `adjust` function.
+- `MintingUpdate`: The last paramter of this `event` now only reports the new `principal` amount and not the entire `debt` amount which would include the outstanding `interest`. This is more in line with the overall purpose of this event.
+- `_adjustPrice`: The accrued `interest` is removed from the `bounds` paramter passed to `_setPrice`. This is because the `interest` does not belong in the collateral "sanity check" logic.
+- `_accrueInterest`: Refactored
+- `_calculateInterest`: Renamed and refactored from `getDebtAtTime`.
+- `getDebt`: Refactored
+- `getInterest`: New public function to get the currently outstanding (unpaid) interest on the position.
+- `_mint`: Updated to manage interest accrual and the syncing of the interest rate to the lead rate.
+- `_notifyRepaid`: Refactored, including sanity check.
+- `_notifyInterestPaid`: Refactored, including sanity check.
+- `forceSale`: As mentioned in `MintingHub.buyExpiredCollateral` above, the `forceSale` function was equipped with a fourth function parameter `propInterest` which specifies the amount to be used to pay off the proportional amount of `interest` to the expired collateral being acquired. This is done in the line `_repayInterest(buyer, propInterest);`. Subsequently, the `proceeds` are used to repay the `principal` using the `_repayPrincipalNet` function (see `Position._repayPrincipalNet` below for more details). This function only returns a remaining amount, if the entire `principal` has been repaid. In the case of such a remainder, it is used to pay off any remaining `interest`, `proceeds = _repayInterest(buyer, proceeds);`.
+The order of first repaying the `principal` before paying of any remaining `interest` with the `proceeds` is important to guarantee that in the case of a shortfall, is is not due to a "misspending" of the `proceeds` funds on the outstanding `interest`.
+Finally, in the case that no collateral remains, any remainining `principal` is repayed at the expense of the system (as no more `proceeds` remain). If this isn't the case, the remaining `proceeds` are transferred to the position `owner` as profit.
+- `_payDownDebt`: Refactored
+- `_repayInterest`: New helper function to pay off outstanding interest by some `amount`. Returns the remainder in the case that `amount` exceeds the outstanding `interest`.
+- `_repayPrincipal`: New helper function to repay principal by some _exact_ `amount` using `burnFromWithReserve`. Returns the remaining funds.
+- `_repayPrincipalNet`: New function to repay principal by some `amount`, where `amount` specifies the amount to be burned from the `payer`. This is done using the `DecentralizedEURO.burnFromWithReserveNet` function. As `_repayPrincipalNet` is used by the `forceSale` function, `repayPrincipalNet(buyer, proceeds);`, where `proceeds` may exceed `getUsableMint(principal)` amount (the maximum amount claimable by a particular position) we cap `repayWithReserve` at said maximal claimable amount. If funds remain thereafter, they are burned directly in order to pay of any remaining principal. The final remainder is returned.
+- `notifyChallengeSucceeded`: Now computes and returns the proportional amount of interest that must be paid in order to successfully challenge a position.
+
+### PositionRoller.sol
+
+- `rollFullyWithExpiration`: Fix logic to compute the amount to mint in the target Position.
+- `roll`: Refactor and send any remaining flash loan from the debt repayment (reserve portion returned by `source.repay(totRepayment)` > `Position._repayPrincipal > DecentralizedEURO.burnFromWithReserve`) to `msg.sender` for the flash loan repayment.
+- `_cloneTargetPosition`: New helper function used to clone the target position. Used only by `PositionRoller.roll`.
+
+### Savings.sol
+
+- `refresh`: Replace the use of `DecentralizedEURO.coverLoss` with `DecentralizedEURO.distributeProfits`. This replaces the `Loss` event with the `ProfitDistributed` event.
+
+### StablecoinBridge.sol
+
+- `mintTo`: Replace standard `transfer` functions with OppenZeppelin's `SafeERC20` variants for the source stablecoin.
+
+### Gateway Contracts
+
+The gateway contracts (FrontendGateway.sol, SavingsGateway.sol, MintingHubGateway.sol) provide a way to generously reward frontend providers or referrer, paid for by DEPS Holder. These Contracts are not present in the Frankencoin Ecosystem. 
