@@ -12,6 +12,8 @@ interface IPosition {
 
     function price() external view returns (uint256);
 
+    function virtualPrice() external view returns (uint256);
+
     function challengedAmount() external view returns (uint256);
 
     function original() external view returns (address);
@@ -68,11 +70,13 @@ interface IPosition {
 
     function repayFull() external returns (uint256);
 
-    function forceSale(address buyer, uint256 colAmount, uint256 proceeds, uint256 propInterest) external;
+    function forceSale(address buyer, uint256 colAmount, uint256 proceeds) external;
 
     function withdraw(address token, address target, uint256 amount) external;
 
     function withdrawCollateral(address target, uint256 amount) external;
+
+    function transferChallengedCollateral(address target, uint256 amount) external;
 
     function challengeData() external view returns (uint256 liqPrice, uint40 phase);
 
@@ -81,7 +85,6 @@ interface IPosition {
     function notifyChallengeAverted(uint256 size) external;
 
     function notifyChallengeSucceeded(
-        address _bidder,
         uint256 _size
     ) external returns (address, uint256, uint256, uint256, uint32);
 }

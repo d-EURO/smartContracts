@@ -344,6 +344,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _adjustPrice(uint256 newPrice) internal noChallenge alive backed {
+        // REVIEW: Pay off interest first?
         if (newPrice > price) {
             _restrictMinting(3 days);
         } else {
@@ -371,6 +372,16 @@ contract Position is Ownable, IPosition, MathUtil {
         emit MintingUpdate(collateralBalance, price, principal);
     }
 
+    /**
+     * @notice Returns the virtual price of the collateral in dEURO.
+     */
+    function virtualPrice() public view returns (uint256) {
+        if (principal == 0) return price;
+
+        uint256 principalE6 = principal * 1_000_000;
+        uint256 reserveFactor = 1_000_000 + reserveContribution; // REVIEW: Keep or remove?
+        return ((principalE6 + reserveFactor * interest) * price) / principalE6;
+    }
 
     /**
      * @notice Fixes the annual rate to the current leadrate plus the risk premium.
@@ -519,11 +530,10 @@ contract Position is Ownable, IPosition, MathUtil {
      * @param buyer         The address buying the collateral. This address provides `proceeds` in dEURO to repay the outstanding debt.
      * @param colAmount     The amount of collateral to be forcibly sold and transferred to the `buyer`.
      * @param proceeds      The amount of dEURO proceeds provided by the `buyer` to repay the principal and in the case of a surplus, the interest.
-     * @param propInterest  The proportional interest to be repaid based on the claimed collateral amount.
      *
      * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and debt after the forced sale.
      */
-    function forceSale(address buyer, uint256 colAmount, uint256 proceeds, uint256 propInterest) external onlyHub expired noChallenge {
+    function forceSale(address buyer, uint256 colAmount, uint256 proceeds) external onlyHub expired noChallenge {
         uint256 debt = principal + _accrueInterest();
         uint256 remainingCollateral = _sendCollateral(buyer, colAmount); // Send collateral to buyer
 
@@ -536,23 +546,17 @@ contract Position is Ownable, IPosition, MathUtil {
             return;
         }
 
-        // Note: Proceeds are used to repay the `principal` and if any remains, the `interest`.
-        // We cover `principal` first to ensure that in the case of a shortfall the sytem
-        // doesn't have to compensate for a mispending of the `proceeds` on `interest`.
-        // A postcondition of _repayPrincipalNet is `principal > 0 => proceeds == 0` (see assert below).
-        _repayInterest(buyer, propInterest);
-        proceeds = _repayPrincipalNet(buyer, proceeds);
+        // Note: A postcondition of _repayPrincipalNet is `principal + interest > 0 => proceeds == 0` (see assert below).
         proceeds = _repayInterest(buyer, proceeds);
+        proceeds = _repayPrincipalNet(buyer, proceeds);
 
-        // If remaining collateral is 0 and `principal` > 0, cover the shortfall with the system.
-        // Note: It is not possible for the outstanding `interest` to be > 0 if collateral is 0,
-        // as `propInterest` would be equal to `interest` and hence be paid off in full above.
-        // Therefore, the system never covers a loss containing outstanding `interest`.
-        if (remainingCollateral == 0 && principal > 0) {
+        // If remaining collateral is 0 and `principal + interest` > 0, cover the shortfall with the system.
+        if (remainingCollateral == 0 && principal + interest > 0) {
             assert(proceeds == 0);
-            deuro.coverLoss(address(this), principal);
-            deuro.burnWithoutReserve(principal, reserveContribution);
-            _notifyRepaid(principal);
+            deuro.coverLoss(address(this), principal + interest);
+            deuro.burnWithoutReserve(principal + interest, reserveContribution);
+            _notifyRepaid(principal); // REVIEW: Check if principal > 0 before?
+            _notifyInterestPaid(interest);
         } else if (proceeds > 0) {
             // All debt paid, leftover proceeds is profit for owner
             deuro.transferFrom(buyer, owner(), proceeds);
@@ -593,9 +597,17 @@ contract Position is Ownable, IPosition, MathUtil {
         return balance;
     }
 
+    /**
+     * @notice Transfer the challenged collateral to the bidder. Only callable by minting hub.
+     */
+    function transferChallengedCollateral(address target, uint256 amount) external onlyHub {
+        uint256 newBalance = _sendCollateral(target, amount);
+        emit MintingUpdate(newBalance, price, principal);
+    }
+
     function _sendCollateral(address target, uint256 amount) internal returns (uint256) {
+        // Some weird tokens fail when trying to transfer 0 amounts
         if (amount > 0) {
-            // Some weird tokens fail when trying to transfer 0 amounts
             IERC20(collateral).transfer(target, amount);
         }
         uint256 balance = _collateralBalance();
@@ -610,6 +622,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * variables change in an adverse way.
      */
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
+        // TODO: Use virtual price when calling this function
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
         if (relevantCollateral * atPrice < principal * ONE_DEC18) {
             revert InsufficientCollateral(relevantCollateral * atPrice, principal * ONE_DEC18);
@@ -701,7 +714,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * it cannot last beyond the expiration date of the position.
      */
     function challengeData() external view returns (uint256 liqPrice, uint40 phase) {
-        return (price, challengePeriod);
+        return (virtualPrice(), challengePeriod);
     }
 
     function notifyChallengeStarted(uint256 size) external onlyHub alive {
@@ -724,15 +737,12 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Notifies the position that a challenge was successful.
-     * Triggers the payout of the challenged part of the collateral.
      * Everything else is assumed to be handled by the hub.
      *
-     * @param _bidder address of the bidder that receives the collateral
-     * @param _size   amount of the collateral bid for
+     * @param _size amount of the collateral bid for
      * @return (position owner, effective challenge size in deuro, amount of principal to repay, amount of interest to pay, reserve ppm)
      */
     function notifyChallengeSucceeded(
-        address _bidder,
         uint256 _size
     ) external onlyHub returns (address, uint256, uint256, uint256, uint32) {
         _accrueInterest();
@@ -751,10 +761,6 @@ contract Position is Ownable, IPosition, MathUtil {
 
         // Give time for additional challenges before the owner can mint again.
         _restrictMinting(3 days);
-
-        // Transfer the challenged collateral to the bidder
-        uint256 newBalance = _sendCollateral(_bidder, _size);
-        emit MintingUpdate(newBalance, price, principal);
 
         return (owner(), _size, principalToPay, interestToPay, reserveContribution);
     }

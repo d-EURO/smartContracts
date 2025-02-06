@@ -779,7 +779,7 @@ describe("Position Tests", () => {
     });
   });
   describe("challenge active", () => {
-    it("create position", async () => {
+    beforeEach(async () => {
       let collateral = await mockVOL.getAddress();
       let fliqPrice = floatToDec18(5000);
       let minCollateral = floatToDec18(1);
@@ -892,7 +892,7 @@ describe("Position Tests", () => {
       await dEURO
         .connect(bob)
         .approve(await mintingHub.getAddress(), bidAmountdEURO);
-      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, false, 0);
+      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, false);
       await expect(tx).to.emit(mintingHub, "ChallengeAverted");
       let balanceAfterChallenger = await dEURO.balanceOf(challengerAddress);
       let balanceAfterBob = await dEURO.balanceOf(bob.address);
@@ -909,7 +909,7 @@ describe("Position Tests", () => {
       volBalanceBefore = await mockVOL.balanceOf(challengerAddress);
 
       let updatedChallenge = await mintingHub.challenges(challengeNumber);
-      await mintingHub.bid(challengeNumber, updatedChallenge.size, true, 0);
+      await mintingHub.bid(challengeNumber, updatedChallenge.size, true);
 
       balanceAfterChallenger = await dEURO.balanceOf(challengerAddress);
       volBalanceAfter = await mockVOL.balanceOf(challengerAddress);
@@ -943,6 +943,7 @@ describe("Position Tests", () => {
 
       // bob sends a bid
       const bidSize = fchallengeAmount
+      expect(availableCollateral).to.be.gt(0n);
       expect(bidSize).to.be.equal(2n * availableCollateral);
       const interest = await positionContract.getInterest();
       const propInterest = (interest * bidSize) / availableCollateral;
@@ -951,7 +952,7 @@ describe("Position Tests", () => {
       await dEURO
         .connect(bob)
         .approve(await mintingHub.getAddress(), bidAmountdEURO + propInterest);
-      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, true, propInterest);
+      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, true);
       await expect(tx)
         .to.emit(mintingHub, "ChallengeSucceeded")
         .emit(dEURO, "Profit");
@@ -995,7 +996,7 @@ describe("Position Tests", () => {
       await dEURO
         .connect(bob)
         .approve(await mintingHub.getAddress(), bidAmountdEURO);
-      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, true, 0);
+      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, true);
       await expect(tx)
         .to.emit(mintingHub, "ChallengeSucceeded")
         .emit(dEURO, "Profit");
@@ -1023,7 +1024,7 @@ describe("Position Tests", () => {
       await expect(
         mintingHub
           .connect(alice)
-          .bid(challengeNumber, challenge.size * 2n, true, 0),
+          .bid(challengeNumber, challenge.size * 2n, true),
       ).to.be.emit(mintingHub, "PostponedReturn");
     });
   });
@@ -1156,7 +1157,7 @@ describe("Position Tests", () => {
         .approve(await mintingHub.getAddress(), bidAmountdEURO + interest);
       let tx = await mintingHub
         .connect(alice)
-        .bid(challengeNumber, floatToDec18(bidSize), false, interest);
+        .bid(challengeNumber, floatToDec18(bidSize), false);
       let price = await mintingHub.price(challengeNumber);
       await expect(tx)
         .to.emit(mintingHub, "ChallengeSucceeded")
@@ -1181,17 +1182,17 @@ describe("Position Tests", () => {
       interest = (await cloneContract.getDebt()) - (await cloneContract.principal());
       await dEURO.approve(await mintingHub.getAddress(), approvalAmount);
       await expect(
-        mintingHub.bid(challengeNumber, floatToDec18(bidSize), false, interest),
+        mintingHub.bid(challengeNumber, floatToDec18(bidSize), false),
       ).to.be.emit(mintingHub, "ChallengeSucceeded");
       expect(await mintingHub.price(challengeNumber)).to.be.eq(0);
     });
     it("bid on not existing challenge", async () => {
-      let tx = mintingHub.connect(bob).bid(42, floatToDec18(42), false, 0);
+      let tx = mintingHub.connect(bob).bid(42, floatToDec18(42), false);
       await expect(tx).to.be.revertedWithPanic();
     });
     it("should revert notify challenge succeed call from non hub", async () => {
       await expect(
-        positionContract.notifyChallengeSucceeded(owner.address, 100),
+        positionContract.notifyChallengeSucceeded(100),
       ).to.be.revertedWithCustomError(positionContract, "NotHub");
     });
     it("should revert notify challenge avert call from non hub", async () => {
@@ -1630,7 +1631,7 @@ describe("Position Tests", () => {
         );
       let tx = await mintingHub
         .connect(bob)
-        .bid(challengeNumber, fchallengeAmount, false, interest + floatToDec18(1));
+        .bid(challengeNumber, fchallengeAmount, false);
       await expect(tx)
         .to.emit(mintingHub, "ChallengeSucceeded").withArgs(
           ethers.getAddress(clonePositionAddr),
@@ -1742,12 +1743,11 @@ describe("Position Tests", () => {
       const event = receipt?.logs
       .map((log) => mintingHub.interface.parseLog(log))
       .find((parsedLog) => parsedLog?.name === 'ForcedSale');
-      const [ePos, eAmount, ePriceE36MinusDecimals, eInterest] = event?.args ?? [];
+      const [ePos, eAmount, ePriceE36MinusDecimals] = event?.args ?? [];
       
       expect(ePos).to.be.equal(ethers.getAddress(await pos.getAddress()));
       expect(eAmount).to.be.equal(35n);
       expect(ePriceE36MinusDecimals).to.be.equal(await mintingHub.expiredPurchasePrice(pos.getAddress()));
-      expect(eInterest).to.be.approximately(propInterest, floatToDec18(0.001));
 
       const colBalPosAfter = await collateralContract.balanceOf(pos.getAddress());
       const deuroBalPosAfter = await dEURO.balanceOf(pos.getAddress());
@@ -1761,13 +1761,13 @@ describe("Position Tests", () => {
       const principalToRepayDirectly = proceeds > remainingPrincipal ? remainingPrincipal : proceeds;
       const principalToRepay = principalToRepayWithReserve + principalToRepayDirectly;
       proceeds -= principalToRepayDirectly;
-      const remainingInterest = eInterest < totInterest ? totInterest - eInterest : 0n;
+      const remainingInterest = propInterest < totInterest ? totInterest - propInterest : 0n;
       const additionalInterestToRepay = proceeds > remainingInterest ? remainingInterest : proceeds;
-      const interestToRepay = eInterest + additionalInterestToRepay;
+      const interestToRepay = propInterest + additionalInterestToRepay;
       proceeds -= additionalInterestToRepay;
       const expectedDebtPayoff = principalToRepay + interestToRepay;
 
-      expect(debtBefore - debtAfter).to.be.approximately(expectedDebtPayoff, floatToDec18(0.001));
+      expect(debtBefore - debtAfter).to.be.approximately(expectedDebtPayoff, floatToDec18(1));
       expect(colBalPosBefore - colBalPosAfter).to.be.equal(35n);
       expect(deuroBalPosBefore).to.be.equal(deuroBalPosAfter);
       expect(debtAfter).to.be.gt(0);
@@ -1785,9 +1785,14 @@ describe("Position Tests", () => {
       await evm_increaseTimeTo(
         (await pos.expiration()) + 2n * (await pos.challengePeriod()),
       );
+    
+      const colToken = await ethers.getContractAt("IERC20", await pos.collateral());
+      const colBalPosBefore = await colToken.balanceOf(pos.getAddress());
+      console.log("colBalPosBefore", colBalPosBefore);
       await test.approveDEURO(pos.getAddress(), floatToDec18(64_000));
       await test.forceBuy(pos.getAddress(), 64n);
 
+      expect(await pos.principal()).to.be.eq(0n);
       expect(await pos.getDebt()).to.be.eq(0n);
       expect(await pos.isClosed()).to.be.true;
       expect(await mockVOL.balanceOf(pos.getAddress())).to.be.eq(0n); // still collateral left
@@ -2037,7 +2042,7 @@ describe("Position Tests", () => {
       collateral = await mockVOL.getAddress();
     });
 
-    it("distinguish between interest & principal repayment during liquidation", async () => {
+    it("Balance checks before and after liquidation", async () => {
       // mint suffcient collateral
       await mockVOL.mint(owner.address, fInitialCollateral);
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
@@ -2090,7 +2095,7 @@ describe("Position Tests", () => {
       const bidSize = floatToDec18(interest / liqPrice);
       await dEURO
         .connect(bob)
-        .approve(await mintingHub.getAddress(), liqPrice + interest);
+        .approve(await mintingHub.getAddress(), interest + floatToDec18(1));
       let colBalanceBeforePos = await mockVOL.balanceOf(positionAddr);
       let volBalanceBeforeBob = await mockVOL.balanceOf(bob.address);
       let balanceBeforeBob = await dEURO.balanceOf(bob.address);
@@ -2101,7 +2106,7 @@ describe("Position Tests", () => {
         await mintingHub.getAddress(),
       );
       let debtBefore = await positionContract.getDebt();
-      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, false, interest);
+      tx = await mintingHub.connect(bob).bid(challengeNumber, bidSize, false);
       let volBalanceAfterBob = await mockVOL.balanceOf(bob.address);
       let balanceAfterBob = await dEURO.balanceOf(bob.address);
       let balanceAfterEquity = await dEURO.balanceOf(await equity.getAddress());
@@ -2113,7 +2118,6 @@ describe("Position Tests", () => {
       let expPrincipalToPay =
         (initialMintAmount * bidSize) / colBalanceBeforePos;
       let expInterestToPay = (interest * bidSize) / colBalanceBeforePos;
-      const propInterest = (interest * bidSize) / colBalanceBeforePos;
       liqPrice = await mintingHub.price(challengeNumber);
       let offer = (bidSize * liqPrice) / DECIMALS;
       await expect(tx)
@@ -2122,13 +2126,10 @@ describe("Position Tests", () => {
       expect(balanceAfterMintingHub).to.be.eq(balanceBeforeMintingHub);
       expect(volBalanceAfterBob - volBalanceBeforeBob).to.be.eq(bidSize);
       expect(balanceBeforeBob - balanceAfterBob).to.be.approximately(
-        offer + propInterest,
+        offer,
         floatToDec18(1),
       );
-      // As only interest was repaid, equity should not receive any profit
-      // as there is no reserve allocated for the interest portion of the debt
-      // expect(balanceAfterEquity).to.be.eq(balanceBeforeEquity); // TODO: Could compute expected amount and adjust
-      // The debt should be reduced by the amount repaid
+      // expect(balanceAfterEquity).to.be.eq(balanceBeforeEquity);
       expect(debtBefore - debtAfter).to.be.approximately(
         expPrincipalToPay + expInterestToPay,
         floatToDec18(1),

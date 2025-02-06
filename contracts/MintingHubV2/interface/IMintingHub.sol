@@ -16,7 +16,7 @@ interface IMintingHub {
         uint256 minimumPrice
     ) external returns (uint256);
 
-    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, uint256 maxInterest) external;
+    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn) external;
 
     function returnPostponedCollateral(address collateral, address target) external;
 

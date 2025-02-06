@@ -485,7 +485,7 @@ describe('Minting Tests', () => {
         .approve(await mintingHub.getAddress(), bidAmountdEURO);
       const tx = await mintingHub
         .connect(bob)
-        .bid(challengeNumber, bidSize, false, 0);
+        .bid(challengeNumber, bidSize, false);
       await expect(tx).to.emit(mintingHub, "ChallengeAverted");
       let balanceAfterChallenger = await dEURO.balanceOf(challengerAddress);
       let balanceAfterBob = await dEURO.balanceOf(bob.address);
@@ -499,7 +499,7 @@ describe('Minting Tests', () => {
       balanceBeforeChallenger = await dEURO.balanceOf(challengerAddress);
 
       const updatedChallenge = await mintingHub.challenges(challengeNumber);
-      await mintingHub.bid(challengeNumber, updatedChallenge.size, true, 0);
+      await mintingHub.bid(challengeNumber, updatedChallenge.size, true);
 
       balanceAfterChallenger = await dEURO.balanceOf(challengerAddress);
       expect(balanceAfterChallenger).to.be.equal(balanceBeforeChallenger);
@@ -540,7 +540,7 @@ describe('Minting Tests', () => {
         .approve(await mintingHub.getAddress(), bidAmountdEURO);
       const tx = await mintingHub
         .connect(bob)
-        .bid(challengeNumber, bidSize, true, propInterest);
+        .bid(challengeNumber, bidSize, true);
       await expect(tx)
         .to.emit(mintingHub, "ChallengeSucceeded")
         .emit(dEURO, "Profit");
@@ -566,7 +566,7 @@ describe('Minting Tests', () => {
       await expect(
         mintingHub
           .connect(alice)
-          .bid(challengeNumber, challenge.size * 2n, true, propInterest),
+          .bid(challengeNumber, challenge.size * 2n, true),
       ).to.be.emit(mintingHub, "PostponedReturn");
     });
   });
@@ -634,34 +634,6 @@ describe('Minting Tests', () => {
       const tx2 = cloneContract.connect(owner).withdrawCollateral(clonePositionAddr, floatToDec18(1));
       await expect(tx2).to.be.revertedWithCustomError(clonePositionContract, 'Challenged');
     });
-    it("bid rejects if max interest is too low", async () => {
-      const bidSize = challengeAmount / 2;
-      const exp = await cloneContract.expiration();
-      await evm_increaseTimeTo(exp - 5n);
-      const fchallengeAmount = floatToDec18(challengeAmount);
-      await mockVOL.approve(mintingHub.getAddress(), fchallengeAmount);
-      await mintingHub.challenge(
-        cloneContract.getAddress(),
-        fchallengeAmount,
-        await cloneContract.price(),
-      );
-      challengeNumber++;
-      const challenge = await mintingHub.challenges(challengeNumber);
-      const positionsAddress = challenge.position;
-
-      const challengeData = await positionContract.challengeData();
-      await evm_increaseTime(challengeData.phase);
-      const totCollateral = await mockVOL.balanceOf(positionsAddress);
-      const interest = await cloneContract.getInterest();
-      const propInterest = (interest * floatToDec18(bidSize)) / totCollateral;
-      const tx = mintingHub
-        .connect(alice)
-        .bid(challengeNumber, floatToDec18(bidSize), false, propInterest - floatToDec18(0.001));
-      await expect(tx).to.be.revertedWithCustomError(
-        mintingHub,
-          "ExceedsMaxInterest",
-        );
-    });
     it("bid on challenged, expired position", async () => {
       const bidSize = challengeAmount / 2;
       const exp = await cloneContract.expiration();
@@ -688,7 +660,7 @@ describe('Minting Tests', () => {
         .approve(await mintingHub.getAddress(), bidAmountdEURO);
       const tx = await mintingHub
         .connect(alice)
-        .bid(challengeNumber, floatToDec18(bidSize), false, propInterest + floatToDec18(1));
+        .bid(challengeNumber, floatToDec18(bidSize), false);
       const price = await mintingHub.price(challengeNumber);
       await expect(tx)
         .to.emit(mintingHub, 'ChallengeSucceeded')
@@ -707,16 +679,16 @@ describe('Minting Tests', () => {
       let approvalAmount = (price * floatToDec18(bidSize)) / DECIMALS;
       await dEURO.approve(await mintingHub.getAddress(), approvalAmount);
       await expect(
-        mintingHub.bid(challengeNumber, floatToDec18(bidSize), false, propInterest + floatToDec18(1)),
+        mintingHub.bid(challengeNumber, floatToDec18(bidSize), false),
       ).to.be.emit(mintingHub, "ChallengeSucceeded");
       expect(await mintingHub.price(challengeNumber)).to.be.equal(0);
     });
     it("bid on not existing challenge", async () => {
-      const tx = mintingHub.connect(bob).bid(42, floatToDec18(42), false, 0);
+      const tx = mintingHub.connect(bob).bid(42, floatToDec18(42), false);
       await expect(tx).to.be.revertedWithPanic();
     });
     it('should revert notify challenge succeed call from non hub', async () => {
-      await expect(positionContract.notifyChallengeSucceeded(owner.address, 100)).to.be.revertedWithCustomError(
+      await expect(positionContract.notifyChallengeSucceeded(100)).to.be.revertedWithCustomError(
         positionContract,
         'NotHub',
       );
@@ -916,12 +888,11 @@ describe('Minting Tests', () => {
       const event = receipt?.logs
         .map((log) => mintingHub.interface.parseLog(log))
         .find((parsedLog) => parsedLog?.name === 'ForcedSale');
-      const [ePos, eAmount, ePriceE36MinusDecimals, eInterest] = event?.args ?? [];
+      const [ePos, eAmount, ePriceE36MinusDecimals] = event?.args ?? [];
 
       expect(ePos).to.be.equal(ethers.getAddress(await pos.getAddress()));
       expect(eAmount).to.be.equal(35n);
       expect(ePriceE36MinusDecimals).to.be.equal(await mintingHub.expiredPurchasePrice(pos.getAddress()));
-      expect(eInterest).to.be.approximately(propInterest, floatToDec18(0.001));
 
       // TODO: Continue here
       const colBalPosAfter = await collateralContract.balanceOf(pos.getAddress());
@@ -936,9 +907,9 @@ describe('Minting Tests', () => {
       const principalToRepayDirectly = proceeds > remainingPrincipal ? remainingPrincipal : proceeds;
       const principalToRepay = principalToRepayWithReserve + principalToRepayDirectly;
       proceeds -= principalToRepayDirectly;
-      const remainingInterest = eInterest < totInterest ? totInterest - eInterest : 0n;
+      const remainingInterest = propInterest < totInterest ? totInterest - propInterest : 0n;
       const additionalInterestToRepay = proceeds > remainingInterest ? remainingInterest : proceeds;
-      const interestToRepay = eInterest + additionalInterestToRepay;
+      const interestToRepay = propInterest + additionalInterestToRepay;
       proceeds -= additionalInterestToRepay;
       const expectedDebtPayoff = principalToRepay + interestToRepay;
 
