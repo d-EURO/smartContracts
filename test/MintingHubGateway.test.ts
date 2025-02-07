@@ -329,10 +329,9 @@ describe('Minting Tests', () => {
 
       const tx = mintingHub
         .connect(alice)
-        .connect(alice)
         [
           'clone(address,uint256,uint256,uint40,bytes32)'
-        ](positionAddr, fInitialCollateralClone, available, expiration, frontendCode);
+        ](positionAddr, fInitialCollateralClone, available, expiration, frontendCode);      
       await expect(tx).to.be.revertedWithCustomError(positionContract, 'InsufficientCollateral');
 
       const pendingTx = mintingHub

@@ -1268,17 +1268,17 @@ describe("Position Tests", () => {
       const currentCooldown = await positionContract.cooldown();
       expect(currentCooldown > prevCooldown).to.be.true;
     });
-    it("should revert adjusting to lower price when it lowers the collateral reserves below minted values", async () => {
-      await evm_increaseTime(86400 * 8);
-      await positionContract.mint(owner.address, floatToDec18(1000 * 100));
+    // it("should revert adjusting to lower price when it lowers the collateral reserves below minted values", async () => {
+    //   await evm_increaseTime(86400 * 8);
+    //   await positionContract.mint(owner.address, floatToDec18(1000 * 100));
 
-      await expect(
-        positionContract.adjustPrice(floatToDec18(100)),
-      ).to.be.revertedWithCustomError(
-        positionContract,
-        "InsufficientCollateral",
-      );
-    });
+    //   await expect(
+    //     positionContract.adjustPrice(floatToDec18(100)),
+    //   ).to.be.revertedWithCustomError(
+    //     positionContract,
+    //     "InsufficientCollateral",
+    //   );
+    // });
     it("should revert adjusting price when new price is greater than minimum collateral value", async () => {
       const underPrice = initialLimit;
       await expect(

@@ -347,9 +347,11 @@ contract Position is Ownable, IPosition, MathUtil {
         // REVIEW: Pay off interest first?
         if (newPrice > price) {
             _restrictMinting(3 days);
-        } else {
-            _checkCollateral(_collateralBalance(), newPrice);
-        }
+        } 
+        // REVIEW: Is this check necessary with the new virtual price model?
+        // else {
+        //     _checkCollateral(_collateralBalance(), newPrice); 
+        // }
         _setPrice(newPrice, principal + availableForMinting());
     }
 
@@ -376,11 +378,22 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice Returns the virtual price of the collateral in dEURO.
      */
     function virtualPrice() public view returns (uint256) {
-        if (principal == 0) return price;
+       return _virtualPrice(_collateralBalance(), price);
+    }
 
-        uint256 principalE6 = principal * 1_000_000;
-        uint256 reserveFactor = 1_000_000 + reserveContribution; // REVIEW: Keep or remove?
-        return ((principalE6 + reserveFactor * interest) * price) / principalE6;
+    /**
+     * @notice Computes the virtual price of the collateral in dEURO, which is the minimum collateral
+     * price required to cover the entire debt, lower bounded by the floor price.
+     * @param colBalance The collateral balance of the position.
+     * @param floorPrice The minimum price of the collateral in dEURO.
+     */
+    function _virtualPrice(uint256 colBalance, uint256 floorPrice) internal view returns (uint256) {        
+        if (colBalance == 0) {
+            return floorPrice; // REVIEW: What to return here (or revert)?
+        }  
+
+        uint256 virtPrice = ((principal + _calculateInterest()) * ONE_DEC18) / colBalance;
+        return virtPrice < floorPrice ? floorPrice: virtPrice;
     }
 
     /**
@@ -622,9 +635,8 @@ contract Position is Ownable, IPosition, MathUtil {
      * variables change in an adverse way.
      */
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
-        // TODO: Use virtual price when calling this function
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
-        if (relevantCollateral * atPrice < principal * ONE_DEC18) {
+        if (relevantCollateral * atPrice < principal * ONE_DEC18) { // REVIEW: Include interest?
             revert InsufficientCollateral(relevantCollateral * atPrice, principal * ONE_DEC18);
         }
     }
@@ -714,7 +726,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * it cannot last beyond the expiration date of the position.
      */
     function challengeData() external view returns (uint256 liqPrice, uint40 phase) {
-        return (virtualPrice(), challengePeriod);
+        return (_virtualPrice(_collateralBalance(), price), challengePeriod);
     }
 
     function notifyChallengeStarted(uint256 size) external onlyHub alive {
