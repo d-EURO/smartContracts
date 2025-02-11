@@ -39,6 +39,12 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     uint256 public challengedAmount;
 
+
+    /**
+     * @notice The price at which the challenge was initiated.
+     */
+    uint256 public challengedPrice;
+
     /**
      * @notice Challenge period in seconds.
      */
@@ -344,18 +350,16 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _adjustPrice(uint256 newPrice) internal noChallenge alive backed {
-        // REVIEW: Pay off interest first?
         if (newPrice > price) {
             _restrictMinting(3 days);
-        } 
-        // REVIEW: Is this check necessary with the new virtual price model?
-        // else {
-        //     _checkCollateral(_collateralBalance(), newPrice); 
-        // }
+        } else {
+            _checkCollateral(_collateralBalance(), newPrice); 
+        }
         _setPrice(newPrice, principal + availableForMinting());
     }
 
     function _setPrice(uint256 newPrice, uint256 bounds) internal {
+        // TODO: Tighten upper bound
         require(newPrice * minimumCollateral <= bounds * ONE_DEC18); // sanity check
         price = newPrice;
     }
@@ -383,16 +387,16 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Computes the virtual price of the collateral in dEURO, which is the minimum collateral
-     * price required to cover the entire debt, lower bounded by the floor price.
+     * price required to cover the entire debt, lower bounded by the floor price. Retuns the challenged price
+     * if a challenge is active.
      * @param colBalance The collateral balance of the position.
      * @param floorPrice The minimum price of the collateral in dEURO.
      */
-    function _virtualPrice(uint256 colBalance, uint256 floorPrice) internal view returns (uint256) {        
-        if (colBalance == 0) {
-            return floorPrice; // REVIEW: What to return here (or revert)?
-        }  
+    function _virtualPrice(uint256 colBalance, uint256 floorPrice) internal view returns (uint256) {   
+        if (challengedPrice > 0) return challengedPrice;   
+        if (colBalance == 0) return floorPrice;
 
-        uint256 virtPrice = ((principal + _calculateInterest()) * ONE_DEC18) / colBalance;
+        uint256 virtPrice = (_getDebt() * ONE_DEC18) / colBalance;
         return virtPrice < floorPrice ? floorPrice: virtPrice;
     }
 
@@ -437,12 +441,16 @@ contract Position is Ownable, IPosition, MathUtil {
         return newInterest;
     }
 
+    function _getDebt() internal view returns (uint256) {
+        return principal + _calculateInterest();
+    }
+
     /**
      * @notice Public function to calculate current debt
      * @return The total current debt (principal + current accrued interest)
      */
     function getDebt() public view returns (uint256) {
-        return principal + _calculateInterest();
+        return _getDebt();
     }
 
     /**
@@ -636,8 +644,9 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
-        if (relevantCollateral * atPrice < principal * ONE_DEC18) { // REVIEW: Include interest?
-            revert InsufficientCollateral(relevantCollateral * atPrice, principal * ONE_DEC18);
+        uint256 debt = _getDebt();
+        if (relevantCollateral * atPrice < debt * ONE_DEC18) {
+            revert InsufficientCollateral(relevantCollateral * atPrice, debt * ONE_DEC18);
         }
     }
 
@@ -729,11 +738,15 @@ contract Position is Ownable, IPosition, MathUtil {
         return (_virtualPrice(_collateralBalance(), price), challengePeriod);
     }
 
-    function notifyChallengeStarted(uint256 size) external onlyHub alive {
+    function notifyChallengeStarted(uint256 size, uint256 _price) external onlyHub alive {
         // Require minimum size. Collateral balance can be below minimum if it was partially challenged before.
         if (size < minimumCollateral && size < _collateralBalance()) revert ChallengeTooSmall();
         if (size == 0) revert ChallengeTooSmall();
         challengedAmount += size;
+        // REVIEW: Is this check safe?
+        if (challengedPrice == 0) { 
+            challengedPrice = _price;
+        }
     }
 
     /**
@@ -741,6 +754,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function notifyChallengeAverted(uint256 size) external onlyHub {
         challengedAmount -= size;
+        challengedPrice = 0;
 
         // Don't allow minter to close the position immediately so challenge can be repeated before
         // the owner has a chance to mint more on an undercollateralized position

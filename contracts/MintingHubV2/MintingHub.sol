@@ -188,7 +188,7 @@ contract MintingHub is IMintingHub, ERC165 {
      * @notice Launch a challenge (Dutch auction) on a position
      * @param _positionAddr address of the position we want to challenge
      * @param _collateralAmount amount of the collateral we want to challenge
-     * @param minimumPrice position.virtualPrice() to guard against the minter front-running with a price change
+     * @param minimumPrice guards against the minter front-running with a price change
      * @return index of the challenge in the challenge-array
      */
     function challenge(
@@ -200,11 +200,12 @@ contract MintingHub is IMintingHub, ERC165 {
         // challenger should be ok if front-run by owner with a higher price
         // in case owner front-runs challenger with small price decrease to prevent challenge,
         // the challenger should set minimumPrice to market price
-        if (position.virtualPrice() < minimumPrice) revert UnexpectedPrice();
+        uint256 liqPrice = position.virtualPrice();
+        if (liqPrice < minimumPrice) revert UnexpectedPrice();
         IERC20(position.collateral()).transferFrom(msg.sender, address(this), _collateralAmount);
         uint256 pos = challenges.length;
         challenges.push(Challenge(msg.sender, uint40(block.timestamp), position, _collateralAmount));
-        position.notifyChallengeStarted(_collateralAmount);
+        position.notifyChallengeStarted(_collateralAmount, liqPrice);
         emit ChallengeStarted(msg.sender, address(position), _collateralAmount, pos);
         return pos;
     }

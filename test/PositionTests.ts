@@ -827,7 +827,7 @@ describe("Position Tests", () => {
       challengeAmount = initialCollateralClone / 2;
       let fchallengeAmount = floatToDec18(challengeAmount);
       await expect(
-        positionContract.notifyChallengeStarted(fchallengeAmount),
+        positionContract.notifyChallengeStarted(fchallengeAmount, await positionContract.virtualPrice()),
       ).to.be.revertedWithCustomError(positionContract, "NotHub");
     });
     it("should revert challenging with zero collateral", async () => {

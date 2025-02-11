@@ -80,7 +80,7 @@ interface IPosition {
 
     function challengeData() external view returns (uint256 liqPrice, uint40 phase);
 
-    function notifyChallengeStarted(uint256 size) external;
+    function notifyChallengeStarted(uint256 size, uint256 _price) external;
 
     function notifyChallengeAverted(uint256 size) external;
 
