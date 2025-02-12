@@ -118,14 +118,14 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         }
 
         if (spender == address(reserve)) {
-            return 1 << 255;
+            return type(uint256).max;
         }
 
         if (
             (isMinter(spender) || isMinter(getPositionParent(spender))) &&
             (isMinter(owner) || positions[owner] != address(0) || owner == address(reserve))
         ) {
-            return 1 << 255;
+            return type(uint256).max;
         }
 
         return 0;
@@ -286,10 +286,10 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     ) public view returns (uint256) {
         uint256 currentReserve = balanceOf(address(reserve)); // 18, 10% below what we should have
         uint256 minterReserve_ = minterReserve(); // 20
-        uint256 adjusted_ReservePPM = currentReserve < minterReserve_
+        uint256 adjustedReservePPM = currentReserve < minterReserve_
             ? (_reservePPM * currentReserve) / minterReserve_
             : _reservePPM; // 18%
-        return (1000000 * amountExcludingReserve) / (1000000 - adjusted_ReservePPM); // 41 / (1-18%) = 50
+        return (1000000 * amountExcludingReserve) / (1000000 - adjustedReservePPM); // 41 / (1-18%) = 50
     }
 
     /**

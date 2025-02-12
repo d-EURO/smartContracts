@@ -89,7 +89,7 @@ describe("Equity Tests", () => {
   describe("minting shares", () => {
     it("equity does not require approval", async () => {
       const allowance = await dEURO.allowance(owner.address, equity);
-      const maxAllowance = BigInt(1) << BigInt(255);
+      const maxAllowance = 2n ** 256n - 1n;
       expect(allowance).to.equal(maxAllowance);
       let balanceBefore = await equity.balanceOf(owner.address);
       await equity.invest(floatToDec18(1000), 0);

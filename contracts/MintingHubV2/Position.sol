@@ -140,6 +140,7 @@ contract Position is Ownable, IPosition, MathUtil {
     error NotOriginal();
     error InvalidExpiration();
     error AlreadyInitialized();
+    error PriceTooHigh(uint256 newPrice, uint256 maxPrice);
 
     modifier alive() {
         if (block.timestamp >= expiration) revert Expired(uint40(block.timestamp), expiration);
@@ -298,8 +299,8 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice This is how much the minter can actually use when minting deuro, with the rest being assigned
      * to the minter reserve.
      */
-    function getUsableMint(uint256 totalMint) public view returns (uint256) {
-        return (totalMint * (1000_000 - reserveContribution)) / 1000_000;
+    function getUsableMint(uint256 mintAmount) public view returns (uint256) {
+        return (mintAmount * (1000_000 - reserveContribution)) / 1000_000;
     }
 
     /**
@@ -359,8 +360,12 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _setPrice(uint256 newPrice, uint256 bounds) internal {
-        // TODO: Tighten upper bound
-        require(newPrice * minimumCollateral <= bounds * ONE_DEC18); // sanity check
+        // REVIEW: Restrict price jumps and price increase during cooldown?
+        // REVIEW: Should we consider future interest in the bounds?
+        uint256 colBalance = _collateralBalance();
+        if (newPrice * colBalance > bounds * ONE_DEC18) {
+            revert PriceTooHigh(newPrice, (bounds * ONE_DEC18) / colBalance);
+        }
         price = newPrice;
     }
 
@@ -550,7 +555,7 @@ contract Position is Ownable, IPosition, MathUtil {
      *
      * @param buyer         The address buying the collateral. This address provides `proceeds` in dEURO to repay the outstanding debt.
      * @param colAmount     The amount of collateral to be forcibly sold and transferred to the `buyer`.
-     * @param proceeds      The amount of dEURO proceeds provided by the `buyer` to repay the principal and in the case of a surplus, the interest.
+     * @param proceeds      The amount of dEURO proceeds provided by the `buyer` to repay the outstanding debt.
      *
      * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and debt after the forced sale.
      */
@@ -710,21 +715,22 @@ contract Position is Ownable, IPosition, MathUtil {
      * @return The remaining `amount` that was not applied to principal repayment.
      */
     function _repayPrincipalNet(address payer, uint256 amount) internal returns (uint256) {
-        uint256 remaining = amount;
-        uint256 repayment = (remaining > principal) ? principal : remaining;
+        uint256 repayment = (amount > principal) ? principal : amount;
         if (repayment > 0) {
             uint256 maxUsableMint = getUsableMint(principal);
             uint256 repayWithReserve = maxUsableMint > repayment ? repayment : maxUsableMint;
+            // REVIEW: Check correctness of DecentralizedEURO.minterReserveE6
             uint256 actualRepaid = deuro.burnFromWithReserveNet(payer, repayWithReserve, reserveContribution);
             _notifyRepaid(actualRepaid);
-            remaining -= repayWithReserve;
-            if (principal > 0 && remaining > 0) {
-                uint256 amountToBurn = remaining > principal ? principal : remaining;
-                deuro.burnFrom(payer, amountToBurn);
+            amount -= repayWithReserve;
+            if (principal > 0 && amount > 0) {
+                uint256 amountToBurn = amount > principal ? principal : amount;
+                deuro.transferFrom(payer, address(this), amountToBurn);
+                deuro.burnWithoutReserve(amountToBurn, reserveContribution);
                 _notifyRepaid(amountToBurn);
-                remaining -= amountToBurn;
+                amount -= amountToBurn;
             }
-            return remaining;
+            return amount;
         }
         return amount;
     }

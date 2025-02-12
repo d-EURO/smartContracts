@@ -22,7 +22,7 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     // solhint-disable-next-line var-name-mixedcase
     SavingsGateway public SAVINGS;
 
-    uint24 public feeRate; // Fee rate in PPM (parts per million), for example 10 = 1%
+    uint24 public feeRate; // Fee rate in PPM (parts per million), for example 10'000 = 1%
     uint24 public savingsFeeRate; // Fee rate of savings in PPM (parts per million), for example 10 = 1%
     uint24 public mintingFeeRate; // Reward rate of newly minted positions in PPM (parts per million), for example 10 = 1%
     uint24 public nextFeeRate;
