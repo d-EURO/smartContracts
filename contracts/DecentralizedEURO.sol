@@ -182,14 +182,12 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     function mintWithReserve(
         address _target,
         uint256 _amount,
-        uint32 _reservePPM,
-        uint32 _feesPPM
+        uint32 _reservePPM
     ) external override minterOnly {
-        uint256 usableMint = (_amount * (1000_000 - _feesPPM - _reservePPM)) / 1000_000; // rounding down is fine
+        uint256 usableMint = (_amount * (1000_000 - _reservePPM)) / 1000_000; // rounding down is fine
         _mint(_target, usableMint);
         _mint(address(reserve), _amount - usableMint); // rest goes to equity as reserves or as fees
         minterReserveE6 += _amount * _reservePPM;
-        emit Profit(msg.sender, (_feesPPM * _amount) / 1000_000);
     }
 
     function mint(address _target, uint256 _amount) external override minterOnly {

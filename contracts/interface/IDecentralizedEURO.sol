@@ -30,7 +30,7 @@ interface IDecentralizedEURO is IERC20 {
 
     function mint(address target, uint256 amount) external;
 
-    function mintWithReserve(address target, uint256 amount, uint32 reservePPM, uint32 feePPM) external;
+    function mintWithReserve(address target, uint256 amount, uint32 reservePPM) external;
 
     function burn(uint256 amount) external;
 

@@ -472,7 +472,7 @@ contract Position is Ownable, IPosition, MathUtil {
         _fixRateToLeadrate(riskPremiumPPM); // sync interest rate with leadrate
 
         Position(original).notifyMint(amount);
-        deuro.mintWithReserve(target, amount, reserveContribution, 0);
+        deuro.mintWithReserve(target, amount, reserveContribution);
 
         principal += amount;
         _checkCollateral(collateral_, price);
