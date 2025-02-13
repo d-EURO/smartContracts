@@ -268,7 +268,8 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         uint32 reservePPM
     ) external override minterOnly returns (uint256) {
         uint256 freedAmount = calculateFreedAmount(amountExcludingReserve, reservePPM); // Add reserve portion
-        minterReserveE6 -= freedAmount * reservePPM; // reduce reserve requirements by original ratio
+        uint256 theoreticalAmount = (1000000 * amountExcludingReserve) / (1000000 - reservePPM);
+        minterReserveE6 -= theoreticalAmount * reservePPM; // reduce reserve requirements by original ratio
         _transfer(address(reserve), payer, freedAmount - amountExcludingReserve); // collect assigned reserve
         _burn(payer, freedAmount); // burn the freed amount
         return freedAmount;
@@ -282,12 +283,12 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         uint256 amountExcludingReserve /* 41 */,
         uint32 _reservePPM /* 20% */
     ) public view returns (uint256) {
-        uint256 currentReserve = balanceOf(address(reserve)); // 18, 10% below what we should have
-        uint256 minterReserve_ = minterReserve(); // 20
+        uint256 currentReserve = balanceOf(address(reserve));
+        uint256 minterReserve_ = minterReserve();
         uint256 adjustedReservePPM = currentReserve < minterReserve_
             ? (_reservePPM * currentReserve) / minterReserve_
-            : _reservePPM; // 18%
-        return (1000000 * amountExcludingReserve) / (1000000 - adjustedReservePPM); // 41 / (1-18%) = 50
+            : _reservePPM;
+        return (1000000 * amountExcludingReserve) / (1000000 - adjustedReservePPM);
     }
 
     /**
