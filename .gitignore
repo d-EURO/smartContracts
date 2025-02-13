@@ -23,3 +23,5 @@ tst.ts
 package-lock.json
 .DS_Store
 abi/
+out/
+lib/
