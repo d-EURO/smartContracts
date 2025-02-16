@@ -38,6 +38,15 @@ contract Handler is TestHelper {
     uint256 internal s_adjustMintCalls;
     /// @dev The number of reverts on calling `adjustMint`
     uint256 internal s_adjustMintReverts;
+    /// @dev The number of times the newPrincipal unchanged
+    uint256 internal s_adjustMintUnchanged;
+
+    /// @dev The number of calls to adjustCollateral
+    uint256 internal s_adjustCollateralCalls;
+    /// @dev The number of reverts on calling `adjustCollateral`
+    uint256 internal s_adjustCollateralReverts;
+    /// @dev The number of times the newCollateral unchanged
+    uint256 internal s_adjustCollateralUnchanged;
 
     /// @dev The number of calls to warpTime
     // uint256 internal s_warpTimeCalls;
@@ -65,6 +74,7 @@ contract Handler is TestHelper {
         // Get the position
         positionIdx = positionIdx % s_positionsAlice.length;
         Position position = s_positionsAlice[positionIdx];
+        uint256 currentPrincipal = position.principal();
 
         // Bound newPrincipal
         uint256 basePrice = position.price();
@@ -72,14 +82,70 @@ contract Handler is TestHelper {
         uint256 collateralReserve = s_collateralToken.balanceOf(address(position));
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
         uint256 maxEligiblePrincipal = (relevantCollateral * basePrice) / 1e18;
-        newPrincipal = bound(newPrincipal, 0, maxEligiblePrincipal);
-        if (newPrincipal < (minimumCollateral * basePrice) / 1e18) newPrincipal = 0;
+        uint256 availableForMinting = currentPrincipal + position.availableForMinting();
+        maxEligiblePrincipal = maxEligiblePrincipal > availableForMinting ? availableForMinting : maxEligiblePrincipal;
+        newPrincipal = bound(newPrincipal, 1e17, maxEligiblePrincipal);
+        if (newPrincipal < 1e18) newPrincipal = 0;
 
         vm.prank(s_alice);
         try position.adjust(newPrincipal, collateralReserve, basePrice) {
             // success
+            if (newPrincipal == currentPrincipal) s_adjustMintUnchanged++;
+            // console.log("------------------------------------");
+            // console.log(("maxEligiblePrincipal: %s"), maxEligiblePrincipal);
+            // console.log(("newPrincipal: %s"), newPrincipal);
+            // console.log("Position principal: %s", position.principal());
+            // console.log("Position collateral: %s", s_collateralToken.balanceOf(address(position)));
         } catch {
             s_adjustMintReverts++;
+            // console.log("----------------- REVERTED ------------------");
+            // console.log("availableForMinting: %s", availableForMinting);
+            // console.log("totalMinted: %s", totalMinted);
+            // console.log("limit: %s", limit);
+            // console.log(("maxEligiblePrincipal: %s"), maxEligiblePrincipal);
+            // console.log(("newPrincipal: %s"), newPrincipal);
+            // console.log("Position principal: %s", position.principal());
+            // console.log("Position collateral: %s", s_collateralToken.balanceOf(address(position)));         
+        }
+    }
+
+    /// @dev adjustCollateral
+    function adjustCollateral(uint256 positionIdx, uint256 newCollateral) public {
+        s_adjustCollateralCalls++;
+
+        // Get the position
+        Position position = s_positionsAlice[positionIdx % s_positionsAlice.length];
+        uint256 currentCollateral = s_collateralToken.balanceOf(address(position));
+
+        // Bound newCollateral
+        // lower bound
+        uint256 basePrice = position.price();
+        uint256 debt = position.getDebt();
+        uint256 minRequiredCollateral = debt * 1e18 / basePrice;
+        uint256 minimumCollateral = position.minimumCollateral();
+        if (minRequiredCollateral < minimumCollateral) minRequiredCollateral = minimumCollateral;
+        // upper bound
+        uint256 mintLimit = position.limit();
+        uint256 annualInterestRatePPM = position.fixedAnnualRatePPM();
+        uint256 annualInterest = (mintLimit * (1e6 + annualInterestRatePPM)) / 1e6;
+        uint256 upperBoundDebt = mintLimit + (10 * annualInterest); // 10 years of interest
+        uint256 maxRequiredCollateral = (upperBoundDebt * 1e18 )/ basePrice;
+        newCollateral = bound(newCollateral, minRequiredCollateral, maxRequiredCollateral);
+
+        // Alice adjusts the position collateral
+        uint256 currentPrincipal = position.principal();
+        vm.prank(s_alice);
+        try position.adjust(currentPrincipal, newCollateral, basePrice) {
+            // success
+            if (newCollateral == currentCollateral) s_adjustCollateralUnchanged++;
+            // console.log("------------------------------------");
+            // console.log(("minimumCollateral: %s"), minimumCollateral);
+            // console.log(("maxRequiredCollateral: %s"), maxRequiredCollateral);
+            // console.log(("newCollateral: %s"), newCollateral);
+            // console.log("Position principal: %s", position.principal());
+            // console.log("Position collateral: %s", s_collateralToken.balanceOf(address(position)));
+        } catch {
+            s_adjustCollateralReverts++;
         }
     }
 
@@ -94,7 +160,11 @@ contract Handler is TestHelper {
     function callSummary() external view {
         console.log("------------------------------------");
         console.log("adjustMint Calls: %s", s_adjustMintCalls);
+        console.log("adjustMint Unchanged: %s", s_adjustMintUnchanged);
         console.log("adjustMint Reverts: %s", s_adjustMintReverts);
+        console.log("adjustCollateral Calls: %s", s_adjustCollateralCalls);
+        console.log("adjustCollateral Unchanged: %s", s_adjustCollateralUnchanged);
+        console.log("adjustCollateral Reverts: %s", s_adjustCollateralReverts);
         // console.log("warpTime Calls: %s", s_warpTimeCalls);
     }
 

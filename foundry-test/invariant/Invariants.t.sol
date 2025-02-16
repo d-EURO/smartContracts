@@ -64,7 +64,7 @@ contract Invariants is TestHelper {
         s_alice = vm.addr(1); 
         vm.label(s_alice, "Alice");
         s_deuro.mint(s_alice, 1_000_000e18);
-        s_collateralToken.transfer(s_alice, 1_000_000e18);
+        s_collateralToken.transfer(s_alice, 10_000_000e18);
 
         // Create positions for Alice
         createPosition(
@@ -87,11 +87,10 @@ contract Invariants is TestHelper {
         s_handler = new Handler(s_deuro, s_collateralToken, s_mintingHubGateway, s_alice, s_positionsAlice, address(this));
 
         // create the handler selectors to the fuzzings targets
-        bytes4[] memory selectors = new bytes4[](1);
+        bytes4[] memory selectors = new bytes4[](2);
         /// IPosition
         selectors[0] = Handler.adjustMint.selector;
-        /// IMintingHubGateway
-        // selectors[1] = Handler.createPosition.selector;
+        selectors[1] = Handler.adjustCollateral.selector;
         /// Network specific
         // selectors[2] = Handler.warpTime.selector;
 
@@ -113,9 +112,9 @@ contract Invariants is TestHelper {
         Position[] memory positions = s_handler.getPositionsAlice();
         for (uint256 i = 0; i < positions.length; i++) {
             uint256 collateral = s_collateralToken.balanceOf(address(positions[i]));
-            uint256 debt = positions[i].principal(); // + positions[i].interest(); // REVIEW
-            uint256 collateralValue = collateral * positions[i].price() / 1e18;
-            assertGe(collateralValue, debt, "Position is undercollateralized");
+            uint256 debt = positions[i].getDebt();
+            uint256 collateralValue = collateral * positions[i].price();
+            assertGe(collateralValue, debt * 1e18, "Position is undercollateralized");
         }
     }
 
@@ -161,12 +160,14 @@ contract Invariants is TestHelper {
         // Approve the position to spend max dEURO
         vm.prank(owner);
         s_deuro.approve(position, 2**256 - 1);
+
+        vm.prank(owner);
+        s_collateralToken.approve(position, 2**256 - 1);
         
         s_positionsAlice.push(Position(position));
         // increaseTime(initPeriod); 
     }
 
-    /// @dev adjustMint
     function positionSummary() public view {
         console.log("Number of Alice's positions: %s", s_positionsAlice.length);
         console.log("Alice collateral balance: %s", s_collateralToken.balanceOf(s_alice));
