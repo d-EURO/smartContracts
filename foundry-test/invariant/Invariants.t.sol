@@ -120,6 +120,7 @@ contract Invariants is TestHelper {
         }
     }
 
+    /// @dev check that interest is non-zero implies principal is non-zero
     function invariant_nonZeroInterestImpliesNonZeroPrincipal() public view {
         Position[] memory positions = s_handler.getPositionsAlice();
         for (uint256 i = 0; i < positions.length; i++) {
@@ -127,6 +128,53 @@ contract Invariants is TestHelper {
             if (interest > 0) {
                 assertGt(positions[i].principal(), 0, "Interest is non-zero but principal is zero");
             }
+        }
+    }
+
+    /// @dev check that zero principal implies zero interest
+    function invariant_zeroPrincipalImpliesZeroInterest() public view {
+        Position[] memory positions = s_handler.getPositionsAlice();
+        for (uint256 i = 0; i < positions.length; i++) {
+            if (positions[i].principal() == 0) {
+                assertEq(positions[i].getInterest(), 0, "Nonzero interest with zero principal");
+            }
+        }
+    }   
+
+    /// @dev check that active positions have minimum collateral
+    function invariant_activePositionHasMinimumCollateral() public view {
+        Position[] memory positions = s_handler.getPositionsAlice();
+        for (uint256 i = 0; i < positions.length; i++) {
+            if (!positions[i].isClosed() && block.timestamp < positions[i].expiration()) {
+                uint256 collateral = s_collateralToken.balanceOf(address(positions[i]));
+                uint256 minCollateral = positions[i].minimumCollateral();
+                assertGe(collateral, minCollateral, "Active position below minimum collateral");
+            }
+        } 
+    }
+
+    /// @dev check that challenged collateral implies challenged price
+    function invariant_challengeStateConsistency() public view {
+        Position[] memory positions = s_handler.getPositionsAlice();
+        for (uint256 i = 0; i < positions.length; i++) {
+            uint256 challengedAmount = positions[i].challengedAmount();
+            uint256 challengedPrice = positions[i].challengedPrice();
+            if (challengedAmount == 0) {
+                assertEq(challengedPrice, 0, "No challenged collateral but challengedPrice nonzero");
+            } else {
+                assertGt(challengedPrice, 0, "Challenged collateral but challengedPrice is zero");
+            }
+        }
+    }
+
+    /// @dev check that minting limit is not exceeded
+    function invariant_mintingLimitNotExceeded() public view {
+        Position[] memory positions = s_handler.getPositionsAlice();
+        for (uint256 i = 0; i < positions.length; i++) {
+            uint256 principal = positions[i].principal();
+            uint256 available = positions[i].availableForMinting();
+            uint256 limit = positions[i].limit();
+            assertLe(principal + available, limit, "Minted principal plus available mint exceeds limit");
         }
     }
 
