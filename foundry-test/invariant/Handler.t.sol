@@ -38,18 +38,25 @@ contract Handler is TestHelper {
     uint256 internal s_adjustMintCalls;
     /// @dev The number of reverts on calling `adjustMint`
     uint256 internal s_adjustMintReverts;
-    /// @dev The number of times the newPrincipal unchanged
+    /// @dev The number of times the newPrincipal is unchanged
     uint256 internal s_adjustMintUnchanged;
 
     /// @dev The number of calls to adjustCollateral
     uint256 internal s_adjustCollateralCalls;
     /// @dev The number of reverts on calling `adjustCollateral`
     uint256 internal s_adjustCollateralReverts;
-    /// @dev The number of times the newCollateral unchanged
+    /// @dev The number of times the newCollateral is unchanged
     uint256 internal s_adjustCollateralUnchanged;
 
+    /// @dev The number of calls to adjustPrice
+    uint256 internal s_adjustPriceCalls;
+    /// @dev The number of reverts on calling `adjustPrice`
+    uint256 internal s_adjustPriceReverts;
+    /// @dev The number of times the adjustPrice is unchanged
+    uint256 internal s_adjustPriceUnchanged;
+
     /// @dev The number of calls to warpTime
-    // uint256 internal s_warpTimeCalls;
+    uint256 internal s_warpTimeCalls;
 
     constructor(
         DecentralizedEURO deuro,
@@ -149,12 +156,49 @@ contract Handler is TestHelper {
         }
     }
 
-    // function warpTime(uint256 daysToWarp) external {
-    //     s_warpTimeCalls++;
-    //     // bound daysToWarp to 1-7 days
-    //     daysToWarp = bound(daysToWarp, 1, 7);
-    //     increaseTime(1 days);
-    // }
+    /// @dev adjustPrice
+    function adjustPrice(uint256 positionIdx, uint256 newPrice) public {
+        if (skipActionWithOdds(70, newPrice)) return; // 70% chance to skip
+
+        s_adjustPriceCalls++;
+
+        // Get the position
+        Position position = s_positionsAlice[positionIdx % s_positionsAlice.length];
+        uint256 currentPrice = position.price();
+
+        // Bound newPrice
+        // lower bound
+        uint256 debt = position.getDebt();
+        uint256 minimumCollateral = position.minimumCollateral();
+        uint256 collateralReserve = s_collateralToken.balanceOf(address(position));
+        uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
+        uint256 minPrice = (debt * 1e18) / relevantCollateral;
+
+        // upper bound
+        uint256 principal = position.principal();
+        uint256 availableForMinting = position.availableForMinting();
+        uint256 bounds = principal + availableForMinting;
+        uint256 maxPrice = (bounds * 1e18) / collateralReserve;
+
+        newPrice = bound(newPrice, minPrice, maxPrice);
+
+        // Alice adjusts the position collateral
+        vm.prank(s_alice);
+        try position.adjust(principal, collateralReserve, newPrice) {
+            // success
+            if (newPrice == currentPrice) s_adjustPriceUnchanged++;
+        } catch {
+            s_adjustPriceReverts++;
+        }
+    }
+
+    function warpTime(uint256 daysToWarp) external {
+        s_warpTimeCalls++;
+        uint256 minDays = 1;
+        uint256 maxDays = 2;
+        daysToWarp = bound(daysToWarp, minDays, maxDays);
+        increaseTime(daysToWarp * 1 days);
+    }
 
     /// @dev Prints a call summary of calls and reverts to certain actions
     function callSummary() external view {
@@ -165,10 +209,22 @@ contract Handler is TestHelper {
         console.log("adjustCollateral Calls: %s", s_adjustCollateralCalls);
         console.log("adjustCollateral Unchanged: %s", s_adjustCollateralUnchanged);
         console.log("adjustCollateral Reverts: %s", s_adjustCollateralReverts);
-        // console.log("warpTime Calls: %s", s_warpTimeCalls);
+        console.log("adjustPrice Calls: %s", s_adjustPriceCalls);
+        console.log("adjustPrice Unchanged: %s", s_adjustPriceUnchanged);
+        console.log("adjustPrice Reverts: %s", s_adjustPriceReverts);
+        console.log("warpTime Calls: %s", s_warpTimeCalls);
     }
 
-    // Helper functions
+    // Helper functions 
+
+    // Internal
+
+    /// @dev Return whether to skip an action based on a skip percent and a seed
+    function skipActionWithOdds(uint256 skipPercent, uint256 seed) internal view returns (bool) {
+        return uint256(keccak256(abi.encodePacked(block.timestamp, seed))) % 100 > 100 - skipPercent;
+    }
+
+    // External
 
     /// @dev Get Alice's positions
     function getPositionsAlice() external view returns (Position[] memory) {

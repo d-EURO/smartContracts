@@ -73,7 +73,7 @@ contract Invariants is TestHelper {
             110e18, // initialCollateral
             550_000e18, // initialLimit
             3 days, // initPeriod
-            60 days, // duration
+            365 days, // duration
             3 days, // challengePeriod
             5000 * 10**collateralDecimals, // liqPrice
             100000, // reservePPM
@@ -87,10 +87,12 @@ contract Invariants is TestHelper {
         s_handler = new Handler(s_deuro, s_collateralToken, s_mintingHubGateway, s_alice, s_positionsAlice, address(this));
 
         // create the handler selectors to the fuzzings targets
-        bytes4[] memory selectors = new bytes4[](2);
+        bytes4[] memory selectors = new bytes4[](4);
         /// IPosition
         selectors[0] = Handler.adjustMint.selector;
         selectors[1] = Handler.adjustCollateral.selector;
+        selectors[2] = Handler.adjustPrice.selector;
+        selectors[3] = Handler.warpTime.selector;
         /// Network specific
         // selectors[2] = Handler.warpTime.selector;
 
@@ -112,9 +114,19 @@ contract Invariants is TestHelper {
         Position[] memory positions = s_handler.getPositionsAlice();
         for (uint256 i = 0; i < positions.length; i++) {
             uint256 collateral = s_collateralToken.balanceOf(address(positions[i]));
-            uint256 debt = positions[i].getDebt();
+            uint256 principal = positions[i].principal(); // REVIEW: Make this debt?
             uint256 collateralValue = collateral * positions[i].price();
-            assertGe(collateralValue, debt * 1e18, "Position is undercollateralized");
+            assertGe(collateralValue, principal * 1e18, "Position is undercollateralized");
+        }
+    }
+
+    function invariant_nonZeroInterestImpliesNonZeroPrincipal() public view {
+        Position[] memory positions = s_handler.getPositionsAlice();
+        for (uint256 i = 0; i < positions.length; i++) {
+            uint256 interest = positions[i].getInterest();
+            if (interest > 0) {
+                assertGt(positions[i].principal(), 0, "Interest is non-zero but principal is zero");
+            }
         }
     }
 
@@ -169,6 +181,7 @@ contract Invariants is TestHelper {
     }
 
     function positionSummary() public view {
+        console.log("------------------------------------");
         console.log("Number of Alice's positions: %s", s_positionsAlice.length);
         console.log("Alice collateral balance: %s", s_collateralToken.balanceOf(s_alice));
         console.log("Alice dEURO balance: %s", s_deuro.balanceOf(s_alice));
@@ -176,6 +189,7 @@ contract Invariants is TestHelper {
             console.log("------------------------------------");
             console.log("Position %s", i);
             console.log("Principal: %s", s_positionsAlice[i].principal());
+            console.log("Interest: %s", s_positionsAlice[i].getInterest());
             console.log("Collateral: %s", s_collateralToken.balanceOf(address(s_positionsAlice[i])));
             console.log("Price: %s", s_positionsAlice[i].price());
         }
