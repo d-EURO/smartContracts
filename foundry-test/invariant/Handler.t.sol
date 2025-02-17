@@ -27,11 +27,8 @@ contract Handler is TestHelper {
     /// @dev MintingHubGateway
     MintingHubGateway internal s_mintingHubGateway;
 
-    /// @dev Alice address
-    address internal s_alice;
-
-    /// @dev Alice's positions
-    Position[] internal s_positionsAlice;
+    /// @dev Positions
+    Position[] internal s_positions;
 
     // OUTPUT VARS - used to print a summary of calls and reverts during certain actions
     /// @dev The number of calls to adjustMint
@@ -62,15 +59,13 @@ contract Handler is TestHelper {
         DecentralizedEURO deuro,
         TestToken collateralToken,
         MintingHubGateway mintingHubGateway, 
-        address alice,
-        Position[] memory positionsAlice,
+        Position[] memory positions,
         address deployer
     ) {
         s_deuro = deuro;
         s_collateralToken = collateralToken;
         s_mintingHubGateway = mintingHubGateway;
-        s_alice = alice;
-        s_positionsAlice = positionsAlice;
+        s_positions = positions;
         s_deployer = deployer;
     }
 
@@ -79,8 +74,8 @@ contract Handler is TestHelper {
         s_adjustMintCalls++;
 
         // Get the position
-        positionIdx = positionIdx % s_positionsAlice.length;
-        Position position = s_positionsAlice[positionIdx];
+        positionIdx = positionIdx % s_positions.length;
+        Position position = s_positions[positionIdx];
         uint256 currentPrincipal = position.principal();
 
         // Bound newPrincipal
@@ -94,7 +89,7 @@ contract Handler is TestHelper {
         newPrincipal = bound(newPrincipal, 1e17, maxEligiblePrincipal);
         if (newPrincipal < 1e18) newPrincipal = 0;
 
-        vm.prank(s_alice);
+        vm.prank(position.owner());
         try position.adjust(newPrincipal, collateralReserve, basePrice) {
             // success
             if (newPrincipal == currentPrincipal) s_adjustMintUnchanged++;
@@ -121,7 +116,7 @@ contract Handler is TestHelper {
         s_adjustCollateralCalls++;
 
         // Get the position
-        Position position = s_positionsAlice[positionIdx % s_positionsAlice.length];
+        Position position = s_positions[positionIdx % s_positions.length];
         uint256 currentCollateral = s_collateralToken.balanceOf(address(position));
 
         // Bound newCollateral
@@ -139,9 +134,9 @@ contract Handler is TestHelper {
         uint256 maxRequiredCollateral = (upperBoundDebt * 1e18 )/ basePrice;
         newCollateral = bound(newCollateral, minRequiredCollateral, maxRequiredCollateral);
 
-        // Alice adjusts the position collateral
+        // adjusts the position collateral
         uint256 currentPrincipal = position.principal();
-        vm.prank(s_alice);
+        vm.prank(position.owner());
         try position.adjust(currentPrincipal, newCollateral, basePrice) {
             // success
             if (newCollateral == currentCollateral) s_adjustCollateralUnchanged++;
@@ -163,7 +158,7 @@ contract Handler is TestHelper {
         s_adjustPriceCalls++;
 
         // Get the position
-        Position position = s_positionsAlice[positionIdx % s_positionsAlice.length];
+        Position position = s_positions[positionIdx % s_positions.length];
         uint256 currentPrice = position.price();
 
         // Bound newPrice
@@ -182,8 +177,8 @@ contract Handler is TestHelper {
 
         newPrice = bound(newPrice, minPrice, maxPrice);
 
-        // Alice adjusts the position collateral
-        vm.prank(s_alice);
+        // adjusts the position collateral
+        vm.prank(position.owner());
         try position.adjust(principal, collateralReserve, newPrice) {
             // success
             if (newPrice == currentPrice) s_adjustPriceUnchanged++;
@@ -202,17 +197,30 @@ contract Handler is TestHelper {
 
     /// @dev Prints a call summary of calls and reverts to certain actions
     function callSummary() external view {
-        console.log("------------------------------------");
-        console.log("adjustMint Calls: %s", s_adjustMintCalls);
-        console.log("adjustMint Unchanged: %s", s_adjustMintUnchanged);
-        console.log("adjustMint Reverts: %s", s_adjustMintReverts);
-        console.log("adjustCollateral Calls: %s", s_adjustCollateralCalls);
-        console.log("adjustCollateral Unchanged: %s", s_adjustCollateralUnchanged);
-        console.log("adjustCollateral Reverts: %s", s_adjustCollateralReverts);
-        console.log("adjustPrice Calls: %s", s_adjustPriceCalls);
-        console.log("adjustPrice Unchanged: %s", s_adjustPriceUnchanged);
-        console.log("adjustPrice Reverts: %s", s_adjustPriceReverts);
-        console.log("warpTime Calls: %s", s_warpTimeCalls);
+        console.log("========================================");
+        console.log("           ACTIONS SUMMARY");
+        console.log("========================================");
+
+        console.log(">> adjustMint():");
+        console.log("   Calls:     %s", s_adjustMintCalls);
+        console.log("   Reverts:   %s", s_adjustMintReverts);
+        console.log("   Unchanged: %s", s_adjustMintUnchanged);
+        console.log("");
+
+        console.log(">> adjustCollateral():");
+        console.log("   Calls:     %s", s_adjustCollateralCalls);
+        console.log("   Reverts:   %s", s_adjustCollateralReverts);
+        console.log("   Unchanged: %s", s_adjustCollateralUnchanged);
+        console.log("");
+
+        console.log(">> adjustPrice():");
+        console.log("   Calls:     %s", s_adjustPriceCalls);
+        console.log("   Reverts:   %s", s_adjustPriceReverts);
+        console.log("   Unchanged: %s", s_adjustPriceUnchanged);
+        console.log("");
+
+        console.log(">> warpTime():");
+        console.log("   Calls:     %s", s_warpTimeCalls);
     }
 
     // Helper functions 
@@ -226,8 +234,8 @@ contract Handler is TestHelper {
 
     // External
 
-    /// @dev Get Alice's positions
-    function getPositionsAlice() external view returns (Position[] memory) {
-        return s_positionsAlice;
+    /// @dev Get positions
+    function getPositions() external view returns (Position[] memory) {
+        return s_positions;
     }
 }

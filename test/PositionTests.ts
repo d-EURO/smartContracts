@@ -1798,7 +1798,6 @@ describe("Position Tests", () => {
     
       const colToken = await ethers.getContractAt("IERC20", await pos.collateral());
       const colBalPosBefore = await colToken.balanceOf(pos.getAddress());
-      console.log("colBalPosBefore", colBalPosBefore);
       await test.approveDEURO(pos.getAddress(), floatToDec18(64_000));
       await test.forceBuy(pos.getAddress(), 64n);
 
