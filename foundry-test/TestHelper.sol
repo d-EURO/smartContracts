@@ -10,6 +10,10 @@ abstract contract TestHelper is Test {
         return a > b ? a : b;
     }
 
+    function min(uint a, uint b) internal pure returns (uint) {
+        return a < b ? a : b;
+    }
+
     //////////// EVM Helpers ////////////
 
     function increaseTime(uint _seconds) internal {

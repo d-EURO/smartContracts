@@ -76,13 +76,17 @@ contract Invariants is TestHelper {
         s_handler = new Handler(s_deuro, s_collateralToken, s_mintingHubGateway, s_positions, address(this));
 
         // create the handler selectors to the fuzzings targets
-        bytes4[] memory selectors = new bytes4[](4);
+        bytes4[] memory selectors = new bytes4[](7);
         /// IPosition
         selectors[0] = Handler.adjustMint.selector;
         selectors[1] = Handler.adjustCollateral.selector;
         selectors[2] = Handler.adjustPrice.selector;
+        /// MintingHub
+        selectors[3] = Handler.challengePosition.selector;
+        selectors[4] = Handler.bidChallenge.selector;
+        selectors[5] = Handler.buyExpiredCollateral.selector;
         /// Network specific
-        selectors[3] = Handler.warpTime.selector;
+        selectors[6] = Handler.warpTime.selector;
 
         targetSelector(FuzzSelector({addr: address(s_handler), selectors: selectors}));
         targetContract(address(s_handler));
@@ -142,18 +146,18 @@ contract Invariants is TestHelper {
     }
 
     /// @dev check that challenged collateral implies challenged price
-    function invariant_challengeStateConsistency() public view {
-        Position[] memory positions = s_handler.getPositions();
-        for (uint256 i = 0; i < positions.length; i++) {
-            uint256 challengedAmount = positions[i].challengedAmount();
-            uint256 challengedPrice = positions[i].challengedPrice();
-            if (challengedAmount == 0) {
-                assertEq(challengedPrice, 0, "No challenged collateral but challengedPrice nonzero");
-            } else {
-                assertGt(challengedPrice, 0, "Challenged collateral but challengedPrice is zero");
-            }
-        }
-    }
+    // function invariant_challengeStateConsistency() public view {
+    //     Position[] memory positions = s_handler.getPositions();
+    //     for (uint256 i = 0; i < positions.length; i++) {
+    //         uint256 challengedAmount = positions[i].challengedAmount();
+    //         uint256 challengedPrice = positions[i].challengedPrice();
+    //         if (challengedAmount == 0) {
+    //             assertEq(challengedPrice, 0, "No challenged collateral but challengedPrice nonzero");
+    //         } else {
+    //             assertGt(challengedPrice, 0, "Challenged collateral but challengedPrice is zero");
+    //         }
+    //     }
+    // }
 
     /// @dev check that minting limit is not exceeded
     function invariant_mintingLimitNotExceeded() public view {

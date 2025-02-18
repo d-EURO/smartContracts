@@ -43,7 +43,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice The price at which the challenge was initiated.
      */
-    uint256 public challengedPrice;
+    uint256 private challengedPrice;
 
     /**
      * @notice Challenge period in seconds.
@@ -398,7 +398,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * @param floorPrice The minimum price of the collateral in dEURO.
      */
     function _virtualPrice(uint256 colBalance, uint256 floorPrice) internal view returns (uint256) {   
-        if (challengedPrice > 0) return challengedPrice;   
+        if (challengedAmount > 0) return challengedPrice;   
         if (colBalance == 0) return floorPrice;
 
         uint256 virtPrice = (_getDebt() * ONE_DEC18) / colBalance;
@@ -748,19 +748,18 @@ contract Position is Ownable, IPosition, MathUtil {
         // Require minimum size. Collateral balance can be below minimum if it was partially challenged before.
         if (size < minimumCollateral && size < _collateralBalance()) revert ChallengeTooSmall();
         if (size == 0) revert ChallengeTooSmall();
+        
+        if (challengedAmount == 0) challengedPrice = _price;
         challengedAmount += size;
-        // REVIEW: Is this check safe?
-        if (challengedPrice == 0) { 
-            challengedPrice = _price;
-        }
     }
 
     /**
-     * @param size   amount of collateral challenged (dec18)
+     * @param size amount of collateral challenged (dec18)
      */
     function notifyChallengeAverted(uint256 size) external onlyHub {
         challengedAmount -= size;
-        challengedPrice = 0;
+        // REVIEW: Should we reset challengedPrice? 
+        // if (challengedAmount == 0) challengedPrice = 0;
 
         // Don't allow minter to close the position immediately so challenge can be repeated before
         // the owner has a chance to mint more on an undercollateralized position
