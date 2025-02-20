@@ -50,7 +50,7 @@ contract PositionRollingTest {
                 1000000 * 10 ** 18,
                 initializationDelay,
                 30 days,
-                10 hours,
+                1 days,
                 50000,
                 1000 * 10 ** 36,
                 200000

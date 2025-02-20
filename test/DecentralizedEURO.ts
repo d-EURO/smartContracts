@@ -253,7 +253,7 @@ describe("DecentralizedEURO", () => {
 
     it("should revert minting with reserve from non minters", async () => {
       await expect(
-        dEURO.mintWithReserve(owner.address, 1000, 0, 0)
+        dEURO.mintWithReserve(owner.address, 1000, 0)
       ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
@@ -294,7 +294,7 @@ describe("DecentralizedEURO", () => {
       );
       await dEURO
         .connect(bob)
-        .mintWithReserve(alice.address, amount, reservePPM, 0); // mintWithReserve
+        .mintWithReserve(alice.address, amount, reservePPM); // mintWithReserve
       let balanceAfterMintAlice = await dEURO.balanceOf(alice.address);
       let balanceAfterMintReserve = await dEURO.balanceOf(
         await dEURO.reserve(),

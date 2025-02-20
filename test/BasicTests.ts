@@ -314,7 +314,7 @@ describe("Basic Tests", () => {
   
     it("should return 2^255 for internal (bridge) => internal (reserve)", async () => {
       const allowanceVal = await dEURO.allowance(await bridge.getAddress(), await equity.getAddress());
-      const maxUint255 = (1n << 255n).toString();
+      const maxUint255 = 2n ** 256n - 1n;
       expect(allowanceVal.toString()).to.eq(maxUint255);
     });
   

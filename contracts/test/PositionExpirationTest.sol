@@ -33,7 +33,7 @@ contract PositionExpirationTest {
                 1000000 * 10 ** 18,
                 7 days,
                 30 days,
-                10 hours,
+                1 days,
                 50000,
                 1000 * 10 ** 36 /* price */,
                 200000,
@@ -47,7 +47,7 @@ contract PositionExpirationTest {
                 1000000 * 10 ** 18,
                 7 days,
                 30 days,
-                10 hours,
+                1 days,
                 50000,
                 1000 * 10 ** 36 /* price */,
                 200000
@@ -65,13 +65,10 @@ contract PositionExpirationTest {
         uint256 price = hub.expiredPurchasePrice(Position(pos));
         uint256 balanceBefore = deuro.balanceOf(address(this));
         uint256 colBalBefore = col.balanceOf(address(this));
-        uint256 totInterest = Position(pos).getInterest();
-        uint256 posCollateral = col.balanceOf(pos);
-        uint256 propInterest = (totInterest * amount) / posCollateral;
         amount = hub.buyExpiredCollateral(Position(pos), amount);
         uint256 balanceAfter = deuro.balanceOf(address(this));
         uint256 colBalAfter = col.balanceOf(address(this));
         require(colBalAfter - colBalBefore == amount, "collateral amount");
-        require((balanceBefore - balanceAfter) == ((amount * price) / 10 ** 18) + propInterest, "price paid");
+        require((balanceBefore - balanceAfter) == ((amount * price) / 10 ** 18), "price paid");
     }
 }
