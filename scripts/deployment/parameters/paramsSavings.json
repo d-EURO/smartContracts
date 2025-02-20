@@ -1,14 +1,14 @@
 {
   "1": {
     "name": "mainnet",
-    "initialRatePPM": 5
+    "initialRatePPM": 100000
   },
   "31337": {
     "name": "local",
-    "initialRatePPM": 5
+    "initialRatePPM": 100000
   },
   "11155111": {
     "name": "sepolia",
-    "initialRatePPM": 5
+    "initialRatePPM": 100000
   }
 }
