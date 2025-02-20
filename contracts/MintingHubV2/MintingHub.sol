@@ -70,6 +70,11 @@ contract MintingHub is IMintingHub, ERC165 {
     error IncompatibleCollateral();
     error InsufficientCollateral();
     error LeaveNoDust(uint256 amount);
+    error InvalidRiskPremium();
+    error InvalidReservePPM();
+    error InvalidCollateralDecimals();
+    error ChallengeTimeTooShort();
+    error InitPeriodTooShort();
 
     modifier validPos(address position) {
         if (DEURO.getPositionParent(position) != address(this)) revert InvalidPos();
@@ -115,9 +120,11 @@ contract MintingHub is IMintingHub, ERC165 {
         uint24 _reservePPM
     ) public returns (address) {
         {
-            require(_riskPremium <= 1000000);
-            require(CHALLENGER_REWARD <= _reservePPM && _reservePPM <= 1000000);
-            require(IERC20Metadata(_collateralAddress).decimals() <= 24); // leaves 12 digits for price
+            if (_riskPremium > 1_000_000) revert InvalidRiskPremium();
+            if (CHALLENGER_REWARD > _reservePPM || _reservePPM > 1_000_000) revert InvalidReservePPM();
+            if (IERC20Metadata(_collateralAddress).decimals() > 24) revert InvalidCollateralDecimals(); // leaves 12 digits for price
+            if (_challengeSeconds < 1 days) revert ChallengeTimeTooShort(); // REVIEW: Is this bound reasonable?
+            if (_initPeriodSeconds < 3 days) revert InitPeriodTooShort();
             uint256 invalidAmount = IERC20(_collateralAddress).totalSupply() + 1;
             try IERC20(_collateralAddress).transfer(address(0x123), invalidAmount) {
                 revert IncompatibleCollateral(); // we need a collateral that reverts on failed transfers

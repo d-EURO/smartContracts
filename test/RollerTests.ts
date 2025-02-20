@@ -384,7 +384,7 @@ describe("Roller Tests", () => {
           await coin.getAddress(),
           floatToDec18(1), // min size
           floatToDec18(10), // size
-          floatToDec18(100_000), // mint limit
+          floatToDec18(110_000), // mint limit
           3 * 86_400,
           100 * 86_400,
           86_400,
@@ -500,7 +500,7 @@ describe("Roller Tests", () => {
       const rollEvent = receipt?.logs
         .map((log) => roller.interface.parseLog(log))
         .find((parsedLog) => parsedLog?.name === 'Roll');
-      const [eSource, eCollWithdraw, eRepay, eInterest, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
+      const [eSource, eCollWithdraw, eRepay, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
 
       // new position
       const cloneAddr = await getPositionAddress(receipt!);
@@ -510,8 +510,10 @@ describe("Roller Tests", () => {
       const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
       const i1After = await pos1.getInterest();
+      const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
+      const bDiff = (p1 + i1 - p1Reserve) - await pos2.getUsableMint(p2);
       const targetPrice = await pos2.price();
-      let usableAmount = await pos1.getUsableMint(p1);
+      let usableAmount = await pos1.getUsableMint(p1) + i1;
       let mintAmount = await pos2.getMintAmount(usableAmount); // divide by reserve ratio
       let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice;
       depositAmount = depositAmount > collBal ? collBal : depositAmount;
@@ -519,13 +521,12 @@ describe("Roller Tests", () => {
       expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
       expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
       expect(eCollWithdraw).to.be.equal(collBal);
-      expect(eCollDeposit).to.be.equal(depositAmount);
-      expect(eRepay).to.be.equal(p1);
-      expect(eMint).to.be.approximately(mintAmount, 1e4);
-      expect(eInterest).to.be.approximately(i1, floatToDec18(0.001));
-      expect(b1 - BigInt(eInterest)).to.equal(b2);
-      expect(p2).to.be.equal(p1); // The rolled principal should be the same
-      expect(p2).to.be.approximately(mintAmount, 1e4);
+      expect(eCollDeposit).to.be.approximately(depositAmount, 1e14);
+      expect(eRepay).to.be.approximately(p1 + i1, floatToDec18(0.001));
+      expect(eMint).to.be.approximately(mintAmount, floatToDec18(0.001));
+      expect(b1).to.equal(b2);
+      expect(bDiff).to.be.approximately(0, floatToDec18(0.001));
+      expect(p2).to.be.approximately(mintAmount, floatToDec18(0.001));
       expect(p1After).to.be.equal(0);
       expect(i1After).to.be.equal(0);
       expect(await pos1.isClosed()).to.be.equal(true);
@@ -553,7 +554,7 @@ describe("Roller Tests", () => {
       const p1 = await pos1.principal();                                              // 10_000 dEURO (principal P1)
       const i1 = await pos1.getInterest();
       const collBal = await coin.balanceOf(await pos1.getAddress());                  // 10 coin (collateral P1)
-      let usableAmount = await pos1.getUsableMint(p1);                                // 9_000 dEURO (usable mint P1)
+      let usableAmount = await pos1.getUsableMint(p1) + i1;                           // 9_000 dEURO (usable mint P1)
       let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 dEURO (principal P2)
       let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice; // 10 coin (collateral P2)
       depositAmount = depositAmount > collBal ? collBal : depositAmount;              // 10 coin (collateral P2)
@@ -578,7 +579,7 @@ describe("Roller Tests", () => {
       const rollEvent = receipt?.logs
       .map((log) => roller.interface.parseLog(log))
       .find((parsedLog) => parsedLog?.name === 'Roll');
-      const [eSource, eCollWithdraw, eRepay, eInterest, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
+      const [eSource, eCollWithdraw, eRepay, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
@@ -586,15 +587,16 @@ describe("Roller Tests", () => {
       const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
       const i1After = await pos1.getInterest();
+      const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
+      const bDiff = (p1 + i1 - p1Reserve) - await pos2.getUsableMint(p2);
       
       expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
       expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
       expect(eCollWithdraw).to.be.equal(collBal);
       expect(eCollDeposit).to.be.equal(depositAmount);
-      expect(eRepay).to.be.equal(p1);
+      expect(eRepay).to.be.approximately(p1 + i1, floatToDec18(0.001));
       expect(eMint).to.be.approximately(mintAmount, 1e4);
-      expect(eInterest).to.be.approximately(i1, floatToDec18(0.001));
-      expect(b1 - BigInt(eInterest)).to.equal(b2);
+      expect(b1 - bDiff).to.approximately(b2, floatToDec18(0.001));
       expect(p2).to.be.equal(p1); // The rolled principal should be the same
       expect(p2).to.be.approximately(mintAmount, 1e4);
       expect(p1After).to.be.equal(0);
@@ -623,7 +625,7 @@ describe("Roller Tests", () => {
       const p1 = await pos1.principal();                                              
       const i1 = await pos1.getInterest();
       const collBal = await coin.balanceOf(await pos1.getAddress());                  
-      let usableAmount = await pos1.getUsableMint(p1);                                
+      let usableAmount = await pos1.getUsableMint(p1) + i1;                                
       let mintAmount = await pos2.getMintAmount(usableAmount);                        
       let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice; 
       depositAmount = depositAmount > collBal ? collBal : depositAmount;              
@@ -641,7 +643,7 @@ describe("Roller Tests", () => {
       const rollEvent = receipt?.logs
       .map((log) => roller.interface.parseLog(log))
       .find((parsedLog) => parsedLog?.name === 'Roll');
-      const [eSource, eCollWithdraw, eRepay, eInterest, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
+      const [eSource, eCollWithdraw, eRepay, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
@@ -650,16 +652,16 @@ describe("Roller Tests", () => {
       const p1After = await pos1.principal();
       const i1After = await pos1.getInterest();
       const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
-      const bDiff = p1 + eInterest - await pos2.getUsableMint(p2) - p1Reserve;
+      const bDiff = (p1 + i1 - p1Reserve) - await pos2.getUsableMint(p2);
       
       expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
       expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
       expect(eCollWithdraw).to.be.equal(collBal);
       expect(eCollDeposit).to.be.equal(depositAmount);
-      expect(eRepay).to.be.equal(p1);
+      expect(eRepay).to.be.approximately(p1 + i1, floatToDec18(0.001));
+      expect(eRepay).to.be.gte(p1 + i1);
       expect(eMint).to.be.approximately(mintAmount, 1e4);
-      expect(eInterest).to.be.approximately(i1, floatToDec18(0.001));
-      expect(b1 - bDiff).to.equal(b2);
+      expect(b1 - bDiff).to.approximately(b2, floatToDec18(0.001));
       expect(p2).to.be.equal(collBal * await pos2.price() / DECIMALS); // The rolled principal should be less
       expect(p2).to.be.approximately(mintAmount, 1e4);
       expect(p1After).to.be.equal(0);
@@ -725,7 +727,7 @@ describe("Roller Tests", () => {
       const p1 = await pos1.principal();                                              // 10_000 dEURO (principal P1)
       const i1 = await pos1.getInterest();                                            // (interest P1)
       const collBal = await coin.balanceOf(await pos1.getAddress());                  // 10 coin (collateral P1)
-      let usableAmount = await pos1.getUsableMint(p1);                                // 9_000 dEURO (usable mint P1)
+      let usableAmount = await pos1.getUsableMint(p1) + i1;                           // 9_000 dEURO (usable mint P1)
       let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 dEURO (principal P2)
       let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice; // 1.111... coin (collateral P2)
       depositAmount = depositAmount > collBal ? collBal : depositAmount;              // 1.111... coin (collateral P2)
@@ -743,7 +745,7 @@ describe("Roller Tests", () => {
       const rollEvent = receipt?.logs
       .map((log) => roller.interface.parseLog(log))
       .find((parsedLog) => parsedLog?.name === 'Roll');
-      const [eSource, eCollWithdraw, eRepay, eInterest, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
+      const [eSource, eCollWithdraw, eRepay, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
@@ -751,18 +753,21 @@ describe("Roller Tests", () => {
       const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
       const i1After = await pos1.getInterest();
+      const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
+      const bDiff = (p1 + i1 - p1Reserve) - await pos2.getUsableMint(p2);
       const ownerColBalAfter = await coin.balanceOf(owner.address);
       
       expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
       expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
       expect(eCollWithdraw).to.be.equal(collBal);
-      expect(eCollDeposit).to.be.equal(depositAmount);
-      expect(eRepay).to.be.equal(p1);
-      expect(eMint).to.be.approximately(mintAmount, 1e4);
-      expect(eInterest).to.be.approximately(i1, floatToDec18(0.001));
-      expect(b1 - BigInt(eInterest)).to.equal(b2);
-      expect(p2).to.be.equal(p1); // The rolled principal should be the same
-      expect(p2).to.be.approximately(mintAmount, 1e4);
+      expect(eCollDeposit).to.be.approximately(depositAmount, 1e14);
+      expect(eCollDeposit).to.be.gte(depositAmount);
+      expect(eRepay).to.be.approximately(p1 + i1, floatToDec18(0.001));
+      expect(eMint).to.be.approximately(mintAmount, floatToDec18(0.001));
+      expect(b1).to.equal(b2);
+      expect(bDiff).to.be.approximately(0, floatToDec18(0.001));
+      expect(p2).to.be.approximately(mintAmount, floatToDec18(0.001));
+      expect(p2).to.be.gte(mintAmount);
       expect(ownerColBalAfter - ownerColBalBefore).to.be.equal(collBal - eCollDeposit);
       expect(p1After).to.be.equal(0);
       expect(i1After).to.be.equal(0);

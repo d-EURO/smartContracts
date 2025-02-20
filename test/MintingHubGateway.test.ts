@@ -732,6 +732,7 @@ describe('Minting Tests', () => {
       expect(await positionContract.isClosed()).to.be.false;
     });
     it('owner can provide more collaterals to the position', async () => {
+      await evm_increaseTimeTo(await positionContract.cooldown() + 1n);
       const colBalance = await mockVOL.balanceOf(positionAddr);
       const amount = floatToDec18(100);
       await mockVOL.approve(positionAddr, amount);

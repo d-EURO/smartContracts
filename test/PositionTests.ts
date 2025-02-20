@@ -166,9 +166,9 @@ describe("Position Tests", () => {
           fliqPrice,
           fReserve,
         ),
-      ).to.be.revertedWithoutReason();
+      ).to.be.revertedWithCustomError(mintingHub, "InitPeriodTooShort");
     });
-    it("should revert creating position when annual interest is less than 1M PPM", async () => {
+    it("should revert creating position when annual interest is larger than 1M PPM", async () => {
       await expect(
         mintingHub.openPosition(
           collateral,
@@ -182,9 +182,9 @@ describe("Position Tests", () => {
           fliqPrice,
           fReserve,
         ),
-      ).to.be.revertedWithoutReason();
+      ).to.be.revertedWithCustomError(mintingHub, "InvalidRiskPremium");
     });
-    it("should revert creating position when reserve fee is less than 1M PPM", async () => {
+    it("should revert creating position when reserve fee is larger than 1M PPM", async () => {
       await expect(
         mintingHub.openPosition(
           collateral,
@@ -198,7 +198,7 @@ describe("Position Tests", () => {
           fliqPrice,
           2 * 1_000_000,
         ),
-      ).to.be.revertedWithoutReason();
+      ).to.be.revertedWithCustomError(mintingHub, "InvalidReservePPM")
     });
     it("should revert creating position when initial collateral is less than minimal", async () => {
       await expect(
@@ -207,7 +207,7 @@ describe("Position Tests", () => {
           minCollateral,
           minCollateral / 2n,
           initialLimit,
-          86400 * 2,
+          86_400 * 3,
           duration,
           challengePeriod,
           fFees,
@@ -223,7 +223,7 @@ describe("Position Tests", () => {
           minCollateral,
           fInitialCollateral,
           initialLimit,
-          86400 * 2,
+          86400 * 3,
           duration,
           challengePeriod,
           fFees,
@@ -248,7 +248,7 @@ describe("Position Tests", () => {
           floatToDec18(4000),
           fReserve,
         ),
-      ).to.be.revertedWithoutReason();
+      ).to.be.revertedWithCustomError(mintingHub, "InvalidCollateralDecimals");
     });
     it("should revert creating position when collateral token does not revert on error", async () => {
       const testTokenFactory = await ethers.getContractFactory("FreakToken");
@@ -259,7 +259,7 @@ describe("Position Tests", () => {
           minCollateral,
           fInitialCollateral,
           initialLimit,
-          86400 * 2,
+          86400 * 3,
           duration,
           challengePeriod,
           fFees,
@@ -1258,9 +1258,9 @@ describe("Position Tests", () => {
       ).to.be.revertedWithCustomError(positionContract, "Challenged");
     });
     it("should increase cooldown for 3 days when submitted price is greater than the current price", async () => {
-      await evm_increaseTime(86400 * 6);
       const prevCooldown = await positionContract.cooldown();
       const initialPrice = await positionContract.price();
+      await evm_increaseTimeTo(prevCooldown);
       await positionContract.adjustPrice(initialPrice - floatToDec18(1));
       expect(await positionContract.price()).to.be.equal(initialPrice - floatToDec18(1));
       await expect(positionContract.adjustPrice(initialPrice)).to.be.emit(
@@ -1283,10 +1283,21 @@ describe("Position Tests", () => {
         "InsufficientCollateral",
       );
     });
-    it("should revert adjusting price when new price is greater than minimum collateral value", async () => {
+    it("should revert adjusting price when new price is greater than required to cover max principal", async () => {
+      await evm_increaseTimeTo(await positionContract.cooldown());
       const underPrice = initialLimit;
       await expect(
-        positionContract.adjustPrice(underPrice * 2n),
+        positionContract.adjustPrice(floatToDec18(6000)),
+      ).to.be.revertedWithCustomError(        
+        positionContract,
+        "PriceTooHigh"
+      )
+    });
+    it("should revert adjusting price when new price is greater than double the current price", async () => {
+      await evm_increaseTimeTo(await positionContract.cooldown());
+      const price = await positionContract.price();
+      await expect(
+        positionContract.adjustPrice((price * 21n) / 10n),
       ).to.be.revertedWithCustomError(        
         positionContract,
         "PriceTooHigh"
@@ -1340,6 +1351,8 @@ describe("Position Tests", () => {
       );
     });
     it("owner can provide more collaterals to the position", async () => {
+      await evm_increaseTimeTo(await positionContract.cooldown());
+
       const colBalance = await mockVOL.balanceOf(positionAddr);
       const amount = floatToDec18(100);
       await mockVOL.approve(positionAddr, amount);

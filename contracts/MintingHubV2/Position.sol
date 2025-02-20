@@ -197,7 +197,6 @@ contract Position is Ownable, IPosition, MathUtil {
         uint256 _liqPrice,
         uint24 _reservePPM
     ) Ownable(_owner) {
-        require(_initPeriod >= 3 days); // must be at least three days, recommended to use higher values
         original = address(this);
         hub = _hub;
         deuro = IDecentralizedEURO(_deuro);
@@ -350,7 +349,7 @@ contract Position is Ownable, IPosition, MathUtil {
         emit MintingUpdate(_collateralBalance(), price, principal);
     }
 
-    function _adjustPrice(uint256 newPrice) internal noChallenge alive backed {
+    function _adjustPrice(uint256 newPrice) internal noChallenge alive backed noCooldown {
         if (newPrice > price) {
             _restrictMinting(3 days);
         } else {
@@ -360,9 +359,10 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _setPrice(uint256 newPrice, uint256 bounds) internal {
-        // REVIEW: Restrict price jumps and price increase during cooldown?
-        // REVIEW: Should we consider future interest in the bounds?
         uint256 colBalance = _collateralBalance();
+        if (block.timestamp >= start && newPrice > 2 * price) {
+            revert PriceTooHigh(newPrice, 2 * price);
+        }
         if (newPrice * colBalance > bounds * ONE_DEC18) {
             revert PriceTooHigh(newPrice, (bounds * ONE_DEC18) / colBalance);
         }

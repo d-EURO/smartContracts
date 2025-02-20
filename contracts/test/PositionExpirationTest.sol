@@ -33,7 +33,7 @@ contract PositionExpirationTest {
                 1000000 * 10 ** 18,
                 7 days,
                 30 days,
-                10 hours,
+                1 days,
                 50000,
                 1000 * 10 ** 36 /* price */,
                 200000,
@@ -47,7 +47,7 @@ contract PositionExpirationTest {
                 1000000 * 10 ** 18,
                 7 days,
                 30 days,
-                10 hours,
+                1 days,
                 50000,
                 1000 * 10 ** 36 /* price */,
                 200000
