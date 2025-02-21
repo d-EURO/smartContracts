@@ -71,7 +71,7 @@ contract PositionRoller {
      * It is the responsibility of the caller to ensure that both positions are valid contracts.
      *
      * @param source The source position, must be owned by the msg.sender.
-     * @param repay The amount to flash loan in order to repay the source position and free up some or all collateral.
+     * @param repay The amount of principal to repay from the source position using a flash loan, freeing up some or all collateral .
      * @param collWithdraw Collateral to move from the source position to the msg.sender.
      * @param target The target position. If not owned by msg.sender or if it does not have the desired expiration,
      *               it is cloned to create a position owned by the msg.sender.
