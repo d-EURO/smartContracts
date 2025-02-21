@@ -6,7 +6,7 @@ import {
   mulDec18,
 } from "../scripts/math";
 import { ethers } from "hardhat";
-import { evm_increaseTime, evm_increaseTimeTo } from "./helper";
+import { evm_increaseTime, evm_increaseTimeTo } from "./utils";
 import {
   Equity,
   DecentralizedEURO,

@@ -1,8 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { deployContract } from "../deployUtils";
-import { getParams } from "../../utils";
-import { verify } from "../../verify";
+import { deployContract, verify } from "../utils";
+import { deploymentConfig } from "../deploymentConfig";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, network } = hre;
@@ -14,11 +13,10 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   }
 
   // Fetch constructor arguments
-  const params = getParams("paramsSavings", chainId);
+  const savingsGatewayConfig = deploymentConfig.savingsGateway[chainId];
   const decentralizedEURODeployment = await get("DecentralizedEURO");
   const frontendGatewayDeployment = await get("FrontendGateway");
-  
-  const initialRatePPM = params.initialRatePPM;
+  const initialRatePPM = savingsGatewayConfig.initialRatePPM;
   const decentralizedEURO = decentralizedEURODeployment.address;
   const frontendGateway = frontendGatewayDeployment.address;
   const args = [decentralizedEURO, initialRatePPM, frontendGateway];

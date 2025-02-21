@@ -1,8 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { deployContract } from "../deployUtils";
-import { getParams } from "../../utils";
-import { verify } from "../../verify";
+import { deployContract, verify } from "../utils";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, network } = hre;
@@ -19,7 +17,6 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const positionRollerDeployment = await get("PositionRoller");
   const positionFactoryDeployment = await get("PositionFactory");
   const frontendGatewayDeployment = await get("FrontendGateway");
-
   const decentralizedEURO = decentralizedEURODeployment.address;
   const savingsGateway = savingsGatewayDeployment.address;
   const positionRoller = positionRollerDeployment.address;

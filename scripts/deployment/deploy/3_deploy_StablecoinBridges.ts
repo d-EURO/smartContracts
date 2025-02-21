@@ -1,9 +1,8 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { deployContract } from "../deployUtils";
+import { deployContract, verify } from "../utils";
+import { deploymentConfig } from "../deploymentConfig";
 import { floatToDec18 } from "../../math";
-import { getParams } from "../../utils";
-import { verify } from "../../verify";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, network } = hre;
@@ -15,21 +14,22 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   }
 
   // Fetch constructor arguments
-  const params = getParams("paramsBridges", chainId);
+  const stablecoinBridgeConfig = deploymentConfig.stablecoinBridge[chainId];
   const decentralizedEURODeployment = await get("DecentralizedEURO");
 
-  const bridges = params.bridges;
+  const bridges = stablecoinBridgeConfig.bridges;
   for (let i = 0; i < bridges.length; i++) {
+    // Fetch constructor arguments
     const bridge = bridges[i];
-
+    const bridgeName = bridge.name;
     const otherAddress = bridge.other;
     const decentralizedEURO = decentralizedEURODeployment.address
-    const limit = floatToDec18(bridge.limit);
+    const limit = bridge.limit;
     const weeks = bridge.weeks;
     const args = [otherAddress, decentralizedEURO, limit, weeks];
     
     // Deploy contract
-    const deployment = await deployContract(hre, "StablecoinBridge", args);
+    const deployment = await deployContract(hre, `StablecoinBridge${bridgeName}`, args, "StablecoinBridge");
 
     // Verify contract
     const deploymentAddress = await deployment.getAddress();

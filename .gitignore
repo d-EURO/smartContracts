@@ -17,6 +17,7 @@ dist/
 launch.json
 scripts/deployment/deployments/localhost
 scripts/deployment/deployments/hardhat
+scripts/deployment/test.ts
 .VSCodeCounter/
 .vscode/settings.json
 tst.ts

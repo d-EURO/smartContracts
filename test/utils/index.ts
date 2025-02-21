@@ -15,7 +15,7 @@ export const evm_increaseTimeTo = async (seconds: number | bigint) => {
   await helper.time.increase(BigInt(seconds) - latest);
 };
 
-export const evm_mine_blocks = async (n: number) => {
+export const evm_mineBlocks = async (n: number) => {
   await helper.mine(n);
 };
 

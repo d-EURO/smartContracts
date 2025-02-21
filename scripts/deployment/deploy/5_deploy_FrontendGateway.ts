@@ -1,8 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { deployContract } from "../deployUtils";
-import { getParams } from "../../utils";
-import { verify } from "../../verify";
+import { deployContract, verify } from "../utils";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, network } = hre;
@@ -16,7 +14,6 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   // Fetch constructor arguments
   const decentralizedEURODeployment = await get("DecentralizedEURO");
   const depsWrapperDeployment = await get("DEPSWrapper");
-
   const decentralizedEURO = decentralizedEURODeployment.address;
   const depsWrapper = depsWrapperDeployment.address;
   const args = [decentralizedEURO, depsWrapper];

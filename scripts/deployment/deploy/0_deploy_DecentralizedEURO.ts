@@ -1,8 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { deployContract } from "../deployUtils";
-import { verify } from "../../verify";
-import { getParams } from "../../utils";
+import { deployContract, getParams, verify } from "../utils";
+import { deploymentConfig } from "../deploymentConfig";
 
 const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { network } = hre;
@@ -13,9 +12,8 @@ const deploy: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   }
 
   // Fetch constructor arguments
-  const params = getParams("paramsDecentralizedEURO", chainId);
-
-  const minApplicationPeriod = params.minApplicationPeriod;
+  const deuroConfig = deploymentConfig.decentralizedEURO[chainId];
+  const minApplicationPeriod = deuroConfig.minApplicationPeriod;
   const args = [minApplicationPeriod];
 
   // Deploy contract
