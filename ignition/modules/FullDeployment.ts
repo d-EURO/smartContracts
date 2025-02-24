@@ -50,6 +50,8 @@ export default buildModule('FullDeployment', (m) => {
     id: 'DecentralizedEURO_initialize_StablecoinBridgeEURS',
   });
 
+  // TODO: Mint some dEURO to close initialisation phase
+
   return {
     decentralizedEURO,
     positionFactory,
