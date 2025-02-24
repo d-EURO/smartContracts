@@ -12,29 +12,55 @@ import StablecoinBridgeVEUR from './StablecoinBridgeVEUR';
 import StablecoinBridgeEURS from './StablecoinBridgeEURS';
 
 export default buildModule('FullDeployment', (m) => {
-  const deuro = m.useModule(DecentralizedEUROModule);
-  const positionFactory = m.useModule(PositionFactoryModule);
-  const positionRoller = m.useModule(PositionRollerModule);
-  const stablecoinBridgeEURC = m.useModule(StablecoinBridgeEURC);
-  const stablecoinBridgeEURT = m.useModule(StablecoinBridgeEURT);
-  const stablecoinBridgeVEUR = m.useModule(StablecoinBridgeVEUR);
-  const stablecoinBridgeEURS = m.useModule(StablecoinBridgeEURS);
-  const deps = m.useModule(DEPSWrapperModule);
-  const frontend = m.useModule(FrontendGatewayModule);
-  const savingsGateway = m.useModule(SavingsGatewayModule);
-  const mintingHub = m.useModule(MintingHubGatewayModule);
+  const { decentralizedEURO } = m.useModule(DecentralizedEUROModule);
+  const { positionFactory } = m.useModule(PositionFactoryModule);
+  const { positionRoller } = m.useModule(PositionRollerModule);
+  const { stablecoinBridgeEURC } = m.useModule(StablecoinBridgeEURC);
+  const { stablecoinBridgeEURT } = m.useModule(StablecoinBridgeEURT);
+  const { stablecoinBridgeVEUR } = m.useModule(StablecoinBridgeVEUR);
+  const { stablecoinBridgeEURS } = m.useModule(StablecoinBridgeEURS);
+  const { depsWrapper } = m.useModule(DEPSWrapperModule);
+  const { frontendGateway } = m.useModule(FrontendGatewayModule);
+  const { savingsGateway } = m.useModule(SavingsGatewayModule);
+  const { mintingHubGateway } = m.useModule(MintingHubGatewayModule);
+
+  // 1. Initialize the frontend gateway
+  m.call(frontendGateway, 'init', [savingsGateway, mintingHubGateway], { id: 'FrontendGateway_init' });
+
+  // 2. Initialize minters
+  m.call(decentralizedEURO, 'initialize', [mintingHubGateway, 'MintingHubGateway'], {
+    id: 'DecentralizedEURO_initialize_MintingHubGateway',
+  });
+  m.call(decentralizedEURO, 'initialize', [savingsGateway, 'SavingsGateway'], {
+    id: 'DecentralizedEURO_initialize_SavingsGateway',
+  });
+  m.call(decentralizedEURO, 'initialize', [frontendGateway, 'FrontendGateway'], {
+    id: 'DecentralizedEURO_initialize_FrontendGateway',
+  });
+  m.call(decentralizedEURO, 'initialize', [stablecoinBridgeEURC, 'StablecoinBridgeEURC'], {
+    id: 'DecentralizedEURO_initialize_StablecoinBridgeEURC',
+  });
+  m.call(decentralizedEURO, 'initialize', [stablecoinBridgeEURT, 'StablecoinBridgeEURT'], {
+    id: 'DecentralizedEURO_initialize_StablecoinBridgeEURT',
+  });
+  m.call(decentralizedEURO, 'initialize', [stablecoinBridgeVEUR, 'StablecoinBridgeVEUR'], {
+    id: 'DecentralizedEURO_initialize_StablecoinBridgeVEUR',
+  });
+  m.call(decentralizedEURO, 'initialize', [stablecoinBridgeEURS, 'StablecoinBridgeEURS'], {
+    id: 'DecentralizedEURO_initialize_StablecoinBridgeEURS',
+  });
 
   return {
-    ...deuro,
-    ...positionFactory,
-    ...positionRoller,
-    ...stablecoinBridgeEURC,
-    ...stablecoinBridgeEURT,
-    ...stablecoinBridgeVEUR,
-    ...stablecoinBridgeEURS,
-    ...deps,
-    ...frontend,
-    ...savingsGateway,
-    ...mintingHub,
+    decentralizedEURO,
+    positionFactory,
+    positionRoller,
+    stablecoinBridgeEURC,
+    stablecoinBridgeEURT,
+    stablecoinBridgeVEUR,
+    stablecoinBridgeEURS,
+    depsWrapper,
+    frontendGateway,
+    savingsGateway,
+    mintingHubGateway,
   };
 });
