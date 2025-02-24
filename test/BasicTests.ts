@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { floatToDec18, dec18ToFloat, abs, DECIMALS } from "../scripts/math";
 import { ethers } from "hardhat";
-import { capitalToShares, sharesToCapital } from "../scripts/utils";
+import { capitalToShares, sharesToCapital } from "./utils/utils";
 import {
   Equity,
   DecentralizedEURO,
@@ -11,7 +11,7 @@ import {
   Savings,
   PositionRoller,
 } from "../typechain";
-import { evm_increaseTime } from "./helper";
+import { evm_increaseTime } from "./utils";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Basic Tests", () => {

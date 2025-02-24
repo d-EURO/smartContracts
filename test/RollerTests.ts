@@ -12,7 +12,7 @@ import {
   TestToken,
 } from "../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { evm_increaseTime } from "./helper";
+import { evm_increaseTime } from "./utils";
 import { ContractTransactionReceipt, EventLog } from "ethers";
 
 describe("Roller Tests", () => {

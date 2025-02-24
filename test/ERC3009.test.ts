@@ -5,8 +5,8 @@ import { TestToken } from "../typechain";
 import {
   getCancelAuthorizationSignature,
   getTransferAuthorizationSignature,
-} from "./helper/signer";
-import { getFutureTimeStamp } from "./helper";
+} from "./utils/signer";
+import { getFutureTimeStamp } from "./utils";
 
 const oneETH = ethers.parseEther("1");
 

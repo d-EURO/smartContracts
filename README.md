@@ -167,9 +167,11 @@ hh deploy --network sepolia --tags positions
 > Deployment modules are located in /ignition/modules. Deploy your contracts:
 
 ```Bash
-yarn run deploy ignition/modules/MODULE --network polygon --verify --deployment-id MODULE_ID_01
+# deploy and verify a contract (increase deployment-id)
+npm run deploy ignition/modules/MODULE --network polygon --verify --deployment-id MODULE_ID_01
 
---> increase: deployment-id
+# deploy and verify all contracts
+npm run deploy -- --network polygon --verify
 ```
 
 This will:
