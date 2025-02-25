@@ -353,7 +353,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (newPrice > price) {
             _restrictMinting(3 days);
         } else {
-            _checkCollateral(_collateralBalance(), newPrice); 
+            _checkCollateral(_collateralBalance(), newPrice);
         }
         _setPrice(newPrice, principal + availableForMinting());
     }
