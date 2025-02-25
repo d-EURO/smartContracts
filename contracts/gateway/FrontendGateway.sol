@@ -120,6 +120,8 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         address position,
         bytes32 frontendCode
     ) external onlyGatewayService(address(MINTING_HUB)) {
+        if (frontendCode == bytes32(0)) return;
+
         referredPositions[position] = frontendCode;
         emit NewPositionRegistered(position, frontendCode);
     }

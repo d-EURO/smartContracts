@@ -661,7 +661,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function _payDownDebt(uint256 amount) internal returns (uint256) {
         _accrueInterest();
-
+        
         if (amount == 0) return 0;
 
         uint256 remaining = amount;

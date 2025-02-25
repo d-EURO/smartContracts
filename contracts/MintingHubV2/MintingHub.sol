@@ -397,11 +397,11 @@ contract MintingHub is IMintingHub, ERC165 {
             if (timePassed <= challengePeriod) {
                 // from 10x liquidation price to 1x in first phase
                 uint256 timeLeft = challengePeriod - timePassed;
-                return liqprice + (((EXPIRED_PRICE_FACTOR - 1) * liqprice) / challengePeriod) * timeLeft;
+                return liqprice + (((EXPIRED_PRICE_FACTOR - 1) * liqprice * timeLeft) / challengePeriod);
             } else if (timePassed < 2 * challengePeriod) {
                 // from 1x liquidation price to 0 in second phase
                 uint256 timeLeft = 2 * challengePeriod - timePassed;
-                return (liqprice / challengePeriod) * timeLeft;
+                return (liqprice  * timeLeft) / challengePeriod;
             } else {
                 // get collateral for free after both phases passed
                 return 0;
