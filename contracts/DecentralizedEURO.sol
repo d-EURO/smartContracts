@@ -288,7 +288,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         uint256 adjustedReservePPM = currentReserve < minterReserve_
             ? (_reservePPM * currentReserve) / minterReserve_
             : _reservePPM;
-        return (1000000 * amountExcludingReserve) / (1000000 - adjustedReservePPM);
+        return (1_000_000 * amountExcludingReserve) / (1_000_000 - adjustedReservePPM);
     }
 
     /**
