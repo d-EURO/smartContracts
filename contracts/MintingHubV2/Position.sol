@@ -616,8 +616,7 @@ contract Position is Ownable, IPosition, MathUtil {
         emit MintingUpdate(balance, price, principal);
     }
 
-    function _withdrawCollateral(address target, uint256 amount) internal noChallenge returns (uint256) {
-        if (block.timestamp <= cooldown) revert Hot();
+    function _withdrawCollateral(address target, uint256 amount) internal noCooldown noChallenge returns (uint256) {
         uint256 balance = _sendCollateral(target, amount);
         _checkCollateral(balance, price);
         return balance;
