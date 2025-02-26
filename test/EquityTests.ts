@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { floatToDec, floatToDec18 } from "../scripts/math";
 import { ethers } from "hardhat";
-import { evm_increaseTime, evm_mine_blocks } from "./helper";
+import { evm_increaseTime, evm_mineBlocks } from "./utils";
 import {
   Equity,
   DecentralizedEURO,
@@ -89,7 +89,7 @@ describe("Equity Tests", () => {
   describe("minting shares", () => {
     it("equity does not require approval", async () => {
       const allowance = await dEURO.allowance(owner.address, equity);
-      const maxAllowance = BigInt(1) << BigInt(255);
+      const maxAllowance = 2n ** 256n - 1n;
       expect(allowance).to.equal(maxAllowance);
       let balanceBefore = await equity.balanceOf(owner.address);
       await equity.invest(floatToDec18(1000), 0);
@@ -353,7 +353,7 @@ describe("Equity Tests", () => {
     });
 
     it("total votes correct after mine", async () => {
-      await evm_mine_blocks(2);
+      await evm_mineBlocks(2);
       let other = bob.address;
       let totVotesAfter = await equity.totalVotes();
       let votesAfter = [

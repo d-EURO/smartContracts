@@ -17,9 +17,12 @@ dist/
 launch.json
 scripts/deployment/deployments/localhost
 scripts/deployment/deployments/hardhat
+scripts/test.ts
 .VSCodeCounter/
 .vscode/settings.json
 tst.ts
 package-lock.json
 .DS_Store
 abi/
+out/
+lib/

@@ -11,7 +11,7 @@ contract TestToken is ERC20,  EIP712, ERC3009, ERC20Burnable {
 
     constructor(string memory name_, string memory symbol_, uint8 decimals_)  EIP712(name_, "1") ERC20(name_, symbol_) {
         _decimals = decimals_;
-        _mint(msg.sender, 1_000_000 * 1e18);
+        _mint(msg.sender, 10_000_000 * 1e18);
     }
 
     function decimals() public view override returns (uint8) {

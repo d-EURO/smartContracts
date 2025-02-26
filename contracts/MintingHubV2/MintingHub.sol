@@ -63,14 +63,18 @@ contract MintingHub is IMintingHub, ERC165 {
         uint256 challengeSize
     );
     event PostponedReturn(address collateral, address indexed beneficiary, uint256 amount);
-    event ForcedSale(address pos, uint256 amount, uint256 priceE36MinusDecimals, uint256 interest);
+    event ForcedSale(address pos, uint256 amount, uint256 priceE36MinusDecimals);
 
     error UnexpectedPrice();
     error InvalidPos();
     error IncompatibleCollateral();
     error InsufficientCollateral();
     error LeaveNoDust(uint256 amount);
-    error ExceedsMaxInterest(uint256 interest, uint256 maxInterest);
+    error InvalidRiskPremium();
+    error InvalidReservePPM();
+    error InvalidCollateralDecimals();
+    error ChallengeTimeTooShort();
+    error InitPeriodTooShort();
 
     modifier validPos(address position) {
         if (DEURO.getPositionParent(position) != address(this)) revert InvalidPos();
@@ -116,9 +120,11 @@ contract MintingHub is IMintingHub, ERC165 {
         uint24 _reservePPM
     ) public returns (address) {
         {
-            require(_riskPremium <= 1000000);
-            require(CHALLENGER_REWARD <= _reservePPM && _reservePPM <= 1000000);
-            require(IERC20Metadata(_collateralAddress).decimals() <= 24); // leaves 12 digits for price
+            if (_riskPremium > 1_000_000) revert InvalidRiskPremium();
+            if (CHALLENGER_REWARD > _reservePPM || _reservePPM > 1_000_000) revert InvalidReservePPM();
+            if (IERC20Metadata(_collateralAddress).decimals() > 24) revert InvalidCollateralDecimals(); // leaves 12 digits for price
+            if (_challengeSeconds < 1 days) revert ChallengeTimeTooShort(); // REVIEW: Is this bound reasonable?
+            if (_initPeriodSeconds < 3 days) revert InitPeriodTooShort();
             uint256 invalidAmount = IERC20(_collateralAddress).totalSupply() + 1;
             try IERC20(_collateralAddress).transfer(address(0x123), invalidAmount) {
                 revert IncompatibleCollateral(); // we need a collateral that reverts on failed transfers
@@ -187,9 +193,9 @@ contract MintingHub is IMintingHub, ERC165 {
 
     /**
      * @notice Launch a challenge (Dutch auction) on a position
-     * @param _positionAddr     address of the position we want to challenge
+     * @param _positionAddr address of the position we want to challenge
      * @param _collateralAmount amount of the collateral we want to challenge
-     * @param minimumPrice       position.price() to guard against the minter front-running with a price change
+     * @param minimumPrice guards against the minter front-running with a price change
      * @return index of the challenge in the challenge-array
      */
     function challenge(
@@ -201,11 +207,12 @@ contract MintingHub is IMintingHub, ERC165 {
         // challenger should be ok if front-run by owner with a higher price
         // in case owner front-runs challenger with small price decrease to prevent challenge,
         // the challenger should set minimumPrice to market price
-        if (position.price() < minimumPrice) revert UnexpectedPrice();
+        uint256 liqPrice = position.virtualPrice();
+        if (liqPrice < minimumPrice) revert UnexpectedPrice();
         IERC20(position.collateral()).transferFrom(msg.sender, address(this), _collateralAmount);
         uint256 pos = challenges.length;
         challenges.push(Challenge(msg.sender, uint40(block.timestamp), position, _collateralAmount));
-        position.notifyChallengeStarted(_collateralAmount);
+        position.notifyChallengeStarted(_collateralAmount, liqPrice);
         emit ChallengeStarted(msg.sender, address(position), _collateralAmount, pos);
         return pos;
     }
@@ -220,9 +227,8 @@ contract MintingHub is IMintingHub, ERC165 {
      * @param size                      how much of the collateral the caller wants to bid for at most
      *                                  (automatically reduced to the available amount)
      * @param postponeCollateralReturn  To postpone the return of the collateral to the challenger. Usually false.
-     * @param maxInterest               Maximum intereset the liquidator is willing to pay
      */
-    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, uint256 maxInterest) external {
+    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn) external {
         Challenge memory _challenge = challenges[_challengeNumber];
         (uint256 liqPrice, uint40 phase) = _challenge.position.challengeData();
         size = _challenge.size < size ? _challenge.size : size; // cannot bid for more than the size of the challenge
@@ -232,34 +238,26 @@ contract MintingHub is IMintingHub, ERC165 {
             emit ChallengeAverted(address(_challenge.position), _challengeNumber, size);
         } else {
             _returnChallengerCollateral(_challenge, _challengeNumber, size, postponeCollateralReturn);
-            (uint256 transferredCollateral, uint256 offer) = _finishChallenge(_challenge, size, maxInterest);
+            (uint256 transferredCollateral, uint256 offer) = _finishChallenge(_challenge, size);
             emit ChallengeSucceeded(address(_challenge.position), _challengeNumber, offer, transferredCollateral, size);
         }
     }
 
     function _finishChallenge(
         Challenge memory _challenge,
-        uint256 size,
-        uint256 maxInterest
+        uint256 size
     ) internal returns (uint256, uint256) {
         // Repayments depend on what was actually minted, whereas bids depend on the available collateral
         (address owner, uint256 collateral, uint256 repayment, uint256 interest, uint32 reservePPM) = _challenge
             .position
-            .notifyChallengeSucceeded(msg.sender, size);
-
-        if (interest > maxInterest) {
-            revert ExceedsMaxInterest(interest, maxInterest);
-        }
+            .notifyChallengeSucceeded(size);
 
         // No overflow possible thanks to invariant (col * price <= limit * 10**18)
         // enforced in Position.setPrice and knowing that collateral <= col.
         uint256 offer = _calculateOffer(_challenge, collateral);
-        // The funds for the interest (proportional to the collateral size) are taken from the liquidator separately.
-        // If instead the interest is taken from the offer amount, there may be insufficient funds to cover the repayment.
-        // As a consequence, the system would have to cover the deficit, which is not the intention, as the system doesn't
-        // have enough reserve to cover interest payments.
-        DEURO.transferFrom(msg.sender, address(this), offer + interest); // get money from bidder 
-        uint256 reward = (offer * CHALLENGER_REWARD) / 1_000_000;
+
+        DEURO.transferFrom(msg.sender, address(this), offer); // get money from bidder 
+        uint256 reward = (offer * CHALLENGER_REWARD) / 1_000_000; 
         DEURO.transfer(_challenge.challenger, reward); // pay out the challenger reward
         uint256 fundsAvailable = offer - reward; // funds available after reward
 
@@ -267,20 +265,21 @@ contract MintingHub is IMintingHub, ERC165 {
         // and the remaining 34 are sent to the position owner. If the position owner maxed out debt before the challenge
         // started and the liquidation price was 100, they would be slightly better off as they would get away with 80
         // instead of 40+36 = 76 in this example.
-        if (fundsAvailable > repayment) {
+        if (fundsAvailable > repayment + interest) {
             // The excess amount is distributed between the system and the owner using the reserve ratio
             // At this point, we cannot rely on the liquidation price because the challenge might have been started as a
             // response to an unreasonable increase of the liquidation price, such that we have to use this heuristic
             // for excess fund distribution, which make position owners that maxed out their positions slightly better
             // off in comparison to those who did not.
-            uint256 profits = (reservePPM * (fundsAvailable - repayment)) / 1_000_000;
+            uint256 profits = (reservePPM * (fundsAvailable - repayment - interest)) / 1_000_000;
             DEURO.collectProfits(address(this), profits);
-            DEURO.transfer(owner, fundsAvailable - repayment - profits);
-        } else if (fundsAvailable < repayment) {
-            DEURO.coverLoss(address(this), repayment - fundsAvailable); // ensure we have enough to pay everything
+            DEURO.transfer(owner, fundsAvailable - repayment - interest - profits);
+        } else if (fundsAvailable < repayment + interest) {
+            DEURO.coverLoss(address(this), repayment + interest - fundsAvailable); // ensure we have enough to pay everything
         }
         DEURO.burnWithoutReserve(repayment, reservePPM); // Repay the challenged part, example: 50 deur leading to 10 deur in implicit profits
         DEURO.collectProfits(address(this), interest); // Collect interest as profits
+        _challenge.position.transferChallengedCollateral(msg.sender, collateral); // transfer the collateral to the bidder
         return (collateral, offer);
     }
 
@@ -388,7 +387,7 @@ contract MintingHub is IMintingHub, ERC165 {
      * less steeply to 0 over the course of another challenge period.
      */
     function expiredPurchasePrice(IPosition pos) public view returns (uint256) {
-        uint256 liqprice = pos.price();
+        uint256 liqprice = pos.virtualPrice();
         uint256 expiration = pos.expiration();
         if (block.timestamp <= expiration) {
             return EXPIRED_PRICE_FACTOR * liqprice;
@@ -398,11 +397,11 @@ contract MintingHub is IMintingHub, ERC165 {
             if (timePassed <= challengePeriod) {
                 // from 10x liquidation price to 1x in first phase
                 uint256 timeLeft = challengePeriod - timePassed;
-                return liqprice + (((EXPIRED_PRICE_FACTOR - 1) * liqprice) / challengePeriod) * timeLeft;
+                return liqprice + (((EXPIRED_PRICE_FACTOR - 1) * liqprice * timeLeft) / challengePeriod);
             } else if (timePassed < 2 * challengePeriod) {
                 // from 1x liquidation price to 0 in second phase
                 uint256 timeLeft = 2 * challengePeriod - timePassed;
-                return (liqprice / challengePeriod) * timeLeft;
+                return (liqprice  * timeLeft) / challengePeriod;
             } else {
                 // get collateral for free after both phases passed
                 return 0;
@@ -422,18 +421,13 @@ contract MintingHub is IMintingHub, ERC165 {
         uint256 amount = upToAmount > max ? max : upToAmount;
         uint256 forceSalePrice = expiredPurchasePrice(pos);
         uint256 costs = (forceSalePrice * amount) / 10 ** 18;
-        // Interest (part of debt) is not covered by the reserves, we therefore require liquidators to cover it separately.
-        // If we do not do this, eventually there may be no more collateral left but still interest to be paid, which would
-        // result in it being covered by the system, which is not the intention and for which there isn't sufficient reserve.
-        uint256 interest = pos.getInterest();
-        uint256 propInterest = max > 0 ? (interest * amount) / max : 0;
 
-        if (max - amount > 0 && ((forceSalePrice * (max - amount)) / 10 ** 18) < (OPENING_FEE)) {
+        if (max - amount > 0 && ((forceSalePrice * (max - amount)) / 10 ** 18) < OPENING_FEE) {
             revert LeaveNoDust(max - amount);
         }
 
-        pos.forceSale(msg.sender, amount, costs, propInterest);
-        emit ForcedSale(address(pos), amount, forceSalePrice, propInterest);
+        pos.forceSale(msg.sender, amount, costs);
+        emit ForcedSale(address(pos), amount, forceSalePrice);
         return amount;
     }
 

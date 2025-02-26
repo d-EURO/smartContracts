@@ -28,7 +28,7 @@ export const ADDRESS: Record<number, ChainAddress> = {
     frontendGateway: "0x4693ed9c9ACfeF5df8E7D9c8F97d5eEBf406e7C7",
     savingsGateway: "0x9ae5ca00c7f1af085225720c905f15c020a753a3",
     mintingHubGateway: "0x404aa0a74352dbe270e0497af39ecb890ec7716c",
-    DEPSwrapper: "0x315f8aa5823580d3135bdc5bdf1d658be9eeb2d6",
+    DEPSwrapper: "0x19e75FE85FFbB5785C879e91E82156703D1a4207",
     bridgeEURT: "0x1cb856645c82c874f391855a421dd58c8339e054",
     bridgeEURS: "0x6bcdb5e4fdad13d0d7a31a0a2f2b1ae812e83eb6",
     bridgeVEUR: "0x1ab98d5eb0722757549584066ea7bd512f6df819",

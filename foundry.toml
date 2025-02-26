@@ -1,0 +1,11 @@
+[profile.default]
+src = "contracts"            # Use the same contracts folder as Hardhat.
+out = "out"                  # Compiled artifacts output folder (you can choose any name).
+test = "foundry-test" 
+solc_version = "0.8.26"      # Use the same Solidity version.
+optimizer = true             # Enable the optimizer.
+optimizer_runs = 200         # Set optimizer runs to match your Hardhat config.
+libs = ["node_modules", "lib"]
+
+[fuzz]
+runs = 10
