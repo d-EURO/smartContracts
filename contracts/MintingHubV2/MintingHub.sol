@@ -123,7 +123,7 @@ contract MintingHub is IMintingHub, ERC165 {
             if (_riskPremium > 1_000_000) revert InvalidRiskPremium();
             if (CHALLENGER_REWARD > _reservePPM || _reservePPM > 1_000_000) revert InvalidReservePPM();
             if (IERC20Metadata(_collateralAddress).decimals() > 24) revert InvalidCollateralDecimals(); // leaves 12 digits for price
-            if (_challengeSeconds < 1 days) revert ChallengeTimeTooShort(); // REVIEW: Is this bound reasonable?
+            if (_challengeSeconds < 1 days) revert ChallengeTimeTooShort();
             if (_initPeriodSeconds < 3 days) revert InitPeriodTooShort();
             uint256 invalidAmount = IERC20(_collateralAddress).totalSupply() + 1;
             try IERC20(_collateralAddress).transfer(address(0x123), invalidAmount) {

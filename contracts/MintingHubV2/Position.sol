@@ -581,7 +581,7 @@ contract Position is Ownable, IPosition, MathUtil {
             assert(proceeds == 0);
             deuro.coverLoss(address(this), principal + interest);
             deuro.burnWithoutReserve(principal + interest, reserveContribution);
-            _notifyRepaid(principal); // REVIEW: Check if principal > 0 before?
+            _notifyRepaid(principal);
             _notifyInterestPaid(interest);
         } else if (proceeds > 0) {
             // All debt paid, leftover proceeds is profit for owner
@@ -718,7 +718,6 @@ contract Position is Ownable, IPosition, MathUtil {
         if (repayment > 0) {
             uint256 maxUsableMint = getUsableMint(principal);
             uint256 repayWithReserve = maxUsableMint > repayment ? repayment : maxUsableMint;
-            // REVIEW: Check correctness of DecentralizedEURO.minterReserveE6
             uint256 actualRepaid = deuro.burnFromWithReserveNet(payer, repayWithReserve, reserveContribution);
             _notifyRepaid(actualRepaid);
             amount -= repayWithReserve;
@@ -757,8 +756,6 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function notifyChallengeAverted(uint256 size) external onlyHub {
         challengedAmount -= size;
-        // REVIEW: Should we reset challengedPrice? 
-        // if (challengedAmount == 0) challengedPrice = 0;
 
         // Don't allow minter to close the position immediately so challenge can be repeated before
         // the owner has a chance to mint more on an undercollateralized position
