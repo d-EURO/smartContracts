@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { floatToDec18, dec18ToFloat, abs, DECIMALS } from "../scripts/math";
 import { ethers } from "hardhat";
-import { capitalToShares, sharesToCapital } from "../scripts/utils";
+import { capitalToShares, sharesToCapital } from "./utils/utils";
 import {
   Equity,
   DecentralizedEURO,
@@ -11,7 +11,7 @@ import {
   Savings,
   PositionRoller,
 } from "../typechain";
-import { evm_increaseTime } from "./helper";
+import { evm_increaseTime } from "./utils";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Basic Tests", () => {
@@ -314,7 +314,7 @@ describe("Basic Tests", () => {
   
     it("should return 2^255 for internal (bridge) => internal (reserve)", async () => {
       const allowanceVal = await dEURO.allowance(await bridge.getAddress(), await equity.getAddress());
-      const maxUint255 = (1n << 255n).toString();
+      const maxUint255 = 2n ** 256n - 1n;
       expect(allowanceVal.toString()).to.eq(maxUint255);
     });
   

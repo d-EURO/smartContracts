@@ -167,9 +167,11 @@ hh deploy --network sepolia --tags positions
 > Deployment modules are located in /ignition/modules. Deploy your contracts:
 
 ```Bash
-yarn run deploy ignition/modules/MODULE --network polygon --verify --deployment-id MODULE_ID_01
+# deploy and verify a contract (increase deployment-id)
+npm run deploy ignition/modules/MODULE --network polygon --verify --deployment-id MODULE_ID_01
 
---> increase: deployment-id
+# deploy and verify all contracts
+npm run deploy -- --network polygon --verify
 ```
 
 This will:
@@ -410,3 +412,21 @@ Finally, in the case that no collateral remains, any remainining `principal` is 
 ### Gateway Contracts
 
 The gateway contracts (FrontendGateway.sol, SavingsGateway.sol, MintingHubGateway.sol) provide a way to generously reward frontend providers or referrer, paid for by DEPS Holder. These Contracts are not present in the Frankencoin Ecosystem. 
+
+
+# Invariant/Stateful Fuzzing Tests with Foundry:
+
+The _fuzzing_ tests are written in Solidity and made of two main contracts located in the `foundry-test/invariant` folder: `Invariants.t.sol` which contains the _invariants_ and `Handler.t.sol` which contains the _actions_ of the fuzzing test. During each _run_ the functions in `Handler.t.sol` are called by the fuzzing engine in a random order and with random inputs starting with the initial state of the system as defined by `Invariants.setUp()`. After each run the invariants defined in `Invariants.t.sol` are checked to ensure that the system is still in a valid state. 
+
+### Running the Fuzzing Tests:
+
+After installing [foundry](https://book.getfoundry.sh/) on your machine and running `forge install` to install the required dependencies, you can run the following command to run the fuzzing tests:
+
+```shell
+forge test
+
+# or for more verbose output
+forge test --vvv
+```
+
+The configuration for the fuzzing tests can be found in the `foundry.toml` file. Furthermore, the `remappings.txt` file contains the remappings for the fuzzing test contracts.

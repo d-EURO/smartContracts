@@ -23,7 +23,7 @@ contract PositionRoller {
     error NotPosition(address pos);
     error Log(uint256, uint256, uint256);
 
-    event Roll(address source, uint256 collWithdraw, uint256 repay, uint256 interest, address target, uint256 collDeposit, uint256 mint);
+    event Roll(address source, uint256 collWithdraw, uint256 repay, address target, uint256 collDeposit, uint256 mint);
 
     constructor(address deuro_) {
         deuro = IDecentralizedEURO(deuro_);
@@ -49,8 +49,9 @@ contract PositionRoller {
      */
     function rollFullyWithExpiration(IPosition source, IPosition target, uint40 expiration) public {
         require(source.collateral() == target.collateral());
-        uint256 repay = source.principal();
-        uint256 usableMint = source.getUsableMint(repay);
+        uint256 principal = source.principal();
+        uint256 interest = source.getInterest();
+        uint256 usableMint = source.getUsableMint(principal) + interest; // Roll interest into principal
         uint256 mintAmount = target.getMintAmount(usableMint);
         uint256 collateralToWithdraw = IERC20(source.collateral()).balanceOf(address(source));
         uint256 targetPrice = target.price();
@@ -62,7 +63,7 @@ contract PositionRoller {
             mintAmount = (depositAmount * target.price()) / 10 ** 18; // round down, rest will be taken from caller
         }
 
-        roll(source, repay, collateralToWithdraw, target, mintAmount, depositAmount, expiration);
+        roll(source, principal + interest, collateralToWithdraw, target, mintAmount, depositAmount, expiration);
     }
 
     /**
@@ -71,7 +72,7 @@ contract PositionRoller {
      * It is the responsibility of the caller to ensure that both positions are valid contracts.
      *
      * @param source The source position, must be owned by the msg.sender.
-     * @param repay The amount to flash loan in order to repay the source position and free up some or all collateral.
+     * @param repay The amount of principal to repay from the source position using a flash loan, freeing up some or all collateral .
      * @param collWithdraw Collateral to move from the source position to the msg.sender.
      * @param target The target position. If not owned by msg.sender or if it does not have the desired expiration,
      *               it is cloned to create a position owned by the msg.sender.
@@ -88,10 +89,8 @@ contract PositionRoller {
         uint256 collDeposit,
         uint40 expiration
     ) public valid(source) valid(target) own(source) {
-        uint256 interest = source.getInterest();
-        uint256 totRepayment = repay + interest; // add interest to repay
-        deuro.mint(address(this), totRepayment); // take a flash loan
-        uint256 used = source.repay(totRepayment);
+        deuro.mint(address(this), repay); // take a flash loan
+        uint256 used = source.repay(repay);
         source.withdrawCollateral(msg.sender, collWithdraw);
         if (mint > 0) {
             IERC20 targetCollateral = IERC20(target.collateral());
@@ -109,12 +108,12 @@ contract PositionRoller {
         }
 
         // Transfer remaining flash loan to caller for repayment
-        if (totRepayment > used) {
-            deuro.transfer(msg.sender, totRepayment - used);
+        if (repay > used) {
+            deuro.transfer(msg.sender, repay - used);
         }
 
-        deuro.burnFrom(msg.sender, totRepayment); // repay the flash loan
-        emit Roll(address(source), collWithdraw, repay, interest, address(target), collDeposit, mint);
+        deuro.burnFrom(msg.sender, repay); // repay the flash loan
+        emit Roll(address(source), collWithdraw, repay, address(target), collDeposit, mint);
     }
 
     /**

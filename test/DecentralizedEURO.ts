@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { floatToDec18, dec18ToFloat } from "../scripts/math";
 import { ethers } from "hardhat";
 import { DecentralizedEURO, StablecoinBridge, TestToken } from "../typechain";
-import { evm_increaseTime } from "./helper";
+import { evm_increaseTime } from "./utils";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 const limit = floatToDec18(100_000);
@@ -253,7 +253,7 @@ describe("DecentralizedEURO", () => {
 
     it("should revert minting with reserve from non minters", async () => {
       await expect(
-        dEURO.mintWithReserve(owner.address, 1000, 0, 0)
+        dEURO.mintWithReserve(owner.address, 1000, 0)
       ).to.be.revertedWithCustomError(dEURO, "NotMinter");
     });
 
@@ -294,7 +294,7 @@ describe("DecentralizedEURO", () => {
       );
       await dEURO
         .connect(bob)
-        .mintWithReserve(alice.address, amount, reservePPM, 0); // mintWithReserve
+        .mintWithReserve(alice.address, amount, reservePPM); // mintWithReserve
       let balanceAfterMintAlice = await dEURO.balanceOf(alice.address);
       let balanceAfterMintReserve = await dEURO.balanceOf(
         await dEURO.reserve(),

@@ -32,7 +32,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * |        100_000_000 |        500_000_000 |       5      |     100_000_000 |
      * | 10_000_000_000_000 | 50_000_000_000_000 |  50_000      |   1_000_000_000 |
      *
-     * i.e., the supply is proportional to the cubic root of the reserve and the price is proportional to the
+     * i.e., the supply is proportional to the fifth root of the reserve and the price is proportional to the
      * squared cubic root. When profits accumulate or losses materialize, the reserve, the market cap,
      * and the price are adjusted proportionally. In the absence of extreme inflation of the Euro, it is unlikely
      * that there will ever be more than ten million nDEPS.
@@ -351,7 +351,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     function _calculateShares(uint256 capitalBefore, uint256 investment) internal view returns (uint256) {
         uint256 totalShares = totalSupply();
         uint256 investmentExFees = (investment * 980) / 1_000; // remove 2% fee
-        // Assign 1_000_000 nDEPS for the initial deposit, calculate the amount otherwise
+        // Assign 10_000_000 nDEPS for the initial deposit, calculate the amount otherwise
         uint256 newTotalShares = (capitalBefore < MINIMUM_EQUITY || totalShares == 0)
             ? totalShares + 10_000_000 * ONE_DEC18
             : _mulD18(totalShares, _fifthRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));

@@ -12,7 +12,7 @@ import {
   TestToken,
 } from "../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { evm_increaseTime, evm_increaseTimeTo } from "./helper";
+import { evm_increaseTime, evm_increaseTimeTo } from "./utils";
 import { EventLog } from "ethers";
 
 describe("ForceSale Tests", () => {
@@ -159,7 +159,6 @@ describe("ForceSale Tests", () => {
         owner.address,
         floatToDec18(1000),
         floatToDec18(1000),
-        floatToDec18(100),
       );
       await expect(r).to.be.revertedWithCustomError(position, "NotHub");
     });
@@ -185,7 +184,6 @@ describe("ForceSale Tests", () => {
         owner.address,
         floatToDec18(1000),
         floatToDec18(1000),
-        floatToDec18(100),
       );
       await expect(r).to.be.revertedWithCustomError(position, "NotHub");
     });
@@ -258,11 +256,12 @@ describe("ForceSale Tests", () => {
         .connect(alice)
         .expiredPurchasePrice(position);
       const interest = await position.getInterest();
-      const expCost = (col * expP) / 10n ** 18n + interest;
+      
+      const expCost = (col * expP) / 10n ** 18n;
       expect(expCost).to.be.lessThan(await position.getDebt());
       const deficit = await position.getDebt() - expCost;
-      const equity = await dEURO.equity();
       const reserveBalanceBefore = await dEURO.balanceOf(await dEURO.reserve());
+      const ownerBalanceBefore = await dEURO.balanceOf(owner.address);
       let tx = await mintingHub.buyExpiredCollateral(position, col * 10n); // try buying way too much
       expect(tx).to.emit(position, "ForcedSale").withArgs(
         await position.getAddress(),
@@ -271,9 +270,10 @@ describe("ForceSale Tests", () => {
         interest,
       );
       const reserveBalanceAfter = await dEURO.balanceOf(await dEURO.reserve());
+      const ownerBalanceAfter = await dEURO.balanceOf(owner.address);
       expect(await position.getDebt()).to.be.eq(0);
       expect(reserveBalanceBefore + interest - deficit).to.be.approximately(reserveBalanceAfter, floatToDec18(1));
-      // expect(await dEURO.equity()).to.be.lt(equity);
+      expect(ownerBalanceBefore - ownerBalanceAfter).to.be.approximately(expCost, floatToDec18(1));
     });
   });
 
@@ -307,15 +307,14 @@ describe("ForceSale Tests", () => {
         (log: any) => log.fragment?.name === "ForcedSale"
       ) as EventLog;
       expect(forcedSaleEvent).to.not.be.undefined;
-      const { pos, amount, priceE36MinusDecimals, interest } = forcedSaleEvent?.args;
+      const { pos, amount, priceE36MinusDecimals } = forcedSaleEvent?.args;
       expect(pos).to.be.equal(ethers.getAddress(await position.getAddress()));
       expect(amount).to.be.equal(size);
       expect(priceE36MinusDecimals).to.be.approximately(expP, floatToDec18(5));
-      expect(interest).to.be.approximately(expPropInterest, floatToDec18(0.0001));
 
       expect(await position.getDebt()).to.be.equal(0n); // as expCost is significantly higher than debt
       expect(colBalanceAfterAlice - colBalanceBeforeAlice).to.be.equal(size);
-      expect(balanceBeforeAlice - balanceAfterAlice).to.be.equal(((priceE36MinusDecimals * size) / 10n ** 18n) + interest); // slight deviation as one block passed
+      expect(balanceBeforeAlice - balanceAfterAlice).to.be.equal(((priceE36MinusDecimals * size) / 10n ** 18n)); // slight deviation as one block passed
       expect(balanceAfterEquity - balanceBeforeEquity).to.be.approximately(expTotInterest, floatToDec18(0.0001));
     });
     // it("buy remaining expired collateral with excess proceeds going to owner (after paying off debt)", async () => {

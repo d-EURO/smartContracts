@@ -68,7 +68,7 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
         uint256 _initialMint,
         uint40 expiration,
         bytes32 frontendCode
-    ) public validPos(parent) returns (address) {
+    ) public returns (address) {
         address position = clone(owner, parent, _initialCollateral, _initialMint, expiration);
         GATEWAY.registerPosition(position, frontendCode);
         return position;
