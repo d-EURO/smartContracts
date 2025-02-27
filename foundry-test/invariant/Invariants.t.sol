@@ -72,21 +72,42 @@ contract Invariants is TestHelper {
 
         increaseTime(5 days); // ≥ initPeriod
 
+        // vm.prank(s_alice);
+        // Position(position1).mint(s_alice, 0.2733e18); // mint 0.2733 dEURO
+        // console.log("========================================");
+        // console.log("           initial mintTo:");
+        // console.log("========================================");
+        // // console.log("_maxPrincipal:     %s", formatUint256(_maxPrincipal, 18));
+        // console.log("principal:         %s", formatUint256(Position(position1).principal(), 18));
+        // console.log("collateral:        %s", formatUint256(s_collateralToken.balanceOf(address(position1)), 18));
+        // console.log("amount:            %s", formatUint256(0.2733e18, 18));
+        // console.log("cooldown:          %s", Position(position1).cooldown() > block.timestamp);
+        // console.log("challenge:         %s", Position(position1).challengedAmount() > 0);
+        // console.log("expired:           %s", block.timestamp >= Position(position1).expiration());
+        // console.log("closed:            %s", Position(position1).isClosed());
+        // console.log("isMinter:          %s", s_deuro.isMinter(position1) || s_deuro.isMinter(s_deuro.positions(position1)));
+        // console.log("Position parent:   %s", s_deuro.getPositionParent(position1));
+        // console.log("Position Hub:      %s", Position(Position(position1).original()).hub());
+
         // create the handler
         s_handler = new Handler(s_deuro, s_collateralToken, s_mintingHubGateway, s_positions, address(this));
 
         // create the handler selectors to the fuzzings targets
-        bytes4[] memory selectors = new bytes4[](7);
+        bytes4[] memory selectors = new bytes4[](8);
         /// IPosition
-        selectors[0] = Handler.adjustMint.selector;
-        selectors[1] = Handler.adjustCollateral.selector;
-        selectors[2] = Handler.adjustPrice.selector;
-        /// MintingHub
-        selectors[3] = Handler.challengePosition.selector;
-        selectors[4] = Handler.bidChallenge.selector;
-        selectors[5] = Handler.buyExpiredCollateral.selector;
-        /// Network specific
-        selectors[6] = Handler.warpTime.selector;
+        selectors[0] = Handler.mintTo.selector;
+        selectors[1] = Handler.repay.selector;
+        selectors[2] = Handler.addCollateral.selector;
+        selectors[3] = Handler.withdrawCollateral.selector;
+        selectors[4] = Handler.adjustPrice.selector;
+        // /// MintingHub
+        // selectors[5] = Handler.challengePosition.selector;
+        // selectors[6] = Handler.bidChallenge.selector;
+        // selectors[7] = Handler.buyExpiredCollateral.selector;
+        // /// Network specific
+        selectors[5] = Handler.passCooldown.selector;
+        selectors[6] = Handler.expirePosition.selector;
+        selectors[7] = Handler.warpTime.selector;
 
         targetSelector(FuzzSelector({addr: address(s_handler), selectors: selectors}));
         targetContract(address(s_handler));
