@@ -58,7 +58,6 @@ contract Handler is TestHelper {
     /// @dev adjustPrice() stats
     uint256 internal s_adjustPriceCalls;
     uint256 internal s_adjustPriceReverts;
-    uint256 internal s_adjustPriceUnchanged;
 
     /// @dev challengePosition() stats
     uint256 internal s_challengePositionCalls;
@@ -104,19 +103,13 @@ contract Handler is TestHelper {
         s_bidder = vm.addr(9);
         vm.label(s_bidder, "Bidder");
         
-        // Initialize stats collector
+        // Initialize statistics
         s_statsCollector = new StatsCollector();
-        
-        // Initialize statistics for tracking important variables
         s_statsCollector.initStatistics("position.price");
         s_statsCollector.initStatistics("position.principal");
         s_statsCollector.initStatistics("position.collateral");
         s_statsCollector.initStatistics("position.interest");
-        
-        // Additional ratio statistics that provide meaningful insights
-        s_statsCollector.initStatistics("position.collateralToPrincipalRatio"); // collateral / principal
         s_statsCollector.initStatistics("position.collateralUtilization"); // principal / max_principal
-        s_statsCollector.initStatistics("position.bufferAboveMin"); // how much above min collateral
     }
 
     /// @dev mintTo
@@ -252,7 +245,6 @@ contract Handler is TestHelper {
     function adjustPrice(uint256 positionIdx, uint256 newPrice) public {
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
-        uint256 currentPrice = position.price();
         
         // Record position state before operation
         _recordPositionState(position);
@@ -274,21 +266,12 @@ contract Handler is TestHelper {
         // Bound newPrice
         (uint256 minPrice, uint256 maxPrice) = priceRange(position);
         newPrice = bound(newPrice, minPrice, maxPrice);
-        if (newPrice == currentPrice) s_adjustPriceUnchanged++;
 
         vm.startPrank(position.owner());
         try position.adjustPrice(newPrice) {
             // success
         } catch {
             s_adjustPriceReverts++;
-            // console.log("========================================");
-            // console.log("           adjustPrice reverted:");
-            // console.log("========================================");
-            // console.log("Position index: %s", positionIdx % s_positions.length);
-            // console.log("Current price:  %s", currentPrice);
-            // console.log("New price:      %s", newPrice);
-            // console.log("Min price:      %s", minPrice);
-            // console.log("Max price:      %s", maxPrice);
         }
         vm.stopPrank();
         
@@ -321,13 +304,6 @@ contract Handler is TestHelper {
         try s_mintingHubGateway.challenge(address(position), collateralAmount, minPrice) {
             // success
             s_openedChallenges++;
-
-            // console.log("========================================");
-            // console.log("Challenge initiated:");
-            // console.log("  Position index:    %s", address(position));
-            // console.log("  Collateral amount: %s", collateralAmount);
-            // console.log("  Minimum price:     %s", minPrice);
-            // console.log("========================================");
         } catch {
             s_challengePositionReverts++;
         }
@@ -356,12 +332,6 @@ contract Handler is TestHelper {
         vm.prank(s_bidder);
         try s_mintingHubGateway.bid(uint32(challengeIndex), bidSize, postpone) {
             // success
-            // console.log("========================================");
-            // console.log("Bid placed:");
-            // console.log("  Challenge index: %s", challengeIndex);
-            // console.log("  Bid size:        %s", formatUint256(bidSize, 18));
-            // console.log("  Postpone flag:   %s", postpone);
-            // console.log("========================================");
         } catch {
             s_bidChallengeReverts++;
         }
@@ -390,17 +360,6 @@ contract Handler is TestHelper {
             // success
         } catch {
             s_buyExpiredCollateralReverts++;
-
-            // console.log("========================================");
-            // console.log("buyExpiredCollateral:");
-            // console.log("  Position index:      %s", address(position));
-            // console.log("  Position expired:    %s", block.timestamp >= position.expiration());
-            // console.log("  Position collateral: %s", formatUint256(maxAmount, 18));
-            // console.log("  Amount:              %s", formatUint256(upToAmount, 18));
-            // console.log("  Remaining:           %s", formatUint256(maxAmount - upToAmount, 18));
-            // console.log("  Dust amount:         %s", formatUint256(dustAmount, 18));
-            // console.log("  Forced sale price:   %s", formatUint256(forceSalePrice, 18));
-            // console.log("========================================");
         }
     }
 
@@ -442,66 +401,6 @@ contract Handler is TestHelper {
         s_warpTimeCalls++;
 
         increaseTime(2 days);
-    }
-
-    /// @dev Prints a call summary of calls and reverts to certain actions
-    function callSummary() external view {
-        console.log("========================================");
-        console.log("           ACTIONS SUMMARY");
-        console.log("========================================");
-
-        console.log(">> mintTo():");
-        console.log("   Calls:     %s", s_mintToCalls);
-        console.log("   Reverts:   %s", s_mintToReverts);
-        console.log("");
-
-        console.log(">> repay():");
-        console.log("   Calls:     %s", s_repayCalls);
-        console.log("   Reverts:   %s", s_repayReverts);
-        console.log("");
-
-        console.log(">> addCollateral():");
-        console.log("   Calls:     %s", s_addCollateralCalls);
-        console.log("   Reverts:   %s", s_addCollateralReverts);
-        console.log("");
-
-        console.log(">> withdrawCollateral():");
-        console.log("   Calls:     %s", s_withdrawCollateralCalls);
-        console.log("   Reverts:   %s", s_withdrawCollateralReverts);
-        console.log("");
-
-        console.log(">> adjustPrice():");
-        console.log("   Calls:     %s", s_adjustPriceCalls);
-        console.log("   Reverts:   %s", s_adjustPriceReverts);
-        console.log("   Unchanged: %s", s_adjustPriceUnchanged);
-        console.log("");
-
-        console.log(">> challengePosition():");
-        console.log("   Calls:     %s", s_challengePositionCalls);
-        console.log("   Reverts:   %s", s_challengePositionReverts);
-        console.log("   Opened:    %s", s_openedChallenges);
-        console.log("");
-
-        console.log(">> bidChallenge():");
-        console.log("   Calls:     %s", s_bidChallengeCalls);
-        console.log("   Reverts:   %s", s_bidChallengeReverts);
-        console.log("");
-
-        console.log(">> buyExpiredCollateral():");
-        console.log("   Calls:     %s", s_buyExpiredCollateralCalls);
-        console.log("   Reverts:   %s", s_buyExpiredCollateralReverts);
-        console.log("");
-
-        console.log(">> passCooldown():");
-        console.log("   Calls:     %s", s_passCooldownCalls);
-        console.log("");
-
-        console.log(">> expirePosition():");
-        console.log("   Calls:     %s", s_expirePositionCalls);
-        console.log("");
-
-        console.log(">> warpTime():");
-        console.log("   Calls:     %s", s_warpTimeCalls);
     }
 
     // Helper functions
@@ -551,86 +450,68 @@ contract Handler is TestHelper {
         return uint256(keccak256(abi.encodePacked(block.timestamp, seed))) % 100 > 100 - skipPercent;
     }
 
+    // External
+
     /// @dev Helper function to record position state statistics
     function _recordPositionState(Position position) public {
-        // Get basic values
         uint256 price = position.price();
         uint256 principal = position.principal();
         uint256 collateral = s_collateralToken.balanceOf(address(position));
         uint256 interest = position.getInterest();
-        uint256 minCollateral = position.minimumCollateral();
         
-        // Record basic metrics
+        // Record statistics
         s_statsCollector.recordValue("position.price", price);
         s_statsCollector.recordValue("position.principal", principal);
         s_statsCollector.recordValue("position.collateral", collateral);
         s_statsCollector.recordValue("position.interest", interest);
-        
-        // Record derived metrics (ratios and utilization)
-        if (principal > 0) {
-            // Collateral to principal ratio (higher is safer)
-            uint256 collateralToPrincipalRatio = (collateral * price) / principal;
-            s_statsCollector.recordValue("position.collateralToPrincipalRatio", collateralToPrincipalRatio);
-        }
-        
-        // Calculate max principal possible with current collateral
+
         uint256 maxPossiblePrincipal = collateral == 0 ? 0 : (collateral * price) / 1e18;
         if (maxPossiblePrincipal > 0) {
-            // How much of the possible principal is being used (0-100%)
-            uint256 utilization = (principal * 100) / maxPossiblePrincipal;
+            uint256 utilization = (principal * 100) / maxPossiblePrincipal; // 0-100%
             s_statsCollector.recordValue("position.collateralUtilization", utilization);
-        }
-        
-        // How much buffer above minimum collateral requirement
-        if (collateral > minCollateral) {
-            uint256 buffer = collateral - minCollateral;
-            s_statsCollector.recordValue("position.bufferAboveMin", buffer);
         }
     }
     
-    /// @dev Print variable distribution statistics
-    function printVariableDistributions() external view {
-        // Calculate various metrics to evaluate how well the fuzzing is testing different state spaces
-        
-        // Calculate success ratios for each operation
+    /// @dev Print variable distribution statistics to evaluate fuzzing coverage
+    function printVariableDistributions() external view {        
         uint256 mintToSuccessRatio = s_mintToCalls > 0 ? 100 * (s_mintToCalls - s_mintToReverts) / s_mintToCalls : 0;
         uint256 repaySuccessRatio = s_repayCalls > 0 ? 100 * (s_repayCalls - s_repayReverts) / s_repayCalls : 0;
         uint256 addCollateralSuccessRatio = s_addCollateralCalls > 0 ? 100 * (s_addCollateralCalls - s_addCollateralReverts) / s_addCollateralCalls : 0;
         uint256 withdrawCollateralSuccessRatio = s_withdrawCollateralCalls > 0 ? 100 * (s_withdrawCollateralCalls - s_withdrawCollateralReverts) / s_withdrawCollateralCalls : 0;
         uint256 adjustPriceSuccessRatio = s_adjustPriceCalls > 0 ? 100 * (s_adjustPriceCalls - s_adjustPriceReverts) / s_adjustPriceCalls : 0;
+        uint256 challengPositionSuccessRatio = s_challengePositionCalls > 0 ? 100 * (s_challengePositionCalls - s_challengePositionReverts) / s_challengePositionCalls : 0;
+        uint256 bidChallengeSuccessRatio = s_bidChallengeCalls > 0 ? 100 * (s_bidChallengeCalls - s_bidChallengeReverts) / s_bidChallengeCalls : 0;
+        uint256 buyExpiredCollateralSuccessRatio = s_buyExpiredCollateralCalls > 0 ? 100 * (s_buyExpiredCollateralCalls - s_buyExpiredCollateralReverts) / s_buyExpiredCollateralCalls : 0;
         
         console.log("========================================");
-        console.log("         FUZZING COVERAGE METRICS       ");
+        console.log("    FUZZING ACTIONS & SUCCESS RATES     ");
         console.log("========================================");
-        console.log("Operation Success Rates:");
-        console.log("  mintTo:             %s%%", mintToSuccessRatio);
-        console.log("  repay:              %s%%", repaySuccessRatio);
-        console.log("  addCollateral:      %s%%", addCollateralSuccessRatio);
-        console.log("  withdrawCollateral: %s%%", withdrawCollateralSuccessRatio);
-        console.log("  adjustPrice:        %s%%", adjustPriceSuccessRatio);
+        console.log("  mintTo:                  %s (%s%%)", s_mintToCalls, mintToSuccessRatio);
+        console.log("  repay:                   %s (%s%%)", s_repayCalls, repaySuccessRatio);
+        console.log("  addCollateral:           %s (%s%%)", s_addCollateralCalls, addCollateralSuccessRatio);
+        console.log("  withdrawCollateral:      %s (%s%%)", s_withdrawCollateralCalls, withdrawCollateralSuccessRatio);
+        console.log("  adjustPrice:             %s (%s%%)", s_adjustPriceCalls, adjustPriceSuccessRatio);
+        console.log("  challengePosition:       %s (%s%%)", s_challengePositionCalls, challengPositionSuccessRatio);
+        console.log("  bidChallenge:            %s (%s%%)", s_bidChallengeCalls, bidChallengeSuccessRatio);
+        console.log("  buyExpiredCollateral:    %s (%s%%)", s_buyExpiredCollateralCalls, buyExpiredCollateralSuccessRatio);
+        console.log("  passCooldown:            %s", s_passCooldownCalls);
+        console.log("  expirePosition:          %s", s_expirePositionCalls);
+        console.log("  warpTime:                %s", s_warpTimeCalls);
         console.log("");
         
         // Print basic statistics
-        s_statsCollector.printStatistics("position.price");
-        s_statsCollector.printStatistics("position.principal");
-        s_statsCollector.printStatistics("position.collateral");
-        s_statsCollector.printStatistics("position.interest");
-        
-        // Print derived metrics statistics
-        s_statsCollector.printStatistics("position.collateralToPrincipalRatio");
-        s_statsCollector.printStatistics("position.collateralUtilization");
-        s_statsCollector.printStatistics("position.bufferAboveMin");
+        console.log("========================================");
+        console.log("         FUZZING COVERAGE METRICS       ");
+        console.log("========================================");
+        s_statsCollector.printStatistics("position.price", 18);
+        s_statsCollector.printStatistics("position.principal", 18);
+        s_statsCollector.printStatistics("position.collateral", 18);
+        s_statsCollector.printStatistics("position.interest", 18);
+        s_statsCollector.printStatistics("position.collateralUtilization", 0);
     }
-
-    // External
 
     /// @dev Get positions
     function getPositions() external view returns (Position[] memory) {
         return s_positions;
-    }
-    
-    /// @dev Get stats collector
-    function getStatsCollector() external view returns (StatsCollector) {
-        return s_statsCollector;
     }
 }

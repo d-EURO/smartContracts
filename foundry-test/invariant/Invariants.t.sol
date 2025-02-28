@@ -198,29 +198,15 @@ contract Invariants is TestHelper {
             Position position = s_positions[i];
             if (!position.isClosed() && block.timestamp < position.expiration()) {
                 // Use the handler's helper function for consistent recording logic
-                s_handler._recordPositionState(position);
+                s_handler._recordPositionState(position); // REVIEW: Do we only need to call _recordPositionState here?
             }
         }
     }
     
-    function invariant_summary() public view {
-        // Print action summary
-        try s_handler.callSummary() {} catch {
-            console.log("Error printing action summary");
-        }
-        
-        console.log("");
-        
+    function invariant_summary() public view {        
         // Print user summary
         try this.userSummary(s_alice) {} catch {
             console.log("Error printing user summary");
-        }
-        
-        console.log("");
-        
-        // Print positions summary
-        try this.positionsSummary() {} catch {
-            console.log("Error printing positions summary");
         }
         
         console.log("");
@@ -230,41 +216,9 @@ contract Invariants is TestHelper {
             console.log("Error printing variable distributions");
         }
     }
-    
-    // Make these external to use try/catch
-    function userSummary(address user) external view {
-        uint256 numPositions = 0;
-        for (uint256 i = 0; i < s_positions.length; i++) {
-            if (s_positions[i].owner() == user) {
-                numPositions++;
-            }
-        }
-        
-        console.log("========================================");
-        console.log("           USER SUMMARY");
-        console.log("========================================");
-        console.log(">> %s:", vm.getLabel(user));
-        console.log("   No. positions:  %s", numPositions);
-        console.log("   COL balance:    %s", formatUint256(s_collateralToken.balanceOf(user), 18));
-        console.log("   dEURO balance:  %s", formatUint256(s_deuro.balanceOf(user), 18));
-    }
-    
-    function positionsSummary() external view {
-        console.log("========================================");
-        console.log("         POSITIONS SUMMARY");
-        console.log("========================================");
-        for (uint256 i = 0; i < s_positions.length; i++) {
-            console.log(">> Position    %s:", i);
-            console.log("   Owner:      %s", vm.getLabel(s_positions[i].owner()));
-            console.log("   Principal:  %s", formatUint256(s_positions[i].principal(), 18));
-            console.log("   Interest:   %s", formatUint256(s_positions[i].getInterest(), 18));
-            console.log("   Collateral: %s", formatUint256(s_collateralToken.balanceOf(address(s_positions[i])), 18));
-            console.log("   Price:      %s", formatUint256(s_positions[i].price(), 18));
-            console.log("");
-        }
-    }
 
     /// Helper functions
+
     function createPosition(address owner) internal prank(owner) returns (address position) {
         // approve the minting hub to spend max collateral
         s_collateralToken.approve(address(s_mintingHubGateway), 2**256 - 1);
@@ -289,6 +243,24 @@ contract Invariants is TestHelper {
 
         // approve the position to spend max collateral
         s_collateralToken.approve(position, 2**256 - 1);
+    }
+
+    // Make external to use try/catch
+    function userSummary(address user) external view {
+        uint256 numPositions = 0;
+        for (uint256 i = 0; i < s_positions.length; i++) {
+            if (s_positions[i].owner() == user) {
+                numPositions++;
+            }
+        }
+        
+        console.log("========================================");
+        console.log("           USER SUMMARY");
+        console.log("========================================");
+        console.log(">> %s:", vm.getLabel(user));
+        console.log("   No. positions:  %s", numPositions);
+        console.log("   COL balance:    %s", formatUint256(s_collateralToken.balanceOf(user), 18));
+        console.log("   dEURO balance:  %s", formatUint256(s_deuro.balanceOf(user), 18));
     }
 }
 

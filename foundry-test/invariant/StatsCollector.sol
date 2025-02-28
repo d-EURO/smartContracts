@@ -9,13 +9,15 @@ import {TestHelper} from "../TestHelper.sol";
  * @notice Utility contract to collect statistics about variable distributions during fuzzing tests
  */
 contract StatsCollector is TestHelper {
+    uint256 constant SAMPLE_LIMIT = 100;
+
     // Statistics for tracking uint256 values
     struct Statistics {
         uint256 totalSamples;
         uint256 minValue;
         uint256 maxValue;
         uint256 sum;
-        uint256[] values; // Store all values for calculating median, percentiles, etc.
+        uint256[] values; // samples
     }
 
     // Store statistics for different variables by name
@@ -30,7 +32,6 @@ contract StatsCollector is TestHelper {
         stats[name].minValue = type(uint256).max;
         stats[name].maxValue = 0;
         stats[name].sum = 0;
-        // We'll dynamically grow the values array as we record values
     }
     
     /**
@@ -52,7 +53,7 @@ contract StatsCollector is TestHelper {
         if (value < stat.minValue) stat.minValue = value;
         if (value > stat.maxValue) stat.maxValue = value;
         
-        // Store the value for percentile calculations
+        // Store for percentile calculations
         stat.values.push(value);
     }
 
@@ -157,9 +158,10 @@ contract StatsCollector is TestHelper {
     /**
      * @notice Print statistics to console for analysis
      * @param name Name of the variable to print
+     * @param decimals Number of decimal places to display
      * @param sampleLimit Optional limit to number of samples to process (to avoid out-of-gas errors)
      */
-    function printStatistics(string memory name, uint256 sampleLimit) public view {
+    function printStatistics(string memory name, uint256 decimals, uint256 sampleLimit) public view {
         Statistics storage stat = stats[name];
         if (stat.totalSamples == 0) {
             console.log("========================================");
@@ -197,55 +199,31 @@ contract StatsCollector is TestHelper {
         uint256 p10 = calculatePercentile(valuesCopy, 10);
         uint256 p90 = calculatePercentile(valuesCopy, 90);
         
-        // Determine appropriate decimal precision based on the variable name
-        uint256 decimals = 18; // Default to 18 decimals for most financial values
-        
-        // Adjust decimals for specific variables
-        if (keccak256(bytes(name)) == keccak256(bytes("position.collateralUtilization"))) {
-            decimals = 0; // This is a percentage value (0-100)
-        } else if (keccak256(bytes(name)) == keccak256(bytes("position.principal")) || 
-                 keccak256(bytes(name)) == keccak256(bytes("position.collateral")) ||
-                 keccak256(bytes(name)) == keccak256(bytes("position.interest")) ||
-                 keccak256(bytes(name)) == keccak256(bytes("position.bufferAboveMin"))) {
-            decimals = 18; // These are dEURO or token amounts with 18 decimals
-        } else if (keccak256(bytes(name)) == keccak256(bytes("position.price")) ||
-                 keccak256(bytes(name)) == keccak256(bytes("position.collateralToPrincipalRatio"))) {
-            decimals = 18; // Price and ratio values with 18 decimals
-        }
-        
         // Print results with formatted numbers
         console.log("========================================");
-        console.log("Statistics for: %s", name);
+        console.log("Statistics for:    %s", name);
         console.log("========================================");
-        console.log("Total samples:  %s", stat.totalSamples);
+        console.log("Total samples:     %s", stat.totalSamples);
         if (samplesToProcess < stat.values.length) {
-            console.log("Processed:      %s (limited for gas)", samplesToProcess);
+            console.log("Processed:         %s (limited for gas)", samplesToProcess);
         }
-        console.log("Min value:      %s", formatUint256(stat.minValue, decimals));
-        console.log("Max value:      %s", formatUint256(stat.maxValue, decimals));
-        console.log("Mean:           %s", formatUint256(mean, decimals));
-        console.log("Median:         %s", formatUint256(median, decimals));
-        console.log("Std Deviation:  %s", formatUint256(stdDev, decimals));
-        console.log("10th percentile: %s", formatUint256(p10, decimals));
-        console.log("25th percentile: %s", formatUint256(p25, decimals));
-        console.log("75th percentile: %s", formatUint256(p75, decimals));
-        console.log("90th percentile: %s", formatUint256(p90, decimals));
+        console.log("Min value:         %s", formatUint256(stat.minValue, decimals));
+        console.log("Max value:         %s", formatUint256(stat.maxValue, decimals));
+        console.log("Mean:              %s", formatUint256(mean, decimals));
+        console.log("Median:            %s", formatUint256(median, decimals));
+        console.log("Std Deviation:     %s", formatUint256(stdDev, decimals));
+        console.log("10th percentile:   %s", formatUint256(p10, decimals));
+        console.log("25th percentile:   %s", formatUint256(p25, decimals));
+        console.log("75th percentile:   %s", formatUint256(p75, decimals));
+        console.log("90th percentile:   %s", formatUint256(p90, decimals));
     }
     
     /**
      * @notice Print statistics to console for analysis (using default sample limit)
      * @param name Name of the variable to print
+     * @param decimals Number of decimal places to display
      */
-    function printStatistics(string memory name) public view {
-        // Default to processing at most 100 samples to avoid out-of-gas errors
-        printStatistics(name, 100);
-    }
-    
-    /**
-     * @notice Reset statistics
-     */
-    function resetStatistics() public {
-        // No easy way to delete all statistics, so this function
-        // would need to be implemented with specific statistics if needed
+    function printStatistics(string memory name, uint256 decimals) public view {
+        printStatistics(name, decimals, SAMPLE_LIMIT);
     }
 }
