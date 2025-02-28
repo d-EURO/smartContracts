@@ -15,6 +15,7 @@ import {PositionRoller} from "../../contracts/MintingHubV2/PositionRoller.sol";
 import {IPosition} from "../../contracts/MintingHubV2/interface/IPosition.sol";
 import {Equity} from "../../contracts/Equity.sol";
 import {TestHelper} from "../TestHelper.sol";
+import {StatsCollector} from "./StatsCollector.sol";
 
 contract Handler is TestHelper {
     /// @dev Contract deployer
@@ -38,59 +39,51 @@ contract Handler is TestHelper {
     /// @dev Positions
     Position[] internal s_positions;
 
-    // OUTPUT VARS - used to print a summary of calls and reverts during certain actions
-    /// @dev The number of calls to mintTo
+    /// @dev mintTo() stats
     uint256 internal s_mintToCalls;
-    /// @dev The number of reverts on calling `mintTo`
     uint256 internal s_mintToReverts;
 
-    /// @dev The number of calls to repay
+    /// @dev repay() stats
     uint256 internal s_repayCalls;
-    /// @dev The number of reverts on calling `repay`
     uint256 internal s_repayReverts;
 
-    /// @dev The number of calls to addCollateral
+    /// @dev addCollateral() stats
     uint256 internal s_addCollateralCalls;
-    /// @dev The number of reverts on calling `addCollateral`
     uint256 internal s_addCollateralReverts;
 
-    /// @dev The number of calls to withdrawCollateral
+    /// @dev withdrawCollateral() stats
     uint256 internal s_withdrawCollateralCalls;
-    /// @dev The number of reverts on calling `withdrawCollateral`
     uint256 internal s_withdrawCollateralReverts;
 
-    /// @dev The number of calls to adjustPrice
+    /// @dev adjustPrice() stats
     uint256 internal s_adjustPriceCalls;
-    /// @dev The number of reverts on calling `adjustPrice`
     uint256 internal s_adjustPriceReverts;
-    /// @dev The number of times the adjustPrice is unchanged
     uint256 internal s_adjustPriceUnchanged;
 
-    /// @dev The number of calls to challengePosition
+    /// @dev challengePosition() stats
     uint256 internal s_challengePositionCalls;
-    /// @dev The number of reverts on calling `challengePosition`
     uint256 internal s_challengePositionReverts;
-    /// @dev The number of opened challenges
     uint256 internal s_openedChallenges;
 
-    /// @dev The number of calls to bidChallenge
+    /// @dev bidChallenge() stats
     uint256 internal s_bidChallengeCalls;
-    /// @dev The number of reverts on calling `bidChallenge`
     uint256 internal s_bidChallengeReverts;
 
-    /// @dev The nubmer of calls to buyExpiredCollateral
+    /// @dev buyExpiredCollateral() stats
     uint256 internal s_buyExpiredCollateralCalls;
-    /// @dev The number of reverts on calling `buyExpiredCollateral`
     uint256 internal s_buyExpiredCollateralReverts;
 
-    /// @dev The number of calls to passCooldown
+    /// @dev passCooldown() stats
     uint256 internal s_passCooldownCalls;
 
-    /// @dev The number of calls to expirePosition
+    /// @dev expirePosition() stats
     uint256 internal s_expirePositionCalls;
 
-    /// @dev The number of calls to warpTime
+    /// @dev warpTime() stats
     uint256 internal s_warpTimeCalls;
+
+    /// @dev Stats collector for variable distributions
+    StatsCollector internal s_statsCollector;
 
     constructor(
         DecentralizedEURO deuro,
@@ -110,12 +103,29 @@ contract Handler is TestHelper {
         vm.label(s_challenger, "Challenger");
         s_bidder = vm.addr(9);
         vm.label(s_bidder, "Bidder");
+        
+        // Initialize stats collector
+        s_statsCollector = new StatsCollector();
+        
+        // Initialize statistics for tracking important variables
+        s_statsCollector.initStatistics("position.price");
+        s_statsCollector.initStatistics("position.principal");
+        s_statsCollector.initStatistics("position.collateral");
+        s_statsCollector.initStatistics("position.interest");
+        
+        // Additional ratio statistics that provide meaningful insights
+        s_statsCollector.initStatistics("position.collateralToPrincipalRatio"); // collateral / principal
+        s_statsCollector.initStatistics("position.collateralUtilization"); // principal / max_principal
+        s_statsCollector.initStatistics("position.bufferAboveMin"); // how much above min collateral
     }
 
     /// @dev mintTo
     function mintTo(uint256 positionIdx, uint256 amount) public {
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
+
+        // Record variable values before operation
+        _recordPositionState(position);
 
         // Check for conditions that would cause mint to fail and skip the iteration
         bool isCooldown = position.cooldown() > block.timestamp;
@@ -144,6 +154,9 @@ contract Handler is TestHelper {
             s_mintToReverts++;
         }
         vm.stopPrank();
+        
+        // Record variable values after operation
+        _recordPositionState(position);
     }
 
     /// @dev repay
@@ -155,6 +168,9 @@ contract Handler is TestHelper {
 
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
+        
+        // Record position state before operation
+        _recordPositionState(position);
 
         // Bound amount
         amount = bound(amount, 0, position.getDebt());
@@ -166,6 +182,9 @@ contract Handler is TestHelper {
             s_repayReverts++;
         }
         vm.stopPrank();
+        
+        // Record position state after operation
+        _recordPositionState(position);
     }
 
     /// @dev addCollateral
@@ -174,6 +193,9 @@ contract Handler is TestHelper {
 
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
+        
+        // Record position state before operation
+        _recordPositionState(position);
 
         // Bound amount
         amount = bound(amount, 0, s_collateralToken.balanceOf(position.owner()));
@@ -185,6 +207,9 @@ contract Handler is TestHelper {
             s_addCollateralReverts++;
         }
         vm.stopPrank();
+        
+        // Record position state after operation
+        _recordPositionState(position);
     }
 
     /// @dev withdrawCollateral
@@ -193,6 +218,9 @@ contract Handler is TestHelper {
 
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
+        
+        // Record position state before operation
+        _recordPositionState(position);
 
         // Check for conditions that would cause mint to fail and skip the iteration
         bool isChallenged = position.challengedAmount() > 0;
@@ -214,6 +242,9 @@ contract Handler is TestHelper {
             s_withdrawCollateralReverts++;
         }
         vm.stopPrank();
+        
+        // Record position state after operation
+        _recordPositionState(position);
     }
 
     /// @dev adjustPrice
@@ -222,6 +253,9 @@ contract Handler is TestHelper {
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
         uint256 currentPrice = position.price();
+        
+        // Record position state before operation
+        _recordPositionState(position);
 
         // Skip with 70% chance
         if(skipActionWithOdds(70, newPrice)) return;
@@ -257,6 +291,9 @@ contract Handler is TestHelper {
             // console.log("Max price:      %s", maxPrice);
         }
         vm.stopPrank();
+        
+        // Record position state after operation
+        _recordPositionState(position);
     }
 
     // In your Handler contract
@@ -514,10 +551,86 @@ contract Handler is TestHelper {
         return uint256(keccak256(abi.encodePacked(block.timestamp, seed))) % 100 > 100 - skipPercent;
     }
 
+    /// @dev Helper function to record position state statistics
+    function _recordPositionState(Position position) public {
+        // Get basic values
+        uint256 price = position.price();
+        uint256 principal = position.principal();
+        uint256 collateral = s_collateralToken.balanceOf(address(position));
+        uint256 interest = position.getInterest();
+        uint256 minCollateral = position.minimumCollateral();
+        
+        // Record basic metrics
+        s_statsCollector.recordValue("position.price", price);
+        s_statsCollector.recordValue("position.principal", principal);
+        s_statsCollector.recordValue("position.collateral", collateral);
+        s_statsCollector.recordValue("position.interest", interest);
+        
+        // Record derived metrics (ratios and utilization)
+        if (principal > 0) {
+            // Collateral to principal ratio (higher is safer)
+            uint256 collateralToPrincipalRatio = (collateral * price) / principal;
+            s_statsCollector.recordValue("position.collateralToPrincipalRatio", collateralToPrincipalRatio);
+        }
+        
+        // Calculate max principal possible with current collateral
+        uint256 maxPossiblePrincipal = collateral == 0 ? 0 : (collateral * price) / 1e18;
+        if (maxPossiblePrincipal > 0) {
+            // How much of the possible principal is being used (0-100%)
+            uint256 utilization = (principal * 100) / maxPossiblePrincipal;
+            s_statsCollector.recordValue("position.collateralUtilization", utilization);
+        }
+        
+        // How much buffer above minimum collateral requirement
+        if (collateral > minCollateral) {
+            uint256 buffer = collateral - minCollateral;
+            s_statsCollector.recordValue("position.bufferAboveMin", buffer);
+        }
+    }
+    
+    /// @dev Print variable distribution statistics
+    function printVariableDistributions() external view {
+        // Calculate various metrics to evaluate how well the fuzzing is testing different state spaces
+        
+        // Calculate success ratios for each operation
+        uint256 mintToSuccessRatio = s_mintToCalls > 0 ? 100 * (s_mintToCalls - s_mintToReverts) / s_mintToCalls : 0;
+        uint256 repaySuccessRatio = s_repayCalls > 0 ? 100 * (s_repayCalls - s_repayReverts) / s_repayCalls : 0;
+        uint256 addCollateralSuccessRatio = s_addCollateralCalls > 0 ? 100 * (s_addCollateralCalls - s_addCollateralReverts) / s_addCollateralCalls : 0;
+        uint256 withdrawCollateralSuccessRatio = s_withdrawCollateralCalls > 0 ? 100 * (s_withdrawCollateralCalls - s_withdrawCollateralReverts) / s_withdrawCollateralCalls : 0;
+        uint256 adjustPriceSuccessRatio = s_adjustPriceCalls > 0 ? 100 * (s_adjustPriceCalls - s_adjustPriceReverts) / s_adjustPriceCalls : 0;
+        
+        console.log("========================================");
+        console.log("         FUZZING COVERAGE METRICS       ");
+        console.log("========================================");
+        console.log("Operation Success Rates:");
+        console.log("  mintTo:             %s%%", mintToSuccessRatio);
+        console.log("  repay:              %s%%", repaySuccessRatio);
+        console.log("  addCollateral:      %s%%", addCollateralSuccessRatio);
+        console.log("  withdrawCollateral: %s%%", withdrawCollateralSuccessRatio);
+        console.log("  adjustPrice:        %s%%", adjustPriceSuccessRatio);
+        console.log("");
+        
+        // Print basic statistics
+        s_statsCollector.printStatistics("position.price");
+        s_statsCollector.printStatistics("position.principal");
+        s_statsCollector.printStatistics("position.collateral");
+        s_statsCollector.printStatistics("position.interest");
+        
+        // Print derived metrics statistics
+        s_statsCollector.printStatistics("position.collateralToPrincipalRatio");
+        s_statsCollector.printStatistics("position.collateralUtilization");
+        s_statsCollector.printStatistics("position.bufferAboveMin");
+    }
+
     // External
 
     /// @dev Get positions
     function getPositions() external view returns (Position[] memory) {
         return s_positions;
+    }
+    
+    /// @dev Get stats collector
+    function getStatsCollector() external view returns (StatsCollector) {
+        return s_statsCollector;
     }
 }

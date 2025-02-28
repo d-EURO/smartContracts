@@ -191,13 +191,77 @@ contract Invariants is TestHelper {
         }
     }
 
-    /// @dev helper function to return detailed information about the invariant runs
+    /// @dev helper function to record statistics during invariant testing
+    function invariant_recordStats() public {
+        // Record stats for all active positions
+        for (uint256 i = 0; i < s_positions.length; i++) {
+            Position position = s_positions[i];
+            if (!position.isClosed() && block.timestamp < position.expiration()) {
+                // Use the handler's helper function for consistent recording logic
+                s_handler._recordPositionState(position);
+            }
+        }
+    }
+    
     function invariant_summary() public view {
-        s_handler.callSummary();
+        // Print action summary
+        try s_handler.callSummary() {} catch {
+            console.log("Error printing action summary");
+        }
+        
         console.log("");
-        userSummary(s_alice);
+        
+        // Print user summary
+        try this.userSummary(s_alice) {} catch {
+            console.log("Error printing user summary");
+        }
+        
         console.log("");
-        positionsSummary();
+        
+        // Print positions summary
+        try this.positionsSummary() {} catch {
+            console.log("Error printing positions summary");
+        }
+        
+        console.log("");
+        
+        // Print statistics
+        try s_handler.printVariableDistributions() {} catch {
+            console.log("Error printing variable distributions");
+        }
+    }
+    
+    // Make these external to use try/catch
+    function userSummary(address user) external view {
+        uint256 numPositions = 0;
+        for (uint256 i = 0; i < s_positions.length; i++) {
+            if (s_positions[i].owner() == user) {
+                numPositions++;
+            }
+        }
+        
+        console.log("========================================");
+        console.log("           USER SUMMARY");
+        console.log("========================================");
+        console.log(">> %s:", vm.getLabel(user));
+        console.log("   No. positions:  %s", numPositions);
+        console.log("   COL balance:    %s", formatUint256(s_collateralToken.balanceOf(user), 18));
+        console.log("   dEURO balance:  %s", formatUint256(s_deuro.balanceOf(user), 18));
+    }
+    
+    function positionsSummary() external view {
+        console.log("========================================");
+        console.log("         POSITIONS SUMMARY");
+        console.log("========================================");
+        for (uint256 i = 0; i < s_positions.length; i++) {
+            console.log(">> Position    %s:", i);
+            console.log("   Owner:      %s", vm.getLabel(s_positions[i].owner()));
+            console.log("   Principal:  %s", formatUint256(s_positions[i].principal(), 18));
+            console.log("   Interest:   %s", formatUint256(s_positions[i].getInterest(), 18));
+            console.log("   Collateral: %s", formatUint256(s_collateralToken.balanceOf(address(s_positions[i])), 18));
+            console.log("   Price:      %s", formatUint256(s_positions[i].price(), 18));
+            console.log("");
+        }
     }
 
     /// Helper functions
@@ -225,38 +289,6 @@ contract Invariants is TestHelper {
 
         // approve the position to spend max collateral
         s_collateralToken.approve(position, 2**256 - 1);
-    }
-
-    function userSummary(address user) internal view {
-        uint256 numPositions = 0;
-        for (uint256 i = 0; i < s_positions.length; i++) {
-            if (s_positions[i].owner() == user) {
-                numPositions++;
-            }
-        }
-        
-        console.log("========================================");
-        console.log("           USER SUMMARY");
-        console.log("========================================");
-        console.log(">> %s:", vm.getLabel(user));
-        console.log("   No. positions:  %s", numPositions);
-        console.log("   COL balance:    %s", formatUint256(s_collateralToken.balanceOf(user), 18));
-        console.log("   dEURO balance:  %s", formatUint256(s_deuro.balanceOf(user), 18));
-    }
-
-    function positionsSummary() internal view {
-        console.log("========================================");
-        console.log("         POSITIONS SUMMARY");
-        console.log("========================================");
-        for (uint256 i = 0; i < s_positions.length; i++) {
-            console.log(">> Position    %s:", i);
-            console.log("   Owner:      %s", vm.getLabel(s_positions[i].owner()));
-            console.log("   Principal:  %s", formatUint256(s_positions[i].principal(), 18));
-            console.log("   Interest:   %s", formatUint256(s_positions[i].getInterest(), 18));
-            console.log("   Collateral: %s", formatUint256(s_collateralToken.balanceOf(address(s_positions[i])), 18));
-            console.log("   Price:      %s", formatUint256(s_positions[i].price(), 18));
-            console.log("");
-        }
     }
 }
 
