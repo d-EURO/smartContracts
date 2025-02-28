@@ -72,23 +72,6 @@ contract Invariants is TestHelper {
 
         increaseTime(5 days); // ≥ initPeriod
 
-        // vm.prank(s_alice);
-        // Position(position1).mint(s_alice, 0.2733e18); // mint 0.2733 dEURO
-        // console.log("========================================");
-        // console.log("           initial mintTo:");
-        // console.log("========================================");
-        // // console.log("_maxPrincipal:     %s", formatUint256(_maxPrincipal, 18));
-        // console.log("principal:         %s", formatUint256(Position(position1).principal(), 18));
-        // console.log("collateral:        %s", formatUint256(s_collateralToken.balanceOf(address(position1)), 18));
-        // console.log("amount:            %s", formatUint256(0.2733e18, 18));
-        // console.log("cooldown:          %s", Position(position1).cooldown() > block.timestamp);
-        // console.log("challenge:         %s", Position(position1).challengedAmount() > 0);
-        // console.log("expired:           %s", block.timestamp >= Position(position1).expiration());
-        // console.log("closed:            %s", Position(position1).isClosed());
-        // console.log("isMinter:          %s", s_deuro.isMinter(position1) || s_deuro.isMinter(s_deuro.positions(position1)));
-        // console.log("Position parent:   %s", s_deuro.getPositionParent(position1));
-        // console.log("Position Hub:      %s", Position(Position(position1).original()).hub());
-
         // create the handler
         s_handler = new Handler(s_deuro, s_collateralToken, s_mintingHubGateway, s_positions, address(this));
 
@@ -263,14 +246,3 @@ contract Invariants is TestHelper {
         console.log("   dEURO balance:  %s", formatUint256(s_deuro.balanceOf(user), 18));
     }
 }
-
-// bound inputs of createPosition
-// minCollateral = bound(minCollateral, 1e18, 1e20);
-// initialCollateral = bound(initialCollateral, minCollateral, 1e22);
-// liqPrice = bound(liqPrice, 5000e36 / minCollateral, 1e24); // minCollateral * liqPrice >= 5000 dEURO
-// initialLimit = bound(initialLimit, 1e27, 1e30);
-// initPeriod = uint40(bound(initPeriod, 3 days, 10 days)); // min 3 days
-// duration = uint40(bound(duration, 1 days, 30 days));
-// challengePeriod = uint40(bound(challengePeriod, 1 days, 3 days));
-// reservePPM = uint24(bound(reservePPM, 0, 500_000));
-// riskPremiumPPM = uint24(bound(riskPremiumPPM, 0, 500_000));
