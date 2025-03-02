@@ -75,6 +75,9 @@ contract Invariants is TestHelper {
         // create the handler
         s_handler = new Handler(s_deuro, s_collateralToken, s_mintingHubGateway, s_positions, address(this));
 
+        // Record initial position state
+        s_handler.recordPositionState(Position(position1));
+
         // create the handler selectors to the fuzzings targets
         bytes4[] memory selectors = new bytes4[](8);
         /// IPosition
@@ -171,18 +174,6 @@ contract Invariants is TestHelper {
             uint256 available = positions[i].availableForMinting();
             uint256 limit = positions[i].limit();
             assertLe(principal + available, limit, "Minted principal plus available mint exceeds limit");
-        }
-    }
-
-    /// @dev helper function to record statistics during invariant testing
-    function invariant_recordStats() public {
-        // Record stats for all active positions
-        for (uint256 i = 0; i < s_positions.length; i++) {
-            Position position = s_positions[i];
-            if (!position.isClosed() && block.timestamp < position.expiration()) {
-                // Use the handler's helper function for consistent recording logic
-                s_handler._recordPositionState(position); // REVIEW: Do we only need to call _recordPositionState here?
-            }
         }
     }
     

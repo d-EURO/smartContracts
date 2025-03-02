@@ -117,9 +117,6 @@ contract Handler is TestHelper {
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
 
-        // Record variable values before operation
-        _recordPositionState(position);
-
         // Check for conditions that would cause mint to fail and skip the iteration
         bool isCooldown = position.cooldown() > block.timestamp;
         bool isChallenged = position.challengedAmount() > 0;
@@ -148,8 +145,8 @@ contract Handler is TestHelper {
         }
         vm.stopPrank();
         
-        // Record variable values after operation
-        _recordPositionState(position);
+        // Record position state
+        recordPositionState(position);
     }
 
     /// @dev repay
@@ -161,9 +158,6 @@ contract Handler is TestHelper {
 
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
-        
-        // Record position state before operation
-        _recordPositionState(position);
 
         // Bound amount
         amount = bound(amount, 0, position.getDebt());
@@ -176,8 +170,8 @@ contract Handler is TestHelper {
         }
         vm.stopPrank();
         
-        // Record position state after operation
-        _recordPositionState(position);
+        // Record position state
+        recordPositionState(position);
     }
 
     /// @dev addCollateral
@@ -186,9 +180,6 @@ contract Handler is TestHelper {
 
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
-        
-        // Record position state before operation
-        _recordPositionState(position);
 
         // Bound amount
         amount = bound(amount, 0, s_collateralToken.balanceOf(position.owner()));
@@ -201,8 +192,8 @@ contract Handler is TestHelper {
         }
         vm.stopPrank();
         
-        // Record position state after operation
-        _recordPositionState(position);
+        // Record position state
+        recordPositionState(position);
     }
 
     /// @dev withdrawCollateral
@@ -211,9 +202,6 @@ contract Handler is TestHelper {
 
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
-        
-        // Record position state before operation
-        _recordPositionState(position);
 
         // Check for conditions that would cause mint to fail and skip the iteration
         bool isChallenged = position.challengedAmount() > 0;
@@ -236,8 +224,8 @@ contract Handler is TestHelper {
         }
         vm.stopPrank();
         
-        // Record position state after operation
-        _recordPositionState(position);
+        // Record position state
+        recordPositionState(position);
     }
 
     /// @dev adjustPrice
@@ -245,9 +233,6 @@ contract Handler is TestHelper {
     function adjustPrice(uint256 positionIdx, uint256 newPrice) public {
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
-        
-        // Record position state before operation
-        _recordPositionState(position);
 
         // Skip with 70% chance
         if(skipActionWithOdds(70, newPrice)) return;
@@ -275,8 +260,8 @@ contract Handler is TestHelper {
         }
         vm.stopPrank();
         
-        // Record position state after operation
-        _recordPositionState(position);
+        // Record position state
+        recordPositionState(position);
     }
 
     // In your Handler contract
@@ -453,7 +438,7 @@ contract Handler is TestHelper {
     // External
 
     /// @dev Helper function to record position state statistics
-    function _recordPositionState(Position position) public {
+    function recordPositionState(Position position) public {
         uint256 price = position.price();
         uint256 principal = position.principal();
         uint256 collateral = s_collateralToken.balanceOf(address(position));
