@@ -6,6 +6,8 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {console} from "forge-std/Test.sol";
 
 abstract contract TestHelper is Test {
+    //////////// Math Helpers ////////////
+
     function max(uint a, uint b) internal pure returns (uint) {
         return a > b ? a : b;
     }
@@ -21,10 +23,12 @@ abstract contract TestHelper is Test {
         vm.warp(block.timestamp + _seconds);
     }
 
+    /// @dev Increase the block number of the EVM by a given number of blocks
     function increaseBlock(uint _blocks) internal {
         vm.roll(block.number + _blocks);
     }
 
+    //////////// Prank Helpers ////////////
     modifier prank(address from) {
         vm.startPrank(from);
         _;
@@ -32,11 +36,12 @@ abstract contract TestHelper is Test {
     }
 
     //////////// Log Helpers ////////////
+
     function logFormattedUint256(string memory message, uint256 value, uint256 decimals) internal pure {
         console.log(message, formatUint256(value, decimals));
     }
 
-    function logTableRow(string memory rowLabel, string[] memory columns) internal pure {
+    function logRow(string memory rowLabel, string[] memory columns) internal pure {
         string memory formattedRow = string(abi.encodePacked("  ", padString(rowLabel, 35)));
         for (uint256 i = 0; i < columns.length; i++) {
             formattedRow = string(abi.encodePacked(formattedRow, padString(columns[i], 25)));
@@ -44,22 +49,23 @@ abstract contract TestHelper is Test {
         console.log(formattedRow);
     }
 
-    function logTableRow2(string memory rowLabel, string[2] memory columns) internal pure {
+    function logRow2(string memory rowLabel, string[2] memory columns) internal pure {
         string[] memory dynamicColumns = new string[](2);
         for (uint256 i = 0; i < 2; i++) dynamicColumns[i] = columns[i];
-        logTableRow(rowLabel, dynamicColumns);
+        logRow(rowLabel, dynamicColumns);
     }
 
-    function logTableRow3(string memory rowLabel, string[3] memory columns) internal pure {
+    function logRow3(string memory rowLabel, string[3] memory columns) internal pure {
         string[] memory dynamicColumns = new string[](3);
         for (uint256 i = 0; i < 3; i++) dynamicColumns[i] = columns[i];
-        logTableRow(rowLabel, dynamicColumns);
+        logRow(rowLabel, dynamicColumns);
     }
 
-    function logRowDivider() internal pure {
+    function logHorizontalDivider() internal pure {
         console.log("  ---------------------------------------------------------------------------------------------------------------------------------");
     }
 
+    //////////// Formatting Helpers ////////////
 
     /// @dev Given a uint256 value, format it as a string with the given number of decimals
     /// Adds proper formatting to make large numbers more readable

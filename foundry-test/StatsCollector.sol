@@ -79,9 +79,9 @@ contract StatsCollector is TestHelper {
     /// @dev Print variable distribution statistics to evaluate fuzzing coverage
     function printStatistics() external view {
         console.log("> ACTIONS");
-        logRowDivider();
-        logTableRow2("Action", ["# Calls", "Success %"]);
-        logRowDivider();
+        logHorizontalDivider();
+        logRow2("Action", ["# Calls", "Success %"]);
+        logHorizontalDivider();
         printActionStatistics("mintTo");
         printActionStatistics("repay");
         printActionStatistics("addCollateral");
@@ -97,9 +97,9 @@ contract StatsCollector is TestHelper {
 
         // Print basic statistics
         console.log("> COVERAGE");
-        logRowDivider();
-        logTableRow2("Action", ["# Calls", "Success %"]);
-        logRowDivider();
+        logHorizontalDivider();
+        logRow3("Variable", ["Min", "Max", "Mean"]);
+        logHorizontalDivider();
         printVariableStatistics("position.price", 18);
         printVariableStatistics("position.principal", 18);
         printVariableStatistics("position.collateral", 18);
@@ -117,7 +117,7 @@ contract StatsCollector is TestHelper {
 
         VariableStats storage stats = variableStats[name];
 
-        logTableRow3(
+        logRow3(
             name,
             [
                 formatUint256(stats.minValue, decimals), // min
@@ -139,7 +139,7 @@ contract StatsCollector is TestHelper {
             ? (100 * (stats.totalCalls - stats.totalReverts)) / stats.totalCalls
             : 0;
 
-        logTableRow2(
+        logRow2(
             name,
             [
                 Strings.toString(stats.totalCalls), // calls

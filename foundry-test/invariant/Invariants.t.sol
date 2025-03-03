@@ -230,10 +230,10 @@ contract Invariants is TestHelper {
         }
 
         console.log("> USERS");
-        logRowDivider();
-        logTableRow3("User", ["# Positions", "COL balance", "dEURO balance"]);
-        logRowDivider();
-        logTableRow3(
+        logHorizontalDivider();
+        logRow3("User", ["# Positions", "COL balance", "dEURO balance"]);
+        logHorizontalDivider();
+        logRow3(
             vm.getLabel(user),
             [
                 Strings.toString(numPositions),
