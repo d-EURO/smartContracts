@@ -458,7 +458,7 @@ contract Handler is TestHelper {
     }
     
     /// @dev Print variable distribution statistics to evaluate fuzzing coverage
-    function printVariableDistributions() external view {        
+    function printVariableDistributions() external view {    
         uint256 mintToSuccessRatio = s_mintToCalls > 0 ? 100 * (s_mintToCalls - s_mintToReverts) / s_mintToCalls : 0;
         uint256 repaySuccessRatio = s_repayCalls > 0 ? 100 * (s_repayCalls - s_repayReverts) / s_repayCalls : 0;
         uint256 addCollateralSuccessRatio = s_addCollateralCalls > 0 ? 100 * (s_addCollateralCalls - s_addCollateralReverts) / s_addCollateralCalls : 0;

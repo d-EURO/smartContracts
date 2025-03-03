@@ -9,6 +9,10 @@ import {TestHelper} from "../TestHelper.sol";
  * @notice Utility contract to collect statistics about variable distributions during fuzzing tests
  */
 contract StatsCollector is TestHelper {
+    /// @dev Enable statistics collection
+    bool constant ENABLED = false;
+
+    /// @dev Number of samples to process for statistics (to avoid out-of-gas errors)
     uint256 constant SAMPLE_LIMIT = 100;
 
     // Statistics for tracking uint256 values
@@ -28,6 +32,8 @@ contract StatsCollector is TestHelper {
      * @param name Name of the variable to track
      */
     function initStatistics(string memory name) public {
+        if (!ENABLED) return;
+
         stats[name].totalSamples = 0;
         stats[name].minValue = type(uint256).max;
         stats[name].maxValue = 0;
@@ -40,6 +46,8 @@ contract StatsCollector is TestHelper {
      * @param value The value to record
      */
     function recordValue(string memory name, uint256 value) public {
+        if (!ENABLED) return;
+
         Statistics storage stat = stats[name];
         
         // Initialize if not already
@@ -162,6 +170,8 @@ contract StatsCollector is TestHelper {
      * @param sampleLimit Optional limit to number of samples to process (to avoid out-of-gas errors)
      */
     function printStatistics(string memory name, uint256 decimals, uint256 sampleLimit) public view {
+        if (!ENABLED) return;
+
         Statistics storage stat = stats[name];
         if (stat.totalSamples == 0) {
             console.log("========================================");
@@ -171,16 +181,16 @@ contract StatsCollector is TestHelper {
         }
 
         // Calculate total samples to process (either all samples or limited by sampleLimit)
-        uint256 samplesToProcess = sampleLimit > 0 && stat.values.length > sampleLimit 
+        uint256 samplesToProcess = sampleLimit > 0 && stat.totalSamples > sampleLimit 
             ? sampleLimit 
-            : stat.values.length;
+            : stat.totalSamples;
 
         // Make a copy of the values array for sorting (can't sort in storage)
         uint256[] memory valuesCopy = new uint256[](samplesToProcess);
         for (uint i = 0; i < samplesToProcess; i++) {
             // Use evenly distributed sampling if limiting samples
-            uint256 index = sampleLimit > 0 && stat.values.length > sampleLimit
-                ? i * stat.values.length / samplesToProcess
+            uint256 index = sampleLimit > 0 && stat.totalSamples > sampleLimit
+                ? i * stat.totalSamples / samplesToProcess
                 : i;
             valuesCopy[i] = stat.values[index];
         }
@@ -203,10 +213,7 @@ contract StatsCollector is TestHelper {
         console.log("========================================");
         console.log("Statistics for:    %s", name);
         console.log("========================================");
-        console.log("Total samples:     %s", stat.totalSamples);
-        if (samplesToProcess < stat.values.length) {
-            console.log("Processed:         %s (limited for gas)", samplesToProcess);
-        }
+        console.log("Processed samples: %s/%s", samplesToProcess, stat.totalSamples);
         console.log("Min value:         %s", formatUint256(stat.minValue, decimals));
         console.log("Max value:         %s", formatUint256(stat.maxValue, decimals));
         console.log("Mean:              %s", formatUint256(mean, decimals));
