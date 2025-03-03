@@ -36,6 +36,31 @@ abstract contract TestHelper is Test {
         console.log(message, formatUint256(value, decimals));
     }
 
+    function logTableRow(string memory rowLabel, string[] memory columns) internal pure {
+        string memory formattedRow = string(abi.encodePacked("  ", padString(rowLabel, 35)));
+        for (uint256 i = 0; i < columns.length; i++) {
+            formattedRow = string(abi.encodePacked(formattedRow, padString(columns[i], 25)));
+        }
+        console.log(formattedRow);
+    }
+
+    function logTableRow2(string memory rowLabel, string[2] memory columns) internal pure {
+        string[] memory dynamicColumns = new string[](2);
+        for (uint256 i = 0; i < 2; i++) dynamicColumns[i] = columns[i];
+        logTableRow(rowLabel, dynamicColumns);
+    }
+
+    function logTableRow3(string memory rowLabel, string[3] memory columns) internal pure {
+        string[] memory dynamicColumns = new string[](3);
+        for (uint256 i = 0; i < 3; i++) dynamicColumns[i] = columns[i];
+        logTableRow(rowLabel, dynamicColumns);
+    }
+
+    function logRowDivider() internal pure {
+        console.log("  ---------------------------------------------------------------------------------------------------------------------------------");
+    }
+
+
     /// @dev Given a uint256 value, format it as a string with the given number of decimals
     /// Adds proper formatting to make large numbers more readable
     function formatUint256(uint256 value, uint256 decimals) internal pure returns (string memory) {
@@ -131,5 +156,21 @@ abstract contract TestHelper is Test {
         }
         
         return string(result);
+    }
+
+    /**
+     * @notice pad a string with spaces to a fixed width
+     * @param label The string to pad
+     * @param width The desired width of the string
+     */
+    function padString(string memory label, uint8 width) internal pure returns (string memory) {
+        bytes memory labelBytes = bytes(label);
+        require(labelBytes.length <= width, "Name too long");
+        uint padLen = width - labelBytes.length;
+        bytes memory spaces = new bytes(padLen);
+        for (uint i = 0; i < padLen; i++) {
+            spaces[i] = 0x20; // ASCII space character
+        }
+        return string(abi.encodePacked(label, spaces));
     }
 }
