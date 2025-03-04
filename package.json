@@ -1,6 +1,6 @@
 {
   "name": "@deuro/eurocoin",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "It shall support a wide range of collateralized minting methods that are governed by a democratic process.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -20,6 +20,7 @@
     "deploy:network": "npx hardhat ignition deploy ./ignition/modules/FullDeployment.ts --parameters ./ignition/parameters.json --network",
     "verify": "npx hardhat verify",
     "build": "tsup",
+    "ts:export:abis": "npx ts-node ./scripts/abiExport.ts && prettier --write \"exports/abis/**/*.ts\"",
     "publish": "npm publish --access public",
     "cover": "nodejs ./solcover.js",
     "test": "npx hardhat test",

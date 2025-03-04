@@ -32,7 +32,17 @@ export const MintingHubGatewayABI = [
   },
   {
     inputs: [],
+    name: 'ChallengeTimeTooShort',
+    type: 'error',
+  },
+  {
+    inputs: [],
     name: 'IncompatibleCollateral',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'InitPeriodTooShort',
     type: 'error',
   },
   {
@@ -42,7 +52,22 @@ export const MintingHubGatewayABI = [
   },
   {
     inputs: [],
+    name: 'InvalidCollateralDecimals',
+    type: 'error',
+  },
+  {
+    inputs: [],
     name: 'InvalidPos',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'InvalidReservePPM',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'InvalidRiskPremium',
     type: 'error',
   },
   {
