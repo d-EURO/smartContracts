@@ -80,7 +80,7 @@ contract StatsCollector is TestHelper {
     function printStatistics() external view {
         console.log("> ACTIONS");
         logHorizontalDivider();
-        logRow2("Action", ["# Calls", "Success %"]);
+        logRow3("Action", ["# Calls", "# Reverts", "Success %"]);
         logHorizontalDivider();
         printActionStatistics("mintTo");
         printActionStatistics("repay");
@@ -139,10 +139,11 @@ contract StatsCollector is TestHelper {
             ? (100 * (stats.totalCalls - stats.totalReverts)) / stats.totalCalls
             : 0;
 
-        logRow2(
+        logRow3(
             name,
             [
                 Strings.toString(stats.totalCalls), // calls
+                Strings.toString(stats.totalReverts), // reverts
                 Strings.toString(successRatio) // success %
             ]
         );

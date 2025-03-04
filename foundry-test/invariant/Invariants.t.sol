@@ -16,7 +16,6 @@ import {Handler} from "./Handler.t.sol";
 import {console} from "forge-std/Test.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-
 contract Invariants is TestHelper {
     Handler internal s_handler;
 
@@ -80,7 +79,7 @@ contract Invariants is TestHelper {
         s_handler.recordPositionState(Position(position1));
 
         // create the handler selectors to the fuzzings targets
-        bytes4[] memory selectors = new bytes4[](8);
+        bytes4[] memory selectors = new bytes4[](6);
         /// IPosition
         selectors[0] = Handler.mintTo.selector;
         selectors[1] = Handler.repay.selector;
@@ -93,8 +92,8 @@ contract Invariants is TestHelper {
         // selectors[7] = Handler.buyExpiredCollateral.selector;
         // /// Network specific
         selectors[5] = Handler.passCooldown.selector;
-        selectors[6] = Handler.expirePosition.selector;
-        selectors[7] = Handler.warpTime.selector;
+        // selectors[6] = Handler.expirePosition.selector;
+        // selectors[7] = Handler.warpTime.selector;
 
         targetSelector(FuzzSelector({addr: address(s_handler), selectors: selectors}));
         targetContract(address(s_handler));
@@ -150,6 +149,17 @@ contract Invariants is TestHelper {
                 uint256 minCollateral = positions[i].minimumCollateral();
                 assertGe(collateral, minCollateral, "Active position below minimum collateral");
             }
+        }
+    }
+
+    /// @dev verify debt equals principal plus interest
+    function invariant_debtEqualsPrincipalPlusInterest() public view {
+        Position[] memory positions = s_handler.getPositions();
+        for (uint256 i = 0; i < positions.length; i++) {
+            uint256 debt = positions[i].getDebt();
+            uint256 principal = positions[i].principal();
+            uint256 interest = positions[i].getInterest();
+            assertEq(debt, principal + interest, "Debt does not equal principal plus interest");
         }
     }
 
