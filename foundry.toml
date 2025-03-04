@@ -6,6 +6,7 @@ solc_version = "0.8.26"      # Use the same Solidity version.
 optimizer = true             # Enable the optimizer.
 optimizer_runs = 200         # Set optimizer runs to match your Hardhat config.
 libs = ["node_modules", "lib"]
+show_metrics = true
 
 [fuzz]
 runs = 10
