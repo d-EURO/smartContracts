@@ -53,6 +53,6 @@ contract MathUtil {
      * @return The result of ceiling division
      */
     function _ceilDivPPM(uint256 amount, uint24 ppm) internal pure returns (uint256) {
-        return amount == 0 ? 0 : (amount * 1000_000 - 1) / (1000_000 - ppm) + 1;
+        return amount == 0 ? 0 : (amount * 1_000_000 - 1) / (1_000_000 - ppm) + 1;
     }
 }
