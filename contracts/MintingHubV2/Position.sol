@@ -392,8 +392,8 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Computes the virtual price of the collateral in dEURO, which is the minimum collateral
-     * price required to cover the entire debt, lower bounded by the floor price. Retuns the challenged price
-     * if a challenge is active.
+     * price required to cover the entire debt with interest overcollateralization, lower bounded by the floor price. 
+     * Returns the challenged price if a challenge is active.
      * @param colBalance The collateral balance of the position.
      * @param floorPrice The minimum price of the collateral in dEURO.
      */
@@ -401,7 +401,11 @@ contract Position is Ownable, IPosition, MathUtil {
         if (challengedAmount > 0) return challengedPrice;   
         if (colBalance == 0) return floorPrice;
 
-        uint256 virtPrice = (_getDebt() * ONE_DEC18) / colBalance;
+        uint256 calculatedInterest = _calculateInterest();
+        uint256 interestWithBuffer = calculatedInterest + (calculatedInterest * reserveContribution) / 1000_000;
+        uint256 totalDebt = principal + interestWithBuffer;
+        
+        uint256 virtPrice = (totalDebt * ONE_DEC18) / colBalance;
         return virtPrice < floorPrice ? floorPrice: virtPrice;
     }
 
@@ -644,13 +648,17 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice This invariant must always hold and must always be checked when any of the three
-     * variables change in an adverse way.
+     * variables change in an adverse way. Ensures that the position overcollateralizes interest
+     * by the same percentage as the reserve contribution.
      */
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
-        uint256 debt = _getDebt();
-        if (relevantCollateral * atPrice < debt * ONE_DEC18) {
-            revert InsufficientCollateral(relevantCollateral * atPrice, debt * ONE_DEC18);
+        uint256 calculatedInterest = _calculateInterest();
+        uint256 interestWithBuffer = calculatedInterest + (calculatedInterest * reserveContribution) / 1000_000;
+        uint256 totalDebt = principal + interestWithBuffer;
+        
+        if (relevantCollateral * atPrice < totalDebt * ONE_DEC18) {
+            revert InsufficientCollateral(relevantCollateral * atPrice, totalDebt * ONE_DEC18);
         }
     }
 
