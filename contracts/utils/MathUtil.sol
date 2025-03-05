@@ -45,4 +45,14 @@ contract MathUtil {
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
     }
+    
+    /**
+     * @notice Performs ceiling division for PPM calculations using formula: ceil(amount / (1 - ppm/1000000))
+     * @param amount The base amount to divide
+     * @param ppm Parts per million value (e.g., 200000 for 20%)
+     * @return The result of ceiling division
+     */
+    function _ceilDivPPM(uint256 amount, uint24 ppm) internal pure returns (uint256) {
+        return amount == 0 ? 0 : (amount * 1000_000 - 1) / (1000_000 - ppm) + 1;
+    }
 }
