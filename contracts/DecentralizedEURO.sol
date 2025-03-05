@@ -267,9 +267,9 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
         uint256 amountExcludingReserve,
         uint32 reservePPM
     ) external override minterOnly returns (uint256) {
-        uint256 freedAmount = calculateFreedAmount(amountExcludingReserve, reservePPM); // Add reserve portion
-        uint256 theoreticalAmount = (1_000_000 * amountExcludingReserve) / (1_000_000 - reservePPM);
-        minterReserveE6 -= theoreticalAmount * reservePPM; // reduce reserve requirements by original ratio
+        _spendAllowance(payer, msg.sender, amountExcludingReserve); // Add reserve portion
+        uint256 freedAmount = calculateFreedAmount(amountExcludingReserve, reservePPM);
+        minterReserveE6 -= freedAmount * reservePPM; // reduce reserve requirements by original ratio
         _transfer(address(reserve), payer, freedAmount - amountExcludingReserve); // collect assigned reserve
         _burn(payer, freedAmount); // burn the freed amount
         return freedAmount;
@@ -280,8 +280,8 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @return `amountExcludingReserve` plus its share of the reserve.
      */
     function calculateFreedAmount(
-        uint256 amountExcludingReserve /* 41 */,
-        uint32 _reservePPM /* 20% */
+        uint256 amountExcludingReserve,
+        uint32 _reservePPM
     ) public view returns (uint256) {
         uint256 currentReserve = balanceOf(address(reserve));
         uint256 minterReserve_ = minterReserve();
@@ -297,15 +297,12 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * severe loss of capital that burned into the minter's reserve, this can also be less than that.
      */
     function calculateAssignedReserve(uint256 mintedAmount, uint32 _reservePPM) public view returns (uint256) {
-        uint256 theoreticalReserve = (_reservePPM * mintedAmount) / 1000000;
         uint256 currentReserve = balanceOf(address(reserve));
         uint256 minterReserve_ = minterReserve();
-        if (currentReserve < minterReserve_) {
-            // not enough reserves, owner has to take a loss
-            return (theoreticalReserve * currentReserve) / minterReserve_;
-        } else {
-            return theoreticalReserve;
-        }
+        uint256 adjustedReservePPM = currentReserve < minterReserve_
+            ? (_reservePPM * currentReserve) / minterReserve_
+            : _reservePPM;
+        return (adjustedReservePPM * mintedAmount) / 1000000;
     }
 
     /**

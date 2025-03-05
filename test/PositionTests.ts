@@ -1749,6 +1749,7 @@ describe("Position Tests", () => {
       const principal = await pos.principal();
       const collateralContract = await ethers.getContractAt("IERC20", await pos.collateral());
       const debtBefore = await pos.getDebt();
+      const reservePortion = await dEURO.calculateAssignedReserve(await pos.principal(), await pos.reserveContribution());
       const colBalPosBefore = await collateralContract.balanceOf(pos.getAddress());
       const deuroBalPosBefore = await dEURO.balanceOf(pos.getAddress());
 
@@ -1793,7 +1794,8 @@ describe("Position Tests", () => {
       expect(ePriceE36MinusDecimals).to.be.lte(expPurchasePrice);
       expect(colBalPosBefore - colBalPosAfter).to.be.equal(35n);
       expect(deuroBalPosBefore).to.be.equal(deuroBalPosAfter);
-      expect(debtAfter).to.be.gt(0);
+      expect((ePriceE36MinusDecimals * BigInt(eAmount) / DECIMALS) + reservePortion).gte(debtBefore);
+      expect(debtAfter).to.be.eq(0);
       expect(await pos.isClosed()).to.be.false; // still collateral left
     });
 

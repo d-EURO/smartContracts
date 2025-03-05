@@ -712,24 +712,16 @@ contract Position is Ownable, IPosition, MathUtil {
      * @param amount The repayment amount, excluding the reserve portion, i.e. the net amount.
      * @return The remaining `amount` that was not applied to principal repayment.
      */
+    // TODO: REFACTOR entirely using burnFromWithReserve and then pay down the rest with remaining amount
     function _repayPrincipalNet(address payer, uint256 amount) internal returns (uint256) {
-        uint256 repayment = (amount > principal) ? principal : amount;
-        if (repayment > 0) {
-            uint256 maxUsableMint = getUsableMint(principal);
-            uint256 repayWithReserve = maxUsableMint > repayment ? repayment : maxUsableMint;
-            uint256 actualRepaid = deuro.burnFromWithReserveNet(payer, repayWithReserve, reserveContribution);
-            _notifyRepaid(actualRepaid);
-            amount -= repayWithReserve;
-            if (principal > 0 && amount > 0) {
-                uint256 amountToBurn = amount > principal ? principal : amount;
-                deuro.transferFrom(payer, address(this), amountToBurn);
-                deuro.burnWithoutReserve(amountToBurn, reserveContribution);
-                _notifyRepaid(amountToBurn);
-                amount -= amountToBurn;
-            }
-            return amount;
-        }
-        return amount;
+        uint256 availableReserve = deuro.calculateAssignedReserve(principal, reserveContribution);
+        uint256 maxRepayment = principal - availableReserve;
+        uint256 repayment = amount > maxRepayment ? maxRepayment : amount;
+        uint256 freedAmount = deuro.calculateFreedAmount(repayment, reserveContribution);
+        uint256 returnedReserve = deuro.burnFromWithReserve(payer, freedAmount, reserveContribution);
+        assert(returnedReserve == freedAmount - repayment);
+        _notifyRepaid(freedAmount);
+        return amount - repayment;
     }
 
     /**
