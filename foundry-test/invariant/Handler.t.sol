@@ -18,6 +18,7 @@ import {TestHelper} from "../TestHelper.sol";
 import {StatsCollector} from "../StatsCollector.sol";
 
 /// @dev Comprehensive state data for a position and its owner
+// TODO: Refactor into separate structs
 struct SystemState {
     // Position state
     uint256 debt;
@@ -28,13 +29,20 @@ struct SystemState {
     bool isCooldown;
     bool isExpired;
     uint256 availableForMinting;
+    uint256 challengedAmount;
     // Owner balances
     uint256 ownerdEuroBalance;
     uint256 ownerCollateralBalance;
     address owner;
-    // dEURO balances // TODO: Add assertions
+    // dEURO balances // TODO: Add assertions for these
     uint256 dEuroBalance;
     uint256 minterReserve;
+}
+
+struct MintingHubState {
+    uint256 collateral;
+    uint256 challengerCollateral;
+    uint256 bidderCollateral;
 }
 
 contract Handler is StatsCollector {
@@ -200,17 +208,15 @@ contract Handler is StatsCollector {
 
     /// @dev withdrawCollateral
     function withdrawCollateral(uint256 positionIdx, uint256 amount) public {
-        recordAction("withdrawCollateral");
-
         // Get the position
         Position position = s_positions[positionIdx % s_positions.length];
 
         // Check for conditions that would cause mint to fail and skip the iteration
         bool isChallenged = position.challengedAmount() > 0;
         bool isCooldown = position.cooldown() > block.timestamp;
-        if (isChallenged || isCooldown) {
-            return;
-        }
+        if (isChallenged || isCooldown) return;
+
+        recordAction("withdrawCollateral");
 
         // Bound amount
         uint256 _requiredCollateral = requiredCollateral(position);
@@ -287,84 +293,203 @@ contract Handler is StatsCollector {
 
     /// @dev Initiates a challenge on one of the positions managed by the handler.
     function challengePosition(uint256 positionIdx, uint256 collateralAmount, uint256 minPrice) public {
-        recordAction("challengePosition");
-
-        // Select a position from the positions array.
+        // Select a position from the positions array
         Position position = s_positions[positionIdx % s_positions.length];
+        
+        // Check for conditions that would cause challenge to fail
+        bool isExpired = block.timestamp >= position.expiration();
+        if (isExpired) return;
+
+        recordAction("challengePosition");
 
         // Bound collateralAmount
         uint256 minimumCollateral = position.minimumCollateral();
         uint256 collateralReserve = s_collateralToken.balanceOf(address(position));
         uint256 minColAmount = min(minimumCollateral, collateralReserve);
-        uint256 maxColAmount = (5 * collateralReserve) / 4; // 1.25 x collateralReserve
+        uint256 maxColAmount = (collateralReserve * 5) / 4; // 1.25 x collateralReserve
         collateralAmount = bound(collateralAmount, minColAmount, maxColAmount);
 
         // Bound minPrice
         uint256 currentVirtualPrice = position.virtualPrice();
         minPrice = bound(minPrice, 0, currentVirtualPrice);
+        
+        // Ensure challenger has enough dEURO for challenge
+        uint256 requiredDEURO = s_mintingHubGateway.OPENING_FEE();
+        if (s_deuro.balanceOf(s_challenger) < requiredDEURO) {
+            s_deuro.mint(s_challenger, requiredDEURO); 
+        }
 
-        // adjusts the position collateral
-        vm.prank(s_challenger);
+        // Ensure challenger has enough collateral for challenge
+        if (s_collateralToken.balanceOf(s_challenger) < collateralAmount) {
+            s_collateralToken.mint(s_challenger, collateralAmount);
+        }
+        
+        // Capture state before challenge
+        SystemState memory beforeState = captureSystemState(position);
+        MintingHubState memory minHubStateBefore = captureMinHubState();
+
+        // Execute challenge
+        vm.startPrank(s_challenger);
+        s_deuro.approve(address(s_mintingHubGateway), requiredDEURO);
+        s_collateralToken.approve(address(s_mintingHubGateway), collateralAmount);
         try s_mintingHubGateway.challenge(address(position), collateralAmount, minPrice) {
-            // success
+            SystemState memory afterState = captureSystemState(position);
+            MintingHubState memory minHubStateAfter = captureMinHubState();
+            
+            assertEq(minHubStateAfter.collateral, minHubStateBefore.collateral + collateralAmount);
+            assertGt(afterState.challengedAmount, beforeState.challengedAmount + collateralAmount);
+            assertEq(afterState.collateral, beforeState.collateral);
+            assertEq(afterState.principal, beforeState.principal);
+            assertGe(afterState.interest, beforeState.interest);
+            
             s_openedChallenges++;
         } catch {
             recordRevert("challengePosition");
         }
+        vm.stopPrank();
+        
+        // Record position state after challenge
+        recordPositionState(position);
     }
 
     /// @dev Posts a bid on an existing challenge.
     function bidChallenge(uint256 challengeIndex, uint256 bidSize, bool postpone) public {
-        recordAction("bidChallenge");
+        // Skip if no challenges exist
+        if (s_openedChallenges == 0) {
+            return;
+        }
 
-        // Bound challengeIndex
+        // Find a valid challenge
         MintingHub.Challenge memory challenge;
+        bool foundChallenge = false;
+        uint32 validChallengeIndex = 0;
+        
         for (uint256 i = 0; i < s_openedChallenges; i++) {
-            (address challenger, uint40 start, IPosition position, uint256 size) = s_mintingHubGateway.challenges(
-                (challengeIndex + i) % s_openedChallenges
-            );
-            if (position != IPosition(address(0))) {
-                challenge = MintingHub.Challenge(challenger, start, position, size);
+            uint32 idx = uint32((challengeIndex + i) % s_openedChallenges);
+            (address challenger, uint40 start, IPosition pos, uint256 size) = s_mintingHubGateway.challenges(idx);
+            if (pos != IPosition(address(0))) {
+                challenge = MintingHub.Challenge(challenger, start, pos, size);
+                validChallengeIndex = idx;
+                foundChallenge = true;
                 break;
             }
         }
+        
+        if (!foundChallenge) return;
 
+        recordAction("bidChallenge");
+
+        // Ensure position is valid
+        Position position = Position(address(challenge.position));
+        (uint256 liqPrice, uint40 phase) = position.challengeData();
+        
+        // // Skip if position is expired
+        // if (block.timestamp >= position.expiration()) {
+        //     recordRevert("bidChallenge");
+        //     return;
+        // }
+        
         // Bound bidSize
-        bidSize = bidSize % challenge.size;
+        bidSize = bound(bidSize, 1, challenge.size);
+        
+        // Ensure bidder has enough dEURO - the bidder needs to pay for collateral
+        uint256 requiredDEURO = (bidSize * liqPrice) / 1e18;
+        if (s_deuro.balanceOf(s_bidder) < requiredDEURO) {
+            s_deuro.mint(s_bidder, requiredDEURO); // Give bidder enough dEURO
+        }
+        
+        // Capture state before bid
+        SystemState memory beforeState = captureSystemState(position);
+        MintingHubState memory minHubStateBefore = captureMinHubState();
+        
+        // Place bid
+        vm.startPrank(s_bidder);
+        s_deuro.approve(address(s_mintingHubGateway), type(uint256).max);
+        try s_mintingHubGateway.bid(validChallengeIndex, bidSize, postpone) {
+            SystemState memory afterState = captureSystemState(position);
+            MintingHubState memory minHubStateAfter = captureMinHubState();
 
-        // (Optional) Simulate a bidder by using vm.prank(bidderAddress) if desired.
-        vm.prank(s_bidder);
-        try s_mintingHubGateway.bid(uint32(challengeIndex), bidSize, postpone) {
-            // success
+            if (block.timestamp <= challenge.start + phase) {
+                // TODO: Phase 1 (avert phase) 
+            } else {
+                // Phase 2 (dutch auction phase)
+                assertLe(afterState.debt, beforeState.debt);
+                assertEq(afterState.challengedAmount, beforeState.challengedAmount -  bidSize);
+                assertEq(minHubStateAfter.bidderCollateral, minHubStateBefore.bidderCollateral + bidSize);
+                if (!postpone) {
+                    assertEq(minHubStateAfter.collateral, minHubStateBefore.collateral - bidSize);
+                    assertEq(minHubStateAfter.challengerCollateral, minHubStateBefore.challengerCollateral + bidSize);
+
+                } else {
+                    assertEq(minHubStateAfter.collateral, minHubStateBefore.collateral);
+                    assertEq(minHubStateAfter.challengerCollateral, minHubStateBefore.challengerCollateral);
+                }
+            }
         } catch {
             recordRevert("bidChallenge");
         }
+        vm.stopPrank();
+        
+        // Record position state
+        recordPositionState(position);
     }
 
     /// @dev Buys collateral from an expired position.
     function buyExpiredCollateral(uint256 positionIdx, uint256 upToAmount) public {
-        recordAction("buyExpiredCollateral");
-
-        // Select a position from the positions array.
+        // Select a position from the positions array
         Position position = s_positions[positionIdx % s_positions.length];
+        
+        // Check position is actually expired
+        bool isExpired = block.timestamp >= position.expiration();
+        bool hasChallenge = position.challengedAmount() > 0;
+        if (!isExpired || hasChallenge) return;
 
+        recordAction("buyExpiredCollateral");
+        
         // Bound upToAmount
         uint256 forceSalePrice = s_mintingHubGateway.expiredPurchasePrice(position);
         uint256 maxAmount = s_collateralToken.balanceOf(address(position));
         uint256 dustAmount = (s_mintingHubGateway.OPENING_FEE() * 1e18) / forceSalePrice;
-        upToAmount = bound(upToAmount, 0, maxAmount);
-        // leave no dust behind
+        upToAmount = bound(upToAmount, 1, maxAmount); // Must be at least 1
+        
+        // Leave no dust behind
         if (upToAmount < maxAmount && maxAmount - upToAmount < dustAmount) {
             upToAmount = maxAmount - dustAmount;
         }
-
-        // adjusts the position collateral
-        vm.prank(s_bidder);
+        
+        // Ensure bidder has enough dEURO for purchase
+        uint256 requiredDEURO = (upToAmount * forceSalePrice) / 1e18;
+        if (s_deuro.balanceOf(s_bidder) < requiredDEURO) {
+            s_deuro.mint(s_bidder, requiredDEURO * 2);
+        }
+        
+        // Capture state before purchase
+        SystemState memory beforeState = captureSystemState(position);
+        MintingHubState memory minHubStateBefore = captureMinHubState();
+        
+        // Execute purchase
+        vm.startPrank(s_bidder);
+        s_deuro.approve(address(s_mintingHubGateway), type(uint256).max);
         try s_mintingHubGateway.buyExpiredCollateral(position, upToAmount) {
-            // success
+            SystemState memory afterState = captureSystemState(position);
+            MintingHubState memory minHubStateAfter = captureMinHubState();
+            
+            assertLe(afterState.collateral, beforeState.collateral);
+            assertEq(minHubStateAfter.bidderCollateral, minHubStateBefore.bidderCollateral + upToAmount);
+            if (afterState.collateral == 0) assertEq(afterState.debt, 0);
+            // Check that debt is repaid proportionally to collateral sold
+            if (beforeState.debt > 0) {
+                uint256 debtReduction = beforeState.debt - afterState.debt;
+                uint256 expectedDebtReduction = (beforeState.debt * upToAmount) / beforeState.collateral;
+                assertApproxEqAbs(debtReduction, expectedDebtReduction, 1e18, "Debt reduction should be proportional to collateral sold");
+            }
         } catch {
             recordRevert("buyExpiredCollateral");
         }
+        vm.stopPrank();
+        
+        // Record position state
+        recordPositionState(position);
     }
 
     /// @dev Expire a position
@@ -517,6 +642,7 @@ contract Handler is StatsCollector {
                 isCooldown: position.cooldown() > block.timestamp,
                 isExpired: block.timestamp >= position.expiration(),
                 availableForMinting: position.availableForMinting(),
+                challengedAmount: position.challengedAmount(),
                 // Owner balances
                 ownerdEuroBalance: s_deuro.balanceOf(owner),
                 ownerCollateralBalance: s_collateralToken.balanceOf(owner),
@@ -524,6 +650,15 @@ contract Handler is StatsCollector {
                 // dEURO balances
                 dEuroBalance: s_deuro.balanceOf(address(position)),
                 minterReserve: s_deuro.minterReserve()
+            });
+    }
+
+    function captureMinHubState() internal view returns (MintingHubState memory) {
+        return
+            MintingHubState({
+                collateral: s_collateralToken.balanceOf(address(s_mintingHubGateway)),
+                challengerCollateral: s_collateralToken.balanceOf(s_challenger),
+                bidderCollateral: s_collateralToken.balanceOf(s_bidder)
             });
     }
 
