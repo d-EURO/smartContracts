@@ -315,6 +315,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     }
 
     function _collectProfits(address minter, address source, uint256 _amount) internal {
+        _spendAllowance(source, minter, _amount);
         _transfer(source, address(reserve), _amount);
         emit Profit(minter, _amount);
     }

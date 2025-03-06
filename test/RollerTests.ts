@@ -379,6 +379,7 @@ describe("Roller Tests", () => {
       await coin
         .connect(alice)
         .approve(await mintingHub.getAddress(), floatToDec18(10));
+      await deuro.connect(alice).approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const txPos2 = await (
         await mintingHub.connect(alice).openPosition(
           await coin.getAddress(),
@@ -812,6 +813,7 @@ describe("Roller Tests", () => {
       // ---------------------------------------------------------------------------
       // give ALICE a position
       await coin.connect(alice).approve(await mintingHub.getAddress(), floatToDec18(10));
+      await deuro.connect(alice).approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const txPos2 = await (
         await mintingHub.connect(alice).openPosition(
           await coin.getAddress(),

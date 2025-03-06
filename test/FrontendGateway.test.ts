@@ -313,6 +313,7 @@ describe('FrontendGateway Tests', () => {
       const applicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
       const applicationFee = await dEURO.MIN_FEE();
 
+      await dEURO.approve(dEURO.getAddress(), floatToDec18(1000));
       await dEURO.suggestMinter(savings.getAddress(), applicationPeriod, applicationFee, '');
       await evm_increaseTime(86400 * 11);
     });

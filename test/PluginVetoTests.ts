@@ -75,6 +75,7 @@ describe("Plugin Veto Tests", () => {
         .approve(await dEURO.getAddress(), applicationFee);
       let balance = await dEURO.balanceOf(alice.address);
       expect(balance).to.be.greaterThan(applicationFee);
+      await dEURO.connect(alice).approve(dEURO.getAddress(), floatToDec18(1000));
       await expect(
         dEURO
           .connect(alice)

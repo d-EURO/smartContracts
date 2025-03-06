@@ -273,6 +273,7 @@ describe("Position Tests", () => {
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
       let balBefore = await dEURO.balanceOf(owner.address);
       let balBeforeVOL = await mockVOL.balanceOf(owner.address);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -318,6 +319,7 @@ describe("Position Tests", () => {
     });
     it("should revert minting when there is a challange", async () => {
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -655,6 +657,7 @@ describe("Position Tests", () => {
     });
     it("should revert reducing limit from non hub", async () => {
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -734,6 +737,7 @@ describe("Position Tests", () => {
         .approve(await mintingHub.getAddress(), fInitialCollateral);
       let balBefore = await dEURO.balanceOf(owner.address);
       let balBeforeVOL = await mockVOL.balanceOf(owner.address);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -795,6 +799,7 @@ describe("Position Tests", () => {
         .approve(await mintingHub.getAddress(), fInitialCollateral);
       let balBefore = await dEURO.balanceOf(owner.address);
       let balBeforeVOL = await mockVOL.balanceOf(owner.address);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1044,6 +1049,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), 2n * fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1215,6 +1221,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1318,6 +1325,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1462,6 +1470,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1585,6 +1594,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1877,6 +1887,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), 2n * fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         await mockVOL.getAddress(),
         minCollateral,
@@ -1979,6 +1990,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), 2n * fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         await mockVOL.getAddress(),
         minCollateral,
@@ -2070,6 +2082,7 @@ describe("Position Tests", () => {
       // mint suffcient collateral
       await mockVOL.mint(owner.address, fInitialCollateral);
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,

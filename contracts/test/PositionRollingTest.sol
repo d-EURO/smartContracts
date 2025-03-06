@@ -31,7 +31,9 @@ contract PositionRollingTest {
     }
 
     function openTwoPositions() public {
+        deuro.approve(address(hub), hub.OPENING_FEE());
         p1 = IPosition(openPosition(100, uint40(3 days)));
+        deuro.approve(address(hub), hub.OPENING_FEE());
         p2 = IPosition(openPosition(10, uint40(7 days)));
     }
 

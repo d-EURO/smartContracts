@@ -183,6 +183,7 @@ contract Invariants is TestHelper {
     function createPosition(address owner) internal prank(owner) returns (address position) {
         // approve the minting hub to spend max collateral
         s_collateralToken.approve(address(s_mintingHubGateway), 2**256 - 1);
+        s_deuro.approve(address(s_mintingHubGateway), s_mintingHubGateway.OPENING_FEE());
 
         // create new position
         position = s_mintingHubGateway.openPosition(

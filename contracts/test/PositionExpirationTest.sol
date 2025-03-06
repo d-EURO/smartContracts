@@ -24,6 +24,7 @@ contract PositionExpirationTest {
         frontendCode = frontendCode_;
         col.mint(address(this), 100);
         col.approve(address(hub), 100);
+        deuro.approve(address(hub), hub.OPENING_FEE());
         address pos;
         if (IERC165(hub).supportsInterface(type(IMintingHubGateway).interfaceId)) {
             pos = hub.openPosition(
