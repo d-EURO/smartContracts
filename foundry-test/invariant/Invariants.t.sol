@@ -14,7 +14,7 @@ import {Equity} from "../../contracts/Equity.sol";
 import {TestHelper} from "../TestHelper.sol";
 import {Handler} from "./Handler.t.sol";
 import {console} from "forge-std/Test.sol";
-
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract Invariants is TestHelper {
     Handler internal s_handler;
@@ -33,7 +33,7 @@ contract Invariants is TestHelper {
 
     /// @dev Positions
     Position[] internal s_positions;
-        
+
     /// @notice Set up dEURO environment
     function setUp() public {
         // deploy contracts
@@ -45,23 +45,23 @@ contract Invariants is TestHelper {
         FrontendGateway frontendGateway = new FrontendGateway(address(s_deuro), address(depsWrapper));
         SavingsGateway savingsGateway = new SavingsGateway(s_deuro, 5, address(frontendGateway)); // 5% intial interest rate
         s_mintingHubGateway = new MintingHubGateway(
-            address(s_deuro), 
-            address(savingsGateway), 
-            address(positionRoller), 
-            address(positionFactory), 
+            address(s_deuro),
+            address(savingsGateway),
+            address(positionRoller),
+            address(positionFactory),
             address(frontendGateway)
         );
 
         // initilize FrontendGateway
         frontendGateway.init(address(savingsGateway), address(s_mintingHubGateway));
-        
+
         // initialize minters and wait 1 block
         s_deuro.initialize(address(s_mintingHubGateway), "Minting Hub");
         s_deuro.initialize(address(this), "Fuzzing Test Contract");
         increaseBlock(1);
 
         // Create Alice
-        s_alice = vm.addr(1); 
+        s_alice = vm.addr(1);
         vm.label(s_alice, "Alice");
         s_deuro.mint(s_alice, 1_000_000e18);
         s_collateralToken.transfer(s_alice, 10_000_000e18);
@@ -75,18 +75,25 @@ contract Invariants is TestHelper {
         // create the handler
         s_handler = new Handler(s_deuro, s_collateralToken, s_mintingHubGateway, s_positions, address(this));
 
+        // Record initial position state
+        s_handler.recordPositionState(Position(position1));
+
         // create the handler selectors to the fuzzings targets
-        bytes4[] memory selectors = new bytes4[](7);
+        bytes4[] memory selectors = new bytes4[](11);
         /// IPosition
-        selectors[0] = Handler.adjustMint.selector;
-        selectors[1] = Handler.adjustCollateral.selector;
-        selectors[2] = Handler.adjustPrice.selector;
+        selectors[0] = Handler.mintTo.selector;
+        selectors[1] = Handler.repay.selector;
+        selectors[2] = Handler.addCollateral.selector;
+        selectors[3] = Handler.withdrawCollateral.selector;
+        selectors[4] = Handler.adjustPrice.selector;
         /// MintingHub
-        selectors[3] = Handler.challengePosition.selector;
-        selectors[4] = Handler.bidChallenge.selector;
-        selectors[5] = Handler.buyExpiredCollateral.selector;
+        selectors[5] = Handler.challengePosition.selector;
+        selectors[6] = Handler.bidChallenge.selector;
+        selectors[7] = Handler.buyExpiredCollateral.selector;
         /// Network specific
-        selectors[6] = Handler.warpTime.selector;
+        selectors[8] = Handler.passCooldown.selector;
+        selectors[9] = Handler.expirePosition.selector;
+        selectors[10] = Handler.warpTime.selector;
 
         targetSelector(FuzzSelector({addr: address(s_handler), selectors: selectors}));
         targetContract(address(s_handler));
@@ -100,7 +107,7 @@ contract Invariants is TestHelper {
             assertEq(trapped, 0, "Position has trapped dEURO");
         }
     }
-    
+
     /// @dev check that position is sufficiently collateralized
     function invariant_positionIsSufficientlyCollateralized() public view {
         Position[] memory positions = s_handler.getPositions();
@@ -131,7 +138,7 @@ contract Invariants is TestHelper {
                 assertEq(positions[i].getInterest(), 0, "Nonzero interest with zero principal");
             }
         }
-    }   
+    }
 
     /// @dev check that active positions have minimum collateral
     function invariant_activePositionHasMinimumCollateral() public view {
@@ -142,22 +149,19 @@ contract Invariants is TestHelper {
                 uint256 minCollateral = positions[i].minimumCollateral();
                 assertGe(collateral, minCollateral, "Active position below minimum collateral");
             }
-        } 
+        }
     }
 
-    /// @dev check that challenged collateral implies challenged price
-    // function invariant_challengeStateConsistency() public view {
-    //     Position[] memory positions = s_handler.getPositions();
-    //     for (uint256 i = 0; i < positions.length; i++) {
-    //         uint256 challengedAmount = positions[i].challengedAmount();
-    //         uint256 challengedPrice = positions[i].challengedPrice();
-    //         if (challengedAmount == 0) {
-    //             assertEq(challengedPrice, 0, "No challenged collateral but challengedPrice nonzero");
-    //         } else {
-    //             assertGt(challengedPrice, 0, "Challenged collateral but challengedPrice is zero");
-    //         }
-    //     }
-    // }
+    /// @dev verify debt equals principal plus interest
+    function invariant_debtEqualsPrincipalPlusInterest() public view {
+        Position[] memory positions = s_handler.getPositions();
+        for (uint256 i = 0; i < positions.length; i++) {
+            uint256 debt = positions[i].getDebt();
+            uint256 principal = positions[i].principal();
+            uint256 interest = positions[i].getInterest();
+            assertEq(debt, principal + interest, "Debt does not equal principal plus interest");
+        }
+    }
 
     /// @dev check that minting limit is not exceeded
     function invariant_mintingLimitNotExceeded() public view {
@@ -170,23 +174,29 @@ contract Invariants is TestHelper {
         }
     }
 
-    /// @dev helper function to return detailed information about the invariant runs
     function invariant_summary() public view {
-        s_handler.callSummary();
+        // Print user summary
+        try this.userSummary(s_alice) {} catch {
+            console.log("Error printing user summary");
+        }
+
         console.log("");
-        userSummary(s_alice);
-        console.log("");
-        positionsSummary();
+
+        // Print statistics
+        try s_handler.printStatistics() {} catch {
+            console.log("Error printing variable distributions");
+        }
     }
 
     /// Helper functions
+
     function createPosition(address owner) internal prank(owner) returns (address position) {
         // approve the minting hub to spend max collateral
-        s_collateralToken.approve(address(s_mintingHubGateway), 2**256 - 1);
+        s_collateralToken.approve(address(s_mintingHubGateway), 2 ** 256 - 1);
 
         // create new position
         position = s_mintingHubGateway.openPosition(
-            address(s_collateralToken),            
+            address(s_collateralToken),
             1e18, // minCollateral
             110e18, // initialCollateral
             550_000e18, // initialLimit
@@ -194,58 +204,38 @@ contract Invariants is TestHelper {
             365 days, // duration
             3 days, // challengePeriod
             10000, // riskPremiumPPM
-            5000 * 10**s_collateralToken.decimals(), // liqPrice
+            5000 * 10 ** s_collateralToken.decimals(), // liqPrice
             100000, // reservePPM
             bytes32(keccak256(abi.encodePacked(owner))) // frontendCode
         );
 
         // approve the position to spend max dEURO
-        s_deuro.approve(position, 2**256 - 1);
+        s_deuro.approve(position, 2 ** 256 - 1);
 
         // approve the position to spend max collateral
-        s_collateralToken.approve(position, 2**256 - 1);
+        s_collateralToken.approve(position, 2 ** 256 - 1);
     }
 
-    function userSummary(address user) internal view {
+    // Make external to use try/catch
+    function userSummary(address user) external view {
         uint256 numPositions = 0;
         for (uint256 i = 0; i < s_positions.length; i++) {
             if (s_positions[i].owner() == user) {
                 numPositions++;
             }
         }
-        
-        console.log("========================================");
-        console.log("           USER SUMMARY");
-        console.log("========================================");
-        console.log(">> %s:", vm.getLabel(user));
-        console.log("   No. positions:  %s", numPositions);
-        console.log("   COL balance:    %s", formatUint256(s_collateralToken.balanceOf(user), 18));
-        console.log("   dEURO balance:  %s", formatUint256(s_deuro.balanceOf(user), 18));
-    }
 
-    function positionsSummary() internal view {
-        console.log("========================================");
-        console.log("         POSITIONS SUMMARY");
-        console.log("========================================");
-        for (uint256 i = 0; i < s_positions.length; i++) {
-            console.log(">> Position    %s:", i);
-            console.log("   Owner:      %s", vm.getLabel(s_positions[i].owner()));
-            console.log("   Principal:  %s", formatUint256(s_positions[i].principal(), 18));
-            console.log("   Interest:   %s", formatUint256(s_positions[i].getInterest(), 18));
-            console.log("   Collateral: %s", formatUint256(s_collateralToken.balanceOf(address(s_positions[i])), 18));
-            console.log("   Price:      %s", formatUint256(s_positions[i].price(), 18));
-            console.log("");
-        }
+        console.log("> USERS");
+        logHorizontalDivider();
+        logRow3("User", ["# Positions", "COL balance", "dEURO balance"]);
+        logHorizontalDivider();
+        logRow3(
+            vm.getLabel(user),
+            [
+                Strings.toString(numPositions),
+                formatUint256(s_collateralToken.balanceOf(user), 18),
+                formatUint256(s_deuro.balanceOf(user), 18)
+            ]
+        );
     }
 }
-
-// bound inputs of createPosition
-// minCollateral = bound(minCollateral, 1e18, 1e20);
-// initialCollateral = bound(initialCollateral, minCollateral, 1e22);
-// liqPrice = bound(liqPrice, 5000e36 / minCollateral, 1e24); // minCollateral * liqPrice >= 5000 dEURO
-// initialLimit = bound(initialLimit, 1e27, 1e30);
-// initPeriod = uint40(bound(initPeriod, 3 days, 10 days)); // min 3 days
-// duration = uint40(bound(duration, 1 days, 30 days));
-// challengePeriod = uint40(bound(challengePeriod, 1 days, 3 days));
-// reservePPM = uint24(bound(reservePPM, 0, 500_000));
-// riskPremiumPPM = uint24(bound(riskPremiumPPM, 0, 500_000));

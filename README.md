@@ -426,7 +426,7 @@ After installing [foundry](https://book.getfoundry.sh/) on your machine and runn
 forge test
 
 # or for more verbose output
-forge test --vvv
+forge test -vvv
 ```
 
 The configuration for the fuzzing tests can be found in the `foundry.toml` file. Furthermore, the `remappings.txt` file contains the remappings for the fuzzing test contracts.
