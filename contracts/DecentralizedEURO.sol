@@ -136,7 +136,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @dev The minter reserve can be used to cover losses after the equity holders have been wiped out.
      */
     function minterReserve() public view returns (uint256) {
-        return minterReserveE6 / 1000000;
+        return minterReserveE6 / 1_000_000;
     }
 
     /**
@@ -179,11 +179,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @notice Mints the provided amount of dEURO to the target address, automatically forwarding
      * the minting fee and the reserve to the right place.
      */
-    function mintWithReserve(
-        address _target,
-        uint256 _amount,
-        uint32 _reservePPM
-    ) external override minterOnly {
+    function mintWithReserve(address _target, uint256 _amount, uint32 _reservePPM) external override minterOnly {
         uint256 usableMint = (_amount * (1000_000 - _reservePPM)) / 1000_000; // rounding down is fine
         _mint(_target, usableMint);
         _mint(address(reserve), _amount - usableMint); // rest goes to equity as reserves or as fees
@@ -258,37 +254,12 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     }
 
     /**
-     * @notice Burns `amountExcludingReserve * (1e6 / (1e6 - reservePPM)) from payer with an adjustment for 
-     * incurred reserve losses (handled by `calculateFreedAmount`). That is, `amountExcludingReserve` is the
-     * amount to be burnt excluding the reserve portion, i.e. the net amount.
-     */
-    function burnFromWithReserveNet(
-        address payer,
-        uint256 amountExcludingReserve,
-        uint32 reservePPM
-    ) external override minterOnly returns (uint256) {
-        _spendAllowance(payer, msg.sender, amountExcludingReserve); // Add reserve portion
-        uint256 freedAmount = calculateFreedAmount(amountExcludingReserve, reservePPM);
-        minterReserveE6 -= freedAmount * reservePPM; // reduce reserve requirements by original ratio
-        _transfer(address(reserve), payer, freedAmount - amountExcludingReserve); // collect assigned reserve
-        _burn(payer, freedAmount); // burn the freed amount
-        return freedAmount;
-    }
-
-    /**
      * @notice Calculates the assigned reserve for a given amount and reserve requirement, adjusted for reserve losses.
      * @return `amountExcludingReserve` plus its share of the reserve.
      */
-    function calculateFreedAmount(
-        uint256 amountExcludingReserve,
-        uint32 _reservePPM
-    ) public view returns (uint256) {
-        uint256 currentReserve = balanceOf(address(reserve));
-        uint256 minterReserve_ = minterReserve();
-        uint256 adjustedReservePPM = currentReserve < minterReserve_
-            ? (_reservePPM * currentReserve) / minterReserve_
-            : _reservePPM;
-        return (1_000_000 * amountExcludingReserve) / (1_000_000 - adjustedReservePPM);
+    function calculateFreedAmount(uint256 amountExcludingReserve, uint32 _reservePPM) public view returns (uint256) {
+        uint256 effectiveReservePPM = _effectiveReservePPM(_reservePPM);
+        return (1_000_000 * amountExcludingReserve) / (1_000_000 - effectiveReservePPM);
     }
 
     /**
@@ -297,12 +268,21 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * severe loss of capital that burned into the minter's reserve, this can also be less than that.
      */
     function calculateAssignedReserve(uint256 mintedAmount, uint32 _reservePPM) public view returns (uint256) {
-        uint256 currentReserve = balanceOf(address(reserve));
+        uint256 effectiveReservePPM = _effectiveReservePPM(_reservePPM);
+        return (effectiveReservePPM * mintedAmount) / 1_000_000;
+    }
+
+    /**
+     * @notice Calculates the reserve ratio adjusted for any reserve shortfall
+     * @dev When there's a reserve shortfall (currentReserve < minterReserve), the effective reserve ratio is proportionally reduced.
+     * This ensures fair distribution of remaining reserves during repayment.
+     * @param reservePPM The nominal reserve ratio in parts per million
+     * @return The effective reserve ratio in parts per million, adjusted for any shortfall
+     */
+    function _effectiveReservePPM(uint32 reservePPM) internal view returns (uint256) {
         uint256 minterReserve_ = minterReserve();
-        uint256 adjustedReservePPM = currentReserve < minterReserve_
-            ? (_reservePPM * currentReserve) / minterReserve_
-            : _reservePPM;
-        return (adjustedReservePPM * mintedAmount) / 1000000;
+        uint256 currentReserve = balanceOf(address(reserve));
+        return currentReserve < minterReserve_ ? (reservePPM * currentReserve) / minterReserve_ : reservePPM;
     }
 
     /**
@@ -324,7 +304,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      *
      * @param recipient The address receiving the payout.
      * @param amount The amount of dEURO to distribute.
-    */
+     */
     function distributeProfits(address recipient, uint256 amount) external override minterOnly {
         _withdrawFromReserve(recipient, amount);
         emit ProfitDistributed(recipient, amount);
@@ -343,7 +323,7 @@ contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
      * @notice Transfers the specified amount from the reserve if possible; mints the remainder if necessary.
      * @param recipient The address receiving the funds.
      * @param amount The total amount to be paid.
-    */
+     */
     function _withdrawFromReserve(address recipient, uint256 amount) internal {
         uint256 reserveLeft = balanceOf(address(reserve));
         if (reserveLeft >= amount) {
