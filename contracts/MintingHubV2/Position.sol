@@ -576,9 +576,12 @@ contract Position is Ownable, IPosition, MathUtil {
         if (remainingCollateral == 0 && principal + interest > 0) {
             assert(proceeds == 0);
             deuro.coverLoss(address(this), principal + interest);
-            deuro.burnWithoutReserve(principal + interest, reserveContribution);
+            if (interest > 0) {
+                deuro.collectProfits(address(this), interest);
+                _notifyInterestPaid(interest);
+            }
+            deuro.burnWithoutReserve(principal, reserveContribution);
             _notifyRepaid(principal);
-            _notifyInterestPaid(interest);
         } else if (proceeds > 0) {
             // All debt paid, leftover proceeds is profit for owner
             deuro.transferFrom(buyer, owner(), proceeds);
