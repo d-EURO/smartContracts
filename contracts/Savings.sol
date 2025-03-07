@@ -82,7 +82,7 @@ contract Savings is Leadrate {
         if (ticks <= account.ticks || account.ticks == 0) {
             return 0;
         } else {
-            uint192 earnedInterest = uint192((uint256(ticks - account.ticks) * account.saved) / 1000000 / 365 days);
+            uint192 earnedInterest = uint192((uint256(ticks - account.ticks) * account.saved) / 1_000_000 / 365 days);
             uint256 equity = IDecentralizedEURO(address(deuro)).equity();
             if (earnedInterest > equity) {
                 return uint192(equity); // safe conversion as equity is smaller than uint192 earnedInterest
