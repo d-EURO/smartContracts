@@ -305,7 +305,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * Returns the corresponding mint amount (disregarding the limit).
      */
     function getMintAmount(uint256 usableMint) external view returns (uint256) {
-        return usableMint == 0 ? 0 : (usableMint * 1000_000 - 1) / (1000_000 - reserveContribution) + 1;
+        return usableMint == 0 ? 0 : (usableMint * 1_000_000 - 1) / (1_000_000 - reserveContribution) + 1;
     }
 
     /**
