@@ -1,0 +1,21 @@
+{
+  "dEuro": "0xD8fE7c45330c8b12cA0D4728D75557b9e7BeB24F",
+  "mintingHubGateway": "0x08677Af0A7F54fE2a190bb1F75DE682fe596317e",
+  "openingFee": "1000",
+  "positions": [
+    {
+      "name": "WETH-Position",
+      "collateralAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "decimals": 18,
+      "minCollateral": "5",
+      "initialCollateral": "10",
+      "mintingMaximum": "10000",
+      "initPeriodSeconds": 259200,
+      "expirationSeconds": 2592000,
+      "challengeSeconds": 86400,
+      "riskPremium": 50000,
+      "liqPrice": "1000",
+      "reservePPM": 200000
+    }
+  ]
+}
