@@ -306,10 +306,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * Returns the corresponding mint amount (disregarding the limit).
      */
     function getMintAmount(uint256 usableMint) external view returns (uint256) {
-        return
-            usableMint == 0
-                ? 0
-                : (usableMint * 1000_000 - 1) / (1000_000 - reserveContribution) + 1;
+        return _ceilDivPPM(usableMint, reserveContribution);
     }
 
     /**
@@ -392,16 +389,16 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Computes the virtual price of the collateral in dEURO, which is the minimum collateral
-     * price required to cover the entire debt, lower bounded by the floor price. Retuns the challenged price
-     * if a challenge is active.
+     * price required to cover the entire debt with interest overcollateralization, lower bounded by the floor price. 
+     * Returns the challenged price if a challenge is active.
      * @param colBalance The collateral balance of the position.
      * @param floorPrice The minimum price of the collateral in dEURO.
      */
     function _virtualPrice(uint256 colBalance, uint256 floorPrice) internal view returns (uint256) {   
         if (challengedAmount > 0) return challengedPrice;   
         if (colBalance == 0) return floorPrice;
-
-        uint256 virtPrice = (_getDebt() * ONE_DEC18) / colBalance;
+        
+        uint256 virtPrice = (_getCollateralRequirement() * ONE_DEC18) / colBalance;
         return virtPrice < floorPrice ? floorPrice: virtPrice;
     }
 
@@ -446,8 +443,20 @@ contract Position is Ownable, IPosition, MathUtil {
         return newInterest;
     }
 
+    /**
+     * @notice Calculates the current debt (principal + accrued interest)
+     * @return Total debt without interest overcollateralization
+     */
     function _getDebt() internal view returns (uint256) {
         return principal + _calculateInterest();
+    }
+
+    /**
+     * @notice Calculates total debt accounting for interest overcollateralization
+     * @return Total debt including overcollateralized interest
+     */
+    function _getCollateralRequirement() internal view returns (uint256) {
+        return principal + _ceilDivPPM(_calculateInterest(), reserveContribution);
     }
 
     /**
@@ -456,6 +465,14 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function getDebt() public view returns (uint256) {
         return _getDebt();
+    }
+    
+    /**
+     * @notice Public function to calculate current debt with overcollateralized interest
+     * @return The total debt including overcollateralized interest
+     */
+    function getCollateralRequirement() public view returns (uint256) {
+        return _getCollateralRequirement();
     }
 
     /**
@@ -644,13 +661,15 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice This invariant must always hold and must always be checked when any of the three
-     * variables change in an adverse way.
+     * variables change in an adverse way. Ensures that the position overcollateralizes interest
+     * by the same percentage as the reserve contribution.
      */
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
-        uint256 debt = _getDebt();
-        if (relevantCollateral * atPrice < debt * ONE_DEC18) {
-            revert InsufficientCollateral(relevantCollateral * atPrice, debt * ONE_DEC18);
+        uint256 collateralRequirement = _getCollateralRequirement();
+        
+        if (relevantCollateral * atPrice < collateralRequirement * ONE_DEC18) {
+            revert InsufficientCollateral(relevantCollateral * atPrice, collateralRequirement * ONE_DEC18);
         }
     }
 
