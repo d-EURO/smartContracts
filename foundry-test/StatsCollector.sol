@@ -3,7 +3,6 @@ pragma solidity ^0.8.10;
 
 import {console} from "forge-std/Test.sol";
 import {TestHelper} from "./TestHelper.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Position} from "../contracts/MintingHubV2/Position.sol";
 
 /**
@@ -137,14 +136,14 @@ contract StatsCollector is TestHelper {
         ActionStats storage stats = actionStats[name];
         uint256 successRatio = stats.totalCalls > 0
             ? (100 * (stats.totalCalls - stats.totalReverts)) / stats.totalCalls
-            : 0;
+            : 100;
 
         logRow3(
             name,
             [
-                Strings.toString(stats.totalCalls), // calls
-                Strings.toString(stats.totalReverts), // reverts
-                Strings.toString(successRatio) // success %
+                uint256ToString(stats.totalCalls), // calls
+                uint256ToString(stats.totalReverts), // reverts
+                uint256ToString(successRatio) // success %
             ]
         );
     }
