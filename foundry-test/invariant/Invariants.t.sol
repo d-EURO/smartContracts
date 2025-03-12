@@ -5,6 +5,7 @@ import {TestHelper} from "../TestHelper.sol";
 import {Handler} from "./Handler.t.sol";
 import {Environment} from "./Environment.t.sol";
 import {Position} from "../../contracts/MintingHubV2/Position.sol";
+import {DecentralizedEURO} from "../../contracts/DecentralizedEURO.sol";
 import {console} from "forge-std/Test.sol";
 
 contract Invariants is TestHelper {
@@ -57,7 +58,6 @@ contract Invariants is TestHelper {
                 uint256 collateral = pos.collateral().balanceOf(address(pos));
                 uint256 requiredCollateralValue = pos.getCollateralRequirement();
                 uint256 collateralValue = collateral * pos.price();
-                console.log("Required: ", requiredCollateralValue * 1e18, "Value: ", collateralValue);
                 assertGe(collateralValue, requiredCollateralValue * 1e18, "Position is undercollateralized");
             }
         }
@@ -119,6 +119,60 @@ contract Invariants is TestHelper {
             uint256 available = pos.availableForMinting();
             uint256 limit = pos.limit();
             assertLe(principal + available, limit, "Minted principal plus available mint exceeds limit");
+        }
+    }
+
+    /// @dev check that minterReserve in dEURO equals the sum of all positions' reserved amounts
+    function invariant_minterReserveConsistency() public view {
+        Position[] memory positions = s_env.getPositions();
+        uint256 totalReserved = 0;
+        
+        for (uint256 i = 0; i < positions.length; i++) {
+            Position pos = positions[i];
+            uint256 principal = pos.principal();
+            uint32 reservePPM = pos.reserveContribution();
+            totalReserved += (principal * reservePPM) / 1000000;
+        }
+        
+        // Allow small rounding differences
+        assertApproxEqAbs(
+            s_env.deuro().minterReserve(), 
+            totalReserved, 
+            1e18, 
+            "Minter reserve inconsistent with positions' reserved amounts"
+        );
+    }
+
+    /// @dev check that virtual price is always >= actual price when position has debt/principal
+    function invariant_virtualPriceConsistency() public view {
+        Position[] memory positions = s_env.getPositions();
+        for (uint256 i = 0; i < positions.length; i++) {
+            Position pos = positions[i];
+            if (pos.principal() > 0) { 
+                assertGe(pos.virtualPrice(), pos.price(), "Virtual price below actual price for position with debt");
+            }
+        }
+    }
+
+    /// @dev verify that total dEURO supply is consistent with expected accounting
+    function invariant_totalSupplyConsistency() public view {
+        DecentralizedEURO deuro = s_env.deuro();
+        uint256 totalSupply = deuro.totalSupply();
+        
+        uint256 totalBalances = 0;
+        totalBalances += deuro.balanceOf(address(deuro.reserve()));
+        totalBalances += deuro.balanceOf(address(s_env.savingsGateway()));
+        for (uint256 i = 0; i < 5; i++) totalBalances += deuro.balanceOf(s_env.eoas(i));
+        
+        assertEq(totalBalances, totalSupply, "Total dEURO balances inconsistent with total supply");
+    }
+
+    /// @dev verify fixed annual rate is always at least the risk premium
+    function invariant_fixedRateAboveRiskPremium() public view {
+        Position[] memory positions = s_env.getPositions();
+        for (uint256 i = 0; i < positions.length; i++) {
+            Position pos = positions[i];
+            assertGe(pos.fixedAnnualRatePPM(), pos.riskPremiumPPM(), "Fixed rate below risk premium");
         }
     }
 
