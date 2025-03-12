@@ -2193,6 +2193,7 @@ describe("Position Tests", () => {
       const challengePeriod = BigInt(3 * 86400);
 
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(await mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
