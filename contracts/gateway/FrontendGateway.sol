@@ -68,7 +68,8 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     function invest(uint256 amount, uint256 expectedShares, bytes32 frontendCode) external returns (uint256) {
         uint256 actualShares = EQUITY.investFor(_msgSender(), amount, expectedShares);
 
-        updateFrontendAccount(frontendCode, amount);
+        uint256 reward = updateFrontendAccount(frontendCode, amount);
+        emit InvestRewardAdded(frontendCode, _msgSender(), amount, reward);
         return actualShares;
     }
 
@@ -80,7 +81,8 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     ) external returns (uint256) {
         uint256 actualProceeds = EQUITY.redeemFrom(_msgSender(), target, shares, expectedProceeds);
 
-        updateFrontendAccount(frontendCode, actualProceeds);
+        uint256 reward = updateFrontendAccount(frontendCode, actualProceeds);
+        emit RedeemRewardAdded(frontendCode, _msgSender(), actualProceeds, reward);
         return actualProceeds;
     }
 
@@ -89,7 +91,8 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
         uint256 actualProceeds = DEPS.unwrapAndSell(amount);
         DEURO.transfer(_msgSender(), actualProceeds);
 
-        updateFrontendAccount(frontendCode, actualProceeds);
+        uint256 reward = updateFrontendAccount(frontendCode, actualProceeds);
+        emit UnwrapAndSellRewardAdded(frontendCode, _msgSender(), actualProceeds, reward);
         return actualProceeds;
     }
 
@@ -97,10 +100,12 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     // Accounting Logic
     ///////////////////
 
-    function updateFrontendAccount(bytes32 frontendCode, uint256 amount) internal {
-        if (frontendCode == bytes32(0)) return;
+    function updateFrontendAccount(bytes32 frontendCode, uint256 amount) internal returns (uint256) {
+        if (frontendCode == bytes32(0)) return 0;
         lastUsedFrontendCode[_msgSender()] = frontendCode;
-        frontendCodes[frontendCode].balance += (amount * feeRate) / 1_000_000;
+        uint256 reward = (amount * feeRate) / 1_000_000;
+        frontendCodes[frontendCode].balance += reward;
+        return reward;
     }
 
     function updateSavingCode(
@@ -112,8 +117,13 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     }
 
     function updateSavingRewards(address saver, uint256 interest) external onlyGatewayService(address(SAVINGS)) {
-        if (lastUsedFrontendCode[saver] == bytes32(0)) return;
-        frontendCodes[lastUsedFrontendCode[saver]].balance += (interest * savingsFeeRate) / 1_000_000;
+        bytes32 frontendCode = lastUsedFrontendCode[saver];
+        if (frontendCode == bytes32(0)) return;
+
+        uint256 reward = (interest * savingsFeeRate) / 1_000_000;
+        frontendCodes[frontendCode].balance += reward;
+
+        emit SavingsRewardAdded(frontendCode, saver, interest, reward);
     }
 
     function registerPosition(
@@ -127,8 +137,13 @@ contract FrontendGateway is IFrontendGateway, Context, Ownable {
     }
 
     function updatePositionRewards(address position, uint256 amount) external onlyGatewayService(address(MINTING_HUB)) {
-        if (referredPositions[position] == bytes32(0)) return;
-        frontendCodes[referredPositions[position]].balance += (amount * mintingFeeRate) / 1_000_000;
+        bytes32 frontendCode = referredPositions[position];
+        if (frontendCode == bytes32(0)) return;
+        
+        uint256 reward = (amount * mintingFeeRate) / 1_000_000;
+        frontendCodes[frontendCode].balance += reward;
+
+        emit PositionRewardAdded(frontendCode, position, amount, reward);
     }
 
     function getPositionFrontendCode(address position) external view returns (bytes32) {
