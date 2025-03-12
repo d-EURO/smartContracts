@@ -4,19 +4,11 @@ pragma solidity ^0.8.10;
 import {Environment} from "./Environment.t.sol";
 import {ActionUtils} from "./ActionUtils.sol";
 import {Position} from "../../contracts/MintingHubV2/Position.sol";
-import {DecentralizedEURO} from "../../contracts/DecentralizedEURO.sol";
 import {MintingHub} from "../../contracts/MintingHubV2/MintingHub.sol";
-import {TestToken} from "../../contracts/test/TestToken.sol";
-import {PositionFactory} from "../../contracts/MintingHubV2/PositionFactory.sol";
-import {SavingsGateway} from "../../contracts/gateway/SavingsGateway.sol";
-import {DEPSWrapper} from "../../contracts/utils/DEPSWrapper.sol";
-import {FrontendGateway} from "../../contracts/gateway/FrontendGateway.sol";
-import {MintingHubGateway} from "../../contracts/gateway/MintingHubGateway.sol";
-import {PositionRoller} from "../../contracts/MintingHubV2/PositionRoller.sol";
-import {IPosition} from "../../contracts/MintingHubV2/interface/IPosition.sol";
-import {Equity} from "../../contracts/Equity.sol";
 import {TestHelper} from "../TestHelper.sol";
 import {StatsCollector} from "../StatsCollector.sol";
+import {stdToml} from "forge-std/StdToml.sol";
+import {console} from "forge-std/Test.sol";
 
 struct Snapshot {
     // Position
@@ -44,6 +36,10 @@ struct Snapshot {
 
 contract Handler is StatsCollector {
     using ActionUtils for Position;
+    using stdToml for string;
+
+    /// @dev logging config
+    bool public immutable SNAPSHOT_LOGGING;
 
     /// @dev Protocol environment
     Environment internal s_env;
@@ -52,8 +48,18 @@ contract Handler is StatsCollector {
     address internal s_bidder;
     address internal s_challenger;
     uint32 internal s_challengesCount;
+    
+    /// @dev Helper function to read boolean config from foundry.toml
+    function readConfigBool(string memory configPath) internal view returns (bool) {
+        string memory tomlContent = vm.readFile(string.concat(vm.projectRoot(), "/foundry.toml"));
+        return vm.parseTomlBool(tomlContent, configPath);
+    }
 
-    constructor(address env) {
+    constructor(address env) StatsCollector(readConfigBool(".profile.logging.stats")) {
+        // Configure logging
+        SNAPSHOT_LOGGING = readConfigBool(".profile.logging.snapshots");
+
+        // Initialize environment
         s_env = Environment(env);
 
         s_challenger = s_env.eoas(1); // Bob
@@ -61,6 +67,7 @@ contract Handler is StatsCollector {
 
         // Record initial state (currently only 1 position)
         recordPositionStats(Position(s_env.getPosition(0)));
+        if (SNAPSHOT_LOGGING) logSnapshot("constructor", 0, snapshot(Position(s_env.getPosition(0))));
     }
 
     /// @dev mintTo
@@ -76,6 +83,7 @@ contract Handler is StatsCollector {
         vm.startPrank(position.owner());
         try position.mint(position.owner(), amount) {
             Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("mintTo", amount, post);
             assertEq(post.principal, pre.principal + amount); // principal increase
             assertEq(post.ownerBalanceDEURO, pre.ownerBalanceDEURO + position.getUsableMint(amount)); // owner dEURO balance increase
             assertEq(pre.posBalanceCOL, pre.posBalanceCOL); // collateral unchanged
@@ -113,6 +121,7 @@ contract Handler is StatsCollector {
         s_env.deuro().approve(address(position), amount);
         try position.repay(amount) {
             Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("repay", amount, post);
             assertEq(post.principal, expPrincipal); // principal decrease
             assertEq(post.interest, expInterest); // interest decrease
             assertApproxEqAbs(post.ownerBalanceDEURO, pre.ownerBalanceDEURO - expRepayment, 1e18);
@@ -136,6 +145,7 @@ contract Handler is StatsCollector {
         vm.startPrank(position.owner());
         try position.collateral().transfer(address(position), amount) {
             Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("addCollateral", amount, post);
             assertEq(post.posBalanceCOL, pre.posBalanceCOL + amount); // collateral increase
             assertEq(post.ownerBalanceCOL, pre.ownerBalanceCOL - amount); // owner collateral balance decrease
             if (pre.price < pre.virtualPrice) assertLt(post.virtualPrice, pre.virtualPrice);
@@ -160,6 +170,7 @@ contract Handler is StatsCollector {
         vm.startPrank(position.owner());
         try position.withdrawCollateral(position.owner(), amount) {
             Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("withdrawCollateral", amount, post);
             assertEq(post.posBalanceCOL, pre.posBalanceCOL - amount); // collateral decrease
             assertEq(post.ownerBalanceCOL, pre.ownerBalanceCOL + amount); // owner collateral balance increase
             // if (pre.price < pre.virtualPrice) assertGt(post.virtualPrice, pre.virtualPrice);
@@ -186,6 +197,7 @@ contract Handler is StatsCollector {
         vm.startPrank(position.owner());
         try position.adjustPrice(priceValue) {
             Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("adjustPrice", priceValue, post);
             assertEq(post.price, priceValue); // price should be set to the new value
             if (block.timestamp > position.start()) assertLe(post.price, 2 * pre.price);
             if (post.price > pre.price) assertTrue(post.inCooldown); // cooldown if price increased
@@ -215,6 +227,7 @@ contract Handler is StatsCollector {
         s_env.collateralToken().approve(address(s_env.mintingHubGateway()), collateralAmount);
         try s_env.mintingHubGateway().challenge(address(position), collateralAmount, minPrice) {
             Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("challengePosition", collateralAmount, post);
             assertEq(post.mintingHubBalanceCOL, pre.mintingHubBalanceCOL + collateralAmount);
             assertEq(post.challengedAmount, pre.challengedAmount + collateralAmount);
             assertEq(pre.posBalanceCOL, pre.posBalanceCOL);
@@ -257,6 +270,7 @@ contract Handler is StatsCollector {
         s_env.deuro().approve(address(s_env.mintingHubGateway()), requiredDEURO);
         try s_env.mintingHubGateway().bid(uint32(validIndex), bidSize, postpone) {
             Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("bidChallenge", bidSize, post);
             if (block.timestamp <= challenge.start + phase) {
                 // TODO: Phase 1 (avert phase)
             } else {
@@ -300,6 +314,7 @@ contract Handler is StatsCollector {
         s_env.deuro().approve(address(position), requiredDEURO);
         try s_env.mintingHubGateway().buyExpiredCollateral(position, upToAmount) {
             Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("buyExpiredCollateral", upToAmount, post);
             assertLe(pre.posBalanceCOL, pre.posBalanceCOL);
             assertEq(post.bidderBalanceCOL, pre.bidderBalanceCOL + upToAmount);
             if (pre.posBalanceCOL == 0) assertEq(post.debt, 0);
@@ -330,7 +345,7 @@ contract Handler is StatsCollector {
         Snapshot memory pre = snapshot(position);
         increaseTimeTo(position.expiration() + 1);
         Snapshot memory post = snapshot(position);
-
+        if (SNAPSHOT_LOGGING) logSnapshot("expirePosition", position.expiration(), post);
         assertTrue(post.isExpired); // position expired
         if (pre.principal > 0) assertGt(post.interest, pre.interest); // interest should accrue
     }
@@ -344,7 +359,7 @@ contract Handler is StatsCollector {
         Snapshot memory pre = snapshot(position);
         increaseTimeTo(position.cooldown() + 1);
         Snapshot memory post = snapshot(position);
-
+        if (SNAPSHOT_LOGGING) logSnapshot("passCooldown", position.cooldown(), post);
         assertTrue(!post.inCooldown); // cooldown passed
         if (pre.principal > 0) assertGt(post.interest, pre.interest); // interest should accrue
     }
@@ -389,6 +404,28 @@ contract Handler is StatsCollector {
                 challengerBalanceCOL: s_env.collateralToken().balanceOf(s_challenger),
                 bidderBalanceCOL: s_env.collateralToken().balanceOf(s_bidder)
             });
+    }
+
+    function logSnapshot(string memory action, uint256 val, Snapshot memory snap) internal pure {
+        console.log("%s: %s", action, val);
+        console.log("Snapshot:");
+        console.log("  debt:", snap.debt);
+        console.log("  interest:", snap.interest);
+        console.log("  principal:", snap.principal);
+        console.log("  posBalanceCOL:", snap.posBalanceCOL);
+        console.log("  availableForMinting:", snap.availableForMinting);
+        console.log("  challengedAmount:", snap.challengedAmount);
+        console.log("  virtualPrice:", snap.virtualPrice);
+        console.log("  price:", snap.price);
+        console.log("  inCooldown:", snap.inCooldown);
+        console.log("  isExpired:", snap.isExpired);
+        console.log("  owner:", snap.owner);
+        console.log("  ownerBalanceDEURO:", snap.ownerBalanceDEURO);
+        console.log("  ownerBalanceCOL:", snap.ownerBalanceCOL);
+        console.log("  minterReserve:", snap.minterReserve);
+        console.log("  mintingHubBalanceCOL:", snap.mintingHubBalanceCOL);
+        console.log("  challengerBalanceCOL:", snap.challengerBalanceCOL);
+        console.log("  bidderBalanceCOL:", snap.bidderBalanceCOL);
     }
 
     /// @dev Helper function to record position state statistics

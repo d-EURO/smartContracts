@@ -420,13 +420,20 @@ The _fuzzing_ tests are written in Solidity and made of two main contracts locat
 
 ### Running the Fuzzing Tests:
 
-After installing [foundry](https://book.getfoundry.sh/) on your machine and running `forge install` to install the required dependencies, you can run the following command to run the fuzzing tests:
+After installing [foundry](https://book.getfoundry.sh/) on your machine and running `forge install` to install the required dependencies, you can use the following command to run the fuzzing tests:
 
 ```shell
 forge test
 
-# or for more verbose output
-forge test -vvv
+# more verbose output (with grep to omit some logs)
+forge test -vvv | grep -v "Bound result"
+
+# show progress
+forge test --show-progress
+
+# re-run a failed test
+# Tip: Set .profile.logging.snapshot=true in foundry.toml to log snapshots
+forge test --rerun
 ```
 
 The configuration for the fuzzing tests can be found in the `foundry.toml` file. Furthermore, the `remappings.txt` file contains the remappings for the fuzzing test contracts.

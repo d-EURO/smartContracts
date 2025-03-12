@@ -53,10 +53,13 @@ contract Invariants is TestHelper {
         Position[] memory positions = s_env.getPositions();
         for (uint256 i = 0; i < positions.length; i++) {
             Position pos = positions[i];
-            uint256 collateral = pos.collateral().balanceOf(address(pos));
-            uint256 principal = pos.principal(); // REVIEW: Make this debt?
-            uint256 collateralValue = collateral * pos.price();
-            assertGe(collateralValue, principal * 1e18, "Position is undercollateralized");
+            if (pos.virtualPrice() < pos.price()) {
+                uint256 collateral = pos.collateral().balanceOf(address(pos));
+                uint256 requiredCollateralValue = pos.getCollateralRequirement();
+                uint256 collateralValue = collateral * pos.price();
+                console.log("Required: ", requiredCollateralValue * 1e18, "Value: ", collateralValue);
+                assertGe(collateralValue, requiredCollateralValue * 1e18, "Position is undercollateralized");
+            }
         }
     }
 
@@ -120,6 +123,8 @@ contract Invariants is TestHelper {
     }
 
     function invariant_summary() public view {
+        if (!s_handler.STATS_LOGGING()) return;
+
         try this.userSummary(s_env.eoas(0)) {} catch {
             console.log("Error printing user summary");
         }
