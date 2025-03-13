@@ -19,20 +19,34 @@ abstract contract TestHelper is Test {
     //////////// EVM Helpers ////////////
 
     /// @dev Increase the time of the EVM in seconds
-    function increaseTime(uint _seconds) internal {
+    function increaseTime(uint40 _seconds) internal {
         vm.warp(block.timestamp + _seconds);
     }
 
+    /// @dev Increase the time of the EVM to a specific timestamp
+    function increaseTimeTo(uint40 _timestamp) internal {
+        vm.warp(_timestamp);
+    }
+
     /// @dev Increase the block number of the EVM by a given number of blocks
-    function increaseBlock(uint _blocks) internal {
+    function increaseBlocks(uint8 _blocks) internal {
         vm.roll(block.number + _blocks);
     }
 
     //////////// Prank Helpers ////////////
+
     modifier prank(address from) {
         vm.startPrank(from);
         _;
         vm.stopPrank();
+    }
+
+    //////////// Misc Helpers ////////////
+
+    /// @dev Check if action should execute based on a percentage chance
+    function shouldExecute(uint256 percent) internal view returns (bool) {
+        // Use more entropy sources to make the randomness more unpredictable
+        return uint256(keccak256(abi.encodePacked(block.timestamp, block.number, msg.sender))) % 100 < percent;
     }
 
     //////////// Log Helpers ////////////
@@ -66,6 +80,10 @@ abstract contract TestHelper is Test {
     }
 
     //////////// Formatting Helpers ////////////
+
+    function uint256ToString(uint256 value) internal pure returns (string memory) {
+        return Strings.toString(value);
+    }
 
     /// @dev Given a uint256 value, format it as a string with the given number of decimals
     /// Adds proper formatting to make large numbers more readable

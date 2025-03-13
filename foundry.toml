@@ -7,6 +7,16 @@ optimizer = true             # Enable the optimizer.
 optimizer_runs = 200         # Set optimizer runs to match your Hardhat config.
 libs = ["node_modules", "lib"]
 show_metrics = true
+fs_permissions = [{ access = "read", path = "./"}]
+threads = 5
 
 [fuzz]
-runs = 10
+runs = 100
+
+[invariant]
+runs = 100
+fail_on_revert = false
+
+[profile.logging]
+stats = false
+snapshots = false

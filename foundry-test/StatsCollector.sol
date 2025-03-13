@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {console} from "forge-std/Test.sol";
 import {TestHelper} from "./TestHelper.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Position} from "../contracts/MintingHubV2/Position.sol";
+import {console} from "forge-std/Test.sol";
 
 /**
  * @title StatsCollector
@@ -12,7 +11,11 @@ import {Position} from "../contracts/MintingHubV2/Position.sol";
  */
 contract StatsCollector is TestHelper {
     /// @dev Enable statistics collection
-    bool constant ENABLED = true;
+    bool public immutable STATS_LOGGING;
+
+    constructor(bool _enabled) {
+        STATS_LOGGING = _enabled;
+    }
 
     // Statistics for tracking uint256 values
     struct VariableStats {
@@ -40,7 +43,7 @@ contract StatsCollector is TestHelper {
      * @param value The value to record
      */
     function recordValue(string memory name, uint256 value) public {
-        if (!ENABLED) return;
+        if (!STATS_LOGGING) return;
 
         VariableStats storage stats = variableStats[name];
 
@@ -60,7 +63,7 @@ contract StatsCollector is TestHelper {
      * @notice Record an action call in the statistics
      */
     function recordAction(string memory name) public {
-        if (!ENABLED) return;
+        if (!STATS_LOGGING) return;
 
         ActionStats storage stats = actionStats[name];
         stats.totalCalls++;
@@ -70,7 +73,7 @@ contract StatsCollector is TestHelper {
      * @notice Record an action revert in the statistics
      */
     function recordRevert(string memory name) public {
-        if (!ENABLED) return;
+        if (!STATS_LOGGING) return;
 
         ActionStats storage stats = actionStats[name];
         stats.totalReverts++;
@@ -113,7 +116,7 @@ contract StatsCollector is TestHelper {
      * @param decimals Number of decimal places to display
      */
     function printVariableStatistics(string memory name, uint256 decimals) public view {
-        if (!ENABLED) return;
+        if (!STATS_LOGGING) return;
 
         VariableStats storage stats = variableStats[name];
 
@@ -132,19 +135,19 @@ contract StatsCollector is TestHelper {
      * @param name Name of the action to print
      */
     function printActionStatistics(string memory name) public view {
-        if (!ENABLED) return;
+        if (!STATS_LOGGING) return;
 
         ActionStats storage stats = actionStats[name];
         uint256 successRatio = stats.totalCalls > 0
             ? (100 * (stats.totalCalls - stats.totalReverts)) / stats.totalCalls
-            : 0;
+            : 100;
 
         logRow3(
             name,
             [
-                Strings.toString(stats.totalCalls), // calls
-                Strings.toString(stats.totalReverts), // reverts
-                Strings.toString(successRatio) // success %
+                uint256ToString(stats.totalCalls), // calls
+                uint256ToString(stats.totalReverts), // reverts
+                uint256ToString(successRatio) // success %
             ]
         );
     }
