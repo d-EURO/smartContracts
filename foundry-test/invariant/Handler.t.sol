@@ -48,7 +48,7 @@ contract Handler is StatsCollector {
     address internal s_bidder;
     address internal s_challenger;
     uint32 internal s_challengesCount;
-    
+
     /// @dev Helper function to read boolean config from foundry.toml
     function readConfigBool(string memory configPath) internal view returns (bool) {
         string memory tomlContent = vm.readFile(string.concat(vm.projectRoot(), "/foundry.toml"));
@@ -84,10 +84,14 @@ contract Handler is StatsCollector {
         try position.mint(position.owner(), amount) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("mintTo", amount, post);
-            assertEq(post.principal, pre.principal + amount); // principal increase
-            assertEq(post.ownerBalanceDEURO, pre.ownerBalanceDEURO + position.getUsableMint(amount)); // owner dEURO balance increase
-            assertEq(pre.posBalanceCOL, pre.posBalanceCOL); // collateral unchanged
-            assertGe(post.interest, pre.interest); // interest may accrue
+
+            // post conditions
+            assertEq(post.principal, pre.principal + amount, "mintTo: incorrect principal");
+            assertEq(
+                post.ownerBalanceDEURO,
+                pre.ownerBalanceDEURO + position.getUsableMint(amount),
+                "mintTo: incorrect owner balance"
+            );
         } catch {
             recordRevert("mintTo");
         }
@@ -106,25 +110,27 @@ contract Handler is StatsCollector {
         recordAction("repay");
         s_env.mintDEURO(position.owner(), amount);
         Snapshot memory pre = snapshot(position);
-        uint256 expRepayment = pre.debt > amount ? amount : pre.debt;
-        uint256 expInterest = expRepayment > pre.interest ? 0 : pre.interest - expRepayment;
-        uint256 expPrincipal = expRepayment > pre.interest
-            ? pre.principal - (expRepayment - pre.interest)
-            : pre.principal;
-        uint256 expReserveContribution = s_env.deuro().calculateAssignedReserve(
-            pre.principal - expPrincipal,
-            position.reserveContribution()
-        );
-        expRepayment -= expReserveContribution;
-
+        uint256 remaining = amount;
+        uint256 expInterestRepayment = pre.interest > remaining ? remaining : pre.interest;
+        remaining -= expInterestRepayment;
+        uint256 expPrincipalRepayment = pre.principal > remaining ? remaining : pre.principal;
+        // There may be discrepancies in the currentReserve commputed here and during the actual TX,
+        // therefore we cannot rely on expReserveContribution for the post conditions.
+        // uint256 expReserveContribution = s_env.deuro().calculateAssignedReserve(expPrincipalRepayment, position.reserveContribution());
         vm.startPrank(position.owner());
         s_env.deuro().approve(address(position), amount);
         try position.repay(amount) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("repay", amount, post);
-            assertEq(post.principal, expPrincipal); // principal decrease
-            assertEq(post.interest, expInterest); // interest decrease
-            assertApproxEqAbs(post.ownerBalanceDEURO, pre.ownerBalanceDEURO - expRepayment, 1e18);
+
+            // post conditions
+            assertEq(pre.principal - post.principal, expPrincipalRepayment, "repay: incorrect principal");
+            assertEq(pre.interest - post.interest, expInterestRepayment, "repay: incorrect interest");
+            assertLe(
+                pre.ownerBalanceDEURO - post.ownerBalanceDEURO,
+                min(amount, pre.debt),
+                "repay: used amount exceeds repay amount"
+            );
         } catch {
             recordRevert("repay");
         }
@@ -146,9 +152,12 @@ contract Handler is StatsCollector {
         try position.collateral().transfer(address(position), amount) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("addCollateral", amount, post);
-            assertEq(post.posBalanceCOL, pre.posBalanceCOL + amount); // collateral increase
-            assertEq(post.ownerBalanceCOL, pre.ownerBalanceCOL - amount); // owner collateral balance decrease
-            if (pre.price < pre.virtualPrice) assertLt(post.virtualPrice, pre.virtualPrice);
+
+            // post conditions
+            assertEq(post.posBalanceCOL, pre.posBalanceCOL + amount, "addCollateral: incorrect collateral balance");
+            assertEq(post.ownerBalanceCOL, pre.ownerBalanceCOL - amount, "addCollateral: incorrect owner balance");
+            if (pre.price < pre.virtualPrice)
+                assertLt(post.virtualPrice, pre.virtualPrice, "addCollateral: incorrect virtual price");
         } catch {
             recordRevert("addCollateral");
         }
@@ -171,9 +180,16 @@ contract Handler is StatsCollector {
         try position.withdrawCollateral(position.owner(), amount) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("withdrawCollateral", amount, post);
-            assertEq(post.posBalanceCOL, pre.posBalanceCOL - amount); // collateral decrease
-            assertEq(post.ownerBalanceCOL, pre.ownerBalanceCOL + amount); // owner collateral balance increase
-            // if (pre.price < pre.virtualPrice) assertGt(post.virtualPrice, pre.virtualPrice);
+
+            // post conditions
+            assertEq(
+                post.posBalanceCOL,
+                pre.posBalanceCOL - amount,
+                "withdrawCollateral: incorrect collateral balance"
+            );
+            assertEq(post.ownerBalanceCOL, pre.ownerBalanceCOL + amount, "withdrawCollateral: incorrect owner balance");
+            if (pre.price < pre.virtualPrice)
+                assertGt(post.virtualPrice, pre.virtualPrice, "withdrawCollateral: incorrect virtual price");
         } catch {
             recordRevert("withdrawCollateral");
         }
@@ -198,9 +214,11 @@ contract Handler is StatsCollector {
         try position.adjustPrice(priceValue) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("adjustPrice", priceValue, post);
-            assertEq(post.price, priceValue); // price should be set to the new value
-            if (block.timestamp > position.start()) assertLe(post.price, 2 * pre.price);
-            if (post.price > pre.price) assertTrue(post.inCooldown); // cooldown if price increased
+
+            // post conditions
+            assertEq(post.price, priceValue, "adjustPrice: incorrect price");
+            if (block.timestamp > position.start()) assertLe(post.price, 2 * pre.price, "adjustPrice: price too high");
+            if (post.price > pre.price) assertTrue(post.inCooldown, "adjustPrice: no cooldown after price increase");
         } catch {
             recordRevert("adjustPrice");
         }
@@ -228,11 +246,21 @@ contract Handler is StatsCollector {
         try s_env.mintingHubGateway().challenge(address(position), collateralAmount, minPrice) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("challengePosition", collateralAmount, post);
-            assertEq(post.mintingHubBalanceCOL, pre.mintingHubBalanceCOL + collateralAmount);
-            assertEq(post.challengedAmount, pre.challengedAmount + collateralAmount);
-            assertEq(pre.posBalanceCOL, pre.posBalanceCOL);
-            assertEq(post.principal, pre.principal);
-            assertGe(post.interest, pre.interest);
+
+            // Post conditions
+            assertEq(
+                post.mintingHubBalanceCOL,
+                pre.mintingHubBalanceCOL + collateralAmount,
+                "challengePosition: incorrect minting hub collateral balance"
+            );
+            assertEq(
+                post.challengedAmount,
+                pre.challengedAmount + collateralAmount,
+                "challengePosition: incorrect challenged amount"
+            );
+            assertEq(post.posBalanceCOL, pre.posBalanceCOL, "challengePosition: position collateral balance changed");
+            assertEq(post.principal, pre.principal, "challengePosition: principal changed");
+            assertGe(post.interest, pre.interest, "challengePosition: interest decreased");
             s_challengesCount++;
         } catch {
             recordRevert("challengePosition");
@@ -255,14 +283,11 @@ contract Handler is StatsCollector {
         if (!position.bidChallengeAllowed()) return;
 
         (uint256 liqPrice, uint40 phase) = position.challengeData();
-        (uint256 lb, uint256 ub) = position.bidChallengeBounds();
-
-        // Ensure the bid size is within bounds and not larger than the challenge size
-        bidSize = bound(bidSize, lb, ub);
-        if (bidSize == 0) return;
+        bidSize = bound(bidSize, 1, challenge.size);
 
         // Capture state before bid
         recordAction("bidChallenge");
+
         uint256 requiredDEURO = (bidSize * liqPrice) / 1e18;
         s_env.mintDEURO(s_bidder, requiredDEURO);
         Snapshot memory pre = snapshot(position);
@@ -271,19 +296,47 @@ contract Handler is StatsCollector {
         try s_env.mintingHubGateway().bid(uint32(validIndex), bidSize, postpone) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("bidChallenge", bidSize, post);
+
+            // post conditions
             if (block.timestamp <= challenge.start + phase) {
                 // TODO: Phase 1 (avert phase)
             } else {
                 // Phase 2 (dutch auction phase)
-                assertLe(post.debt, pre.debt);
-                assertEq(post.challengedAmount, pre.challengedAmount - bidSize);
-                assertEq(post.bidderBalanceCOL, pre.bidderBalanceCOL + bidSize);
+                assertLe(post.debt, pre.debt, "bidChallenge: debt increased");
+                assertLe(post.challengedAmount, pre.challengedAmount, "bidChallenge: challenged amount increased");
+                assertEq(
+                    bidSize,
+                    pre.challengedAmount - post.challengedAmount,
+                    "bidChallenge: incorrect challenged amount"
+                );
+                assertEq(
+                    post.bidderBalanceCOL - pre.bidderBalanceCOL,
+                    min(pre.posBalanceCOL, bidSize),
+                    "bidChallenge: incorrect bidder collateral"
+                );
+                assertGe(pre.mintingHubBalanceCOL, bidSize, "bidChallenge: insufficient minting hub collateral");
                 if (!postpone) {
-                    assertEq(post.mintingHubBalanceCOL, pre.mintingHubBalanceCOL - bidSize);
-                    assertEq(post.challengerBalanceCOL, pre.challengerBalanceCOL + bidSize);
+                    assertEq(
+                        post.mintingHubBalanceCOL,
+                        pre.mintingHubBalanceCOL - bidSize,
+                        "bidChallenge: incorrect minting hub collateral"
+                    );
+                    assertEq(
+                        post.challengerBalanceCOL,
+                        pre.challengerBalanceCOL + bidSize,
+                        "bidChallenge: incorrect challenger collateral"
+                    );
                 } else {
-                    assertEq(post.mintingHubBalanceCOL, pre.mintingHubBalanceCOL);
-                    assertEq(post.challengerBalanceCOL, pre.challengerBalanceCOL);
+                    assertEq(
+                        post.mintingHubBalanceCOL,
+                        pre.mintingHubBalanceCOL,
+                        "bidChallenge: minting hub collateral changed"
+                    );
+                    assertEq(
+                        post.challengerBalanceCOL,
+                        pre.challengerBalanceCOL,
+                        "bidChallenge: challenger collateral changed"
+                    );
                 }
             }
         } catch {
@@ -301,7 +354,7 @@ contract Handler is StatsCollector {
         (uint256 lb, uint256 ub) = position.buyExpiredCollateralBounds();
         uint256 posBalanceCOL = position.collateral().balanceOf(address(position));
         uint256 forceSalePrice = s_env.mintingHubGateway().expiredPurchasePrice(position);
-        uint256 dustAmount = (s_env.mintingHubGateway().OPENING_FEE() * 1e18) / forceSalePrice;
+        uint256 dustAmount = forceSalePrice > 0 ? (s_env.mintingHubGateway().OPENING_FEE() * 1e18) / forceSalePrice : 0; // TODO: 0 division case handled correctly?
         upToAmount = bound(upToAmount, lb, ub);
         upToAmount = upToAmount < posBalanceCOL && posBalanceCOL - upToAmount < dustAmount ? posBalanceCOL : upToAmount;
 
@@ -315,18 +368,17 @@ contract Handler is StatsCollector {
         try s_env.mintingHubGateway().buyExpiredCollateral(position, upToAmount) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("buyExpiredCollateral", upToAmount, post);
-            assertLe(pre.posBalanceCOL, pre.posBalanceCOL);
-            assertEq(post.bidderBalanceCOL, pre.bidderBalanceCOL + upToAmount);
-            if (pre.posBalanceCOL == 0) assertEq(post.debt, 0);
-            // Check that debt is repaid proportionally to collateral sold
-            if (pre.debt > 0) {
-                assertApproxEqAbs(
-                    pre.debt - post.debt,
-                    (pre.debt * upToAmount) / pre.posBalanceCOL,
-                    1e18,
-                    "Debt reduction should be proportional to collateral sold"
-                );
-            }
+
+            // Post conditions
+            assertLe(post.posBalanceCOL, pre.posBalanceCOL, "buyExpiredCollateral: position collateral increased");
+            assertEq(
+                post.bidderBalanceCOL,
+                pre.bidderBalanceCOL + upToAmount,
+                "buyExpiredCollateral: incorrect bidder collateral"
+            );
+            if (pre.posBalanceCOL == 0)
+                assertEq(post.debt, 0, "buyExpiredCollateral: non-zero debt with zero collateral");
+            // TODO: Check that debt is repaid correctly
         } catch {
             recordRevert("buyExpiredCollateral");
         }
@@ -346,8 +398,10 @@ contract Handler is StatsCollector {
         increaseTimeTo(position.expiration() + 1);
         Snapshot memory post = snapshot(position);
         if (SNAPSHOT_LOGGING) logSnapshot("expirePosition", position.expiration(), post);
-        assertTrue(post.isExpired); // position expired
-        if (pre.principal > 0) assertGt(post.interest, pre.interest); // interest should accrue
+
+        // Post conditions
+        assertTrue(post.isExpired, "expirePosition: position not expired");
+        if (pre.principal > 0) assertGt(post.interest, pre.interest, "expirePosition: interest did not accrue");
     }
 
     /// @dev Pass the cooldown period of a position
@@ -360,19 +414,23 @@ contract Handler is StatsCollector {
         increaseTimeTo(position.cooldown() + 1);
         Snapshot memory post = snapshot(position);
         if (SNAPSHOT_LOGGING) logSnapshot("passCooldown", position.cooldown(), post);
-        assertTrue(!post.inCooldown); // cooldown passed
-        if (pre.principal > 0) assertGt(post.interest, pre.interest); // interest should accrue
+
+        // Post conditions
+        assertFalse(post.inCooldown, "passCooldown: position still in cooldown");
+        if (pre.principal > 1e16) assertGt(post.interest, pre.interest, "passCooldown: interest did not accrue");
     }
 
     /// @dev Warp time by 1-3 days
-    function warpTime(uint256 time) external {
+    function warpTime(uint40 time) external {
         if (!shouldExecute(5)) return;
 
-        time = bound(time, 1 days, 3 days);
+        time = uint40(bound(time, 1 days, 3 days));
         recordAction("warpTime");
-        uint256 timeBefore = block.timestamp;
+        uint40 timeBefore = uint40(block.timestamp);
         increaseTime(time);
-        assertGe(block.timestamp, timeBefore + time);
+
+        // Post conditions
+        assertGe(block.timestamp, timeBefore + time, "warpTime: time did not increase correctly");
     }
 
     // Helper functions

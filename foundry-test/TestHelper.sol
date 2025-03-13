@@ -19,17 +19,17 @@ abstract contract TestHelper is Test {
     //////////// EVM Helpers ////////////
 
     /// @dev Increase the time of the EVM in seconds
-    function increaseTime(uint _seconds) internal {
+    function increaseTime(uint40 _seconds) internal {
         vm.warp(block.timestamp + _seconds);
     }
 
     /// @dev Increase the time of the EVM to a specific timestamp
-    function increaseTimeTo(uint _timestamp) internal {
+    function increaseTimeTo(uint40 _timestamp) internal {
         vm.warp(_timestamp);
     }
 
     /// @dev Increase the block number of the EVM by a given number of blocks
-    function increaseBlocks(uint _blocks) internal {
+    function increaseBlocks(uint8 _blocks) internal {
         vm.roll(block.number + _blocks);
     }
 

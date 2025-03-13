@@ -40,7 +40,7 @@ library ActionUtils {
 
     function withdrawCollateralBounds(Position self) public view returns (uint256 lb, uint256 ub) {
         uint256 collateralReserve = self.collateral().balanceOf(address(self));
-        uint256 requiredCollateral = (self.getCollateralRequirement() * 1e18) / self.price();
+        uint256 requiredCollateral = self.price() > 0 ? (self.getCollateralRequirement() * 1e18) / self.price() : 0; // TODO: 0 division case handled correctly?
         uint256 minimumCollateral = self.minimumCollateral();
         requiredCollateral = requiredCollateral < minimumCollateral ? minimumCollateral : requiredCollateral;
         uint256 maxWithdraw = collateralReserve > requiredCollateral ? collateralReserve - requiredCollateral : 0;
@@ -80,13 +80,8 @@ library ActionUtils {
         return challenged(self);
     }
 
-    function bidChallengeBounds(Position self) public view returns (uint256 lb, uint256 ub) {
-        uint256 challengedAmount = self.challengedAmount();
-        return (1, challengedAmount);
-    }
-
     function buyExpiredCollateralAllowed(Position self) public view returns (bool) {
-        return expired(self) && !challenged(self);
+        return expired(self) && !challenged(self) && self.collateral().balanceOf(address(self)) > 0;
     }
 
     function buyExpiredCollateralBounds(Position self) public view returns (uint256 lb, uint256 ub) {
