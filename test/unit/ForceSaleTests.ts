@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { floatToDec18 } from "../scripts/math";
+import { floatToDec18 } from "../../scripts/math";
 import { ethers } from "hardhat";
 import {
   Equity,
@@ -10,9 +10,9 @@ import {
   PositionRoller,
   Savings,
   TestToken,
-} from "../typechain";
+} from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { evm_increaseTime, evm_increaseTimeTo } from "./utils";
+import { evm_increaseTime, evm_increaseTimeTo } from "../utils";
 import { ContractTransactionResponse, EventLog } from "ethers";
 
 const getPositionAddressFromTX = async (

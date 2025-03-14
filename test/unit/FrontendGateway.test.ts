@@ -9,9 +9,9 @@ import {
   SavingsGateway,
   StablecoinBridge,
   TestToken,
-} from '../typechain';
-import { dec18ToFloat, floatToDec18 } from '../scripts/math';
-import { evm_increaseTime } from './utils';
+} from '../../typechain';
+import { dec18ToFloat, floatToDec18 } from '../../scripts/math';
+import { evm_increaseTime } from '../utils';
 
 describe('FrontendGateway Tests', () => {
   let dEURO: DecentralizedEURO;
