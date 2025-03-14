@@ -31,6 +31,9 @@ export default buildModule('FullDeployment', (m) => {
   m.call(decentralizedEURO, 'initialize', [mintingHubGateway, 'MintingHubGateway'], {
     id: 'DecentralizedEURO_initialize_MintingHubGateway',
   });
+  m.call(decentralizedEURO, 'initialize', [positionRoller, 'PositionRoller'], {
+    id: 'DecentralizedEURO_initialize_PositionRoller',
+  });
   m.call(decentralizedEURO, 'initialize', [savingsGateway, 'SavingsGateway'], {
     id: 'DecentralizedEURO_initialize_SavingsGateway',
   });
@@ -50,7 +53,7 @@ export default buildModule('FullDeployment', (m) => {
     id: 'DecentralizedEURO_initialize_StablecoinBridgeEURS',
   });
 
-  // TODO: Mint some dEURO to close initialisation phase
+  // TODO: Mint some dEURO to close initialisation phase (IMPORTANT!)
 
   return {
     decentralizedEURO,
