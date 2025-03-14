@@ -1,33 +1,27 @@
 import { ethers } from 'hardhat';
 import * as fs from 'fs';
 import * as path from 'path';
-
-// External contract addresses and ABIs
-import contractAddresses from '../../abis/contractAddresses.json';
+import { mainnet } from '../../../constants/addresses';
 import ERC20_ABI from '../../../abi/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json';
-import WETH_ABI from '../../abis/WETH.json';
-
-// Config types
-interface PositionConfig {
-  name: string;
-  collateralAddress: string;
-  decimals: number;
-  minCollateral: string;
-  initialCollateral: string;
-  mintingMaximum: string;
-  initPeriodSeconds: number;
-  expirationSeconds: number;
-  challengeSeconds: number;
-  riskPremium: number;
-  liqPrice: string;
-  reservePPM: number;
-}
+import WETH9_ABI from '../../../constants/abi/Weth9.json';
+import { getDeployedAddress } from '../../../ignition/utils/addresses';
 
 interface Config {
-  dEuro: string;
-  mintingHubGateway: string;
   openingFee: string;
-  positions: PositionConfig[];
+  positions: {
+    name: string;
+    collateralAddress: string;
+    decimals: number;
+    minCollateral: string;
+    initialCollateral: string;
+    mintingMaximum: string;
+    initPeriodSeconds: number;
+    expirationSeconds: number;
+    challengeSeconds: number;
+    riskPremium: number;
+    liqPrice: string;
+    reservePPM: number;
+  }[];
 }
 
 // Deploy positions
@@ -36,26 +30,31 @@ async function main() {
   console.log('Deploying positions with account:', deployer.address);
 
   // Get some WETH
-  const wethAddress = contractAddresses['WETH'];
-  const weth = new ethers.Contract(wethAddress, WETH_ABI, deployer);
+  const wethAddress = mainnet.WETH9;
+  const weth = new ethers.Contract(wethAddress, WETH9_ABI, deployer);
   await weth.deposit({ value: ethers.parseEther('10') });
   const wethBalance = await weth.balanceOf(deployer.address);
   console.log('WETH balance:', ethers.formatEther(wethBalance));
 
   // Load config file
-  const configPath = path.join(__dirname, '../config/configPositions.json');
+  // TODO: Use ignition/deployments/*/deployed_adddresses to get the contract addresses (see integrationTest.js)
+  const configPath = path.join(__dirname, '../config/positions.json');
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Config;
-  console.log('Using MintingHubGateway at:', config.mintingHubGateway);
+  console.log('Using MintingHubGateway at:', getDeployedAddress('MintingHubGateway'));
   console.log(`Found ${config.positions.length} position to deploy`);
 
   // Get contracts
-  const dEuro = await ethers.getContractAt('DecentralizedEURO', config.dEuro, deployer);
-  const mintingHubGateway = await ethers.getContractAt('MintingHubGateway', config.mintingHubGateway, deployer);
+  const dEuro = await ethers.getContractAt('DecentralizedEURO', getDeployedAddress('DecentralizedEURO'), deployer);
+  const mintingHubGateway = await ethers.getContractAt(
+    'MintingHubGateway',
+    getDeployedAddress('MintingHubGateway'),
+    deployer,
+  );
   const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
 
   // Before proceding, check MintingHubGateway is deployed (sanity check)
-  if ((await ethers.provider.getCode(config.mintingHubGateway)) === '0x') {
-    throw new Error(`MintingHubGateway contract not deployed at address: ${config.mintingHubGateway}`);
+  if ((await ethers.provider.getCode(getDeployedAddress('MintingHubGateway'))) === '0x') {
+    throw new Error(`MintingHubGateway contract not deployed at address: ${getDeployedAddress('MintingHubGateway')}`);
   }
 
   // Deploy each position
@@ -77,8 +76,8 @@ async function main() {
 
     try {
       const collateralToken = await ethers.getContractAt(ERC20_ABI, position.collateralAddress);
-      await collateralToken.approve(config.mintingHubGateway, initialCollateral);
-      await dEuro.approve(config.mintingHubGateway, openingFee);
+      await collateralToken.approve(getDeployedAddress('MintingHubGateway'), initialCollateral);
+      await dEuro.approve(getDeployedAddress('MintingHubGateway'), openingFee);
 
       // Open position
       const tx = await mintingHubGateway[
@@ -97,12 +96,11 @@ async function main() {
         ethers.ZeroHash, // empty frontend code
       );
 
-      console.log(`Transaction submitted: ${tx.hash}`);
+      console.log(`TX hash: ${tx.hash}`);
 
       // TODO: Get position address from event and log it
       // event PositionOpened(address indexed owner, address indexed position, address original, address collateral);
       const receipt = await tx.wait();
-      console.log('Receipt:', receipt);
     } catch (error) {
       console.error(`Error deploying position ${position.name}:`, error);
     }
@@ -115,7 +113,7 @@ async function main() {
  * @notice Deploys positions based on a config file. When testing locally,
  * make sure USE_FORK=true is set in the .env file to use the forked mainnet network.
  * Then run the following commands:
- * > npx hardhat node
+ * > npx hardhat node --no-deploy
  * > npm run deploy -- --network localhost
  * > npx hardhat run scripts/deployment/deploy/deployPositions.ts --network localhost
  * You may need to delete the ignition deployment artifacts to avoid errors.
