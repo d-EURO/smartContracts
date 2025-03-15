@@ -1,7 +1,7 @@
 import { expect } from 'chai';
-import { dec18ToFloat, DECIMALS, floatToDec18 } from '../scripts/math';
+import { dec18ToFloat, DECIMALS, floatToDec18 } from '../../scripts/math';
 import { ethers } from 'hardhat';
-import { evm_increaseTime, evm_increaseTimeTo } from './utils';
+import { evm_increaseTime, evm_increaseTimeTo } from '../utils';
 import {
   DecentralizedEURO,
   Equity,
@@ -13,7 +13,7 @@ import {
   Savings,
   StablecoinBridge,
   TestToken,
-} from "../typechain";
+} from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ContractTransactionResponse } from "ethers";
 

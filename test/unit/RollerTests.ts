@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { DECIMALS, floatToDec18 } from "../scripts/math";
+import { DECIMALS, floatToDec18 } from "../../scripts/math";
 import { ethers } from "hardhat";
 import {
   Equity,
@@ -10,9 +10,9 @@ import {
   PositionRoller,
   Savings,
   TestToken,
-} from "../typechain";
+} from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { evm_increaseTime } from "./utils";
+import { evm_increaseTime } from "../utils";
 import { ContractTransactionReceipt, EventLog } from "ethers";
 
 describe("Roller Tests", () => {

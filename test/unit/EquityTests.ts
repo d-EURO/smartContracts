@@ -1,14 +1,14 @@
 import { expect } from "chai";
-import { floatToDec, floatToDec18 } from "../scripts/math";
+import { floatToDec, floatToDec18 } from "../../scripts/math";
 import { ethers } from "hardhat";
-import { evm_increaseTime, evm_mineBlocks } from "./utils";
+import { evm_increaseTime, evm_mineBlocks } from "../utils";
 import {
   Equity,
   DecentralizedEURO,
   StablecoinBridge,
   TestToken,
   Savings,
-} from "../typechain";
+} from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Equity Tests", () => {

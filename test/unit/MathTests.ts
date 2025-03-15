@@ -1,6 +1,6 @@
 import { expect } from "chai";
-import { floatToDec18, abs } from "../scripts/math";
-import { TestMathUtil } from "../typechain";
+import { floatToDec18, abs } from "../../scripts/math";
+import { TestMathUtil } from "../../typechain";
 import { ethers } from "hardhat";
 
 describe("Math Tests", () => {

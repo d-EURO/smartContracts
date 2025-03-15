@@ -8,7 +8,7 @@ export default buildModule('StablecoinBridgeEURC', (m) => {
   const limit = m.getParameter('limit');
   const weeks = m.getParameter('weeks');
 
-  const stablecoinBridgeEURC = m.contract('StablecoinBridge', [decentralizedEURO, other, limit, weeks], {
+  const stablecoinBridgeEURC = m.contract('StablecoinBridge', [other, decentralizedEURO, limit, weeks], {
     id: 'StablecoinBridgeEURC',
   });
 

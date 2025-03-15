@@ -1,8 +1,8 @@
 import { expect } from "chai";
-import { floatToDec18 } from "../scripts/math";
+import { floatToDec18 } from "../../scripts/math";
 import { ethers } from "hardhat";
-import { DecentralizedEURO, StablecoinBridge, TestToken } from "../typechain";
-import { evm_increaseTime } from "./utils";
+import { DecentralizedEURO, StablecoinBridge, TestToken } from "../../typechain";
+import { evm_increaseTime } from "../utils";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Plugin Veto Tests", () => {

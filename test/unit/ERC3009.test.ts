@@ -1,12 +1,12 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { TestToken } from "../typechain";
+import { TestToken } from "../../typechain";
 import {
   getCancelAuthorizationSignature,
   getTransferAuthorizationSignature,
-} from "./utils/signer";
-import { getFutureTimeStamp } from "./utils";
+} from "../utils/signer";
+import { getFutureTimeStamp } from "../utils";
 
 const oneETH = ethers.parseEther("1");
 

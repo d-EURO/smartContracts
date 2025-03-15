@@ -4,9 +4,9 @@ import {
   dec18ToFloat,
   DECIMALS,
   mulDec18,
-} from "../scripts/math";
+} from "../../scripts/math";
 import { ethers } from "hardhat";
-import { evm_increaseTime, evm_increaseTimeTo } from "./utils";
+import { evm_increaseTime, evm_increaseTimeTo } from "../utils";
 import {
   Equity,
   DecentralizedEURO,
@@ -18,7 +18,7 @@ import {
   TestToken,
   PositionExpirationTest,
   PositionRollingTest,
-} from "../typechain";
+} from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { ContractTransactionResponse } from "ethers";
@@ -2248,8 +2248,6 @@ describe("Position Tests", () => {
       // Withdraw the maximum possible amount minus a small safety margin
       const safeToWithdraw = currentCollateral - minRequiredCollateral - floatToDec18(0.001);
       const balanceBefore = await mockVOL.balanceOf(owner.address);
-      console.log("balanceBefore:", balanceBefore);
-      console.log("Safe to withdraw:", safeToWithdraw);
       expect(currentCollateral - minRequiredCollateral).to.be.gt(safeToWithdraw);
       await positionContract.withdrawCollateral(owner.address, safeToWithdraw);
       const balanceAfter = await mockVOL.balanceOf(owner.address);
