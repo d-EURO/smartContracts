@@ -1,8 +1,8 @@
 import { expect } from "chai";
-import { floatToDec18 } from "../scripts/math";
+import { floatToDec18 } from "../../scripts/math";
 import { ethers } from "hardhat";
-import { DecentralizedEURO, StablecoinBridge, TestToken } from "../typechain";
-import { evm_increaseTime } from "./utils";
+import { DecentralizedEURO, StablecoinBridge, TestToken } from "../../typechain";
+import { evm_increaseTime } from "../utils";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Plugin Veto Tests", () => {
@@ -75,6 +75,7 @@ describe("Plugin Veto Tests", () => {
         .approve(await dEURO.getAddress(), applicationFee);
       let balance = await dEURO.balanceOf(alice.address);
       expect(balance).to.be.greaterThan(applicationFee);
+      await dEURO.connect(alice).approve(dEURO.getAddress(), floatToDec18(1000));
       await expect(
         dEURO
           .connect(alice)

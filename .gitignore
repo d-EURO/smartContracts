@@ -12,7 +12,7 @@ coverage
 coverage.json
 .idea
 *.iml
-dist/
+/dist
 .env
 launch.json
 scripts/deployment/deployments/localhost
@@ -23,6 +23,6 @@ scripts/test.ts
 tst.ts
 package-lock.json
 .DS_Store
-abi/
-out/
-lib/
+/abi
+/out
+/lib

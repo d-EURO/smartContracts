@@ -13,6 +13,12 @@ interface IFrontendGateway {
     event NewPositionRegistered(address position, bytes32 frontendCode);
     event RateChangesProposed(address who, uint24 nextFeeRate, uint24 nextSavingsFeeRate, uint24 nextMintingFeeRate, uint256 nextChange);
     event RateChangesExecuted(address who, uint24 nextFeeRate, uint24 nextSavingsFeeRate, uint24 nextMintingFeeRate);
+    
+    event InvestRewardAdded(bytes32 frontendCode, address user, uint256 amount, uint256 reward);
+    event RedeemRewardAdded(bytes32 frontendCode, address user, uint256 amount, uint256 reward);
+    event UnwrapAndSellRewardAdded(bytes32 frontendCode, address user, uint256 amount, uint256 reward);
+    event SavingsRewardAdded(bytes32 frontendCode, address saver, uint256 interest, uint256 reward);
+    event PositionRewardAdded(bytes32 frontendCode, address position, uint256 amount, uint256 reward);
 
     error FrontendCodeAlreadyExists();
     error NotFrontendCodeOwner();

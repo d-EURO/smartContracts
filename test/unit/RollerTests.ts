@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { DECIMALS, floatToDec18 } from "../scripts/math";
+import { DECIMALS, floatToDec18 } from "../../scripts/math";
 import { ethers } from "hardhat";
 import {
   Equity,
@@ -10,9 +10,9 @@ import {
   PositionRoller,
   Savings,
   TestToken,
-} from "../typechain";
+} from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { evm_increaseTime } from "./utils";
+import { evm_increaseTime } from "../utils";
 import { ContractTransactionReceipt, EventLog } from "ethers";
 
 describe("Roller Tests", () => {
@@ -379,6 +379,7 @@ describe("Roller Tests", () => {
       await coin
         .connect(alice)
         .approve(await mintingHub.getAddress(), floatToDec18(10));
+      await deuro.connect(alice).approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const txPos2 = await (
         await mintingHub.connect(alice).openPosition(
           await coin.getAddress(),
@@ -812,6 +813,7 @@ describe("Roller Tests", () => {
       // ---------------------------------------------------------------------------
       // give ALICE a position
       await coin.connect(alice).approve(await mintingHub.getAddress(), floatToDec18(10));
+      await deuro.connect(alice).approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const txPos2 = await (
         await mintingHub.connect(alice).openPosition(
           await coin.getAddress(),

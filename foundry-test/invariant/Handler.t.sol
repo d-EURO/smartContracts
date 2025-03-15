@@ -1,399 +1,508 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {console} from "forge-std/Test.sol";
+import {Environment} from "./Environment.t.sol";
+import {ActionUtils} from "./ActionUtils.sol";
 import {Position} from "../../contracts/MintingHubV2/Position.sol";
-import {DecentralizedEURO} from "../../contracts/DecentralizedEURO.sol";
 import {MintingHub} from "../../contracts/MintingHubV2/MintingHub.sol";
-import {TestToken} from "../../contracts/test/TestToken.sol";
-import {PositionFactory} from "../../contracts/MintingHubV2/PositionFactory.sol";
-import {SavingsGateway} from "../../contracts/gateway/SavingsGateway.sol";
-import {DEPSWrapper} from "../../contracts/utils/DEPSWrapper.sol";
-import {FrontendGateway} from "../../contracts/gateway/FrontendGateway.sol";
-import {MintingHubGateway} from "../../contracts/gateway/MintingHubGateway.sol";
-import {PositionRoller} from "../../contracts/MintingHubV2/PositionRoller.sol";
-import {IPosition} from "../../contracts/MintingHubV2/interface/IPosition.sol";
-import {Equity} from "../../contracts/Equity.sol";
 import {TestHelper} from "../TestHelper.sol";
+import {StatsCollector} from "../StatsCollector.sol";
+import {stdToml} from "forge-std/StdToml.sol";
+import {console} from "forge-std/Test.sol";
 
-contract Handler is TestHelper {
-    /// @dev Contract deployer
-    address internal s_deployer;
+struct Snapshot {
+    // Position
+    uint256 debt;
+    uint256 interest;
+    uint256 principal;
+    uint256 posBalanceCOL;
+    uint256 availableForMinting;
+    uint256 challengedAmount;
+    uint256 virtualPrice;
+    uint256 price;
+    bool inCooldown;
+    bool isExpired;
+    // Position owner
+    address owner;
+    uint256 ownerBalanceDEURO;
+    uint256 ownerBalanceCOL;
+    // dEURO
+    uint256 minterReserve;
+    // MintingHub
+    uint256 mintingHubBalanceCOL;
+    uint256 challengerBalanceCOL;
+    uint256 bidderBalanceCOL;
+}
 
-    /// @dev Challenger address
-    address internal s_challenger;
+contract Handler is StatsCollector {
+    using ActionUtils for Position;
+    using stdToml for string;
 
-    /// @dev Bidder address
+    /// @dev logging config
+    bool public immutable SNAPSHOT_LOGGING;
+
+    /// @dev Protocol environment
+    Environment internal s_env;
+
+    /// @dev Challenge related
     address internal s_bidder;
+    address internal s_challenger;
+    uint32 internal s_challengesCount;
 
-    /// @dev DecentralizedEURO
-    DecentralizedEURO internal s_deuro;
-
-    /// @dev TestToken
-    TestToken internal s_collateralToken;
-
-    /// @dev MintingHubGateway
-    MintingHubGateway internal s_mintingHubGateway;
-
-    /// @dev Positions
-    Position[] internal s_positions;
-
-    // OUTPUT VARS - used to print a summary of calls and reverts during certain actions
-    /// @dev The number of calls to adjustMint
-    uint256 internal s_adjustMintCalls;
-    /// @dev The number of reverts on calling `adjustMint`
-    uint256 internal s_adjustMintReverts;
-    /// @dev The number of times the newPrincipal is unchanged
-    uint256 internal s_adjustMintUnchanged;
-
-    /// @dev The number of calls to adjustCollateral
-    uint256 internal s_adjustCollateralCalls;
-    /// @dev The number of reverts on calling `adjustCollateral`
-    uint256 internal s_adjustCollateralReverts;
-    /// @dev The number of times the newCollateral is unchanged
-    uint256 internal s_adjustCollateralUnchanged;
-
-    /// @dev The number of calls to adjustPrice
-    uint256 internal s_adjustPriceCalls;
-    /// @dev The number of reverts on calling `adjustPrice`
-    uint256 internal s_adjustPriceReverts;
-    /// @dev The number of times the adjustPrice is unchanged
-    uint256 internal s_adjustPriceUnchanged;
-
-    /// @dev The number of calls to challengePosition
-    uint256 internal s_challengePositionCalls;
-    /// @dev The number of reverts on calling `challengePosition`
-    uint256 internal s_challengePositionReverts;
-    /// @dev The number of opened challenges
-    uint256 internal s_openedChallenges;
-
-    /// @dev The number of calls to bidChallenge
-    uint256 internal s_bidChallengeCalls;
-    /// @dev The number of reverts on calling `bidChallenge`
-    uint256 internal s_bidChallengeReverts;
-
-    /// @dev The nubmer of calls to buyExpiredCollateral
-    uint256 internal s_buyExpiredCollateralCalls;
-    /// @dev The number of reverts on calling `buyExpiredCollateral`
-    uint256 internal s_buyExpiredCollateralReverts;
-
-    /// @dev The number of calls to warpTime
-    uint256 internal s_warpTimeCalls;
-
-    constructor(
-        DecentralizedEURO deuro,
-        TestToken collateralToken,
-        MintingHubGateway mintingHubGateway, 
-        Position[] memory positions,
-        address deployer
-    ) {
-        s_deuro = deuro;
-        s_collateralToken = collateralToken;
-        s_mintingHubGateway = mintingHubGateway;
-        s_positions = positions;
-        s_deployer = deployer;
-        
-        // Create challenger and bidder addresses
-        s_challenger = vm.addr(10); // REVIEW: Allow it to be Alice (pick from pool of addresses)
-        vm.label(s_challenger, "Challenger");
-        s_bidder = vm.addr(9);
-        vm.label(s_bidder, "Bidder");
+    /// @dev Helper function to read boolean config from foundry.toml
+    function readConfigBool(string memory configPath) internal view returns (bool) {
+        string memory tomlContent = vm.readFile(string.concat(vm.projectRoot(), "/foundry.toml"));
+        return vm.parseTomlBool(tomlContent, configPath);
     }
 
-    /// @dev adjustMint
-    function adjustMint(uint256 positionIdx, uint256 newPrincipal) public {
-        s_adjustMintCalls++;
+    constructor(address env) StatsCollector(readConfigBool(".profile.logging.stats")) {
+        // Configure logging
+        SNAPSHOT_LOGGING = readConfigBool(".profile.logging.snapshots");
 
-        // Get the position
-        positionIdx = positionIdx % s_positions.length;
-        Position position = s_positions[positionIdx];
-        uint256 currentPrincipal = position.principal();
+        // Initialize environment
+        s_env = Environment(env);
 
-        // Bound newPrincipal
-        uint256 basePrice = position.price();
-        uint256 minimumCollateral = position.minimumCollateral();
-        uint256 collateralReserve = s_collateralToken.balanceOf(address(position));
-        uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
-        uint256 maxEligiblePrincipal = (relevantCollateral * basePrice) / 1e18;
-        uint256 availableForMinting = currentPrincipal + position.availableForMinting();
-        maxEligiblePrincipal = maxEligiblePrincipal > availableForMinting ? availableForMinting : maxEligiblePrincipal;
-        newPrincipal = bound(newPrincipal, 1e17, maxEligiblePrincipal);
-        if (newPrincipal < 1e18) newPrincipal = 0;
+        s_challenger = s_env.eoas(1); // Bob
+        s_bidder = s_env.eoas(2); // Charlie
 
-        vm.prank(position.owner());
-        try position.adjust(newPrincipal, collateralReserve, basePrice) {
-            // success
-            if (newPrincipal == currentPrincipal) s_adjustMintUnchanged++;
-            // console.log("------------------------------------");
-            // console.log(("maxEligiblePrincipal: %s"), maxEligiblePrincipal);
-            // console.log(("newPrincipal: %s"), newPrincipal);
-            // console.log("Position principal: %s", position.principal());
-            // console.log("Position collateral: %s", s_collateralToken.balanceOf(address(position)));
-        } catch {
-            s_adjustMintReverts++;
-            // console.log("----------------- REVERTED ------------------");
-            // console.log("availableForMinting: %s", availableForMinting);
-            // console.log("totalMinted: %s", totalMinted);
-            // console.log("limit: %s", limit);
-            // console.log(("maxEligiblePrincipal: %s"), maxEligiblePrincipal);
-            // console.log(("newPrincipal: %s"), newPrincipal);
-            // console.log("Position principal: %s", position.principal());
-            // console.log("Position collateral: %s", s_collateralToken.balanceOf(address(position)));         
-        }
+        // Record initial state (currently only 1 position)
+        recordPositionStats(Position(s_env.getPosition(0)));
+        if (SNAPSHOT_LOGGING) logSnapshot("constructor", 0, snapshot(Position(s_env.getPosition(0))));
     }
 
-    /// @dev adjustCollateral
-    function adjustCollateral(uint256 positionIdx, uint256 newCollateral) public {
-        s_adjustCollateralCalls++;
+    /// @dev mintTo
+    function mintTo(uint8 positionIdx, uint256 amount) public {
+        Position position = s_env.getPosition(positionIdx);
+        if (!position.mintToAllowed()) return;
 
-        // Get the position
-        Position position = s_positions[positionIdx % s_positions.length];
-        uint256 currentCollateral = s_collateralToken.balanceOf(address(position));
+        (uint256 lb, uint256 ub) = position.mintToBounds();
+        amount = bound(amount, lb, ub);
 
-        // Bound newCollateral
-        // lower bound
-        uint256 basePrice = position.price();
-        uint256 debt = position.getDebt();
-        uint256 minRequiredCollateral = debt * 1e18 / basePrice;
-        uint256 minimumCollateral = position.minimumCollateral();
-        if (minRequiredCollateral < minimumCollateral) minRequiredCollateral = minimumCollateral;
-        // upper bound
-        uint256 mintLimit = position.limit();
-        uint256 annualInterestRatePPM = position.fixedAnnualRatePPM();
-        uint256 annualInterest = (mintLimit * (1e6 + annualInterestRatePPM)) / 1e6;
-        uint256 upperBoundDebt = mintLimit + (10 * annualInterest); // 10 years of interest
-        uint256 maxRequiredCollateral = (upperBoundDebt * 1e18 )/ basePrice;
-        newCollateral = bound(newCollateral, minRequiredCollateral, maxRequiredCollateral);
+        recordAction("mintTo");
+        Snapshot memory pre = snapshot(position);
+        vm.startPrank(position.owner());
+        try position.mint(position.owner(), amount) {
+            Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("mintTo", amount, post);
 
-        // adjusts the position collateral
-        uint256 currentPrincipal = position.principal();
-        vm.prank(position.owner());
-        try position.adjust(currentPrincipal, newCollateral, basePrice) {
-            // success
-            if (newCollateral == currentCollateral) s_adjustCollateralUnchanged++;
-            // console.log("------------------------------------");
-            // console.log(("minimumCollateral: %s"), minimumCollateral);
-            // console.log(("maxRequiredCollateral: %s"), maxRequiredCollateral);
-            // console.log(("newCollateral: %s"), newCollateral);
-            // console.log("Position principal: %s", position.principal());
-            // console.log("Position collateral: %s", s_collateralToken.balanceOf(address(position)));
+            // post conditions
+            assertEq(post.principal, pre.principal + amount, "mintTo: incorrect principal");
+            assertEq(
+                post.ownerBalanceDEURO,
+                pre.ownerBalanceDEURO + position.getUsableMint(amount),
+                "mintTo: incorrect owner balance"
+            );
         } catch {
-            s_adjustCollateralReverts++;
+            recordRevert("mintTo");
         }
+        vm.stopPrank();
+        recordPositionStats(position);
+    }
+
+    /// @dev repay
+    function repay(uint8 positionIdx, uint256 amount) public {
+        if (!shouldExecute(70)) return;
+
+        Position position = s_env.getPosition(positionIdx);
+        (uint256 lb, uint256 ub) = position.repayBounds();
+        amount = bound(amount, lb, ub);
+
+        recordAction("repay");
+        s_env.mintDEURO(position.owner(), amount);
+        Snapshot memory pre = snapshot(position);
+        uint256 remaining = amount;
+        uint256 expInterestRepayment = pre.interest > remaining ? remaining : pre.interest;
+        remaining -= expInterestRepayment;
+        uint256 expPrincipalRepayment = pre.principal > remaining ? remaining : pre.principal;
+        // There may be discrepancies in the currentReserve commputed here and during the actual TX,
+        // therefore we cannot rely on expReserveContribution for the post conditions.
+        // uint256 expReserveContribution = s_env.deuro().calculateAssignedReserve(expPrincipalRepayment, position.reserveContribution());
+        vm.startPrank(position.owner());
+        s_env.deuro().approve(address(position), amount);
+        try position.repay(amount) {
+            Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("repay", amount, post);
+
+            // post conditions
+            assertEq(pre.principal - post.principal, expPrincipalRepayment, "repay: incorrect principal");
+            assertEq(pre.interest - post.interest, expInterestRepayment, "repay: incorrect interest");
+            assertLe(
+                pre.ownerBalanceDEURO - post.ownerBalanceDEURO,
+                min(amount, pre.debt),
+                "repay: used amount exceeds repay amount"
+            );
+        } catch {
+            recordRevert("repay");
+        }
+        vm.stopPrank();
+        recordPositionStats(position);
+    }
+
+    /// @dev addCollateral
+    function addCollateral(uint8 positionIdx, uint256 amount) public {
+        Position position = s_env.getPosition(positionIdx);
+        (uint256 lb, uint256 ub) = position.addCollateralBounds();
+        amount = bound(amount, lb, ub);
+        if (amount == 0) return;
+
+        recordAction("addCollateral");
+        s_env.mintCOL(position.owner(), amount);
+        Snapshot memory pre = snapshot(position);
+        vm.startPrank(position.owner());
+        try position.collateral().transfer(address(position), amount) {
+            Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("addCollateral", amount, post);
+
+            // post conditions
+            assertEq(post.posBalanceCOL, pre.posBalanceCOL + amount, "addCollateral: incorrect collateral balance");
+            assertEq(post.ownerBalanceCOL, pre.ownerBalanceCOL - amount, "addCollateral: incorrect owner balance");
+            if (pre.price < pre.virtualPrice)
+                assertLt(post.virtualPrice, pre.virtualPrice, "addCollateral: incorrect virtual price");
+        } catch {
+            recordRevert("addCollateral");
+        }
+        vm.stopPrank();
+        recordPositionStats(position);
+    }
+
+    /// @dev withdrawCollateral
+    function withdrawCollateral(uint8 positionIdx, uint256 amount) public {
+        Position position = s_env.getPosition(positionIdx);
+        if (!position.withdrawCollateralAllowed()) return;
+
+        (uint256 lb, uint256 ub) = position.withdrawCollateralBounds();
+        amount = bound(amount, lb, ub);
+        if (amount == 0) return;
+
+        recordAction("withdrawCollateral");
+        Snapshot memory pre = snapshot(position);
+        vm.startPrank(position.owner());
+        try position.withdrawCollateral(position.owner(), amount) {
+            Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("withdrawCollateral", amount, post);
+
+            // post conditions
+            assertEq(
+                post.posBalanceCOL,
+                pre.posBalanceCOL - amount,
+                "withdrawCollateral: incorrect collateral balance"
+            );
+            assertEq(post.ownerBalanceCOL, pre.ownerBalanceCOL + amount, "withdrawCollateral: incorrect owner balance");
+            if (pre.price < pre.virtualPrice)
+                assertGt(post.virtualPrice, pre.virtualPrice, "withdrawCollateral: incorrect virtual price");
+        } catch {
+            recordRevert("withdrawCollateral");
+        }
+        vm.stopPrank();
+        recordPositionStats(position);
     }
 
     /// @dev adjustPrice
-    function adjustPrice(uint256 positionIdx, uint256 newPrice) public {
-        if (skipActionWithOdds(70, newPrice)) return; // 70% chance to skip
+    /// REVIEW: Price starts at 5k and shrinks considerably in most runs. Why is that?
+    function adjustPrice(uint8 positionIdx, uint256 priceValue) public {
+        if (!shouldExecute(30)) return;
 
-        s_adjustPriceCalls++;
+        Position position = s_env.getPosition(positionIdx);
+        if (!position.adjustPriceAllowed()) return;
 
-        // Get the position
-        Position position = s_positions[positionIdx % s_positions.length];
-        uint256 currentPrice = position.price();
+        (uint256 lb, uint256 ub) = position.adjustPriceBounds();
+        priceValue = bound(priceValue, lb, ub);
 
-        // Bound newPrice
-        // lower bound
-        uint256 debt = position.getDebt();
-        uint256 minimumCollateral = position.minimumCollateral();
-        uint256 collateralReserve = s_collateralToken.balanceOf(address(position));
-        uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
-        uint256 minPrice = (debt * 1e18) / relevantCollateral;
+        recordAction("adjustPrice");
+        Snapshot memory pre = snapshot(position);
+        vm.startPrank(position.owner());
+        try position.adjustPrice(priceValue) {
+            Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("adjustPrice", priceValue, post);
 
-        // upper bound
-        uint256 principal = position.principal();
-        uint256 availableForMinting = position.availableForMinting();
-        uint256 bounds = principal + availableForMinting;
-        uint256 maxPrice = (bounds * 1e18) / collateralReserve;
-
-        newPrice = bound(newPrice, minPrice, maxPrice);
-
-        // adjusts the position collateral
-        vm.prank(position.owner());
-        try position.adjust(principal, collateralReserve, newPrice) {
-            // success
-            if (newPrice == currentPrice) s_adjustPriceUnchanged++;
+            // post conditions
+            assertEq(post.price, priceValue, "adjustPrice: incorrect price");
+            if (block.timestamp > position.start()) assertLe(post.price, 2 * pre.price, "adjustPrice: price too high");
+            if (post.price > pre.price) assertTrue(post.inCooldown, "adjustPrice: no cooldown after price increase");
         } catch {
-            s_adjustPriceReverts++;
+            recordRevert("adjustPrice");
         }
+        vm.stopPrank();
+        recordPositionStats(position);
     }
 
-    // In your Handler contract
-
     /// @dev Initiates a challenge on one of the positions managed by the handler.
-    function challengePosition(uint256 positionIdx, uint256 collateralAmount, uint256 minPrice) public {
-        s_challengePositionCalls++;
+    function challengePosition(uint8 positionIdx, uint256 collateralAmount, uint256 minPrice) public {
+        if (!shouldExecute(30)) return;
+        Position position = s_env.getPosition(positionIdx);
+        if (!position.challengeAllowed()) return;
 
-        // Select a position from the positions array.
-        Position position = s_positions[positionIdx % s_positions.length];
-        
-        // Bound collateralAmount
-        uint256 minimumCollateral = position.minimumCollateral();
-        uint256 collateralReserve = s_collateralToken.balanceOf(address(position));
-        uint256 minColAmount = min(minimumCollateral, collateralReserve);
-        uint256 maxColAmount = (5 * collateralReserve) / 4; // 1.25 x collateralReserve
-        collateralAmount = bound(collateralAmount, minColAmount, maxColAmount);
-        
-        // Bound minPrice
-        uint256 currentVirtualPrice = position.virtualPrice();
-        minPrice = bound(minPrice, 0, currentVirtualPrice);
+        (uint256 lb, uint256 ub) = position.challengeBounds();
+        collateralAmount = bound(collateralAmount, lb, ub);
+        minPrice = bound(minPrice, (position.virtualPrice() * 3) / 4, position.virtualPrice());
 
-        // adjusts the position collateral
-        vm.prank(s_challenger);
-        try s_mintingHubGateway.challenge(address(position), collateralAmount, minPrice) {
-            // success
-            s_openedChallenges++;
+        recordAction("challengePosition");
+        s_env.mintCOL(s_challenger, collateralAmount);
+        Snapshot memory pre = snapshot(position);
 
-            // console.log("========================================");
-            // console.log("Challenge initiated:");
-            // console.log("  Position index:    %s", address(position));
-            // console.log("  Collateral amount: %s", collateralAmount);
-            // console.log("  Minimum price:     %s", minPrice);
-            // console.log("========================================");
+        // Execute challenge
+        vm.startPrank(s_challenger);
+        s_env.collateralToken().approve(address(s_env.mintingHubGateway()), collateralAmount);
+        try s_env.mintingHubGateway().challenge(address(position), collateralAmount, minPrice) {
+            Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("challengePosition", collateralAmount, post);
+
+            // Post conditions
+            assertEq(
+                post.mintingHubBalanceCOL,
+                pre.mintingHubBalanceCOL + collateralAmount,
+                "challengePosition: incorrect minting hub collateral balance"
+            );
+            assertEq(
+                post.challengedAmount,
+                pre.challengedAmount + collateralAmount,
+                "challengePosition: incorrect challenged amount"
+            );
+            assertEq(post.posBalanceCOL, pre.posBalanceCOL, "challengePosition: position collateral balance changed");
+            assertEq(post.principal, pre.principal, "challengePosition: principal changed");
+            assertGe(post.interest, pre.interest, "challengePosition: interest decreased");
+            s_challengesCount++;
         } catch {
-            s_challengePositionReverts++;
-        }        
+            recordRevert("challengePosition");
+        }
+        vm.stopPrank();
+        recordPositionStats(position);
     }
 
     /// @dev Posts a bid on an existing challenge.
-    function bidChallenge(uint256 challengeIndex, uint256 bidSize, bool postpone) public {
-        s_bidChallengeCalls++;
+    function bidChallenge(uint32 challengeIndex, uint256 bidSize, bool postpone) public {
+        (uint256 validIndex, MintingHub.Challenge memory challenge) = s_env.getChallenge(
+            challengeIndex,
+            s_challengesCount
+        );
 
-        // Bound challengeIndex
-        MintingHub.Challenge memory challenge;
-        for (uint256 i = 0; i < s_openedChallenges; i++) {
-            (address challenger, uint40 start, IPosition position, uint256 size) =
-                s_mintingHubGateway.challenges((challengeIndex + i) % s_openedChallenges);
-            if (position != IPosition(address(0))) {
-                challenge = MintingHub.Challenge(challenger, start, position, size);
-                break;            
+        if (validIndex > s_challengesCount) return;
+        if (block.timestamp == challenge.start) return; // do not allow avert in same TX as creation
+
+        Position position = Position(address(challenge.position));
+        if (!position.bidChallengeAllowed()) return;
+
+        (uint256 liqPrice, uint40 phase) = position.challengeData();
+        bidSize = bound(bidSize, 1, challenge.size);
+
+        // Capture state before bid
+        recordAction("bidChallenge");
+
+        uint256 requiredDEURO = (bidSize * liqPrice) / 1e18;
+        s_env.mintDEURO(s_bidder, requiredDEURO);
+        Snapshot memory pre = snapshot(position);
+        vm.startPrank(s_bidder);
+        s_env.deuro().approve(address(s_env.mintingHubGateway()), requiredDEURO);
+        try s_env.mintingHubGateway().bid(uint32(validIndex), bidSize, postpone) {
+            Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("bidChallenge", bidSize, post);
+
+            // post conditions
+            if (block.timestamp <= challenge.start + phase) {
+                // TODO: Phase 1 (avert phase)
+            } else {
+                // Phase 2 (dutch auction phase)
+                assertLe(post.debt, pre.debt, "bidChallenge: debt increased");
+                assertLe(post.challengedAmount, pre.challengedAmount, "bidChallenge: challenged amount increased");
+                assertEq(
+                    bidSize,
+                    pre.challengedAmount - post.challengedAmount,
+                    "bidChallenge: incorrect challenged amount"
+                );
+                assertEq(
+                    post.bidderBalanceCOL - pre.bidderBalanceCOL,
+                    min(pre.posBalanceCOL, bidSize),
+                    "bidChallenge: incorrect bidder collateral"
+                );
+                assertGe(pre.mintingHubBalanceCOL, bidSize, "bidChallenge: insufficient minting hub collateral");
+                if (!postpone) {
+                    assertEq(
+                        post.mintingHubBalanceCOL,
+                        pre.mintingHubBalanceCOL - bidSize,
+                        "bidChallenge: incorrect minting hub collateral"
+                    );
+                    assertEq(
+                        post.challengerBalanceCOL,
+                        pre.challengerBalanceCOL + bidSize,
+                        "bidChallenge: incorrect challenger collateral"
+                    );
+                } else {
+                    assertEq(
+                        post.mintingHubBalanceCOL,
+                        pre.mintingHubBalanceCOL,
+                        "bidChallenge: minting hub collateral changed"
+                    );
+                    assertEq(
+                        post.challengerBalanceCOL,
+                        pre.challengerBalanceCOL,
+                        "bidChallenge: challenger collateral changed"
+                    );
+                }
             }
-        }
-
-        // Bound bidSize
-        bidSize = bidSize % challenge.size;
-        
-        // (Optional) Simulate a bidder by using vm.prank(bidderAddress) if desired.
-        vm.prank(s_bidder);
-        try s_mintingHubGateway.bid(uint32(challengeIndex), bidSize, postpone) {
-            // success
-            
-            // console.log("========================================");
-            // console.log("Bid placed:");
-            // console.log("  Challenge index: %s", challengeIndex);
-            // console.log("  Bid size:        %s", formatUint256(bidSize, 18));
-            // console.log("  Postpone flag:   %s", postpone);
-            // console.log("========================================");
         } catch {
-            s_bidChallengeReverts++;
+            recordRevert("bidChallenge");
         }
-
+        vm.stopPrank();
+        recordPositionStats(position);
     }
 
     /// @dev Buys collateral from an expired position.
-    function buyExpiredCollateral(uint256 positionIdx, uint256 upToAmount) public {
-        s_buyExpiredCollateralCalls++;
+    function buyExpiredCollateral(uint8 positionIdx, uint256 upToAmount) public {
+        Position position = s_env.getPosition(positionIdx);
+        if (!position.buyExpiredCollateralAllowed()) return;
 
-        // Select a position from the positions array.
-        Position position = s_positions[positionIdx % s_positions.length];
-        
-        // Bound upToAmount
-        uint256 forceSalePrice = s_mintingHubGateway.expiredPurchasePrice(position);
-        uint256 maxAmount = s_collateralToken.balanceOf(address(position));
-        uint256 dustAmount = (s_mintingHubGateway.OPENING_FEE() * 1e18) / forceSalePrice;
-        upToAmount = bound(upToAmount, 0, maxAmount);
-        // leave no dust behind
-        if (upToAmount < maxAmount && maxAmount - upToAmount < dustAmount) {
-            upToAmount = maxAmount - dustAmount;
-        }
+        (uint256 lb, uint256 ub) = position.buyExpiredCollateralBounds();
+        uint256 posBalanceCOL = position.collateral().balanceOf(address(position));
+        uint256 forceSalePrice = s_env.mintingHubGateway().expiredPurchasePrice(position);
+        uint256 dustAmount = forceSalePrice > 0 ? (s_env.mintingHubGateway().OPENING_FEE() * 1e18) / forceSalePrice : 0; // TODO: 0 division case handled correctly?
+        upToAmount = bound(upToAmount, lb, ub);
+        upToAmount = upToAmount < posBalanceCOL && posBalanceCOL - upToAmount < dustAmount ? posBalanceCOL : upToAmount;
 
-        // adjusts the position collateral
-        vm.prank(s_bidder);
-        try s_mintingHubGateway.buyExpiredCollateral(position, upToAmount) {
-            // success
+        recordAction("buyExpiredCollateral");
+        uint256 requiredDEURO = (upToAmount * forceSalePrice) / 1e18;
+        s_env.mintDEURO(s_bidder, requiredDEURO);
+        Snapshot memory pre = snapshot(position);
+        vm.startPrank(s_bidder);
+        // We must approve the Position contract, not the MintingHubGateway
+        s_env.deuro().approve(address(position), requiredDEURO);
+        try s_env.mintingHubGateway().buyExpiredCollateral(position, upToAmount) {
+            Snapshot memory post = snapshot(position);
+            if (SNAPSHOT_LOGGING) logSnapshot("buyExpiredCollateral", upToAmount, post);
 
+            // Post conditions
+            assertLe(post.posBalanceCOL, pre.posBalanceCOL, "buyExpiredCollateral: position collateral increased");
+            assertEq(
+                post.bidderBalanceCOL,
+                pre.bidderBalanceCOL + upToAmount,
+                "buyExpiredCollateral: incorrect bidder collateral"
+            );
+            if (pre.posBalanceCOL == 0)
+                assertEq(post.debt, 0, "buyExpiredCollateral: non-zero debt with zero collateral");
+            // TODO: Check that debt is repaid correctly
         } catch {
-            s_buyExpiredCollateralReverts++;
-
-            console.log("========================================");
-            console.log("buyExpiredCollateral:");
-            console.log("  Position index:      %s", address(position));
-            console.log("  Position expired:    %s", block.timestamp >= position.expiration());
-            console.log("  Position collateral: %s", formatUint256(maxAmount, 18));
-            console.log("  Amount:              %s", formatUint256(upToAmount, 18));
-            console.log("  Remaining:           %s", formatUint256(maxAmount - upToAmount, 18));
-            console.log("  Dust amount:         %s", formatUint256(dustAmount, 18));
-            console.log("  Forced sale price:   %s", formatUint256(forceSalePrice, 18));
-            console.log("========================================");
-        }        
+            recordRevert("buyExpiredCollateral");
+        }
+        vm.stopPrank();
+        recordPositionStats(position);
     }
 
-    function warpTime(uint256 daysToWarp) external {
-        s_warpTimeCalls++;
+    /// @dev Expire a position
+    function expirePosition(uint8 positionIdx) external {
+        if (!shouldExecute(5)) return;
 
-        uint256 minDays = 3;
-        uint256 maxDays = 6;
-        daysToWarp = bound(daysToWarp, minDays, maxDays);
-        increaseTime(daysToWarp * 1 days);
+        Position position = s_env.getPosition(positionIdx);
+        if (!position.expirePositionAllowed()) return;
+
+        recordAction("expirePosition");
+        Snapshot memory pre = snapshot(position);
+        increaseTimeTo(position.expiration() + 1);
+        Snapshot memory post = snapshot(position);
+        if (SNAPSHOT_LOGGING) logSnapshot("expirePosition", position.expiration(), post);
+
+        // Post conditions
+        assertTrue(post.isExpired, "expirePosition: position not expired");
+        if (pre.principal > 0) assertGt(post.interest, pre.interest, "expirePosition: interest did not accrue");
     }
 
-    /// @dev Prints a call summary of calls and reverts to certain actions
-    function callSummary() external view {
-        console.log("========================================");
-        console.log("           ACTIONS SUMMARY");
-        console.log("========================================");
+    /// @dev Pass the cooldown period of a position
+    function passCooldown(uint8 positionIdx) external {
+        Position position = s_env.getPosition(positionIdx);
+        if (!position.passCooldownAllowed()) return;
 
-        console.log(">> adjustMint():");
-        console.log("   Calls:     %s", s_adjustMintCalls);
-        console.log("   Reverts:   %s", s_adjustMintReverts);
-        console.log("   Unchanged: %s", s_adjustMintUnchanged);
-        console.log("");
+        recordAction("passCooldown");
+        Snapshot memory pre = snapshot(position);
+        increaseTimeTo(position.cooldown() + 1);
+        Snapshot memory post = snapshot(position);
+        if (SNAPSHOT_LOGGING) logSnapshot("passCooldown", position.cooldown(), post);
 
-        console.log(">> adjustCollateral():");
-        console.log("   Calls:     %s", s_adjustCollateralCalls);
-        console.log("   Reverts:   %s", s_adjustCollateralReverts);
-        console.log("   Unchanged: %s", s_adjustCollateralUnchanged);
-        console.log("");
-
-        console.log(">> adjustPrice():");
-        console.log("   Calls:     %s", s_adjustPriceCalls);
-        console.log("   Reverts:   %s", s_adjustPriceReverts);
-        console.log("   Unchanged: %s", s_adjustPriceUnchanged);
-        console.log("");
-
-        console.log(">> challengePosition():");
-        console.log("   Calls:     %s", s_challengePositionCalls);
-        console.log("   Reverts:   %s", s_challengePositionReverts);
-        console.log("   Opened:    %s", s_openedChallenges);
-        console.log("");
-
-        console.log(">> bidChallenge():");
-        console.log("   Calls:     %s", s_bidChallengeCalls);
-        console.log("   Reverts:   %s", s_bidChallengeReverts);
-        console.log("");
-
-        console.log(">> buyExpiredCollateral():");
-        console.log("   Calls:     %s", s_buyExpiredCollateralCalls);
-        console.log("   Reverts:   %s", s_buyExpiredCollateralReverts);
-        console.log("");
-
-        console.log(">> warpTime():");
-        console.log("   Calls:     %s", s_warpTimeCalls);
+        // Post conditions
+        assertFalse(post.inCooldown, "passCooldown: position still in cooldown");
+        if (pre.principal > 1e16) assertGt(post.interest, pre.interest, "passCooldown: interest did not accrue");
     }
 
-    // Helper functions 
+    /// @dev Warp time by 1-3 days
+    function warpTime(uint40 time) external {
+        if (!shouldExecute(5)) return;
 
-    // Internal
+        time = uint40(bound(time, 1 days, 3 days));
+        recordAction("warpTime");
+        uint40 timeBefore = uint40(block.timestamp);
+        increaseTime(time);
 
-    /// @dev Return whether to skip an action based on a skip percent and a seed
-    function skipActionWithOdds(uint256 skipPercent, uint256 seed) internal view returns (bool) {
-        return uint256(keccak256(abi.encodePacked(block.timestamp, seed))) % 100 > 100 - skipPercent;
+        // Post conditions
+        assertGe(block.timestamp, timeBefore + time, "warpTime: time did not increase correctly");
     }
 
-    // External
+    // Helper functions
 
-    /// @dev Get positions
-    function getPositions() external view returns (Position[] memory) {
-        return s_positions;
+    /// @dev Helper function to capture comprehensive system state
+    function snapshot(Position position) internal view returns (Snapshot memory) {
+        address owner = position.owner();
+        return
+            Snapshot({
+                // Position
+                debt: position.getDebt(),
+                interest: position.getInterest(),
+                principal: position.principal(),
+                posBalanceCOL: position.collateral().balanceOf(address(position)),
+                availableForMinting: position.availableForMinting(),
+                challengedAmount: position.challengedAmount(),
+                virtualPrice: position.virtualPrice(),
+                price: position.price(),
+                inCooldown: position.cooldown() > block.timestamp,
+                isExpired: block.timestamp >= position.expiration(),
+                // Position owner
+                owner: owner,
+                ownerBalanceDEURO: s_env.deuro().balanceOf(owner),
+                ownerBalanceCOL: position.collateral().balanceOf(owner),
+                // dEURO
+                minterReserve: s_env.deuro().minterReserve(),
+                // MintingHub
+                mintingHubBalanceCOL: s_env.collateralToken().balanceOf(address(s_env.mintingHubGateway())),
+                challengerBalanceCOL: s_env.collateralToken().balanceOf(s_challenger),
+                bidderBalanceCOL: s_env.collateralToken().balanceOf(s_bidder)
+            });
+    }
+
+    function logSnapshot(string memory action, uint256 val, Snapshot memory snap) internal pure {
+        console.log("%s: %s", action, val);
+        console.log("Snapshot:");
+        console.log("  debt:", snap.debt);
+        console.log("  interest:", snap.interest);
+        console.log("  principal:", snap.principal);
+        console.log("  posBalanceCOL:", snap.posBalanceCOL);
+        console.log("  availableForMinting:", snap.availableForMinting);
+        console.log("  challengedAmount:", snap.challengedAmount);
+        console.log("  virtualPrice:", snap.virtualPrice);
+        console.log("  price:", snap.price);
+        console.log("  inCooldown:", snap.inCooldown);
+        console.log("  isExpired:", snap.isExpired);
+        console.log("  owner:", snap.owner);
+        console.log("  ownerBalanceDEURO:", snap.ownerBalanceDEURO);
+        console.log("  ownerBalanceCOL:", snap.ownerBalanceCOL);
+        console.log("  minterReserve:", snap.minterReserve);
+        console.log("  mintingHubBalanceCOL:", snap.mintingHubBalanceCOL);
+        console.log("  challengerBalanceCOL:", snap.challengerBalanceCOL);
+        console.log("  bidderBalanceCOL:", snap.bidderBalanceCOL);
+    }
+
+    /// @dev Helper function to record position state statistics
+    function recordPositionStats(Position position) public {
+        uint256 price = position.price();
+        uint256 principal = position.principal();
+        uint256 collateral = position.collateral().balanceOf(address(position));
+        uint256 interest = position.getInterest();
+
+        // Record statistics
+        recordValue("position.price", price);
+        recordValue("position.principal", principal);
+        recordValue("position.collateral", collateral);
+        recordValue("position.interest", interest);
+
+        uint256 maxPossiblePrincipal = collateral == 0 ? 0 : (collateral * price) / 1e18;
+        if (maxPossiblePrincipal > 0) {
+            uint256 utilization = (principal * 100) / maxPossiblePrincipal; // 0-100%
+            recordValue("collateralUtilization", utilization);
+        }
     }
 }

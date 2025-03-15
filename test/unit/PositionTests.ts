@@ -4,9 +4,9 @@ import {
   dec18ToFloat,
   DECIMALS,
   mulDec18,
-} from "../scripts/math";
+} from "../../scripts/math";
 import { ethers } from "hardhat";
-import { evm_increaseTime, evm_increaseTimeTo } from "./utils";
+import { evm_increaseTime, evm_increaseTimeTo } from "../utils";
 import {
   Equity,
   DecentralizedEURO,
@@ -18,7 +18,7 @@ import {
   TestToken,
   PositionExpirationTest,
   PositionRollingTest,
-} from "../typechain";
+} from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { ContractTransactionResponse } from "ethers";
@@ -273,6 +273,7 @@ describe("Position Tests", () => {
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
       let balBefore = await dEURO.balanceOf(owner.address);
       let balBeforeVOL = await mockVOL.balanceOf(owner.address);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -318,6 +319,7 @@ describe("Position Tests", () => {
     });
     it("should revert minting when there is a challange", async () => {
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -655,6 +657,7 @@ describe("Position Tests", () => {
     });
     it("should revert reducing limit from non hub", async () => {
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -734,6 +737,7 @@ describe("Position Tests", () => {
         .approve(await mintingHub.getAddress(), fInitialCollateral);
       let balBefore = await dEURO.balanceOf(owner.address);
       let balBeforeVOL = await mockVOL.balanceOf(owner.address);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -795,6 +799,7 @@ describe("Position Tests", () => {
         .approve(await mintingHub.getAddress(), fInitialCollateral);
       let balBefore = await dEURO.balanceOf(owner.address);
       let balBeforeVOL = await mockVOL.balanceOf(owner.address);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1044,6 +1049,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), 2n * fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1215,6 +1221,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1318,6 +1325,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1462,6 +1470,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1585,6 +1594,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -1749,6 +1759,7 @@ describe("Position Tests", () => {
       const principal = await pos.principal();
       const collateralContract = await ethers.getContractAt("IERC20", await pos.collateral());
       const debtBefore = await pos.getDebt();
+      const reservePortion = await dEURO.calculateAssignedReserve(await pos.principal(), await pos.reserveContribution());
       const colBalPosBefore = await collateralContract.balanceOf(pos.getAddress());
       const deuroBalPosBefore = await dEURO.balanceOf(pos.getAddress());
 
@@ -1793,7 +1804,8 @@ describe("Position Tests", () => {
       expect(ePriceE36MinusDecimals).to.be.lte(expPurchasePrice);
       expect(colBalPosBefore - colBalPosAfter).to.be.equal(35n);
       expect(deuroBalPosBefore).to.be.equal(deuroBalPosAfter);
-      expect(debtAfter).to.be.gt(0);
+      expect((ePriceE36MinusDecimals * BigInt(eAmount) / DECIMALS) + reservePortion).gte(debtBefore);
+      expect(debtAfter).to.be.eq(0);
       expect(await pos.isClosed()).to.be.false; // still collateral left
     });
 
@@ -1875,6 +1887,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), 2n * fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         await mockVOL.getAddress(),
         minCollateral,
@@ -1977,6 +1990,7 @@ describe("Position Tests", () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), 2n * fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         await mockVOL.getAddress(),
         minCollateral,
@@ -2068,6 +2082,7 @@ describe("Position Tests", () => {
       // mint suffcient collateral
       await mockVOL.mint(owner.address, fInitialCollateral);
       await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub.openPosition(
         collateral,
         minCollateral,
@@ -2156,6 +2171,106 @@ describe("Position Tests", () => {
         expPrincipalToPay + expInterestToPay,
         floatToDec18(1),
       );
+    });
+  });
+
+  describe("Interest overcollateralization", () => {
+    let positionAddr: string;
+    let positionContract: Position;
+    let collateral: string;
+    let fReserve: bigint;
+    let fInitialCollateral: bigint;
+    let minCollateral: bigint;
+
+    beforeEach(async () => {
+      collateral = await mockVOL.getAddress();
+      minCollateral = floatToDec18(1);
+      const fliqPrice = floatToDec18(5000);
+      fInitialCollateral = floatToDec18(initialCollateral);
+      const duration = BigInt(60 * 86_400);
+      const fFees = BigInt(fee * 1_000_000);
+      fReserve = BigInt(reserve * 1_000_000); // Example: 20% reserve
+      const challengePeriod = BigInt(3 * 86400);
+
+      await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(await mintingHub.getAddress(), await mintingHub.OPENING_FEE());
+      const tx = await mintingHub.openPosition(
+        collateral,
+        minCollateral,
+        fInitialCollateral,
+        initialLimit,
+        7n * 24n * 3600n,
+        duration,
+        challengePeriod,
+        fFees,
+        fliqPrice,
+        fReserve
+      );
+
+      const positionAddress = await getPositionAddressFromTX(tx);
+      positionAddr = positionAddress;
+      positionContract = await ethers.getContractAt("Position", positionAddr, owner);
+      
+      // Wait until the position is active
+      await evm_increaseTimeTo(await positionContract.start());
+    });
+
+    it("allows withdrawing collateral when interest is sufficiently overcollateralized", async () => {
+      const mintAmount = (minCollateral * await positionContract.price()) / floatToDec18(1) + floatToDec18(1);
+      await positionContract.mint(owner.address, mintAmount);
+      
+      // Fast forward time to accrue interest
+      await evm_increaseTime(30 * 86400);
+      const interest = await positionContract.getInterest();
+      const debt = await positionContract.getDebt();
+      expect(interest).to.be.gt(0);
+      
+      // Calculate how much interest buffer is added
+      const collateralRequirement = await positionContract.getCollateralRequirement();
+      expect(collateralRequirement).to.be.gt(debt);
+      const interestBuffer = collateralRequirement - debt;
+      const reservePPM = await positionContract.reserveContribution();
+      const expectedBuffer = (interest * 1_000_000n) / (1_000_000n - reservePPM) - interest;
+      expect(interestBuffer).to.be.gte(expectedBuffer);
+      
+      const price = await positionContract.price();
+      const minRequiredCollateral = (collateralRequirement * floatToDec18(1)) / price;
+      const currentCollateral = await mockVOL.balanceOf(positionAddr);
+      expect(currentCollateral).to.be.gt(minRequiredCollateral + floatToDec18(0.001));
+
+      // Try to withdraw the interest buffer
+      const withdrawTooMuch = currentCollateral - minRequiredCollateral + floatToDec18(0.001);
+      await expect(
+        positionContract.withdrawCollateral(owner.address, withdrawTooMuch)
+      ).to.be.revertedWithCustomError(positionContract, "InsufficientCollateral");
+      
+      
+      // Withdraw the maximum possible amount minus a small safety margin
+      const safeToWithdraw = currentCollateral - minRequiredCollateral - floatToDec18(0.001);
+      const balanceBefore = await mockVOL.balanceOf(owner.address);
+      expect(currentCollateral - minRequiredCollateral).to.be.gt(safeToWithdraw);
+      await positionContract.withdrawCollateral(owner.address, safeToWithdraw);
+      const balanceAfter = await mockVOL.balanceOf(owner.address);
+      
+      // Verify the withdrawal succeeded
+      expect(balanceAfter - balanceBefore).to.be.eq(safeToWithdraw);
+    });
+
+    it("requires more collateral as interest accrues over time", async () => {
+      const mintAmount = (fInitialCollateral * await positionContract.price()) / floatToDec18(1);
+      await positionContract.mint(owner.address, mintAmount);
+      const initialCollateralRequirement = await positionContract.getCollateralRequirement();
+      
+      await evm_increaseTime(60 * 86400); // 60 days
+      const newCollateralRequirement = await positionContract.getCollateralRequirement();
+      expect(newCollateralRequirement).to.be.gt(initialCollateralRequirement);
+      
+      // Virtual price should also reflect the overcollateralized interest
+      const virtualPrice = await positionContract.virtualPrice();
+      const collateralBalance = await mockVOL.balanceOf(positionAddr);
+      const expectedVirtualPrice = (newCollateralRequirement * floatToDec18(1)) / collateralBalance;
+      expect(virtualPrice).to.be.gt(await positionContract.price());
+      expect(virtualPrice).to.be.eq(expectedVirtualPrice);
     });
   });
 });

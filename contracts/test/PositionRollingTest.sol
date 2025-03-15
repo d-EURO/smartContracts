@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
 // import "./Strings.sol";
 import "./TestToken.sol";
 import "../Equity.sol";
@@ -31,7 +28,9 @@ contract PositionRollingTest {
     }
 
     function openTwoPositions() public {
+        deuro.approve(address(hub), hub.OPENING_FEE());
         p1 = IPosition(openPosition(100, uint40(3 days)));
+        deuro.approve(address(hub), hub.OPENING_FEE());
         p2 = IPosition(openPosition(10, uint40(7 days)));
     }
 

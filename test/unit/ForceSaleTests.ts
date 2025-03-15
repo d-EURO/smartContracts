@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { floatToDec18 } from "../scripts/math";
+import { floatToDec18 } from "../../scripts/math";
 import { ethers } from "hardhat";
 import {
   Equity,
@@ -10,10 +10,20 @@ import {
   PositionRoller,
   Savings,
   TestToken,
-} from "../typechain";
+} from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { evm_increaseTime, evm_increaseTimeTo } from "./utils";
-import { EventLog } from "ethers";
+import { evm_increaseTime, evm_increaseTimeTo } from "../utils";
+import { ContractTransactionResponse, EventLog } from "ethers";
+
+const getPositionAddressFromTX = async (
+  tx: ContractTransactionResponse,
+): Promise<string> => {
+  const PositionOpenedTopic =
+    "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
+  const rc = await tx.wait();
+  const log = rc?.logs.find((x) => x.topics.indexOf(PositionOpenedTopic) >= 0);
+  return "0x" + log?.topics[2].substring(26);
+};
 
 describe("ForceSale Tests", () => {
   let owner: HardhatEthersSigner;
@@ -89,8 +99,7 @@ describe("ForceSale Tests", () => {
     await coin.mint(bob.address, floatToDec18(1_000));
 
     await coin.approve(mintingHub.getAddress(), floatToDec18(10));
-    const newPos = await (
-      await mintingHub.openPosition(
+    const tx = await mintingHub.openPosition(
         await coin.getAddress(),
         floatToDec18(1),
         floatToDec18(10),
@@ -101,15 +110,12 @@ describe("ForceSale Tests", () => {
         10000,
         floatToDec18(6000),
         100000,
-      )
-    ).wait();
+      );
 
     // PositionOpened
-    const topic =
-      "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
-    const log = newPos?.logs.find((x) => x.topics.indexOf(topic) >= 0);
-    const positionAddr = "0x" + log?.topics[2].substring(26);
+    const positionAddr = await getPositionAddressFromTX(tx);
     position = await ethers.getContractAt("Position", positionAddr, owner);
+    getPositionAddressFromTX
   });
 
   describe("check position status", () => {
@@ -353,5 +359,74 @@ describe("ForceSale Tests", () => {
     //   expect(colBalanceAfterAlice - colBalanceBeforeAlice).to.be.equal(totCollateral);
     //   expect(balanceBeforeAlice - balanceAfterAlice).to.be.equal(((priceE36MinusDecimals * totCollateral) / 10n ** 18n) + interest); // slight deviation as one block passed
     // });
+  });
+
+  describe("Correct minter reserve and reserve updates given bad debt", () => {
+    // Simulate CS-dEUR-003
+    let positionAddr: string;
+    let positionContract: Position;
+    let collateral: string;
+    let fReserve: bigint;
+    let fInitialCollateral: bigint;
+    let minCollateral: bigint;
+    let duration: bigint;
+    let challengePeriod: bigint;
+    let initialCollateral = 110;
+    let fee = 0.01;
+    let reserve = 0.2; // 20% reserve
+    let initialLimit = floatToDec18(550_000);
+
+
+    beforeEach(async () => {
+      collateral = await coin.getAddress();
+      minCollateral = floatToDec18(1);
+      duration = BigInt(60 * 86_400);
+      challengePeriod = BigInt(3 * 86400);
+      const fliqPrice = floatToDec18(5000);
+      fInitialCollateral = floatToDec18(initialCollateral);
+      const fFees = BigInt(fee * 1_000_000);
+      fReserve = BigInt(reserve * 1_000_000);
+
+      await coin.approve(await mintingHub.getAddress(), fInitialCollateral);
+      const tx = await mintingHub.openPosition(
+        collateral,
+        minCollateral,
+        fInitialCollateral,
+        initialLimit,
+        7n * 24n * 3600n,
+        duration,
+        challengePeriod,
+        fFees,
+        fliqPrice,
+        fReserve
+      );
+
+      const positionAddress = await getPositionAddressFromTX(tx);
+      positionAddr = positionAddress;
+      positionContract = await ethers.getContractAt("Position", positionAddr, owner);
+      
+      // Wait until the position is active
+      await evm_increaseTimeTo(await positionContract.start());
+    });
+
+    it("buy expired collateral", async () => {
+      const mintAmount = floatToDec18(1000);
+      await positionContract.mint(owner.address, mintAmount);
+      
+      // Expire position
+      await evm_increaseTime(duration + challengePeriod - 1000n); // End of phase 1
+      expect(positionContract.mint(owner.address, 1n)).to.revertedWithCustomError(positionContract, "Expired");
+      
+      // Remove half of the reserve to simulate bad debt
+      const reserveBalanceBefore = await dEURO.balanceOf(await dEURO.reserve());
+      const targetReserve = floatToDec18(100); // 50% bad debt
+      await dEURO.coverLoss(positionContract, reserveBalanceBefore - targetReserve);
+      const reserveBalanceAfter = await dEURO.balanceOf(await dEURO.reserve());
+      expect(reserveBalanceAfter).to.be.equal(targetReserve);
+
+      await dEURO.approve(positionContract.getAddress(), floatToDec18(1_000_000));
+      await mintingHub.buyExpiredCollateral(positionContract, fInitialCollateral);
+      expect(await position.getDebt()).to.be.equal(0n);
+    });
   });
 });

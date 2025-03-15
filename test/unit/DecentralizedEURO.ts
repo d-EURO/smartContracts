@@ -1,8 +1,8 @@
 import { expect } from "chai";
-import { floatToDec18, dec18ToFloat } from "../scripts/math";
+import { floatToDec18, dec18ToFloat } from "../../scripts/math";
 import { ethers } from "hardhat";
-import { DecentralizedEURO, StablecoinBridge, TestToken } from "../typechain";
-import { evm_increaseTime } from "./utils";
+import { DecentralizedEURO, StablecoinBridge, TestToken } from "../../typechain";
+import { evm_increaseTime } from "../utils";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 const limit = floatToDec18(100_000);
@@ -107,6 +107,7 @@ describe("DecentralizedEURO", () => {
     });
 
     it("should revert denying minters when exceed application period", async () => {
+      await dEURO.approve(dEURO.getAddress(), floatToDec18(1000));
       await expect(
         dEURO.suggestMinter(owner.address, 10 * 86400, floatToDec18(1000), "")
       ).to.emit(dEURO, "MinterApplied");
@@ -118,6 +119,7 @@ describe("DecentralizedEURO", () => {
 
     it("should send application fee for minter to reserve", async () => {
       let reserveBalanceBefore = await dEURO.balanceOf(await dEURO.reserve());
+      await dEURO.approve(dEURO.getAddress(), floatToDec18(1000));
       await dEURO.suggestMinter(
         bob.address,
         10 * 86400,
@@ -277,6 +279,7 @@ describe("DecentralizedEURO", () => {
 
     it("should succeed minting with reserve & burning (from) with reserve if minter", async () => {
       // make bob minter for this test
+      await dEURO.approve(dEURO.getAddress(), floatToDec18(1000));
       await dEURO.suggestMinter(
         bob.address,
         10 * 86400,

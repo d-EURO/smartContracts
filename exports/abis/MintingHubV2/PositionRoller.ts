@@ -76,12 +76,6 @@ export const PositionRollerABI = [
       },
       {
         indexed: false,
-        internalType: 'uint256',
-        name: 'interest',
-        type: 'uint256',
-      },
-      {
-        indexed: false,
         internalType: 'address',
         name: 'target',
         type: 'address',

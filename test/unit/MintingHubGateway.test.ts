@@ -1,7 +1,7 @@
 import { expect } from 'chai';
-import { dec18ToFloat, DECIMALS, floatToDec18 } from '../scripts/math';
+import { dec18ToFloat, DECIMALS, floatToDec18 } from '../../scripts/math';
 import { ethers } from 'hardhat';
-import { evm_increaseTime, evm_increaseTimeTo } from './utils';
+import { evm_increaseTime, evm_increaseTimeTo } from '../utils';
 import {
   DecentralizedEURO,
   Equity,
@@ -13,7 +13,7 @@ import {
   Savings,
   StablecoinBridge,
   TestToken,
-} from "../typechain";
+} from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { ContractTransactionResponse } from "ethers";
 
@@ -143,6 +143,7 @@ describe('Minting Tests', () => {
       await mockVOL.approve(mintingHub.getAddress(), fInitialCollateral);
       const balBefore = await dEURO.balanceOf(owner.address);
       const balBeforeVOL = await mockVOL.balanceOf(owner.address);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const tx = await mintingHub[
         'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
       ](
@@ -169,6 +170,7 @@ describe('Minting Tests', () => {
     });
     it('should revert minting when there is a challange', async () => {
       await mockVOL.approve(mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const tx = await mintingHub[
         'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
       ](
@@ -382,6 +384,7 @@ describe('Minting Tests', () => {
       await mockVOL.connect(owner).approve(mintingHub.getAddress(), fInitialCollateral);
       const balBefore = await dEURO.balanceOf(owner.address);
       const balBeforeVOL = await mockVOL.balanceOf(owner.address);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const tx = await mintingHub[
         'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
       ](
@@ -432,6 +435,7 @@ describe('Minting Tests', () => {
       await mockVOL.connect(owner).approve(mintingHub.getAddress(), fInitialCollateral);
       const balBefore = await dEURO.balanceOf(owner.address);
       const balBeforeVOL = await mockVOL.balanceOf(owner.address);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const tx = await mintingHub[
         'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
       ](
@@ -582,6 +586,7 @@ describe('Minting Tests', () => {
       const fReserve = BigInt(reserve * 1_000_000);
       const challengePeriod = BigInt(3 * 86400); // 3 days
       await mockVOL.connect(owner).approve(mintingHub.getAddress(), 2n * fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       let tx = await mintingHub[
         'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
       ](
@@ -712,6 +717,7 @@ describe('Minting Tests', () => {
       const fReserve = BigInt(reserve * 1_000_000);
       const challengePeriod = BigInt(3 * 86400); // 3 days
       await mockVOL.connect(owner).approve(mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const tx = await mintingHub[
         'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
       ](
@@ -969,6 +975,7 @@ describe('Minting Tests', () => {
       frontendCode2 = ethers.randomBytes(32);
       // ---------------------------------------------------------------------------
       // give OWNER a position
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const txPos1 = await mintingHub[
         'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
       ](
