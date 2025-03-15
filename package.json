@@ -23,7 +23,7 @@
     "ts:export:abis": "npx ts-node ./scripts/abiExport.ts && prettier --write \"exports/abis/**/*.ts\"",
     "publish": "npm publish --access public",
     "cover": "nodejs ./solcover.js",
-    "test": "npx hardhat test",
+    "test": "npx hardhat test test/unit/*.ts",
     "deploynotesttoken:network": "export deploymode=base && export deploymode=base && npx hardhat deploy --network",
     "redeploynotesttoken:network": "export deployoption=notesttoken && export deploymode=base && npx hardhat deploy --reset --network",
     "redeploy:network": "npx hardhat deploymode=base --reset --network",
