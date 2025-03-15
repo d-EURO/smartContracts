@@ -37,11 +37,10 @@ async function main() {
   console.log('WETH balance:', ethers.formatEther(wethBalance));
 
   // Load config file
-  // TODO: Use ignition/deployments/*/deployed_adddresses to get the contract addresses (see integrationTest.js)
   const configPath = path.join(__dirname, '../config/positions.json');
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Config;
   console.log('Using MintingHubGateway at:', getDeployedAddress('MintingHubGateway'));
-  console.log(`Found ${config.positions.length} position to deploy`);
+  console.log(`Found ${config.positions.length} position(s) to deploy`);
 
   // Get contracts
   const dEuro = await ethers.getContractAt('DecentralizedEURO', getDeployedAddress('DecentralizedEURO'), deployer);
@@ -98,15 +97,24 @@ async function main() {
 
       console.log(`TX hash: ${tx.hash}`);
 
-      // TODO: Get position address from event and log it
-      // event PositionOpened(address indexed owner, address indexed position, address original, address collateral);
+      // Connect to the position
       const receipt = await tx.wait();
+      const event = receipt?.logs
+        .map((log) => mintingHubGateway.interface.parseLog(log))
+        .find((parsedLog) => parsedLog?.name === 'PositionOpened');
+
+      if (!event) {
+        throw new Error('Position creation event not found');
+      }
+
+      const positionAddress = event.args.position || event.args[1];
+      console.log(`✓ Opened new position: ${positionAddress}`);
     } catch (error) {
       console.error(`Error deploying position ${position.name}:`, error);
     }
   }
 
-  console.log('\nPosition deployment completed');
+  console.log('\n✅ Position deployment completed');
 }
 
 /**
