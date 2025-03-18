@@ -1,28 +1,9 @@
 import { ethers } from 'hardhat';
-import * as fs from 'fs';
-import * as path from 'path';
 import { mainnet } from '../../../constants/addresses';
 import ERC20_ABI from '../../../abi/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json';
 import WETH9_ABI from '../../../constants/abi/Weth9.json';
 import { getDeployedAddress } from '../../../ignition/utils/addresses';
-
-interface Config {
-  openingFee: string;
-  positions: {
-    name: string;
-    collateralAddress: string;
-    decimals: number;
-    minCollateral: string;
-    initialCollateral: string;
-    mintingMaximum: string;
-    initPeriodSeconds: number;
-    expirationSeconds: number;
-    challengeSeconds: number;
-    riskPremium: number;
-    liqPrice: string;
-    reservePPM: number;
-  }[];
-}
+import { config } from '../config/positionsConfig';
 
 // Deploy positions
 async function main() {
@@ -37,8 +18,6 @@ async function main() {
   console.log('WETH balance:', ethers.formatEther(wethBalance));
 
   // Load config file
-  const configPath = path.join(__dirname, '../config/positions.json');
-  const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Config;
   console.log('Using MintingHubGateway at:', getDeployedAddress('MintingHubGateway'));
   console.log(`Found ${config.positions.length} position(s) to deploy`);
 

@@ -1,0 +1,37 @@
+export interface PositionsConfig {
+  openingFee: string;
+  positions: {
+    name: string;
+    collateralAddress: string;
+    decimals: number;
+    minCollateral: string;
+    initialCollateral: string;
+    mintingMaximum: string;
+    initPeriodSeconds: number;
+    expirationSeconds: number;
+    challengeSeconds: number;
+    riskPremium: number;
+    liqPrice: string;
+    reservePPM: number;
+  }[];
+}
+
+export const config = {
+  openingFee: '1000',
+  positions: [
+    {
+      name: 'WETH-Position',
+      collateralAddress: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+      decimals: 18,
+      minCollateral: '5',
+      initialCollateral: '10',
+      mintingMaximum: '10000',
+      initPeriodSeconds: 259200,
+      expirationSeconds: 2592000,
+      challengeSeconds: 86400,
+      riskPremium: 50000,
+      liqPrice: '1000',
+      reservePPM: 200000,
+    },
+  ],
+};
