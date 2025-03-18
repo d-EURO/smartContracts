@@ -153,7 +153,7 @@ async function main() {
     return callTx;
   }
 
-  // 1. Deploy all contracts
+  // Deploy all contracts
   console.log('Setting up contract deployment transactions...');
 
   const decentralizedEURO = await createDeployTx('DecentralizedEURO', DecentralizedEUROArtifact, [
@@ -238,7 +238,7 @@ async function main() {
     mintingHubGateway,
   };
 
-  // 2. Setup initialization transactions
+  // Setup initialization transactions
   console.log('Setting up initialization transactions...');
 
   // Initialize FrontendGateway
@@ -272,11 +272,38 @@ async function main() {
     createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURS.address, 'StablecoinBridgeEURS']);
   }
 
-  // TODO (IMPORTANT!)
-  // 1. Mint some dEURO to close initialisation phase, e.g. bridge EURC or EURT
-  // 2. Invest 1000 dEURO in Equity to mint the initial 10_000_000 nDEPS
+  // Approve and mint 1000 dEURO through the EURC bridge to close initialization phase
+  const eurcAmount = ethers.parseUnits('1000', 6); // EURC has 6 decimals
+  createCallTx(
+    contractsParams.bridges.eurc.other, 
+    ['function approve(address spender, uint256 amount) external returns (bool)'], 
+    'approve',
+    [bridgeEURC.address, eurcAmount]
+  );
 
-  // 4. Submit the bundle to Flashbots
+  createCallTx(
+    bridgeEURC.address, 
+    StablecoinBridgeArtifact.abi, 
+    'mint',
+    [eurcAmount]
+  );
+
+  // Approve and invest 1000 dEURO in Equity to mint the initial 10_000_000 nDEPS
+  createCallTx(
+    decentralizedEURO.address, 
+    DecentralizedEUROArtifact.abi, 
+    'approve',
+    [equity.address, 1000 * 10**18] // dEURO has 18 decimals
+  );
+
+  createCallTx(
+    equity.address, 
+    ['function invest(uint256 amount, uint256 expectedShares) external returns (uint256)'], 
+    'invest',
+    [1000 * 10**18, 10_000_000 * 10**18] // Invest 1000 dEURO, expect 10,000,000 nDEPS
+  );
+
+  // Submit the bundle to Flashbots
   let bundleSubmitted = false;
   console.log(`Submitting bundle (${transactionBundle.length} TXs) to Flashbots. Target block: ${targetBlock}...`);
 
@@ -321,7 +348,7 @@ async function main() {
     process.exit(1);
   }
 
-  // 5. Save deployment metadata to file
+  // Save deployment metadata to file
   console.log('Saving deployment metadata to file...');
   const deploymentInfo = {
     network: (await provider.getNetwork()).name,
