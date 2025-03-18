@@ -1,10 +1,15 @@
 import { verifyContract, loadFileJSON } from './utils/utils';
+import dotenv from 'dotenv';
+dotenv.config();
 
-// npx hardhat doesn't support additional command line arguments
-const deploymentFile = 'scripts/deployments/deployment-1742285128378.json';
 
 async function main() {
-  const deployment = await loadFileJSON(deploymentFile);
+  if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
+    console.error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
+    process.exit(1);
+  }
+
+  const deployment = await loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
   for (const [contractName, contractData] of Object.entries(deployment.contracts)) {
     const { address, constructorArgs } = contractData as { address: string; constructorArgs: any[] };
 

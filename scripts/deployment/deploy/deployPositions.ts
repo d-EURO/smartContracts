@@ -1,9 +1,10 @@
 import { ethers } from 'hardhat';
 import { mainnet } from '../../../constants/addresses';
+import { config } from '../config/positionsConfig';
 import ERC20_ABI from '../../../abi/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json';
 import WETH9_ABI from '../../../constants/abi/Weth9.json';
-import { getDeployedAddress } from '../../../ignition/utils/addresses';
-import { config } from '../config/positionsConfig';
+import { getFlashbotDeploymentAddress } from '../../../scripts/utils/utils'; // Flashbots deployment
+// import { await getFlashbotDeploymentAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
 
 // Deploy positions
 async function main() {
@@ -18,21 +19,21 @@ async function main() {
   console.log('WETH balance:', ethers.formatEther(wethBalance));
 
   // Load config file
-  console.log('Using MintingHubGateway at:', getDeployedAddress('MintingHubGateway'));
+  console.log('Using MintingHubGateway at:', await getFlashbotDeploymentAddress('mintingHubGateway'));
   console.log(`Found ${config.positions.length} position(s) to deploy`);
 
   // Get contracts
-  const dEuro = await ethers.getContractAt('DecentralizedEURO', getDeployedAddress('DecentralizedEURO'), deployer);
+  const dEuro = await ethers.getContractAt('DecentralizedEURO', await getFlashbotDeploymentAddress('decentralizedEURO'), deployer);
   const mintingHubGateway = await ethers.getContractAt(
     'MintingHubGateway',
-    getDeployedAddress('MintingHubGateway'),
+    await getFlashbotDeploymentAddress('mintingHubGateway'),
     deployer,
   );
   const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
 
   // Before proceding, check MintingHubGateway is deployed (sanity check)
-  if ((await ethers.provider.getCode(getDeployedAddress('MintingHubGateway'))) === '0x') {
-    throw new Error(`MintingHubGateway contract not deployed at address: ${getDeployedAddress('MintingHubGateway')}`);
+  if ((await ethers.provider.getCode(await getFlashbotDeploymentAddress('mintingHubGateway'))) === '0x') {
+    throw new Error(`MintingHubGateway contract not deployed at address: ${await getFlashbotDeploymentAddress('mintingHubGateway')}`);
   }
 
   // Deploy each position
@@ -54,8 +55,8 @@ async function main() {
 
     try {
       const collateralToken = await ethers.getContractAt(ERC20_ABI, position.collateralAddress);
-      await collateralToken.approve(getDeployedAddress('MintingHubGateway'), initialCollateral);
-      await dEuro.approve(getDeployedAddress('MintingHubGateway'), openingFee);
+      await collateralToken.approve(await getFlashbotDeploymentAddress('mintingHubGateway'), initialCollateral);
+      await dEuro.approve(await getFlashbotDeploymentAddress('mintingHubGateway'), openingFee);
 
       // Open position
       const tx = await mintingHubGateway[
@@ -79,7 +80,7 @@ async function main() {
       // Connect to the position
       const receipt = await tx.wait();
       const event = receipt?.logs
-        .map((log) => mintingHubGateway.interface.parseLog(log))
+        .map((log) => mintingHubGateway.interface.parseLog({ topics: [...log.topics], data: log.data }))
         .find((parsedLog) => parsedLog?.name === 'PositionOpened');
 
       if (!event) {

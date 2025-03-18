@@ -4,8 +4,6 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { flashbotsConfig, contractsParams } from '../config/flashbotsConfig';
-
-// Import contract artifacts
 import DecentralizedEUROArtifact from '../../../artifacts/contracts/DecentralizedEURO.sol/DecentralizedEURO.json';
 import PositionFactoryArtifact from '../../../artifacts/contracts/MintingHubV2/PositionFactory.sol/PositionFactory.json';
 import PositionRollerArtifact from '../../../artifacts/contracts/MintingHubV2/PositionRoller.sol/PositionRoller.json';
@@ -17,7 +15,6 @@ import MintingHubGatewayArtifact from '../../../artifacts/contracts/gateway/Mint
 
 dotenv.config();
 
-// Define a type for our bundle transactions
 interface FlashbotsBundleTransaction {
   signedTransaction?: string;
   signer: any;
@@ -57,7 +54,7 @@ async function main() {
     throw new Error('FLASHBOTS_AUTH_KEY environment variable is required');
   }
 
-  // Setup Flashbots provider and target block
+  // Setup Flashbots provider and define target block
   const flashbotsProvider = await FlashbotsBundleProvider.create(
     provider,
     new ethers.Wallet(process.env.FLASHBOTS_AUTH_KEY),
@@ -131,7 +128,7 @@ async function main() {
     };
   }
 
-  // Track contract initialization metadata
+  // Track contract call metadata
   async function createCallTx(contractAddress: string, abi: any, functionName: string, args: any[]) {
     const contract = new ethers.Contract(contractAddress, abi, deployer);
     const data = contract.interface.encodeFunctionData(functionName, args);
@@ -275,14 +272,15 @@ async function main() {
     createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURS.address, 'StablecoinBridgeEURS']);
   }
 
-  // TODO: Mint some dEURO to close initialisation phase (IMPORTANT!)
+  // TODO (IMPORTANT!)
+  // 1. Mint some dEURO to close initialisation phase, e.g. bridge EURC or EURT
+  // 2. Invest 1000 dEURO in Equity to mint the initial 10_000_000 nDEPS
 
   // 4. Submit the bundle to Flashbots
   let bundleSubmitted = false;
   console.log(`Submitting bundle (${transactionBundle.length} TXs) to Flashbots. Target block: ${targetBlock}...`);
 
   try {
-    // Send the bundle
     const bundleResponse = await flashbotsProvider.sendBundle(transactionBundle, targetBlock);
 
     // Check if there's an error with the response
@@ -323,7 +321,7 @@ async function main() {
     process.exit(1);
   }
 
-  // 5. Save deployment info to file
+  // 5. Save deployment metadata to file
   console.log('Saving deployment metadata to file...');
   const deploymentInfo = {
     network: (await provider.getNetwork()).name,
@@ -339,8 +337,7 @@ async function main() {
 
   fs.writeFileSync(path.join(deploymentDir, `deployProtocol-${Date.now()}.json`), JSON.stringify(deploymentInfo, null, 2));
 
-  console.log('Deployment completed successfully!');
-  console.log('Deployed contract addresses:');
+  console.log('\n✅ Deployment completed successfully!');
   console.log(JSON.stringify(deployedContracts, null, 2));
 }
 

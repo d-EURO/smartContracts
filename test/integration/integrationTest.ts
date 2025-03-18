@@ -18,7 +18,31 @@ import {
 import { mainnet } from '../../constants/addresses';
 import UNISWAP_V3_ROUTER from '../../constants/abi/UniswapV3Router.json';
 import UNISWAP_V3_FACTORY from '../../constants/abi/UniswapV3Factory.json';
-import { getDeployedAddress } from '../../ignition/utils/addresses';
+import { getFlashbotDeploymentAddress } from '../../scripts/utils/utils'; // Flashbots deployment
+// import { getDeployedAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
+// TODO: Dynamically handle the deployment method or remove unused imports
+
+/**
+ ******************************************************************************
+ * Integration tests for the DecentralizedEURO protocol
+ ******************************************************************************
+ * The purpose of these tests is to ensure that the deployed DecentralizedEURO
+ * protocol contracts are setup correctly and interact as expected.
+ *
+ * This script can be applied to any network where the DecentralizedEURO protocol
+ * contracts are deployed and only requires the contract addresses to be provided.
+ *
+ * For the deployment through Flashbots, the contract addresses are fetched from
+ * the Flashbots deployment JSON file using the `getFlashbotDeploymentAddress` function.
+ * If the contracts are deployed through Hardhat Ignition, the `getDeployedAddress`
+ * function can be used to fetch the contract addresses.
+ * 
+ * How to run on a mainnet fork:
+ * > npx hardhat node --no-deploy
+ * > # Assumption: Contracts are deployed on mainnet, otherwise deploy them now
+ * > npx hardhat run scripts/integration/integrationTest.ts
+ */
+// TODO: Add above documentation to a README.md file
 
 interface Contracts {
   dEURO: DecentralizedEURO;
@@ -60,7 +84,7 @@ async function main() {
   console.log(`Running tests with account (signer): ${deployer.address}`);
 
   // Fetch deployed contract addresses
-  const contractAddresses = fetchDeployedAddresses();
+  const contractAddresses = await fetchDeployedAddresses();
   if (!contractAddresses) {
     console.error('Failed to fetch deployed contract addresses');
     process.exitCode = 1;
@@ -95,21 +119,21 @@ async function main() {
 }
 
 // Helper function to load configuration
-function fetchDeployedAddresses(): DeployedAddresses | null {
+async function fetchDeployedAddresses(): Promise<DeployedAddresses | null> {
   try {
     // Config for collateral and bridge to test
     const configPath = path.join(__dirname, './config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Config;
 
     const addresses = {
-      dEURO: getDeployedAddress('DecentralizedEURO'),
-      positionFactory: getDeployedAddress('PositionFactory'),
-      positionRoller: getDeployedAddress('PositionRoller'),
-      depsWrapper: getDeployedAddress('DEPSWrapper'),
-      frontendGateway: getDeployedAddress('FrontendGateway'),
-      mintingHubGateway: getDeployedAddress('MintingHubGateway'),
-      savingsGateway: getDeployedAddress('SavingsGateway'),
-      bridge: getDeployedAddress(config.bridge),
+      dEURO: await getFlashbotDeploymentAddress('decentralizedEURO'),
+      positionFactory: await getFlashbotDeploymentAddress('positionFactory'),
+      positionRoller: await getFlashbotDeploymentAddress('positionRoller'),
+      depsWrapper: await getFlashbotDeploymentAddress('depsWrapper'),
+      frontendGateway: await getFlashbotDeploymentAddress('frontendGateway'),
+      mintingHubGateway: await getFlashbotDeploymentAddress('mintingHubGateway'),
+      savingsGateway: await getFlashbotDeploymentAddress('savingsGateway'),
+      bridge: await getFlashbotDeploymentAddress(config.bridge),
       collateralToken: config.collateralToken,
     };
 
@@ -223,18 +247,21 @@ async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner) {
   const collateralBalanceBefore = await collateralToken.balanceOf(signer.address);
   const dEuroBalanceBefore = await contracts.dEURO.balanceOf(signer.address);
 
+  // Swap some WETH to collateral token
   if (collateralBalanceBefore < collateralFundingThreshold) {
     await fundWETH(contracts.weth, signer, wethToCollateral);
-    await contracts.weth.approve(mainnet.UNISWAP_V3_ROUTER, wethToCollateral);
-    await swapExactWETHForToken(wethToCollateral, collateralToken, contracts.swapRouter, signer);
+    if ((await collateralToken.getAddress()) !== mainnet.WETH9) {
+      await contracts.weth.approve(mainnet.UNISWAP_V3_ROUTER, wethToCollateral);
+      await swapExactWETHForToken(wethToCollateral, collateralToken, contracts.swapRouter, signer);
+    }
   }
 
+  // Swap some WETH to bridge source token
   if (dEuroBalanceBefore < dEuroFundingThreshold) {
-    // Swap to bridge source token
     await fundWETH(contracts.weth, signer, wethToBridgeSource);
     await contracts.weth.approve(mainnet.UNISWAP_V3_ROUTER, wethToBridgeSource);
     await swapExactWETHForToken(wethToBridgeSource, bridgeSourceToken, contracts.swapRouter, signer);
-    // Swap to dEURO
+    // Bridge to dEURO
     const sourceTokenBalance = await bridgeSourceToken.balanceOf(signer.address);
     if (sourceTokenBalance > 0) {
       const amountToSwap = sourceTokenBalance / 2n;
@@ -331,7 +358,7 @@ async function testPositionCreationAndMinting(contracts: Contracts, signer: Hard
   // Connect to the position
   const receipt = await tx.wait();
   const event = receipt?.logs
-    .map((log) => contracts.mintingHubGateway.interface.parseLog(log))
+    .map((log) => contracts.mintingHubGateway.interface.parseLog({ topics: [...log.topics], data: log.data }))
     .find((parsedLog) => parsedLog?.name === 'PositionOpened');
 
   if (!event) {
@@ -404,7 +431,9 @@ async function testStablecoinBridge(contracts: Contracts, signer: HardhatEthersS
 
     // Ensure we have enough source tokens for bridging
     if (bridgeSourceTokenBalanceBefore < swapAmount) {
-      console.log(`Insufficient balance of bridge source token, ${bridgeSourceTokenBalanceBefore} < ${swapAmount}. Skipping test.`);
+      console.log(
+        `Insufficient balance of bridge source token, ${bridgeSourceTokenBalanceBefore} < ${swapAmount}. Skipping test.`,
+      );
       return;
     }
 
@@ -504,7 +533,7 @@ async function testPositionRolling(contracts: Contracts, sourcePosition: Positio
   // Connect to the target position
   const receipt = await tx.wait();
   const event = receipt?.logs
-    .map((log) => contracts.mintingHubGateway.interface.parseLog(log))
+    .map((log) => contracts.mintingHubGateway.interface.parseLog({ topics: [...log.topics], data: log.data }))
     .find((parsedLog) => parsedLog?.name === 'PositionOpened');
 
   if (!event) {
