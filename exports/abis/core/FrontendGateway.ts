@@ -152,6 +152,37 @@ export const FrontendGatewayABI = [
     inputs: [
       {
         indexed: false,
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'user',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'reward',
+        type: 'uint256',
+      },
+    ],
+    name: 'InvestRewardAdded',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
         internalType: 'address',
         name: 'position',
         type: 'address',
@@ -183,6 +214,37 @@ export const FrontendGatewayABI = [
       },
     ],
     name: 'OwnershipTransferred',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'position',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'reward',
+        type: 'uint256',
+      },
+    ],
+    name: 'PositionRewardAdded',
     type: 'event',
   },
   {
@@ -251,6 +313,99 @@ export const FrontendGatewayABI = [
       },
     ],
     name: 'RateChangesProposed',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'user',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'reward',
+        type: 'uint256',
+      },
+    ],
+    name: 'RedeemRewardAdded',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'saver',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'interest',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'reward',
+        type: 'uint256',
+      },
+    ],
+    name: 'SavingsRewardAdded',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'user',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'reward',
+        type: 'uint256',
+      },
+    ],
+    name: 'UnwrapAndSellRewardAdded',
     type: 'event',
   },
   {
