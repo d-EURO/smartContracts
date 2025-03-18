@@ -1,7 +1,6 @@
 import { ethers, TransactionRequest } from 'ethers';
 import { FlashbotsBundleProvider, FlashbotsBundleResolution } from '@flashbots/ethers-provider-bundle';
 import dotenv from 'dotenv';
-import hardhat from 'hardhat';
 import fs from 'fs';
 import path from 'path';
 import { flashbotsConfig, contractsParams } from '../config/flashbotsConfig';
@@ -25,18 +24,24 @@ interface FlashbotsBundleTransaction {
   transaction: TransactionRequest;
 }
 
+interface DeployedContract {
+  address: string;
+  constructorArgs?: any[];
+}
+
 interface DeployedContracts {
-  decentralizedEURO?: string;
-  positionFactory?: string;
-  positionRoller?: string;
-  bridgeEURC?: string;
-  bridgeEURT?: string;
-  bridgeVEUR?: string;
-  bridgeEURS?: string;
-  depsWrapper?: string;
-  frontendGateway?: string;
-  savingsGateway?: string;
-  mintingHubGateway?: string;
+  decentralizedEURO: DeployedContract;
+  equity: DeployedContract;
+  positionFactory: DeployedContract;
+  positionRoller: DeployedContract;
+  bridgeEURC: DeployedContract;
+  bridgeEURT: DeployedContract;
+  bridgeVEUR: DeployedContract;
+  bridgeEURS: DeployedContract;
+  depsWrapper: DeployedContract;
+  frontendGateway: DeployedContract;
+  savingsGateway: DeployedContract;
+  mintingHubGateway: DeployedContract;
 }
 
 async function main() {
@@ -64,7 +69,7 @@ async function main() {
   console.log(`Current nonce: ${nonce}`);
 
   const transactionBundle: FlashbotsBundleTransaction[] = [];
-  
+
   // Add coinbase payment transaction if configured
   if (flashbotsConfig.coinbasePayment) {
     const block = await provider.getBlock('latest');
@@ -79,12 +84,12 @@ async function main() {
         maxPriorityFeePerGas: ethers.parseUnits(flashbotsConfig.maxPriorityFeePerGas, 'gwei'),
         nonce: nonce++,
       };
-      
+
       transactionBundle.push({
         transaction: coinbasePaymentTx,
         signer: deployer,
       });
-      
+
       console.log(`Added coinbase payment of ${flashbotsConfig.coinbasePayment} ETH to ${block.miner}`);
     } else {
       console.warn('Could not get latest block miner, skipping coinbase payment');
@@ -120,7 +125,10 @@ async function main() {
     });
 
     console.log(`${contractName} will be deployed at: ${address}`);
-    return address;
+    return {
+      address,
+      constructorArgs,
+    };
   }
 
   // Track contract initialization metadata
@@ -155,71 +163,72 @@ async function main() {
     contractsParams.decentralizedEURO.minApplicationPeriod,
   ]);
 
-  // Calculate equity address
-  const equity = ethers.getCreateAddress({
-    from: decentralizedEURO,
-    nonce: 1, // First contract created by DecentralizedEURO
-  });
-  console.log('Equity address will be deployed at: ', equity);
+  // Calculate equity address (first contract deployed internally => nonce = 1)
+  const equity = {
+    address: ethers.getCreateAddress({ from: decentralizedEURO.address, nonce: 1 }),
+    constructorArgs: [decentralizedEURO.address],
+  };
+  console.log('Equity address will be deployed at: ', equity.address);
 
   const positionFactory = await createDeployTx('PositionFactory', PositionFactoryArtifact);
 
-  const positionRoller = await createDeployTx('PositionRoller', PositionRollerArtifact, [decentralizedEURO]);
+  const positionRoller = await createDeployTx('PositionRoller', PositionRollerArtifact, [decentralizedEURO.address]);
 
-  const depsWrapper = await createDeployTx('DEPSWrapper', DEPSWrapperArtifact, [equity]);
+  const depsWrapper = await createDeployTx('DEPSWrapper', DEPSWrapperArtifact, [equity.address]);
 
   const bridgeEURC = await createDeployTx('StablecoinBridgeEURC', StablecoinBridgeArtifact, [
     contractsParams.bridges.eurc.other,
-    decentralizedEURO,
+    decentralizedEURO.address,
     contractsParams.bridges.eurc.limit,
     contractsParams.bridges.eurc.weeks,
   ]);
 
   const bridgeEURT = await createDeployTx('StablecoinBridgeEURT', StablecoinBridgeArtifact, [
     contractsParams.bridges.eurt.other,
-    decentralizedEURO,
+    decentralizedEURO.address,
     contractsParams.bridges.eurt.limit,
     contractsParams.bridges.eurt.weeks,
   ]);
 
   const bridgeVEUR = await createDeployTx('StablecoinBridgeVEUR', StablecoinBridgeArtifact, [
     contractsParams.bridges.veur.other,
-    decentralizedEURO,
+    decentralizedEURO.address,
     contractsParams.bridges.veur.limit,
     contractsParams.bridges.veur.weeks,
   ]);
 
   const bridgeEURS = await createDeployTx('StablecoinBridgeEURS', StablecoinBridgeArtifact, [
     contractsParams.bridges.eurs.other,
-    decentralizedEURO,
+    decentralizedEURO.address,
     contractsParams.bridges.eurs.limit,
     contractsParams.bridges.eurs.weeks,
   ]);
 
   // Deploy FrontendGateway
   const frontendGateway = await createDeployTx('FrontendGateway', FrontendGatewayArtifact, [
-    decentralizedEURO,
-    depsWrapper,
+    decentralizedEURO.address,
+    depsWrapper.address,
   ]);
 
   // Deploy SavingsGateway
   const savingsGateway = await createDeployTx('SavingsGateway', SavingsGatewayArtifact, [
-    decentralizedEURO,
+    decentralizedEURO.address,
     contractsParams.savingsGateway.initialRatePPM,
-    frontendGateway,
+    frontendGateway.address,
   ]);
 
   // Deploy MintingHubGateway
   const mintingHubGateway = await createDeployTx('MintingHubGateway', MintingHubGatewayArtifact, [
-    decentralizedEURO,
-    savingsGateway,
-    positionRoller,
-    positionFactory,
-    frontendGateway,
+    decentralizedEURO.address,
+    savingsGateway.address,
+    positionRoller.address,
+    positionFactory.address,
+    frontendGateway.address,
   ]);
 
   const deployedContracts: DeployedContracts = {
     decentralizedEURO,
+    equity,
     positionFactory,
     positionRoller,
     bridgeEURC,
@@ -236,98 +245,77 @@ async function main() {
   console.log('Setting up initialization transactions...');
 
   // Initialize FrontendGateway
-  createCallTx(frontendGateway, FrontendGatewayArtifact.abi, 'init', [savingsGateway, mintingHubGateway]);
+  createCallTx(frontendGateway.address, FrontendGatewayArtifact.abi, 'init', [savingsGateway.address, mintingHubGateway.address]);
 
   // Initialize minters in DecentralizedEURO
-  createCallTx(decentralizedEURO, DecentralizedEUROArtifact.abi, 'initialize', [
-    mintingHubGateway,
+  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+    mintingHubGateway.address,
     'MintingHubGateway',
   ]);
 
-  createCallTx(decentralizedEURO!, DecentralizedEUROArtifact.abi, 'initialize', [positionRoller, 'PositionRoller']);
+  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [positionRoller.address, 'PositionRoller']);
 
-  createCallTx(decentralizedEURO!, DecentralizedEUROArtifact.abi, 'initialize', [savingsGateway, 'SavingsGateway']);
+  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [savingsGateway.address, 'SavingsGateway']);
 
-  createCallTx(decentralizedEURO!, DecentralizedEUROArtifact.abi, 'initialize', [frontendGateway, 'FrontendGateway']);
+  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [frontendGateway.address, 'FrontendGateway']);
 
   if (bridgeEURC) {
-    createCallTx(decentralizedEURO!, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURC, 'StablecoinBridgeEURC']);
+    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURC.address, 'StablecoinBridgeEURC']);
   }
 
   if (bridgeEURT) {
-    createCallTx(decentralizedEURO!, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURT, 'StablecoinBridgeEURT']);
+    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURT.address, 'StablecoinBridgeEURT']);
   }
 
   if (bridgeVEUR) {
-    createCallTx(decentralizedEURO!, DecentralizedEUROArtifact.abi, 'initialize', [bridgeVEUR, 'StablecoinBridgeVEUR']);
+    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [bridgeVEUR.address, 'StablecoinBridgeVEUR']);
   }
 
   if (bridgeEURS) {
-    createCallTx(decentralizedEURO!, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURS, 'StablecoinBridgeEURS']);
+    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURS.address, 'StablecoinBridgeEURS']);
   }
 
   // TODO: Mint some dEURO to close initialisation phase (IMPORTANT!)
 
-  // 3. Submit the bundle directly to Flashbots (no need to sign separately)
-  console.log(`Preparing to submit ${transactionBundle.length} transactions...`);
-
   // 4. Submit the bundle to Flashbots
-  let retries = 0;
   let bundleSubmitted = false;
+  console.log(`Submitting bundle (${transactionBundle.length} TXs) to Flashbots. Target block: ${targetBlock}...`);
 
-  console.log(`Submitting bundle to Flashbots targeting block ${targetBlock}...`);
+  try {
+    // Send the bundle
+    const bundleResponse = await flashbotsProvider.sendBundle(transactionBundle, targetBlock);
 
-  while (retries < flashbotsConfig.maxRetries && !bundleSubmitted) {
-    try {
-      // Send the bundle
-      const bundleResponse = await flashbotsProvider.sendBundle(transactionBundle, targetBlock + retries);
-
-      // Check if there's an error with the response
-      if ('error' in bundleResponse) {
-        console.error(`Error with bundle: ${bundleResponse.error.message}`);
-        retries++;
-        console.log(`Retrying (${retries}/${flashbotsConfig.maxRetries})...`);
-        await new Promise((resolve) => setTimeout(resolve, flashbotsConfig.retryDelayMs));
-        continue;
-      }
-
-      // Simulate the bundle to check for issues
-      const signedTransactions = await flashbotsProvider.signBundle(transactionBundle);
-      const simulation = await flashbotsProvider.simulate(signedTransactions, targetBlock + retries);
-
-      if ('error' in simulation) {
-        console.error(`Simulation error: ${simulation.error.message}`);
-        retries++;
-        console.log(`Retrying (${retries}/${flashbotsConfig.maxRetries})...`);
-        await new Promise((resolve) => setTimeout(resolve, flashbotsConfig.retryDelayMs));
-        continue;
-      }
-
-      console.log(`Bundle simulated successfully. Estimated gas used: ${simulation.totalGasUsed}`);
-      console.log(`Effective gas price: ${simulation.bundleGasPrice}`);
-
-      // Wait for bundle inclusion
-      console.log(`Waiting for bundle inclusion...`);
-      const waitResponse = await bundleResponse.wait();
-
-      if (waitResponse === FlashbotsBundleResolution.BundleIncluded) {
-        console.log('Bundle was included in the target block!');
-        bundleSubmitted = true;
-      } else if (waitResponse === FlashbotsBundleResolution.BlockPassedWithoutInclusion) {
-        console.log('Bundle was not included in the target block');
-        retries++;
-        console.log(`Retrying (${retries}/${flashbotsConfig.maxRetries})...`);
-        await new Promise((resolve) => setTimeout(resolve, flashbotsConfig.retryDelayMs));
-      } else if (waitResponse === FlashbotsBundleResolution.AccountNonceTooHigh) {
-        console.error('Bundle not included - account nonce too high');
-        process.exit(1);
-      }
-    } catch (error) {
-      console.error('Error submitting Flashbots bundle:', error);
-      retries++;
-      console.log(`Retrying (${retries}/${flashbotsConfig.maxRetries}) in ${flashbotsConfig.retryDelayMs / 1000}s...`);
-      await new Promise((resolve) => setTimeout(resolve, flashbotsConfig.retryDelayMs));
+    // Check if there's an error with the response
+    if ('error' in bundleResponse) {
+      console.error(`Error with bundle: ${bundleResponse.error.message}`);
+      process.exit(1);
     }
+
+    // Simulate the bundle to check for issues
+    const signedTransactions = await flashbotsProvider.signBundle(transactionBundle);
+    const simulation = await flashbotsProvider.simulate(signedTransactions, targetBlock);
+
+    if ('error' in simulation) {
+      console.error(`Simulation error: ${simulation.error.message}`);
+      process.exit(1);
+    }
+
+    // Wait for bundle inclusion
+    console.log(`Bundle simulated successfully. Estimated gas used: ${simulation.totalGasUsed}`);
+    console.log(`Effective gas price: ${simulation.bundleGasPrice}`);
+    console.log(`Waiting for bundle inclusion...`);
+    const waitResponse = await bundleResponse.wait();
+
+    if (waitResponse === FlashbotsBundleResolution.BundleIncluded) {
+      console.log('Bundle was included in the target block!');
+      bundleSubmitted = true;
+    } else if (waitResponse === FlashbotsBundleResolution.BlockPassedWithoutInclusion) {
+      console.log('Bundle was not included in the target block');
+    } else if (waitResponse === FlashbotsBundleResolution.AccountNonceTooHigh) {
+      console.error('Bundle not included - account nonce too high');
+    }
+  } catch (error) {
+    console.error('Error submitting Flashbots bundle:', error);
   }
 
   if (!bundleSubmitted) {
@@ -336,7 +324,7 @@ async function main() {
   }
 
   // 5. Save deployment info to file
-  console.log('Saving deployment addresses...');
+  console.log('Saving deployment metadata to file...');
   const deploymentInfo = {
     network: (await provider.getNetwork()).name,
     blockNumber: targetBlock,
@@ -344,12 +332,12 @@ async function main() {
     contracts: deployedContracts,
   };
 
-  const deploymentDir = path.join(__dirname, '../../deployments/flashbots');
+  const deploymentDir = path.join(__dirname, '../../deployments');
   if (!fs.existsSync(deploymentDir)) {
     fs.mkdirSync(deploymentDir, { recursive: true });
   }
 
-  fs.writeFileSync(path.join(deploymentDir, `deployment-${Date.now()}.json`), JSON.stringify(deploymentInfo, null, 2));
+  fs.writeFileSync(path.join(deploymentDir, `deployProtocol-${Date.now()}.json`), JSON.stringify(deploymentInfo, null, 2));
 
   console.log('Deployment completed successfully!');
   console.log('Deployed contract addresses:');

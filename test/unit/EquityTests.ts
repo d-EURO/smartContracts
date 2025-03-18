@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { floatToDec, floatToDec18 } from "../../scripts/math";
+import { floatToDec, floatToDec18 } from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import { evm_increaseTime, evm_mineBlocks } from "../utils";
 import {

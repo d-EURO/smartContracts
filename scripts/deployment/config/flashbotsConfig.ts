@@ -4,9 +4,9 @@ export interface FlashbotsConfig {
   contractDeploymentGasLimit: string;
   contractCallGasLimit: string;
   targetBlockOffset: number;
-  maxRetries: number;
-  retryDelayMs: number;
   coinbasePayment?: string; // in ETH
+  maxRetries?: number;
+  retryDelayMs?: number;
 }
 
 export interface StablecoinBridgeParams {
@@ -37,9 +37,7 @@ export const flashbotsConfig: FlashbotsConfig = {
   contractDeploymentGasLimit: '8000000',
   contractCallGasLimit: '500000',
   targetBlockOffset: 1,
-  maxRetries: 5,
-  retryDelayMs: 15000,
-  coinbasePayment: '0.05',  // Pay miners 0.05 ETH to include your bundle
+  coinbasePayment: '0.025',  // Pay miners 0.025 ETH to include your bundle
 };
 
 export const contractsParams = {

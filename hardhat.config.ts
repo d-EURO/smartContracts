@@ -42,17 +42,7 @@ const config: HardhatUserConfig = {
         url: `https://eth-mainnet.g.alchemy.com/v2/${alchemy}`,
       },
       chainId: 1,
-      mining: {
-        auto: false,
-        interval: 0
-      }
     } : {},
-    localhost: {
-      url: "http://127.0.0.1:8545",
-      chainId: 1,  // Same as mainnet to ensure compatibility with Flashbots
-      accounts: [deployerPk],
-      timeout: 120_000,
-    },
     mainnet: {
       url: `https://eth-mainnet.g.alchemy.com/v2/${alchemy}`,
       chainId: 1,

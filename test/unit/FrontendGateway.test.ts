@@ -10,7 +10,7 @@ import {
   StablecoinBridge,
   TestToken,
 } from '../../typechain';
-import { dec18ToFloat, floatToDec18 } from '../../scripts/math';
+import { dec18ToFloat, floatToDec18 } from '../../scripts/utils/math';
 import { evm_increaseTime } from '../utils';
 
 describe('FrontendGateway Tests', () => {

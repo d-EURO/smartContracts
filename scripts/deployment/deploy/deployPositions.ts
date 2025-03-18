@@ -89,7 +89,7 @@ async function main() {
       const positionAddress = event.args.position || event.args[1];
       console.log(`✓ Opened new position: ${positionAddress}`);
     } catch (error) {
-      console.error(`Error deploying position ${position.name}:`, error);
+      console.error(`✗ Error deploying position ${position.name}:`, error);
     }
   }
 

@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { floatToDec18, abs } from "../../scripts/math";
+import { floatToDec18, abs } from "../../scripts/utils/math";
 import { TestMathUtil } from "../../typechain";
 import { ethers } from "hardhat";
 
