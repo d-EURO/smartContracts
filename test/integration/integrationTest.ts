@@ -36,7 +36,7 @@ import { getFlashbotDeploymentAddress } from '../../scripts/utils/utils'; // Fla
  * the Flashbots deployment JSON file using the `getFlashbotDeploymentAddress` function.
  * If the contracts are deployed through Hardhat Ignition, the `getDeployedAddress`
  * function can be used to fetch the contract addresses.
- * 
+ *
  * How to run on a mainnet fork:
  * > npx hardhat node --no-deploy
  * > # Assumption: Contracts are deployed on mainnet, otherwise deploy them now
@@ -98,14 +98,16 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-
-  // Ensure signer has enough collateral and dEURO for testing
-  await fundSigner(contracts, deployer);
-
+  
   // Run all integration tests
   try {
+    // Contract configuration and initialization tests
     await testProtocolInitialization(contracts);
     await testContractConfigurations(contracts);
+    
+    // Fund signer with collateral and dEURO for remaining tests
+    await fundSigner(contracts, deployer);
+    
     const position = await testPositionCreationAndMinting(contracts, deployer);
     await testSavingsInterestAccrual(contracts, deployer);
     await testStablecoinBridge(contracts, deployer);
@@ -140,7 +142,7 @@ async function fetchDeployedAddresses(): Promise<DeployedAddresses | null> {
       collateralToken: config.collateralToken,
     };
 
-    console.log('✓ Fetched deployed contract addresses')
+    console.log('✓ Fetched deployed contract addresses');
     console.log(addresses);
     return addresses;
   } catch (error) {
@@ -152,9 +154,8 @@ async function fetchDeployedAddresses(): Promise<DeployedAddresses | null> {
 // Connect to all contracts in the ecosystem
 async function connectToContracts(config: DeployedAddresses, signer: HardhatEthersSigner): Promise<Contracts | null> {
   console.log('\nConnecting to deployed contracts...');
-  
-  try {
 
+  try {
     // Core contracts
     const dEURO = await ethers.getContractAt('DecentralizedEURO', config.dEURO, signer);
     const equity = await ethers.getContractAt('Equity', await dEURO.reserve(), signer);
@@ -239,7 +240,7 @@ async function swapExactWETHForToken(amountIn: bigint, tokenOut: ERC20, swapRout
 }
 
 async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner) {
-  console.log('\nSetting up signer\'s token balances for testing...');
+  console.log("\nSetting up signer's token balances for testing...");
 
   const collateralToken = contracts.collateralToken;
   const bridgeSourceToken = contracts.bridgeSource;
@@ -292,14 +293,14 @@ async function testProtocolInitialization(contracts: Contracts) {
   // Test FrontendGateway initialization
   const savingsAddress = await contracts.frontendGateway.SAVINGS();
   assertTest(
-    savingsAddress === await contracts.savingsGateway.getAddress(),
+    savingsAddress === (await contracts.savingsGateway.getAddress()),
     'FrontendGateway initialized with correct SAVINGS address',
     savingsAddress,
   );
 
   const mintingHubAddress = await contracts.frontendGateway.MINTING_HUB();
   assertTest(
-    mintingHubAddress === await contracts.mintingHubGateway.getAddress(),
+    mintingHubAddress === (await contracts.mintingHubGateway.getAddress()),
     'FrontendGateway initialized with correct MINTING_HUB address',
     mintingHubAddress,
   );
@@ -330,18 +331,24 @@ async function testProtocolInitialization(contracts: Contracts) {
   // Verify initial dEURO and nDEPS mint
   // Refer to scripts/deployment/deploy/depoyProtocol.ts for mint amounts
   const equityBalance = await contracts.dEURO.balanceOf(await contracts.equity.getAddress());
-  assertTest(
-    equityBalance >= ethers.parseEther('1000'),
-    'Equity balance has at least 1000 dEURO',
-    equityBalance,
-  );
-  
+  assertTest(equityBalance >= ethers.parseEther('1000'), 'Equity balance has at least 1000 dEURO', equityBalance);
+
   const equitySupply = await contracts.equity.totalSupply();
   assertTest(
     equitySupply == ethers.parseEther('10000000'),
     'Equity has initial nDEPS supply of 10,000,000',
     equitySupply,
   );
+
+  // Test that DecentralizedEURO.initialize reverts
+  const testMinter = ethers.Wallet.createRandom().address;
+  await assertRevert(
+    async () => contracts.dEURO.initialize(testMinter, 'Test Minter'),
+    'DecentralizedEURO.initialize reverts after deployment',
+  );
+
+  const testMinterIsMinter = await contracts.dEURO.isMinter(testMinter);
+  assertTest(!testMinterIsMinter, 'Test minter is not a minter', testMinterIsMinter);
 }
 
 // Test contract configurations
@@ -622,14 +629,45 @@ async function testPositionRolling(contracts: Contracts, sourcePosition: Positio
   assertTest(targetDebtAfter >= sourceDebtBefore, 'Debt transferred to target', targetDebtAfter);
 }
 
-/// Helper functions
-
+/**
+ * Helper function to assert a test condition
+ * @param condition The condition to check
+ * @param testName The name of the test
+ * @param actual The "actual" value to display if the test fails
+ */
 function assertTest(condition: boolean, testName: string, actual: any) {
   if (condition) {
     console.log(`✓ ${testName}`);
   } else {
     console.error(`\x1b[31m✗ ${testName} - Failed with value: ${actual}\x1b[0m`); // Red color
     // throw new Error(`Test failed: ${testName}`);
+  }
+}
+
+/**
+ * Helper function to assert that a function call reverts
+ * @param func The async function to call that should revert
+ * @param testName The name of the test
+ * @param expectedErrorMessage Optional error message to check for (partial match)
+ */
+async function assertRevert(func: () => Promise<any>, testName: string, expectedErrorMessage?: string) {
+  try {
+    await func();
+    console.error(`\x1b[31m✗ ${testName} - Function did not revert as expected\x1b[0m`);
+    // throw new Error(`Test failed: ${testName} - Function did not revert as expected`);
+  } catch (error: any) {
+    if (expectedErrorMessage) {
+      const errorMessage = error.message || String(error);
+      const hasExpectedMessage = errorMessage.includes(expectedErrorMessage);
+      if (hasExpectedMessage) {
+        console.log(`✓ ${testName} - Reverted with expected message: "${expectedErrorMessage}"`);
+      } else {
+        console.error(`\x1b[31m✗ ${testName} - Reverted but with unexpected message: "${errorMessage}"\x1b[0m`);
+        // throw new Error(`Test failed: ${testName} - Reverted with wrong message: ${errorMessage}`);
+      }
+    } else {
+      console.log(`✓ ${testName} - Reverted as expected`);
+    }
   }
 }
 
