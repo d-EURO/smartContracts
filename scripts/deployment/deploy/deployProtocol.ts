@@ -242,7 +242,10 @@ async function main() {
   console.log('Setting up initialization transactions...');
 
   // Initialize FrontendGateway
-  createCallTx(frontendGateway.address, FrontendGatewayArtifact.abi, 'init', [savingsGateway.address, mintingHubGateway.address]);
+  createCallTx(frontendGateway.address, FrontendGatewayArtifact.abi, 'init', [
+    savingsGateway.address,
+    mintingHubGateway.address,
+  ]);
 
   // Initialize minters in DecentralizedEURO
   createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
@@ -250,57 +253,73 @@ async function main() {
     'MintingHubGateway',
   ]);
 
-  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [positionRoller.address, 'PositionRoller']);
+  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+    positionRoller.address,
+    'PositionRoller',
+  ]);
 
-  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [savingsGateway.address, 'SavingsGateway']);
+  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+    savingsGateway.address,
+    'SavingsGateway',
+  ]);
 
-  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [frontendGateway.address, 'FrontendGateway']);
+  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+    frontendGateway.address,
+    'FrontendGateway',
+  ]);
 
   if (bridgeEURC) {
-    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURC.address, 'StablecoinBridgeEURC']);
+    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+      bridgeEURC.address,
+      'StablecoinBridgeEURC',
+    ]);
   }
 
   if (bridgeEURT) {
-    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURT.address, 'StablecoinBridgeEURT']);
+    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+      bridgeEURT.address,
+      'StablecoinBridgeEURT',
+    ]);
   }
 
   if (bridgeVEUR) {
-    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [bridgeVEUR.address, 'StablecoinBridgeVEUR']);
+    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+      bridgeVEUR.address,
+      'StablecoinBridgeVEUR',
+    ]);
   }
 
   if (bridgeEURS) {
-    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [bridgeEURS.address, 'StablecoinBridgeEURS']);
+    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+      bridgeEURS.address,
+      'StablecoinBridgeEURS',
+    ]);
   }
 
   // Approve and mint 1000 dEURO through the EURC bridge to close initialization phase
   const eurcAmount = ethers.parseUnits('1000', 6); // EURC has 6 decimals
   createCallTx(
-    contractsParams.bridges.eurc.other, 
-    ['function approve(address spender, uint256 amount) external returns (bool)'], 
+    contractsParams.bridges.eurc.other,
+    ['function approve(address spender, uint256 amount) external returns (bool)'],
     'approve',
-    [bridgeEURC.address, eurcAmount]
+    [bridgeEURC.address, eurcAmount],
   );
 
-  createCallTx(
-    bridgeEURC.address, 
-    StablecoinBridgeArtifact.abi, 
-    'mint',
-    [eurcAmount]
-  );
+  createCallTx(bridgeEURC.address, StablecoinBridgeArtifact.abi, 'mint', [eurcAmount]);
 
   // Approve and invest 1000 dEURO in Equity to mint the initial 10_000_000 nDEPS
   createCallTx(
-    decentralizedEURO.address, 
-    DecentralizedEUROArtifact.abi, 
+    decentralizedEURO.address,
+    DecentralizedEUROArtifact.abi,
     'approve',
-    [equity.address, 1000 * 10**18] // dEURO has 18 decimals
+    [equity.address, 1000 * 10 ** 18], // dEURO has 18 decimals
   );
 
   createCallTx(
-    equity.address, 
-    ['function invest(uint256 amount, uint256 expectedShares) external returns (uint256)'], 
+    equity.address,
+    ['function invest(uint256 amount, uint256 expectedShares) external returns (uint256)'],
     'invest',
-    [1000 * 10**18, 10_000_000 * 10**18] // Invest 1000 dEURO, expect 10,000,000 nDEPS
+    [1000 * 10 ** 18, 10_000_000 * 10 ** 18], // Invest 1000 dEURO, expect 10,000,000 nDEPS
   );
 
   // Submit the bundle to Flashbots
@@ -355,6 +374,7 @@ async function main() {
     blockNumber: targetBlock,
     deployer: deployer.address,
     contracts: deployedContracts,
+    timestamp: Date.now(),
   };
 
   const deploymentDir = path.join(__dirname, '../../deployments');
@@ -362,7 +382,10 @@ async function main() {
     fs.mkdirSync(deploymentDir, { recursive: true });
   }
 
-  fs.writeFileSync(path.join(deploymentDir, `deployProtocol-${Date.now()}.json`), JSON.stringify(deploymentInfo, null, 2));
+  fs.writeFileSync(
+    path.join(deploymentDir, `deployProtocol-${Date.now()}.json`),
+    JSON.stringify(deploymentInfo, null, 2),
+  );
 
   console.log('\n✅ Deployment completed successfully!');
   console.log(JSON.stringify(deployedContracts, null, 2));

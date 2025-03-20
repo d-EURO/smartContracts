@@ -5,6 +5,27 @@ import ERC20_ABI from '../../../abi/@openzeppelin/contracts/token/ERC20/ERC20.so
 import WETH9_ABI from '../../../constants/abi/Weth9.json';
 import { getFlashbotDeploymentAddress } from '../../../scripts/utils/utils'; // Flashbots deployment
 // import { await getFlashbotDeploymentAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
+import fs from 'fs';
+import path from 'path';
+
+interface DeployedPosition {
+  name: string;
+  address: string;
+  collateralAddress: string;
+  parameters: {
+    minCollateral: string;
+    initialCollateral: string;
+    liqPrice: string;
+    mintingMaximum: string;
+    initPeriodSeconds: number;
+    expirationTime: number;
+    challengeSeconds: number;
+    riskPremium: number;
+    reservePPM: number;
+    frontendCode: string;
+  };
+  txHash: string;
+}
 
 // Deploy positions
 async function main() {
@@ -23,7 +44,11 @@ async function main() {
   console.log(`Found ${config.positions.length} position(s) to deploy`);
 
   // Get contracts
-  const dEuro = await ethers.getContractAt('DecentralizedEURO', await getFlashbotDeploymentAddress('decentralizedEURO'), deployer);
+  const dEuro = await ethers.getContractAt(
+    'DecentralizedEURO',
+    await getFlashbotDeploymentAddress('decentralizedEURO'),
+    deployer,
+  );
   const mintingHubGateway = await ethers.getContractAt(
     'MintingHubGateway',
     await getFlashbotDeploymentAddress('mintingHubGateway'),
@@ -33,8 +58,13 @@ async function main() {
 
   // Before proceding, check MintingHubGateway is deployed (sanity check)
   if ((await ethers.provider.getCode(await getFlashbotDeploymentAddress('mintingHubGateway'))) === '0x') {
-    throw new Error(`MintingHubGateway contract not deployed at address: ${await getFlashbotDeploymentAddress('mintingHubGateway')}`);
+    throw new Error(
+      `MintingHubGateway contract not deployed at address: ${await getFlashbotDeploymentAddress('mintingHubGateway')}`,
+    );
   }
+
+  // Store deployed positions data
+  const deployedPositions: DeployedPosition[] = [];
 
   // Deploy each position
   for (const position of config.positions) {
@@ -72,7 +102,7 @@ async function main() {
         position.riskPremium,
         liqPrice,
         position.reservePPM,
-        ethers.ZeroHash, // empty frontend code
+        position.frontendCode ?? ethers.ZeroHash,
       );
 
       console.log(`TX hash: ${tx.hash}`);
@@ -89,9 +119,52 @@ async function main() {
 
       const positionAddress = event.args.position || event.args[1];
       console.log(`✓ Opened new position: ${positionAddress}`);
+
+      // Store position data for metadata
+      deployedPositions.push({
+        name: position.name,
+        address: positionAddress,
+        collateralAddress: position.collateralAddress,
+        parameters: {
+          minCollateral: minCollateral.toString(),
+          initialCollateral: initialCollateral.toString(),
+          liqPrice: liqPrice.toString(),
+          mintingMaximum: mintingMaximum.toString(),
+          initPeriodSeconds: position.initPeriodSeconds,
+          expirationTime: expirationTime,
+          challengeSeconds: position.challengeSeconds,
+          riskPremium: position.riskPremium,
+          reservePPM: position.reservePPM,
+          frontendCode: position.frontendCode ?? ethers.ZeroHash,
+        },
+        txHash: tx.hash,
+      });
     } catch (error) {
       console.error(`✗ Error deploying position ${position.name}:`, error);
     }
+  }
+
+  // Save deployment metadata to file
+  if (deployedPositions.length > 0) {
+    console.log('\nSaving position deployment metadata to file...');
+    const deploymentInfo = {
+      network: (await ethers.provider.getNetwork()).name,
+      blockNumber: await ethers.provider.getBlockNumber(),
+      deployer: deployer.address,
+      positions: deployedPositions,
+      timestamp: Date.now(),
+    };
+
+    const deploymentDir = path.join(__dirname, '../../deployments');
+    if (!fs.existsSync(deploymentDir)) {
+      fs.mkdirSync(deploymentDir, { recursive: true });
+    }
+
+    fs.writeFileSync(
+      path.join(deploymentDir, `deployPositions-${Date.now()}.json`),
+      JSON.stringify(deploymentInfo, null, 2),
+    );
+    console.log(`Metadata saved to: ${path.join(deploymentDir, `deployPositions-${Date.now()}.json`)}`);
   }
 
   console.log('\n✅ Position deployment completed');
