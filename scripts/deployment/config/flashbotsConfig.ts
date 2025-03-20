@@ -37,7 +37,7 @@ export const flashbotsConfig: FlashbotsConfig = {
   contractDeploymentGasLimit: '8000000',
   contractCallGasLimit: '500000',
   targetBlockOffset: 1,
-  coinbasePayment: '0.025',  // Pay miners 0.025 ETH to include your bundle
+  coinbasePayment: '0.05',  // Pay miners 0.05 ETH to include the bundle
 };
 
 export const contractsParams = {
@@ -50,25 +50,25 @@ export const contractsParams = {
   bridges: {
     eurt: {
       other: '0xc581b735a1688071a1746c968e0798d642ede491',
-      limit: '50000000000000000000000000',
-      weeks: 30,
+      limit: '1000000000000000000000000',
+      weeks: 2,
       applicationMsg: 'EURT Bridge',
     },
     eurc: {
       other: '0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c',
-      limit: '50000000000000000000000000',
+      limit: '1000000000000000000000000',
       weeks: 30,
       applicationMsg: 'EURC Bridge',
     },
     veur: {
       other: '0x6ba75d640bebfe5da1197bb5a2aff3327789b5d3',
-      limit: '50000000000000000000000000',
+      limit: '1000000000000000000000000',
       weeks: 30,
       applicationMsg: 'VEUR Bridge',
     },
     eurs: {
       other: '0xdb25f211ab05b1c97d595516f45794528a807ad8',
-      limit: '50000000000000000000000000',
+      limit: '1000000000000000000000000',
       weeks: 30,
       applicationMsg: 'EURS Bridge',
     },

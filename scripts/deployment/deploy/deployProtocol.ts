@@ -308,18 +308,21 @@ async function main() {
   createCallTx(bridgeEURC.address, StablecoinBridgeArtifact.abi, 'mint', [eurcAmount]);
 
   // Approve and invest 1000 dEURO in Equity to mint the initial 10_000_000 nDEPS
+  const deuroInvestAmount = ethers.parseUnits('1000', 18); // dEURO has 18 decimals
+  const expectedShares = ethers.parseUnits('10000000', 18); // nDEPS has 18 decimals
+  
   createCallTx(
     decentralizedEURO.address,
     DecentralizedEUROArtifact.abi,
     'approve',
-    [equity.address, 1000 * 10 ** 18], // dEURO has 18 decimals
+    [equity.address, deuroInvestAmount],
   );
 
   createCallTx(
     equity.address,
     ['function invest(uint256 amount, uint256 expectedShares) external returns (uint256)'],
     'invest',
-    [1000 * 10 ** 18, 10_000_000 * 10 ** 18], // Invest 1000 dEURO, expect 10,000,000 nDEPS
+    [deuroInvestAmount, expectedShares],
   );
 
   // Submit the bundle to Flashbots
@@ -363,7 +366,7 @@ async function main() {
   }
 
   if (!bundleSubmitted) {
-    console.error('Failed to submit bundle after maximum retries');
+    console.error('Failed to submit bundle. Exiting...');
     process.exit(1);
   }
 
