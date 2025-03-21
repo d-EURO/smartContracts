@@ -1,8 +1,6 @@
 import { ethers } from 'hardhat';
-import { mainnet } from '../../../constants/addresses';
 import { config } from '../config/positionsConfig';
 import ERC20_ABI from '../../../abi/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json';
-import WETH9_ABI from '../../../constants/abi/Weth9.json';
 import { getFlashbotDeploymentAddress } from '../../../scripts/utils/utils'; // Flashbots deployment
 // import { await getFlashbotDeploymentAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
 import fs from 'fs';
@@ -32,35 +30,20 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log('Deploying positions with account:', deployer.address);
 
-  // Get some WETH (for testing WETH collateral, if no collateral is provided)
-  // const wethAddress = mainnet.WETH9;
-  // const weth = new ethers.Contract(wethAddress, WETH9_ABI, deployer);
-  // await weth.deposit({ value: ethers.parseEther('10') });
-  // const wethBalance = await weth.balanceOf(deployer.address);
-  // console.log('WETH balance:', ethers.formatEther(wethBalance));
-
   // Load config file
-  console.log('Using MintingHubGateway at:', await getFlashbotDeploymentAddress('mintingHubGateway'));
+  const mintingHubGatewayAddress = await getFlashbotDeploymentAddress('mintingHubGateway');
+  const dEuroAddress = await getFlashbotDeploymentAddress('decentralizedEURO');
+  const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
+  console.log('Using MintingHubGateway at:', mintingHubGatewayAddress);
   console.log(`Found ${config.positions.length} position(s) to deploy`);
 
   // Get contracts
-  const dEuro = await ethers.getContractAt(
-    'DecentralizedEURO',
-    await getFlashbotDeploymentAddress('decentralizedEURO'),
-    deployer,
-  );
-  const mintingHubGateway = await ethers.getContractAt(
-    'MintingHubGateway',
-    await getFlashbotDeploymentAddress('mintingHubGateway'),
-    deployer,
-  );
-  const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
+  const dEuro = await ethers.getContractAt('DecentralizedEURO', dEuroAddress, deployer);
+  const mintingHubGateway = await ethers.getContractAt('MintingHubGateway', mintingHubGatewayAddress, deployer);
 
   // Before proceding, check MintingHubGateway is deployed (sanity check)
-  if ((await ethers.provider.getCode(await getFlashbotDeploymentAddress('mintingHubGateway'))) === '0x') {
-    throw new Error(
-      `MintingHubGateway contract not deployed at address: ${await getFlashbotDeploymentAddress('mintingHubGateway')}`,
-    );
+  if ((await ethers.provider.getCode(mintingHubGatewayAddress)) === '0x') {
+    throw new Error(`MintingHubGateway contract not deployed at address: ${mintingHubGatewayAddress}`);
   }
 
   // Store deployed positions data
@@ -70,22 +53,21 @@ async function main() {
   for (const position of config.positions) {
     console.log(`\nDeploying position: ${position.name}`);
 
-    // Position parameters
-    const minCollateral = ethers.parseUnits(position.minCollateral, position.decimals);
-    const initialCollateral = ethers.parseUnits(position.initialCollateral, position.decimals);
-    const liqPrice = ethers.parseUnits(position.liqPrice, 36 - position.decimals); // price has (36 - collateral decimals) decimals
-    const mintingMaximum = ethers.parseEther(position.mintingMaximum); // dEURO has 18 decimals
-    console.log(`- Collateral: ${position.collateralAddress}`);
-    console.log(`- Min Collateral: ${position.minCollateral} (${minCollateral})`);
-    console.log(`- Initial Collateral: ${position.initialCollateral} (${initialCollateral})`);
-    console.log(`- Liq Price: ${position.liqPrice} (${liqPrice})`);
-    console.log(`- Minting Maximum: ${position.mintingMaximum} dEURO`);
-    console.log(`- Expiration: ${new Date(Date.now() + position.expirationSeconds * 1000).toISOString()}`);
-
     try {
-      // Approve tokens
       const collateralToken = await ethers.getContractAt(ERC20_ABI, position.collateralAddress);
-      const mintingHubGatewayAddress = await getFlashbotDeploymentAddress('mintingHubGateway');
+      const collateralDecimals = await collateralToken.decimals();
+
+      // Position parameters
+      const minCollateral = ethers.parseUnits(position.minCollateral, collateralDecimals);
+      const initialCollateral = ethers.parseUnits(position.initialCollateral, collateralDecimals);
+      const liqPrice = ethers.parseUnits(position.liqPrice, 36n - collateralDecimals); // price has (36 - collateral decimals) decimals
+      const mintingMaximum = ethers.parseEther(position.mintingMaximum); // dEURO has 18 decimals
+      console.log(`- Collateral: ${position.collateralAddress}`);
+      console.log(`- Min Collateral: ${position.minCollateral} (${minCollateral})`);
+      console.log(`- Initial Collateral: ${position.initialCollateral} (${initialCollateral})`);
+      console.log(`- Liq Price: ${position.liqPrice} (${liqPrice})`);
+      console.log(`- Minting Maximum: ${position.mintingMaximum} dEURO`);
+      console.log(`- Expiration: ${new Date(Date.now() + position.expirationSeconds * 1000).toISOString()}`);
 
       // Collateral
       const currentCollateralAllowance = await collateralToken.allowance(deployer.address, mintingHubGatewayAddress);

@@ -3,7 +3,6 @@ export interface PositionsConfig {
   positions: {
     name: string;
     collateralAddress: string;
-    decimals: number;
     minCollateral: string;
     initialCollateral: string;
     mintingMaximum: string;
@@ -23,7 +22,6 @@ export const config: PositionsConfig = {
     {
       name: 'LsETH-Position',
       collateralAddress: '0x8c1BEd5b9a0928467c9B1341Da1D7BD5e10b6549',
-      decimals: 18,
       minCollateral: '4', // ETH
       initialCollateral: '4', // ETH
       mintingMaximum: '200000', // EUR
@@ -37,7 +35,6 @@ export const config: PositionsConfig = {
     {
       name: 'WETH-Position',
       collateralAddress: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-      decimals: 18,
       minCollateral: '4', // ETH
       initialCollateral: '4', // ETH
       mintingMaximum: '200000', // EUR
@@ -51,7 +48,6 @@ export const config: PositionsConfig = {
     {
       name: 'WBTC-Position',
       collateralAddress: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
-      decimals: 8,
       minCollateral: '0.1', // BTC
       initialCollateral: '0.1', // BTC
       mintingMaximum: '2000000', // EUR
@@ -65,7 +61,6 @@ export const config: PositionsConfig = {
     {
       name: 'cbBTC-Position',
       collateralAddress: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf',
-      decimals: 8,
       minCollateral: '0.1', // BTC
       initialCollateral: '0.1', // BTC
       mintingMaximum: '200000', // EUR
@@ -79,7 +74,6 @@ export const config: PositionsConfig = {
     {
       name: 'kBTC-Position',
       collateralAddress: '0x73E0C0d45E048D25Fc26Fa3159b0aA04BfA4Db98',
-      decimals: 8,
       minCollateral: '0.1', // BTC
       initialCollateral: '0.1', // BTC
       mintingMaximum: '200000', // EUR
@@ -93,7 +87,6 @@ export const config: PositionsConfig = {
     // {
     //   name: 'USDT-Position', // Fails with "contract call run out of gas"
     //   collateralAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
-    //   decimals: 6,
     //   minCollateral: '6250', // USDT
     //   initialCollateral: '6250', // USDT
     //   mintingMaximum: '200000', // EUR
@@ -107,7 +100,6 @@ export const config: PositionsConfig = {
     {
       name: 'USDC-Position',
       collateralAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
-      decimals: 6,
       minCollateral: '6250', // USDC
       initialCollateral: '6250', // USDC
       mintingMaximum: '200000', // EUR
@@ -121,7 +113,6 @@ export const config: PositionsConfig = {
     // {
     //   name: 'LINK-Position', // Fails with "contract call run out of gas"
     //   collateralAddress: '0x514910771AF9Ca656af840dff83E8264EcF986CA',
-    //   decimals: 18,
     //   minCollateral: '500', // LINK
     //   initialCollateral: '500', // LINK
     //   mintingMaximum: '200000', // EUR
@@ -135,7 +126,6 @@ export const config: PositionsConfig = {
     {
       name: 'UNI-Position',
       collateralAddress: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
-      decimals: 18,
       minCollateral: '1250', // UNI
       initialCollateral: '1250', // UNI
       mintingMaximum: '200000', // EUR
@@ -149,7 +139,6 @@ export const config: PositionsConfig = {
     {
       name: 'DAI-Position',
       collateralAddress: '0x6B175474E89094C44Da98b954EedeAC495271d0F',
-      decimals: 18,
       minCollateral: '6250', // DAI
       initialCollateral: '6250', // DAI
       mintingMaximum: '200000', // EUR
@@ -163,7 +152,6 @@ export const config: PositionsConfig = {
     {
       name: 'XAUt-Position',
       collateralAddress: '0x68749665FF8D2d112Fa859AA293F07A622782F38',
-      decimals: 6,
       minCollateral: '2.5', // XAUt
       initialCollateral: '2.5', // XAUt
       mintingMaximum: '200000', // EUR
@@ -177,7 +165,6 @@ export const config: PositionsConfig = {
     {
       name: 'ZCHF-Position',
       collateralAddress: '0xB58E61C3098d85632Df34EecfB899A1Ed80921cB',
-      decimals: 18,
       minCollateral: '5000', // ZCHF
       initialCollateral: '5000', // ZCHF
       mintingMaximum: '200000', // EUR
@@ -191,7 +178,6 @@ export const config: PositionsConfig = {
     {
       name: 'WFPS-Position',
       collateralAddress: '0x5052D3Cc819f53116641e89b96Ff4cD1EE80B182',
-      decimals: 0,
       minCollateral: '4', // WFPS
       initialCollateral: '4', // WFPS
       mintingMaximum: '1000000', // EUR
@@ -205,7 +191,6 @@ export const config: PositionsConfig = {
     {
       name: 'DEPS-Position',
       collateralAddress: '0x103747924E74708139a9400e4Ab4BEA79FFFA380',
-      decimals: 18,
       minCollateral: '50000', // DEPS
       initialCollateral: '50000', // DEPS
       mintingMaximum: '1000000', // EUR
