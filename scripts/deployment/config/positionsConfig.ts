@@ -13,6 +13,7 @@ export interface PositionsConfig {
     liqPrice: string;
     reservePPM: number;
     frontendCode?: string;
+    deploy?: boolean;
   }[];
 }
 
@@ -31,6 +32,7 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 50000, // 5%
       liqPrice: '1250', // EUR
       reservePPM: 200000, // 20%
+      deploy: false,
     },
     {
       name: 'WETH-Position',
@@ -44,6 +46,7 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 50000, // 5%
       liqPrice: '1250', // EUR
       reservePPM: 200000, // 20%
+      deploy: false,
     },
     {
       name: 'WBTC-Position',
@@ -57,6 +60,7 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 20000, // 2%
       liqPrice: '60000', // EUR
       reservePPM: 100000, // 10%
+      deploy: false,
     },
     {
       name: 'cbBTC-Position',
@@ -70,6 +74,7 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 20000, // 2%
       liqPrice: '60000', // EUR
       reservePPM: 100000, // 10%
+      deploy: false,
     },
     {
       name: 'kBTC-Position',
@@ -83,20 +88,22 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 20000, // 2%
       liqPrice: '60000', // EUR
       reservePPM: 100000, // 10%
+      deploy: false,
     },
-    // {
-    //   name: 'USDT-Position', // Fails with "contract call run out of gas"
-    //   collateralAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
-    //   minCollateral: '6250', // USDT
-    //   initialCollateral: '6250', // USDT
-    //   mintingMaximum: '200000', // EUR
-    //   initPeriodSeconds: 259200, // 3 days
-    //   expirationSeconds: 15552000, // 180 days
-    //   challengeSeconds: 172800, // 2 days
-    //   riskPremiumPPM: 20000, // 2%
-    //   liqPrice: '0.8', // EUR
-    //   reservePPM: 100000, // 10%
-    // },
+    {
+      name: 'USDT-Position', 
+      collateralAddress: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
+      minCollateral: '6250', // USDT
+      initialCollateral: '6250', // USDT
+      mintingMaximum: '200000', // EUR
+      initPeriodSeconds: 259200, // 3 days
+      expirationSeconds: 15552000, // 180 days
+      challengeSeconds: 172800, // 2 days
+      riskPremiumPPM: 20000, // 2%
+      liqPrice: '0.8', // EUR
+      reservePPM: 100000, // 10%
+      deploy: false, // Fails with "contract call run out of gas"
+    },
     {
       name: 'USDC-Position',
       collateralAddress: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
@@ -109,20 +116,22 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 20000, // 2%
       liqPrice: '0.8', // EUR
       reservePPM: 100000, // 10%
+      deploy: false,
     },
-    // {
-    //   name: 'LINK-Position', // Fails with "contract call run out of gas"
-    //   collateralAddress: '0x514910771AF9Ca656af840dff83E8264EcF986CA',
-    //   minCollateral: '500', // LINK
-    //   initialCollateral: '500', // LINK
-    //   mintingMaximum: '200000', // EUR
-    //   initPeriodSeconds: 259200, // 3 days
-    //   expirationSeconds: 15552000, // 180 days
-    //   challengeSeconds: 172800, // 2 days
-    //   riskPremiumPPM: 50000, // 5%
-    //   liqPrice: '10', // EUR
-    //   reservePPM: 200000, // 20%
-    // },
+    {
+      name: 'LINK-Position', 
+      collateralAddress: '0x514910771AF9Ca656af840dff83E8264EcF986CA',
+      minCollateral: '500', // LINK
+      initialCollateral: '500', // LINK
+      mintingMaximum: '200000', // EUR
+      initPeriodSeconds: 259200, // 3 days
+      expirationSeconds: 15552000, // 180 days
+      challengeSeconds: 172800, // 2 days
+      riskPremiumPPM: 50000, // 5%
+      liqPrice: '10', // EUR
+      reservePPM: 200000, // 20%
+      deploy: false, // Fails with "contract call run out of gas"
+    },
     {
       name: 'UNI-Position',
       collateralAddress: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
@@ -135,6 +144,7 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 50000, // 5%
       liqPrice: '4', // EUR
       reservePPM: 200000, // 20%
+      deploy: false,
     },
     {
       name: 'DAI-Position',
@@ -148,6 +158,7 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 20000, // 2%
       liqPrice: '0.8', // EUR
       reservePPM: 100000, // 10%
+      deploy: false,
     },
     {
       name: 'XAUt-Position',
@@ -161,6 +172,7 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 50000, // 5%
       liqPrice: '2000', // EUR
       reservePPM: 200000, // 20%
+      deploy: false,
     },
     {
       name: 'ZCHF-Position',
@@ -174,6 +186,7 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 20000, // 2%
       liqPrice: '1', // EUR
       reservePPM: 100000, // 10%
+      deploy: false,
     },
     {
       name: 'WFPS-Position',
@@ -187,6 +200,7 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 20000, // 2%
       liqPrice: '1450', // EUR
       reservePPM: 100000, // 10%
+      deploy: false,
     },
     {
       name: 'DEPS-Position',
@@ -200,6 +214,7 @@ export const config: PositionsConfig = {
       riskPremiumPPM: 100000, // 10%
       liqPrice: '0.1', // EUR
       reservePPM: 200000, // 20%
+      deploy: false,
     },
   ],
 };

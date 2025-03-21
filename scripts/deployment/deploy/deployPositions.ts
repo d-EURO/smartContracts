@@ -28,14 +28,16 @@ interface DeployedPosition {
 // Deploy positions
 async function main() {
   const [deployer] = await ethers.getSigners();
-  console.log('Deploying positions with account:', deployer.address);
+  console.log('\nDeployer:          ', deployer.address);
 
   // Load config file
   const mintingHubGatewayAddress = await getFlashbotDeploymentAddress('mintingHubGateway');
   const dEuroAddress = await getFlashbotDeploymentAddress('decentralizedEURO');
   const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
-  console.log('Using MintingHubGateway at:', mintingHubGatewayAddress);
-  console.log(`Found ${config.positions.length} position(s) to deploy`);
+  const positionsToDeploy = config.positions.filter((p) => p.deploy);
+  console.log('MintingHubGateway: ', mintingHubGatewayAddress);
+  console.log('DecentralizedEURO: ', dEuroAddress);
+  console.log(`\nFound ${positionsToDeploy.length} positions to deploy.`);
 
   // Get contracts
   const dEuro = await ethers.getContractAt('DecentralizedEURO', dEuroAddress, deployer);
@@ -50,7 +52,11 @@ async function main() {
   const deployedPositions: DeployedPosition[] = [];
 
   // Deploy each position
-  for (const position of config.positions) {
+  for (const position of positionsToDeploy) {
+    if (!position.deploy) {
+      console.log(`Skipping ${position.name}.`);
+      continue
+    }
     console.log(`\nDeploying position: ${position.name}`);
 
     try {
@@ -166,7 +172,7 @@ async function main() {
     console.log(`Metadata saved to: ${path.join(deploymentDir, `deployPositions-${Date.now()}.json`)}`);
   }
 
-  console.log('\n✅ Position deployment completed');
+  console.log('\n✅ Position deployment completed.');
 }
 
 /**
