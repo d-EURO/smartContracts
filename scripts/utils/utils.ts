@@ -11,6 +11,7 @@ export async function verifyContract(name: string, address: string, constructorA
     await run('verify:verify', {
       address: address,
       constructorArguments: constructorArgs,
+      force: true,
     });
     console.log(`✓ ${name} verified successfully!`);
   } catch (error: any) {

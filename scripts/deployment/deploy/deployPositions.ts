@@ -18,7 +18,7 @@ interface DeployedPosition {
     liqPrice: string;
     mintingMaximum: string;
     initPeriodSeconds: number;
-    expirationTime: number;
+    expirationSeconds: number;
     challengeSeconds: number;
     riskPremium: number;
     reservePPM: number;
@@ -32,12 +32,12 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log('Deploying positions with account:', deployer.address);
 
-  // Get some WETH
-  const wethAddress = mainnet.WETH9;
-  const weth = new ethers.Contract(wethAddress, WETH9_ABI, deployer);
-  await weth.deposit({ value: ethers.parseEther('10') });
-  const wethBalance = await weth.balanceOf(deployer.address);
-  console.log('WETH balance:', ethers.formatEther(wethBalance));
+  // Get some WETH (for testing WETH collateral, if no collateral is provided)
+  // const wethAddress = mainnet.WETH9;
+  // const weth = new ethers.Contract(wethAddress, WETH9_ABI, deployer);
+  // await weth.deposit({ value: ethers.parseEther('10') });
+  // const wethBalance = await weth.balanceOf(deployer.address);
+  // console.log('WETH balance:', ethers.formatEther(wethBalance));
 
   // Load config file
   console.log('Using MintingHubGateway at:', await getFlashbotDeploymentAddress('mintingHubGateway'));
@@ -73,20 +73,37 @@ async function main() {
     // Position parameters
     const minCollateral = ethers.parseUnits(position.minCollateral, position.decimals);
     const initialCollateral = ethers.parseUnits(position.initialCollateral, position.decimals);
-    const liqPrice = ethers.parseEther(position.liqPrice); // dEURO has 18 decimals
+    const liqPrice = ethers.parseUnits(position.liqPrice, 36 - position.decimals); // price has (36 - collateral decimals) decimals
     const mintingMaximum = ethers.parseEther(position.mintingMaximum); // dEURO has 18 decimals
-    const expirationTime = Math.floor(Date.now() / 1000) + position.expirationSeconds;
     console.log(`- Collateral: ${position.collateralAddress}`);
     console.log(`- Min Collateral: ${position.minCollateral} (${minCollateral})`);
     console.log(`- Initial Collateral: ${position.initialCollateral} (${initialCollateral})`);
     console.log(`- Liq Price: ${position.liqPrice} (${liqPrice})`);
     console.log(`- Minting Maximum: ${position.mintingMaximum} dEURO`);
-    console.log(`- Expiration: ${new Date(expirationTime * 1000).toISOString()}`);
+    console.log(`- Expiration: ${new Date(Date.now() + position.expirationSeconds * 1000).toISOString()}`);
 
     try {
+      // Approve tokens
       const collateralToken = await ethers.getContractAt(ERC20_ABI, position.collateralAddress);
-      await collateralToken.approve(await getFlashbotDeploymentAddress('mintingHubGateway'), initialCollateral);
-      await dEuro.approve(await getFlashbotDeploymentAddress('mintingHubGateway'), openingFee);
+      const mintingHubGatewayAddress = await getFlashbotDeploymentAddress('mintingHubGateway');
+
+      // Collateral
+      const currentCollateralAllowance = await collateralToken.allowance(deployer.address, mintingHubGatewayAddress);
+      if (currentCollateralAllowance < initialCollateral) {
+        console.log(`- Approving collateral token transfer...`);
+        const collateralApproveTx = await collateralToken.approve(mintingHubGatewayAddress, initialCollateral);
+        await collateralApproveTx.wait();
+        console.log(`  ✓ Collateral approval confirmed (tx: ${collateralApproveTx.hash})`);
+      }
+
+      // dEURO
+      const currentDEuroAllowance = await dEuro.allowance(deployer.address, mintingHubGatewayAddress);
+      if (currentDEuroAllowance < openingFee) {
+        console.log(`- Approving dEURO fee payment...`);
+        const dEuroApproveTx = await dEuro.approve(mintingHubGatewayAddress, openingFee);
+        await dEuroApproveTx.wait();
+        console.log(`  ✓ dEURO approval confirmed (tx: ${dEuroApproveTx.hash})`);
+      }
 
       // Open position
       const tx = await mintingHubGateway[
@@ -97,9 +114,9 @@ async function main() {
         initialCollateral,
         mintingMaximum,
         position.initPeriodSeconds,
-        expirationTime,
+        position.expirationSeconds,
         position.challengeSeconds,
-        position.riskPremium,
+        position.riskPremiumPPM,
         liqPrice,
         position.reservePPM,
         position.frontendCode ?? ethers.ZeroHash,
@@ -131,9 +148,9 @@ async function main() {
           liqPrice: liqPrice.toString(),
           mintingMaximum: mintingMaximum.toString(),
           initPeriodSeconds: position.initPeriodSeconds,
-          expirationTime: expirationTime,
+          expirationSeconds: position.expirationSeconds,
           challengeSeconds: position.challengeSeconds,
-          riskPremium: position.riskPremium,
+          riskPremium: position.riskPremiumPPM,
           reservePPM: position.reservePPM,
           frontendCode: position.frontendCode ?? ethers.ZeroHash,
         },
