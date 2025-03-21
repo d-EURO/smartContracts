@@ -640,35 +640,6 @@ export const DecentralizedEUROABI = [
   {
     inputs: [
       {
-        internalType: 'address',
-        name: 'payer',
-        type: 'address',
-      },
-      {
-        internalType: 'uint256',
-        name: 'amountExcludingReserve',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint32',
-        name: 'reservePPM',
-        type: 'uint32',
-      },
-    ],
-    name: 'burnFromWithReserveNet',
-    outputs: [
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
-    ],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
         internalType: 'uint256',
         name: 'amount',
         type: 'uint256',

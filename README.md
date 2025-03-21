@@ -111,7 +111,7 @@ file: .env
 ALCHEMY_RPC_KEY=...
 DEPLOYER_SEED="test test test test test test test test test test test junk"
 DEPLOYER_SEED_INDEX=1 // optional, select deployer
-PK=... // optional, replaces deployer seed
+DEPLOYER_PRIVATE_KEY=... // optional, replaces deployer seed
 ETHERSCAN_API_KEY=...
 USE_FORK=false
 CONFIRM_DEPLOYMENT=false

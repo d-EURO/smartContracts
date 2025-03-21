@@ -22,22 +22,22 @@ export interface ChainAddress {
 
 export const ADDRESS: Record<number, ChainAddress> = {
   [mainnet.id]: {
-    // natice contract addresses
-    decentralizedEURO: "0xe56E05a3E1375a147C122E5883667e57159485e6",
-    equity: "0xE80bC6275aEF1FC9664E5CFCFA2e2d92f342ec93",
-    frontendGateway: "0x4693ed9c9ACfeF5df8E7D9c8F97d5eEBf406e7C7",
-    savingsGateway: "0x9ae5ca00c7f1af085225720c905f15c020a753a3",
-    mintingHubGateway: "0x404aa0a74352dbe270e0497af39ecb890ec7716c",
-    DEPSwrapper: "0x19e75FE85FFbB5785C879e91E82156703D1a4207",
-    bridgeEURT: "0x1cb856645c82c874f391855a421dd58c8339e054",
-    bridgeEURS: "0x6bcdb5e4fdad13d0d7a31a0a2f2b1ae812e83eb6",
-    bridgeVEUR: "0x1ab98d5eb0722757549584066ea7bd512f6df819",
-    bridgeEURC: "0xc0ebb8ce7b9fb1bf4d6c3e705c7b081f8d871140",
+    // native contract addresses
+    decentralizedEURO: "0xA96400A20Eaa76b7204903982BC911Da33e4f841",
+    equity: "0xF75a8093f6eb7164877c5Ea253977c4635039Acc",
+    frontendGateway: "0x37DF135C6382f2b5fb7aA271f1102F98945FB6CC",
+    savingsGateway: "0x79906ea064aF95e3f3C0B615F641e01D14fEf008",
+    mintingHubGateway: "0x182b0171Be4f650853dB8F6E8D9462f12AC05263",
+    DEPSwrapper: "0xEb344853Ed400942eC79ad55b065a981572739C2",
+    bridgeEURT: "0xb5eB755a5a21C264Bb55700573508CbEc1EC3988",
+    bridgeEURS: "0x7aF28F2A749CCb0556EDB21eeD0eA2fDeBB6A3fa",
+    bridgeVEUR: "0xC0B8Fd2118725eD58dD4303228609A35490aF471",
+    bridgeEURC: "0x27Aa0E82A21F7D542e33428bbFe15BeD258C0691",
     eurt: "0xC581b735A1688071A1746c968e0798D642EDE491",
     eurs: "0xdb25f211ab05b1c97d595516f45794528a807ad8",
     veur: "0x6ba75d640bebfe5da1197bb5a2aff3327789b5d3",
     eurc: "0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c",
-    roller: "0x5ddfb59ac12cabe7e443220222e6cdd4187651ca",
-    positionFactoryV2: "0x5f57ae8222c1b8a56c808af91a6d1171f1e0859a",
+    roller: "0x1432B572aeD8507E8b5d4Fd87c986dDfad46148e",
+    positionFactoryV2: "0x5FFb38d41a07550B2Db18cEf284ec7c14be61833",
   },
 };

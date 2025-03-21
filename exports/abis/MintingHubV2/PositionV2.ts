@@ -496,6 +496,19 @@ export const PositionV2ABI = [
   },
   {
     inputs: [],
+    name: 'getCollateralRequirement',
+    outputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
     name: 'getDebt',
     outputs: [
       {

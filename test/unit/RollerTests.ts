@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { DECIMALS, floatToDec18 } from "../../scripts/math";
+import { DECIMALS, floatToDec18 } from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import {
   Equity,

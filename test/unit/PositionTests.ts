@@ -4,7 +4,7 @@ import {
   dec18ToFloat,
   DECIMALS,
   mulDec18,
-} from "../../scripts/math";
+} from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import { evm_increaseTime, evm_increaseTimeTo } from "../utils";
 import {
