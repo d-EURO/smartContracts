@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat';
 import { config } from '../config/positionsConfig';
 import ERC20_ABI from '../../../abi/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json';
-import { getFlashbotDeploymentAddress } from '../../../scripts/utils/utils'; // Flashbots deployment
+import { getFlashbotDeploymentAddress } from '../../utils/deployments'; // Flashbots deployment
 // import { await getFlashbotDeploymentAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
 import fs from 'fs';
 import path from 'path';

@@ -1,4 +1,5 @@
-import { verifyContract, loadFileJSON } from './utils/utils';
+import { loadFileJSON } from './utils/deployments';
+import { run } from 'hardhat';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -21,6 +22,26 @@ async function main() {
 
   console.log('\n✅ Contract verification process completed!');
 }
+
+async function verifyContract(name: string, address: string, constructorArgs: any[]) {
+  console.log(`\nVerifying ${name} at ${address}...`);
+
+  try {
+    await run('verify:verify', {
+      address: address,
+      constructorArguments: constructorArgs,
+      force: true,
+    });
+    console.log(`✓ ${name} verified successfully!`);
+  } catch (error: any) {
+    if (error.message.includes('Already Verified')) {
+      console.log(`${name} is already verified.`);
+    } else {
+      console.error(`✗ Error verifying ${name}:`, error.message);
+    }
+  }
+}
+
 
 main()
   .then(() => process.exit(0))

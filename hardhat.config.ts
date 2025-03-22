@@ -9,6 +9,9 @@ import 'hardhat-contract-sizer';
 import { HardhatUserConfig } from 'hardhat/config';
 import { getChildFromSeed } from './helper/wallet';
 
+// Import tasks
+import './tasks/getPositions';
+
 import dotenv from 'dotenv';
 dotenv.config();
 
