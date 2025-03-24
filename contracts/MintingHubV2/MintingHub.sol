@@ -126,6 +126,8 @@ contract MintingHub is IMintingHub, ERC165 {
             if (_challengeSeconds < 1 days) revert ChallengeTimeTooShort();
             if (_initPeriodSeconds < 3 days) revert InitPeriodTooShort();
             uint256 invalidAmount = IERC20(_collateralAddress).totalSupply() + 1;
+            // TODO: Improve for older tokens that revert with assert, 
+            // which consumes all gas and makes the entire tx fail (uncatchable)
             try IERC20(_collateralAddress).transfer(address(0x123), invalidAmount) {
                 revert IncompatibleCollateral(); // we need a collateral that reverts on failed transfers
             } catch Error(string memory /*reason*/) {} catch Panic(uint /*errorCode*/) {} catch (
@@ -152,7 +154,7 @@ contract MintingHub is IMintingHub, ERC165 {
         );
         DEURO.registerPosition(address(pos));
         DEURO.collectProfits(msg.sender, OPENING_FEE);
-        IERC20(_collateralAddress).transferFrom(msg.sender, address(pos), _initialCollateral);
+        IERC20(_collateralAddress).transferFrom(msg.sender, address(pos), _initialCollateral); // TODO: Use SafeERC20
 
         emit PositionOpened(msg.sender, address(pos), address(pos), _collateralAddress);
         return address(pos);

@@ -1,6 +1,6 @@
 {
   "name": "@deuro/eurocoin",
-  "version": "1.0.10",
+  "version": "1.0.12",
   "description": "It shall support a wide range of collateralized minting methods that are governed by a democratic process.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -16,11 +16,11 @@
     "compile": "npx hardhat compile",
     "wallet": "npx ts-node helper/wallet.info.ts",
     "coverage": "npx hardhat coverage",
-    "deploy": "npx hardhat ignition deploy ./ignition/modules/FullDeployment.ts --parameters ./ignition/parameters.json",
-    "deploy:network": "npx hardhat ignition deploy ./ignition/modules/FullDeployment.ts --parameters ./ignition/parameters.json --network",
-    "verify": "npx hardhat verify",
+    "deploy": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts",
+    "deploy:network": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network",
+    "verify": "npx hardhat run scripts/verifyContracts.ts --network mainnet",
     "build": "tsup",
-    "ts:export:abis": "npx ts-node ./scripts/abiExport.ts && prettier --write \"exports/abis/**/*.ts\"",
+    "ts:export:abis": "npx ts-node ./scripts/exportAbis.ts && prettier --write \"exports/abis/**/*.ts\"",
     "publish": "npm publish --access public",
     "cover": "nodejs ./solcover.js",
     "test": "npx hardhat test test/unit/*.ts",
@@ -68,6 +68,7 @@
     "viem": "^2.21.16"
   },
   "dependencies": {
+    "@flashbots/ethers-provider-bundle": "^1.0.0",
     "hardhat-abi-exporter": "^2.10.0",
     "hardhat-contract-sizer": "^2.5.1",
     "prettier": "^3.3.3",

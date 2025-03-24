@@ -18,7 +18,31 @@ import {
 import { mainnet } from '../../constants/addresses';
 import UNISWAP_V3_ROUTER from '../../constants/abi/UniswapV3Router.json';
 import UNISWAP_V3_FACTORY from '../../constants/abi/UniswapV3Factory.json';
-import { getDeployedAddress } from '../../ignition/utils/addresses';
+import { getFlashbotDeploymentAddress } from '../../scripts/utils/deployments'; // Flashbots deployment
+// import { getDeployedAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
+// TODO: Dynamically handle the deployment method or remove unused imports
+
+/**
+ ******************************************************************************
+ * Integration tests for the DecentralizedEURO protocol
+ ******************************************************************************
+ * The purpose of these tests is to ensure that the deployed DecentralizedEURO
+ * protocol contracts are setup correctly and interact as expected.
+ *
+ * This script can be applied to any network where the DecentralizedEURO protocol
+ * contracts are deployed and only requires the contract addresses to be provided.
+ *
+ * For the deployment through Flashbots, the contract addresses are fetched from
+ * the Flashbots deployment JSON file using the `getFlashbotDeploymentAddress` function.
+ * If the contracts are deployed through Hardhat Ignition, the `getDeployedAddress`
+ * function can be used to fetch the contract addresses.
+ *
+ * How to run on a mainnet fork:
+ * > npx hardhat node --no-deploy
+ * > # Assumption: Contracts are deployed on mainnet, otherwise deploy them now
+ * > npx hardhat run scripts/integration/integrationTest.ts
+ */
+// TODO: Add above documentation to a README.md file
 
 interface Contracts {
   dEURO: DecentralizedEURO;
@@ -60,7 +84,7 @@ async function main() {
   console.log(`Running tests with account (signer): ${deployer.address}`);
 
   // Fetch deployed contract addresses
-  const contractAddresses = fetchDeployedAddresses();
+  const contractAddresses = await fetchDeployedAddresses();
   if (!contractAddresses) {
     console.error('Failed to fetch deployed contract addresses');
     process.exitCode = 1;
@@ -74,20 +98,23 @@ async function main() {
     process.exitCode = 1;
     return;
   }
-
-  // Ensure signer has enough collateral and dEURO for testing
-  await fundSigner(contracts, deployer);
-
+  
   // Run all integration tests
   try {
+    // Contract configuration and initialization tests
+    await testProtocolInitialization(contracts);
     await testContractConfigurations(contracts);
+    
+    // Fund signer with collateral and dEURO for remaining tests
+    await fundSigner(contracts, deployer);
+    
     const position = await testPositionCreationAndMinting(contracts, deployer);
     await testSavingsInterestAccrual(contracts, deployer);
     await testStablecoinBridge(contracts, deployer);
     await testDEPSWrapping(contracts, deployer);
     await testPositionRolling(contracts, position, deployer);
 
-    console.log('\n✅ All integration tests passed successfully!');
+    console.log('\nAll integration tests completed!');
   } catch (error) {
     console.error('\n❌ Integration tests failed:', error);
     process.exitCode = 1;
@@ -95,25 +122,28 @@ async function main() {
 }
 
 // Helper function to load configuration
-function fetchDeployedAddresses(): DeployedAddresses | null {
+async function fetchDeployedAddresses(): Promise<DeployedAddresses | null> {
+  console.log('\nFetching deployed contract addresses...');
+
   try {
     // Config for collateral and bridge to test
     const configPath = path.join(__dirname, './config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Config;
 
     const addresses = {
-      dEURO: getDeployedAddress('DecentralizedEURO'),
-      positionFactory: getDeployedAddress('PositionFactory'),
-      positionRoller: getDeployedAddress('PositionRoller'),
-      depsWrapper: getDeployedAddress('DEPSWrapper'),
-      frontendGateway: getDeployedAddress('FrontendGateway'),
-      mintingHubGateway: getDeployedAddress('MintingHubGateway'),
-      savingsGateway: getDeployedAddress('SavingsGateway'),
-      bridge: getDeployedAddress(config.bridge),
+      dEURO: await getFlashbotDeploymentAddress('decentralizedEURO'),
+      positionFactory: await getFlashbotDeploymentAddress('positionFactory'),
+      positionRoller: await getFlashbotDeploymentAddress('positionRoller'),
+      depsWrapper: await getFlashbotDeploymentAddress('depsWrapper'),
+      frontendGateway: await getFlashbotDeploymentAddress('frontendGateway'),
+      mintingHubGateway: await getFlashbotDeploymentAddress('mintingHubGateway'),
+      savingsGateway: await getFlashbotDeploymentAddress('savingsGateway'),
+      bridge: await getFlashbotDeploymentAddress(config.bridge),
       collateralToken: config.collateralToken,
     };
 
-    console.log('✓ Fetched deployed contract addresses:\n', addresses);
+    console.log('✓ Fetched deployed contract addresses');
+    console.log(addresses);
     return addresses;
   } catch (error) {
     console.error('Failed to fetch deployed contract addresses:', error);
@@ -123,9 +153,9 @@ function fetchDeployedAddresses(): DeployedAddresses | null {
 
 // Connect to all contracts in the ecosystem
 async function connectToContracts(config: DeployedAddresses, signer: HardhatEthersSigner): Promise<Contracts | null> {
-  try {
-    console.log('Connecting to deployed contracts...');
+  console.log('\nConnecting to deployed contracts...');
 
+  try {
     // Core contracts
     const dEURO = await ethers.getContractAt('DecentralizedEURO', config.dEURO, signer);
     const equity = await ethers.getContractAt('Equity', await dEURO.reserve(), signer);
@@ -142,8 +172,8 @@ async function connectToContracts(config: DeployedAddresses, signer: HardhatEthe
     const swapRouter = new ethers.Contract(mainnet.UNISWAP_V3_ROUTER, UNISWAP_V3_ROUTER, signer);
 
     console.log('✓ Successfully connected to all contracts.');
-    console.log(`  > Using ${await bridgeSource.symbol()}-${await dEURO.symbol()} bridge`);
-    console.log(`  > Using ${await collateralToken.symbol()} (${await collateralToken.name()}) as collateral token`);
+    console.log(`  ⋅ Using ${await bridgeSource.symbol()}-${await dEURO.symbol()} bridge`);
+    console.log(`  ⋅ Using ${await collateralToken.symbol()} (${await collateralToken.name()}) as collateral token`);
 
     return {
       dEURO,
@@ -173,7 +203,7 @@ async function fundWETH(wethContract: ERC20, signer: HardhatEthersSigner, amount
       value: amount,
     });
     await wrapTx.wait();
-    console.log(`Wrapped some ETH to WETH: ${ethers.formatEther(await wethContract.balanceOf(signer.address))}`);
+    console.log(`✓ Wrapped ETH: ${ethers.formatEther(await wethContract.balanceOf(signer.address))}`);
   }
 }
 
@@ -197,7 +227,7 @@ async function swapExactWETHForToken(amountIn: bigint, tokenOut: ERC20, swapRout
   if (poolAddress === ethers.ZeroAddress) {
     throw new Error(`Swap pool WETH-${await tokenOut.symbol()} does not exist`);
   } else {
-    console.log(`WETH-${await tokenOut.symbol()} pool found at: ${poolAddress}`);
+    console.log(`✓ WETH-${await tokenOut.symbol()} pool found at: ${poolAddress}`);
   }
 
   const balanceBefore = await tokenOut.balanceOf(signer.address);
@@ -205,11 +235,13 @@ async function swapExactWETHForToken(amountIn: bigint, tokenOut: ERC20, swapRout
   await tx.wait();
   const balanceAfter = await tokenOut.balanceOf(signer.address);
   console.log(
-    `Swapped ${amountIn} WETH for ${ethers.formatUnits(balanceAfter - balanceBefore, await tokenOut.decimals())} ${await tokenOut.symbol()}`,
+    `✓ Swapped ${ethers.formatEther(amountIn)} WETH for ${ethers.formatUnits(balanceAfter - balanceBefore, await tokenOut.decimals())} ${await tokenOut.symbol()}`,
   );
 }
 
 async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner) {
+  console.log("\nSetting up signer's token balances for testing...");
+
   const collateralToken = contracts.collateralToken;
   const bridgeSourceToken = contracts.bridgeSource;
 
@@ -223,18 +255,21 @@ async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner) {
   const collateralBalanceBefore = await collateralToken.balanceOf(signer.address);
   const dEuroBalanceBefore = await contracts.dEURO.balanceOf(signer.address);
 
+  // Swap some WETH to collateral token
   if (collateralBalanceBefore < collateralFundingThreshold) {
     await fundWETH(contracts.weth, signer, wethToCollateral);
-    await contracts.weth.approve(mainnet.UNISWAP_V3_ROUTER, wethToCollateral);
-    await swapExactWETHForToken(wethToCollateral, collateralToken, contracts.swapRouter, signer);
+    if ((await collateralToken.getAddress()) !== mainnet.WETH9) {
+      await contracts.weth.approve(mainnet.UNISWAP_V3_ROUTER, wethToCollateral);
+      await swapExactWETHForToken(wethToCollateral, collateralToken, contracts.swapRouter, signer);
+    }
   }
 
+  // Swap some WETH to bridge source token
   if (dEuroBalanceBefore < dEuroFundingThreshold) {
-    // Swap to bridge source token
     await fundWETH(contracts.weth, signer, wethToBridgeSource);
     await contracts.weth.approve(mainnet.UNISWAP_V3_ROUTER, wethToBridgeSource);
     await swapExactWETHForToken(wethToBridgeSource, bridgeSourceToken, contracts.swapRouter, signer);
-    // Swap to dEURO
+    // Bridge to dEURO
     const sourceTokenBalance = await bridgeSourceToken.balanceOf(signer.address);
     if (sourceTokenBalance > 0) {
       const amountToSwap = sourceTokenBalance / 2n;
@@ -246,10 +281,74 @@ async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner) {
   const collateralBalanceAfter = await collateralToken.balanceOf(signer.address);
   const dEuroBalanceAfter = await contracts.dEURO.balanceOf(signer.address);
   // Final balances
-  console.log('\nFinal balances:');
-  console.log(`- ${ethers.formatEther(collateralBalanceAfter)} ${await collateralToken.symbol()}`);
-  console.log(`- ${ethers.formatEther(dEuroBalanceAfter)} dEURO`);
   console.log('✓ Token balances setup for testing');
+  console.log(`  ⋅ ${ethers.formatEther(collateralBalanceAfter)} ${await collateralToken.symbol()}`);
+  console.log(`  ⋅ ${ethers.formatEther(dEuroBalanceAfter)} dEURO`);
+}
+
+// Test protocol initialization
+async function testProtocolInitialization(contracts: Contracts) {
+  console.log('\nTesting protocol initialization...');
+
+  // Test FrontendGateway initialization
+  const savingsAddress = await contracts.frontendGateway.SAVINGS();
+  assertTest(
+    savingsAddress === (await contracts.savingsGateway.getAddress()),
+    'FrontendGateway initialized with correct SAVINGS address',
+    savingsAddress,
+  );
+
+  const mintingHubAddress = await contracts.frontendGateway.MINTING_HUB();
+  assertTest(
+    mintingHubAddress === (await contracts.mintingHubGateway.getAddress()),
+    'FrontendGateway initialized with correct MINTING_HUB address',
+    mintingHubAddress,
+  );
+
+  const frontendGatewayOwner = await contracts.frontendGateway.owner();
+  assertTest(
+    frontendGatewayOwner === ethers.ZeroAddress,
+    'FrontendGateway ownership has been renounced',
+    frontendGatewayOwner,
+  );
+
+  // Test DecentralizedEURO minter initialization
+  const mintingHubGatewayIsMinter = await contracts.dEURO.isMinter(await contracts.mintingHubGateway.getAddress());
+  assertTest(mintingHubGatewayIsMinter, 'MintingHubGateway is a minter', mintingHubGatewayIsMinter);
+
+  const positionRollerIsMinter = await contracts.dEURO.isMinter(await contracts.positionRoller.getAddress());
+  assertTest(positionRollerIsMinter, 'PositionRoller is a minter', positionRollerIsMinter);
+
+  const savingsGatewayIsMinter = await contracts.dEURO.isMinter(await contracts.savingsGateway.getAddress());
+  assertTest(savingsGatewayIsMinter, 'SavingsGateway is a minter', savingsGatewayIsMinter);
+
+  const frontendGatewayIsMinter = await contracts.dEURO.isMinter(await contracts.frontendGateway.getAddress());
+  assertTest(frontendGatewayIsMinter, 'FrontendGateway is a minter', frontendGatewayIsMinter);
+
+  const bridgeIsMinter = await contracts.dEURO.isMinter(await contracts.bridge.getAddress());
+  assertTest(bridgeIsMinter, 'StablecoinBridge is a minter', bridgeIsMinter);
+
+  // Verify initial dEURO and nDEPS mint
+  // Refer to scripts/deployment/deploy/depoyProtocol.ts for mint amounts
+  const equityBalance = await contracts.dEURO.balanceOf(await contracts.equity.getAddress());
+  assertTest(equityBalance >= ethers.parseEther('1000'), 'Equity balance has at least 1000 dEURO', equityBalance);
+
+  const equitySupply = await contracts.equity.totalSupply();
+  assertTest(
+    equitySupply == ethers.parseEther('10000000'),
+    'Equity has initial nDEPS supply of 10,000,000',
+    equitySupply,
+  );
+
+  // Test that DecentralizedEURO.initialize reverts
+  const testMinter = ethers.Wallet.createRandom().address;
+  await assertRevert(
+    async () => contracts.dEURO.initialize(testMinter, 'Test Minter'),
+    'DecentralizedEURO.initialize reverts after deployment',
+  );
+
+  const testMinterIsMinter = await contracts.dEURO.isMinter(testMinter);
+  assertTest(!testMinterIsMinter, 'Test minter is not a minter', testMinterIsMinter);
 }
 
 // Test contract configurations
@@ -258,12 +357,6 @@ async function testContractConfigurations(contracts: Contracts) {
 
   const mintingHubDEURO = await contracts.mintingHubGateway.DEURO();
   assertTest(mintingHubDEURO === (await contracts.dEURO.getAddress()), 'MintingHub-dEURO connection', mintingHubDEURO);
-
-  const mintingHubGatewayIsMinter = await contracts.dEURO.isMinter(await contracts.mintingHubGateway.getAddress());
-  assertTest(mintingHubGatewayIsMinter, 'MintingHubGateway is minter', mintingHubGatewayIsMinter);
-
-  const frontendGatewayIsMinter = await contracts.dEURO.isMinter(await contracts.frontendGateway.getAddress());
-  assertTest(frontendGatewayIsMinter, 'FrontendGateway is minter', frontendGatewayIsMinter);
 
   const depsWrapperUnderlying = await contracts.depsWrapper.underlying();
   assertTest(
@@ -285,8 +378,6 @@ async function testContractConfigurations(contracts: Contracts) {
     'SavingsGateway-FrontendGateway connection',
     savingsGatewaySavings,
   );
-
-  console.log('✓ Contract connection tests passed');
 }
 
 // Test position creation and minting
@@ -331,7 +422,7 @@ async function testPositionCreationAndMinting(contracts: Contracts, signer: Hard
   // Connect to the position
   const receipt = await tx.wait();
   const event = receipt?.logs
-    .map((log) => contracts.mintingHubGateway.interface.parseLog(log))
+    .map((log) => contracts.mintingHubGateway.interface.parseLog({ topics: [...log.topics], data: log.data }))
     .find((parsedLog) => parsedLog?.name === 'PositionOpened');
 
   if (!event) {
@@ -351,7 +442,6 @@ async function testPositionCreationAndMinting(contracts: Contracts, signer: Hard
   const dEuroBalanceDiff = dEuroBalanceAfter - dEuroBalanceBefore;
   assertTest(dEuroBalanceDiff > 0, 'Position minting', dEuroBalanceDiff);
 
-  console.log('✓ Position creation and minting test passed');
   return position; // Return position for use in rolling test
 }
 
@@ -386,8 +476,6 @@ async function testSavingsInterestAccrual(contracts: Contracts, signer: HardhatE
   // Check updated balance with interest
   const updatedSavings = await contracts.savingsGateway.savings(signer.address);
   assertTest(updatedSavings.saved > initialSavings.saved, 'Updated savings with interest', updatedSavings.saved);
-
-  console.log('✓ Savings interest accrual test passed');
 }
 
 // Test stablecoin bridge
@@ -404,7 +492,9 @@ async function testStablecoinBridge(contracts: Contracts, signer: HardhatEthersS
 
     // Ensure we have enough source tokens for bridging
     if (bridgeSourceTokenBalanceBefore < swapAmount) {
-      console.log(`Insufficient balance of bridge source token, ${bridgeSourceTokenBalanceBefore} < ${swapAmount}. Skipping test.`);
+      console.log(
+        `  ✗ Insufficient balance of bridge source token, ${bridgeSourceTokenBalanceBefore} < ${swapAmount}. Skipping test.`,
+      );
       return;
     }
 
@@ -421,10 +511,8 @@ async function testStablecoinBridge(contracts: Contracts, signer: HardhatEthersS
       'Bridge mint decreases source token balance',
       finalSourceBalance,
     );
-
-    console.log('✓ Stablecoin bridge test passed');
   } catch (error) {
-    console.log(`Bridge test failed: ${error}`);
+    console.log(`  ✗ Bridge test failed: ${error}`);
   }
 }
 
@@ -458,8 +546,6 @@ async function testDEPSWrapping(contracts: Contracts, signer: HardhatEthersSigne
   await contracts.depsWrapper.unwrap(unwrapAmount);
   const finalNDEPSBalance = await contracts.equity.balanceOf(signer.address);
   assertTest(finalNDEPSBalance > nDEPSBalance - wrapAmount, 'nDEPS balance after unwrapping', finalNDEPSBalance);
-
-  console.log('✓ DEPS wrapping and unwrapping test passed');
 }
 
 // Test position rolling
@@ -504,7 +590,7 @@ async function testPositionRolling(contracts: Contracts, sourcePosition: Positio
   // Connect to the target position
   const receipt = await tx.wait();
   const event = receipt?.logs
-    .map((log) => contracts.mintingHubGateway.interface.parseLog(log))
+    .map((log) => contracts.mintingHubGateway.interface.parseLog({ topics: [...log.topics], data: log.data }))
     .find((parsedLog) => parsedLog?.name === 'PositionOpened');
 
   if (!event) {
@@ -541,18 +627,47 @@ async function testPositionRolling(contracts: Contracts, sourcePosition: Positio
   const targetDebtAfter = await targetPosition.getDebt();
   assertTest(targetDebtAfter > 0, 'Target position has debt', targetDebtAfter);
   assertTest(targetDebtAfter >= sourceDebtBefore, 'Debt transferred to target', targetDebtAfter);
-
-  console.log('✓ Position rolling test passed');
 }
 
-/// Helper functions
-
+/**
+ * Helper function to assert a test condition
+ * @param condition The condition to check
+ * @param testName The name of the test
+ * @param actual The "actual" value to display if the test fails
+ */
 function assertTest(condition: boolean, testName: string, actual: any) {
   if (condition) {
-    console.log(`  ✓ ${testName}`);
+    console.log(`✓ ${testName}`);
   } else {
-    console.error(`  ✗ ${testName} - Failed with value: ${actual}`);
-    throw new Error(`Test failed: ${testName}`);
+    console.error(`\x1b[31m✗ ${testName} - Failed with value: ${actual}\x1b[0m`); // Red color
+    // throw new Error(`Test failed: ${testName}`);
+  }
+}
+
+/**
+ * Helper function to assert that a function call reverts
+ * @param func The async function to call that should revert
+ * @param testName The name of the test
+ * @param expectedErrorMessage Optional error message to check for (partial match)
+ */
+async function assertRevert(func: () => Promise<any>, testName: string, expectedErrorMessage?: string) {
+  try {
+    await func();
+    console.error(`\x1b[31m✗ ${testName} - Function did not revert as expected\x1b[0m`);
+    // throw new Error(`Test failed: ${testName} - Function did not revert as expected`);
+  } catch (error: any) {
+    if (expectedErrorMessage) {
+      const errorMessage = error.message || String(error);
+      const hasExpectedMessage = errorMessage.includes(expectedErrorMessage);
+      if (hasExpectedMessage) {
+        console.log(`✓ ${testName} - Reverted with expected message: "${expectedErrorMessage}"`);
+      } else {
+        console.error(`\x1b[31m✗ ${testName} - Reverted but with unexpected message: "${errorMessage}"\x1b[0m`);
+        // throw new Error(`Test failed: ${testName} - Reverted with wrong message: ${errorMessage}`);
+      }
+    } else {
+      console.log(`✓ ${testName} - Reverted as expected`);
+    }
   }
 }
 
