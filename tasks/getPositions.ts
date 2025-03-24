@@ -4,9 +4,9 @@ import { floatToDec18 } from '../scripts/utils/math';
 
 // npx hardhat get-positions --network mainnet --owner <ADDRESS>
 task('get-positions', 'Get positions owned by an account')
-  .addParam('owner', 'The address of the owner')
+  .addOptionalParam('owner', 'The address of the owner')
   .setAction(async ({ owner }, hre) => {
-    console.log(`> Checking positions owned by: ${owner}`);
+    if (owner) console.log(`> Checking positions owned by: ${owner}`);
     const { formatEther, formatUnits } = hre.ethers;
 
     // Get MintingHubGateway contract
@@ -24,6 +24,7 @@ task('get-positions', 'Get positions owned by an account')
         const position = await hre.ethers.getContractAt('Position', event.args.position);
         const collateral = await hre.ethers.getContractAt('ERC20', await position.collateral());
 
+        const owner = await position.owner();
         const positionAddress = await position.getAddress();
         const price = await position.price();
         const virtualPrice = await position.virtualPrice();
@@ -38,7 +39,8 @@ task('get-positions', 'Get positions owned by an account')
         const collateralSymbol = await collateral.symbol();
         const collateralValue = (collateralBalance * price) / floatToDec18(1);
 
-        console.log(`Position:            ${positionAddress}`);
+        console.log('\x1b[32m%s\x1b[0m', `Position:            ${positionAddress}`);
+        console.log(`- Owner:             ${owner}`);
         console.log(`- Collateral:        ${formatUnits(collateralBalance, collateralDecimals)} ${collateralSymbol}`);
         console.log(`- Price:             ${formatUnits(price, 36n - collateralDecimals)} dEURO`);
         console.log(`- Collateral value:  ${formatEther(collateralValue)} dEURO`);
