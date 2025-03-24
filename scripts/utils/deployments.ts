@@ -25,3 +25,12 @@ export async function getFlashbotDeploymentAddress(contractName: string): Promis
   const contractData = deployment.contracts[contractName] as { address: string; constructorArgs: any[] };
   return contractData.address;
 }
+
+export async function getFlashbotDeploymentDeployer(): Promise<string> {
+  if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
+    throw new Error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
+  }
+
+  const deployment = await loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
+  return deployment.deployer;
+}

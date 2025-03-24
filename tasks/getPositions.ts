@@ -1,4 +1,4 @@
-import { getFlashbotDeploymentAddress } from '../scripts/utils/deployments';
+import { getFlashbotDeploymentAddress, getFlashbotDeploymentDeployer } from '../scripts/utils/deployments';
 import { task } from 'hardhat/config';
 import { floatToDec18 } from '../scripts/utils/math';
 
@@ -13,6 +13,7 @@ task('get-positions', 'Get positions owned by an account')
     const [signer] = await hre.ethers.getSigners();
     const mintingHubGatewayAddress = await getFlashbotDeploymentAddress('mintingHubGateway');
     const mintingHubGateway = await hre.ethers.getContractAt('MintingHub', mintingHubGatewayAddress, signer);
+    const deployerAddress = await getFlashbotDeploymentDeployer();
 
     // Filter PositionOpened events, starting from block 22088283 (see deployments metadata)
     const positionOpenedEvent = mintingHubGateway.filters.PositionOpened(owner);
@@ -40,7 +41,11 @@ task('get-positions', 'Get positions owned by an account')
         const collateralValue = (collateralBalance * price) / floatToDec18(1);
 
         console.log('\x1b[32m%s\x1b[0m', `Position:            ${positionAddress}`);
-        console.log(`- Owner:             ${owner}`);
+        if (owner === deployerAddress) {
+          console.log('\x1b[33m%s\x1b[0m', `- Owner:             ${owner}`);
+        } else {
+          console.log(`- Owner:             ${owner}`);
+        }
         console.log(`- Collateral:        ${formatUnits(collateralBalance, collateralDecimals)} ${collateralSymbol}`);
         console.log(`- Price:             ${formatUnits(price, 36n - collateralDecimals)} dEURO`);
         console.log(`- Collateral value:  ${formatEther(collateralValue)} dEURO`);
