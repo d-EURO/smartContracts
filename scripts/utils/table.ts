@@ -7,6 +7,7 @@ export const colors = {
   yellow: '\x1b[33m',
   blue: '\x1b[34m',
   grey: '\x1b[90m',
+  red: '\x1b[31m',
 };
 
 export interface MultiLineCell {
@@ -20,7 +21,6 @@ export interface TableColumn<T extends Record<string, any> = Record<string, any>
   header: string;
   width: number;
   align?: 'left' | 'right';
-  color?: string;
   visible?: boolean;
   format: (row: T) => string;
 }
@@ -30,6 +30,7 @@ export interface TableConfig<T extends Record<string, any> = Record<string, any>
   showHeader?: boolean;
   showHeaderSeparator?: boolean;
   columnSeparator?: string;
+  rowSpacing?: boolean;
   sort?: {
     key: string;
     direction?: 'asc' | 'desc';
@@ -95,6 +96,11 @@ export function createTable<T extends Record<string, any>>() {
       tableConfig.columnSeparator = separator;
       return this;
     },
+    
+    setRowSpacing(spacing: boolean) {
+      tableConfig.rowSpacing = spacing;
+      return this;
+    },
 
     print(): void {
       printTable(tableData, tableConfig);
@@ -108,7 +114,7 @@ export function createTable<T extends Record<string, any>>() {
  * @param config Table configuration
  */
 export function printTable<T extends Record<string, any>>(data: T[], config: TableConfig<T>): void {
-  const { columns: allColumns, showHeader = true, showHeaderSeparator = true, columnSeparator = '  ', sort } = config;
+  const { columns: allColumns, showHeader = true, showHeaderSeparator = true, columnSeparator = '  ', rowSpacing = true, sort } = config;
   const columns = allColumns.filter((col) => col.visible !== false);
   if (sort) {
     data = [...data].sort((a, b) => {
@@ -131,8 +137,9 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
         return parseFloat(bVal) - parseFloat(aVal); // Descending order
       }
 
-      // timestamps
-      if (sortKey === 'created') {
+      // timestamps 
+      // TODO: generalize this to any date format
+      if (['created', 'expiration'].includes(sortKey)) {
         return Number(bVal) - Number(aVal); // Descending order
       }
 
@@ -171,11 +178,10 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
   if (showHeaderSeparator) {
     console.log('-'.repeat(totalWidth));
   }
-
-  data.forEach((row) => {
+  
+  data.forEach((row, index) => {
     const formattedValues = columns.map((col) => {
-      const value = col.format(row);
-      return col.color && !value.includes('\x1b[') ? `${col.color}${value}${colors.reset}` : value;
+      return col.format(row);
     });
 
     const hasMultiLine = formattedValues.some((val) => val.includes('\n'));
@@ -187,6 +193,10 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
     } else {
       const valueLines = formattedValues.map(val => val.split('\n'));
       renderMultiLineContent(valueLines, columns, columnSeparator);
+    }
+    
+    if (rowSpacing && index < data.length - 1) {
+      console.log();
     }
   });
 }

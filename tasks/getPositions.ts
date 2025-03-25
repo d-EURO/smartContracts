@@ -10,12 +10,14 @@ import {
   createTable,
   formatCountdown,
 } from '../scripts/utils/table';
+import { getTokenPrices } from '../scripts/utils/coingecko';
 
 interface PositionData {
   created: number;
   position: string;
   original: string;
   owner: string;
+  collateralAddress: string;
   collateral: string;
   price: string;
   collateralBalance: string;
@@ -23,6 +25,7 @@ interface PositionData {
   debt: string;
   utilization: bigint;
   expiration: bigint;
+  virtualPrice: string;
 }
 
 // npx hardhat get-positions --network mainnet --owner <ADDRESS> --sort <COLUMN>
@@ -49,6 +52,15 @@ task('get-positions', 'Get positions owned by an account')
     console.log(`> Found ${events.length} positions.\n`);
 
     const positionsData: PositionData[] = [];
+    const WFPS = '0x5052D3Cc819f53116641e89b96Ff4cD1EE80B182'.toLowerCase();
+    const DEPS = '0x103747924E74708139a9400e4Ab4BEA79FFFA380'.toLowerCase();
+    let priceWFPS: string = '-';
+    let priceDEPS: string = '-';
+    async function getPricePS(collateralAddress: string): Promise<string> {
+      const wrapper = await hre.ethers.getContractAt('ERC20Wrapper', collateralAddress);
+      const native = await hre.ethers.getContractAt('Equity', await wrapper.underlying());
+      return formatUnits(await native.price(), await native.decimals());
+    }
 
     // Process all positions
     await Promise.all(
@@ -62,10 +74,12 @@ task('get-positions', 'Get positions owned by an account')
           const owner = await position.owner();
           const positionAddress = await position.getAddress();
           const price = await position.price();
+          const virtualPrice = await position.virtualPrice();
           const debt = await position.getDebt();
           const collateralBalance = await collateral.balanceOf(positionAddress);
           const collateralDecimals = await collateral.decimals();
           const collateralSymbol = await collateral.symbol();
+          const collateralAddress = await collateral.getAddress();
           const collateralValue = (collateralBalance * price) / floatToDec18(1);
           const collateralUtilization = collateralValue > 0 ? (debt * 100n) / collateralValue : 100n;
           const expiration = await position.expiration();
@@ -75,6 +89,7 @@ task('get-positions', 'Get positions owned by an account')
             position: positionAddress,
             original: original,
             owner: owner,
+            collateralAddress: collateralAddress.toLowerCase(),
             collateral: collateralSymbol,
             price: formatUnits(price, 36n - collateralDecimals),
             collateralBalance: formatUnits(collateralBalance, collateralDecimals),
@@ -82,22 +97,29 @@ task('get-positions', 'Get positions owned by an account')
             debt: formatEther(debt),
             utilization: collateralUtilization,
             expiration: expiration,
+            virtualPrice: formatUnits(virtualPrice, 36n - collateralDecimals),
           });
+
+          // Coingecko doesn't have WFPS or DEPS prices
+          if (collateralAddress.toLowerCase() === WFPS) priceWFPS = await getPricePS(WFPS);
+          if (collateralAddress.toLowerCase() === DEPS) priceDEPS = await getPricePS(DEPS);
         } catch (error) {
           console.error(`Error processing position ${event.args.position}:`, error);
         }
       }),
     );
 
+    // Get collateral prices
+    const collateralAddresses = Array.from(new Set(positionsData.map((position) => position.collateralAddress)));
+    const collateralPrices = await getTokenPrices(collateralAddresses);
+    if (collateralAddresses.includes(WFPS)) collateralPrices[WFPS] = priceWFPS;
+    if (collateralAddresses.includes(DEPS)) collateralPrices[DEPS] = priceDEPS;
+
     // Create and configure the table
     const table = createTable<PositionData>();
-
     if (sort) table.setSorting(sort);
-
-    // Set the data
     table.setData(positionsData);
-
-    // Configure columns
+    table.setRowSpacing(true);
     table.setColumns([
       {
         header: 'Created\nExpiry',
@@ -174,8 +196,26 @@ task('get-positions', 'Get positions owned by an account')
             'right',
           ),
       },
+      {
+        header: 'Virt. Price\nMark. Price',
+        width: 15,
+        align: 'right',
+        format: function (row) {
+          const marketPrice = collateralPrices[row.collateralAddress];
+          const isUndercollateralized = row.virtualPrice > marketPrice;
+          return formatMultiLine(
+            {
+              primary: formatNumberWithSeparator(row.virtualPrice, 2),
+              primaryColor: isUndercollateralized ? colors.red : undefined,
+              secondary: formatNumberWithSeparator(marketPrice, 2),
+              secondaryColor: isUndercollateralized ? colors.red : undefined,
+            },
+            15,
+            'right',
+          );
+        },
+      },
     ]);
 
-    // Print the table
     table.print();
   });
