@@ -26,6 +26,7 @@ interface PositionData {
   utilization: bigint;
   expiration: bigint;
   virtualPrice: string;
+  isClosed: boolean;
 }
 
 // npx hardhat get-positions --network mainnet --owner <ADDRESS> --sort <COLUMN>
@@ -83,6 +84,7 @@ task('get-positions', 'Get positions owned by an account')
           const collateralValue = (collateralBalance * price) / floatToDec18(1);
           const collateralUtilization = collateralValue > 0 ? (debt * 100n) / collateralValue : 100n;
           const expiration = await position.expiration();
+          const isClosed = await position.isClosed();
 
           positionsData.push({
             created,
@@ -98,6 +100,7 @@ task('get-positions', 'Get positions owned by an account')
             utilization: collateralUtilization,
             expiration: expiration,
             virtualPrice: formatUnits(virtualPrice, 36n - collateralDecimals),
+            isClosed,
           });
 
           // Coingecko doesn't have WFPS or DEPS prices
@@ -129,8 +132,8 @@ task('get-positions', 'Get positions owned by an account')
           formatMultiLine(
             {
               primary: formatDateTime(row.created),
-              secondary: formatCountdown(row.expiration),
-              secondaryColor: colors.dim,
+              secondary: row.isClosed ? 'CLOSED' : formatCountdown(row.expiration),
+              secondaryColor: row.isClosed ? colors.red : colors.dim,
             },
             18,
             'left',
