@@ -150,25 +150,19 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
 
     if (!hasMultiLineHeaders) {
       const headerParts = columns.map((col) => {
-        const content = col.header;
-        return padWithColors(content, col.width, col.align, colors.bold);
+        return padWithColors(col.header, col.width, col.align, colors.bold);
       });
 
       console.log(headerParts.join(columnSeparator));
     } else {
-      const headerLines = columns.map((col) => col.header.split('\n'));
-      const maxLines = Math.max(...headerLines.map((lines) => lines.length));
-
-      for (let lineIdx = 0; lineIdx < maxLines; lineIdx++) {
-        const headerParts = columns.map((col, colIdx) => {
-          const lines = headerLines[colIdx];
-          const lineContent = lineIdx < lines.length ? lines[lineIdx] : '';
-
-          return padWithColors(lineContent, col.width, col.align, colors.bold);
-        });
-
-        console.log(headerParts.join(columnSeparator));
-      }
+      const headerValues = columns.map(col => col.header.split('\n'));
+      
+      renderMultiLineContent(
+        headerValues, 
+        columns, 
+        columnSeparator,
+        (value, _, __) => padWithColors(value, columns[_].width, columns[_].align, colors.bold)
+      );
     }
   }
 
@@ -181,30 +175,18 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
   data.forEach((row) => {
     const formattedValues = columns.map((col) => {
       const value = col.format(row);
-      const coloredValue = col.color && !value.includes('\x1b[') ? `${col.color}${value}${colors.reset}` : value;
-      return coloredValue;
+      return col.color && !value.includes('\x1b[') ? `${col.color}${value}${colors.reset}` : value;
     });
 
     const hasMultiLine = formattedValues.some((val) => val.includes('\n'));
-
     if (!hasMultiLine) {
       const rowParts = formattedValues.map((value, i) => {
         return padWithColors(value, columns[i].width, columns[i].align);
       });
       console.log(rowParts.join(columnSeparator));
     } else {
-      const valueLines = formattedValues.map((val) => val.split('\n'));
-      const maxLines = Math.max(...valueLines.map((lines) => lines.length));
-
-      for (let lineIdx = 0; lineIdx < maxLines; lineIdx++) {
-        const rowParts = columns.map((col, colIdx) => {
-          const lines = valueLines[colIdx];
-          const lineValue = lineIdx < lines.length ? lines[lineIdx] : '';
-          return padWithColors(lineValue, col.width, col.align);
-        });
-
-        console.log(rowParts.join(columnSeparator));
-      }
+      const valueLines = formattedValues.map(val => val.split('\n'));
+      renderMultiLineContent(valueLines, columns, columnSeparator);
     }
   });
 }
@@ -288,4 +270,31 @@ function padWithColors(str: string, width: number, align: 'left' | 'right' = 'le
 
   const padding = ' '.repeat(paddingNeeded);
   return align === 'right' ? padding + coloredStr : coloredStr + padding;
+}
+
+/**
+ * Renders multiline content with proper alignment and formatting
+ * @param values Array of values to render (one per line)
+ * @param columns Column configurations for alignment and width
+ * @param columnSeparator The separator to use between columns
+ * @param colorFn Optional function to apply color formatting
+ */
+function renderMultiLineContent(
+  values: string[][],
+  columns: { width: number; align?: 'left' | 'right' }[],
+  columnSeparator: string,
+  colorFn?: (value: string, colIndex: number, lineIndex: number) => string
+): void {
+  const maxLines = Math.max(...values.map(lines => lines.length));
+  
+  for (let lineIdx = 0; lineIdx < maxLines; lineIdx++) {
+    const parts = columns.map((col, colIdx) => {
+      const lines = values[colIdx];
+      const value = lineIdx < lines.length ? lines[lineIdx] : '';
+      const coloredValue = colorFn ? colorFn(value, colIdx, lineIdx) : value;
+      return padWithColors(coloredValue, col.width, col.align);
+    });
+    
+    console.log(parts.join(columnSeparator));
+  }
 }
