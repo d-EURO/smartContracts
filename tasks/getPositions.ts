@@ -27,6 +27,8 @@ interface PositionData {
   expiration: bigint;
   virtualPrice: string;
   isClosed: boolean;
+  challengedAmount: string;
+  challengePeriod: bigint;
 }
 
 // npx hardhat get-positions --network mainnet --owner <ADDRESS> --sort <COLUMN>
@@ -82,9 +84,11 @@ task('get-positions', 'Get positions owned by an account')
           const collateralSymbol = await collateral.symbol();
           const collateralAddress = await collateral.getAddress();
           const collateralValue = (collateralBalance * price) / floatToDec18(1);
-          const collateralUtilization = collateralValue > 0 ? (debt * 100n) / collateralValue : 100n;
+          const collateralUtilization = collateralValue > 0 ? (debt * 100n) / collateralValue : 0n;
           const expiration = await position.expiration();
           const isClosed = await position.isClosed();
+          const challengedAmount = await position.challengedAmount();
+          const challengePeriod = await position.challengePeriod();
 
           positionsData.push({
             created,
@@ -101,6 +105,8 @@ task('get-positions', 'Get positions owned by an account')
             expiration: expiration,
             virtualPrice: formatUnits(virtualPrice, 36n - collateralDecimals),
             isClosed,
+            challengedAmount: formatUnits(challengedAmount, collateralDecimals),
+            challengePeriod,
           });
 
           // Coingecko doesn't have WFPS or DEPS prices
@@ -212,6 +218,24 @@ task('get-positions', 'Get positions owned by an account')
               primaryColor: isUndercollateralized ? colors.red : undefined,
               secondary: formatNumberWithSeparator(marketPrice, 2),
               secondaryColor: isUndercollateralized ? colors.red : undefined,
+            },
+            15,
+            'right',
+          );
+        },
+      },
+      {
+        header: 'Challenge\nPeriod',
+        width: 15,
+        align: 'right',
+        format: function (row) {
+          const isChallenged = BigInt(row.challengedAmount.replace('.', '')) > 0n;
+          return formatMultiLine(
+            {
+              primary: formatNumberWithSeparator(row.challengedAmount, 4),
+              primaryColor: isChallenged ? colors.red : undefined,
+              secondary: formatCountdown(row.challengePeriod, true, true),
+              secondaryColor: isChallenged ? colors.red : undefined,
             },
             15,
             'right',

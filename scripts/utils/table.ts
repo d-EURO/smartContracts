@@ -96,7 +96,7 @@ export function createTable<T extends Record<string, any>>() {
       tableConfig.columnSeparator = separator;
       return this;
     },
-    
+
     setRowSpacing(spacing: boolean) {
       tableConfig.rowSpacing = spacing;
       return this;
@@ -114,7 +114,14 @@ export function createTable<T extends Record<string, any>>() {
  * @param config Table configuration
  */
 export function printTable<T extends Record<string, any>>(data: T[], config: TableConfig<T>): void {
-  const { columns: allColumns, showHeader = true, showHeaderSeparator = true, columnSeparator = '  ', rowSpacing = true, sort } = config;
+  const {
+    columns: allColumns,
+    showHeader = true,
+    showHeaderSeparator = true,
+    columnSeparator = '  ',
+    rowSpacing = true,
+    sort,
+  } = config;
   const columns = allColumns.filter((col) => col.visible !== false);
   if (sort) {
     data = [...data].sort((a, b) => {
@@ -137,7 +144,7 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
         return parseFloat(bVal) - parseFloat(aVal); // Descending order
       }
 
-      // timestamps 
+      // timestamps
       // TODO: generalize this to any date format
       if (['created', 'expiration'].includes(sortKey)) {
         return Number(bVal) - Number(aVal); // Descending order
@@ -162,13 +169,10 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
 
       console.log(headerParts.join(columnSeparator));
     } else {
-      const headerValues = columns.map(col => col.header.split('\n'));
-      
-      renderMultiLineContent(
-        headerValues, 
-        columns, 
-        columnSeparator,
-        (value, _, __) => padWithColors(value, columns[_].width, columns[_].align, colors.bold)
+      const headerValues = columns.map((col) => col.header.split('\n'));
+
+      renderMultiLineContent(headerValues, columns, columnSeparator, (value, _, __) =>
+        padWithColors(value, columns[_].width, columns[_].align, colors.bold),
       );
     }
   }
@@ -178,7 +182,7 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
   if (showHeaderSeparator) {
     console.log('-'.repeat(totalWidth));
   }
-  
+
   data.forEach((row, index) => {
     const formattedValues = columns.map((col) => {
       return col.format(row);
@@ -191,10 +195,10 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
       });
       console.log(rowParts.join(columnSeparator));
     } else {
-      const valueLines = formattedValues.map(val => val.split('\n'));
+      const valueLines = formattedValues.map((val) => val.split('\n'));
       renderMultiLineContent(valueLines, columns, columnSeparator);
     }
-    
+
     if (rowSpacing && index < data.length - 1) {
       console.log();
     }
@@ -223,14 +227,23 @@ export function formatDateTime(timestamp: number): string {
  * @param timestamp Unix timestamp in seconds
  * @returns Formatted countdown string (e.g. '5d 3h 12m')
  */
-export function formatCountdown(timestamp: bigint | number): string {
-  const now = Math.floor(Date.now() / 1000);
-  const remaining = Number(timestamp) - now;
-  if (remaining <= 0) return 'Expired';
+export function formatCountdown(
+  timestamp: bigint | number,
+  isDiff: boolean = false,
+  onlyHours: boolean = false,
+): string {
+  let secondsLeft = Number(timestamp);
+  if (!isDiff) secondsLeft -= Math.floor(Date.now() / 1000); 
+  if (secondsLeft <= 0) return 'Expired';
 
-  const days = Math.floor(remaining / 86400);
-  const hours = Math.floor((remaining % 86400) / 3600);
-  const minutes = Math.floor((remaining % 3600) / 60);
+  if (onlyHours) {
+    const hours = Math.floor(secondsLeft / 3600);
+    return `${hours}h`;
+  }
+
+  const days = Math.floor(secondsLeft / 86400);
+  const hours = Math.floor((secondsLeft % 86400) / 3600);
+  const minutes = Math.floor((secondsLeft % 3600) / 60);
   return `${days}d ${hours}h ${minutes}m`;
 }
 
@@ -293,10 +306,10 @@ function renderMultiLineContent(
   values: string[][],
   columns: { width: number; align?: 'left' | 'right' }[],
   columnSeparator: string,
-  colorFn?: (value: string, colIndex: number, lineIndex: number) => string
+  colorFn?: (value: string, colIndex: number, lineIndex: number) => string,
 ): void {
-  const maxLines = Math.max(...values.map(lines => lines.length));
-  
+  const maxLines = Math.max(...values.map((lines) => lines.length));
+
   for (let lineIdx = 0; lineIdx < maxLines; lineIdx++) {
     const parts = columns.map((col, colIdx) => {
       const lines = values[colIdx];
@@ -304,7 +317,7 @@ function renderMultiLineContent(
       const coloredValue = colorFn ? colorFn(value, colIdx, lineIdx) : value;
       return padWithColors(coloredValue, col.width, col.align);
     });
-    
+
     console.log(parts.join(columnSeparator));
   }
 }
