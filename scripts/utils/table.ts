@@ -125,37 +125,18 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
   const columns = allColumns.filter((col) => col.visible !== false);
   if (sort) {
     data = [...data].sort((a, b) => {
-      const sortKey = sort.key.toLowerCase();
-      const aVal = a[sort.key];
-      const bVal = b[sort.key];
+      const sortKey = sort.key;
+      const aVal: string = a[sortKey].toString();
+      const bVal: string = b[sortKey].toString();
 
-      // bigint
-      if (typeof aVal === 'bigint' && typeof bVal === 'bigint') {
-        return Number(bVal - aVal); // Descending order
-      }
-
-      // numeric strings
-      if (
-        typeof aVal === 'string' &&
-        typeof bVal === 'string' &&
-        !isNaN(parseFloat(aVal)) &&
-        !isNaN(parseFloat(bVal))
-      ) {
-        return parseFloat(bVal) - parseFloat(aVal); // Descending order
-      }
-
-      // timestamps
-      // TODO: generalize this to any date format
-      if (['created', 'expiration'].includes(sortKey)) {
-        return Number(bVal) - Number(aVal); // Descending order
-      }
-
-      // strings
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
+      const isNumeric = /^\d*\.?\d*$/.test(aVal.toString());
+      if (isNumeric) {
+        const aValBint = BigInt(aVal.replace('.', ''));
+        const bValBint = BigInt(bVal.replace('.', ''));
+        return Number(bValBint - aValBint); // Descending order
+      } else {
         return bVal.localeCompare(aVal); // Descending order
       }
-
-      return 0;
     });
   }
 
@@ -233,7 +214,7 @@ export function formatCountdown(
   onlyHours: boolean = false,
 ): string {
   let secondsLeft = Number(timestamp);
-  if (!isDiff) secondsLeft -= Math.floor(Date.now() / 1000); 
+  if (!isDiff) secondsLeft -= Math.floor(Date.now() / 1000);
   if (secondsLeft <= 0) return 'Expired';
 
   if (onlyHours) {

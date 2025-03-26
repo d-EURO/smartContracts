@@ -27,7 +27,9 @@
     "deploynotesttoken:network": "export deploymode=base && export deploymode=base && npx hardhat deploy --network",
     "redeploynotesttoken:network": "export deployoption=notesttoken && export deploymode=base && npx hardhat deploy --reset --network",
     "redeploy:network": "npx hardhat deploymode=base --reset --network",
-    "deployPositions:network": "export deploymode=pos && npx hardhat deploy --network"
+    "deployPositions:network": "export deploymode=pos && npx hardhat deploy --network",
+    "positions": "npx hardhat get-positions --network mainnet --sort created",
+    "positions:sort": "npx hardhat get-positions --network mainnet --sort"
   },
   "repository": {
     "type": "git",
