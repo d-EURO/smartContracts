@@ -158,7 +158,8 @@ task('get-positions', 'Get positions owned by an account')
         format: (row) =>
           formatMultiLine(
             {
-              primary: formatDateTime(Number(row.created)),
+              primary: row.state === PositionState.PROPOSED ? formatCountdown(row.start) : formatDateTime(Number(row.created)),
+              primaryColor: row.state === PositionState.PROPOSED ? colors.red : undefined,
               secondary: row.state,
               secondaryColor: [
                 PositionState.PROPOSED,
@@ -275,8 +276,7 @@ task('get-positions', 'Get positions owned by an account')
         format: (row) =>
           formatMultiLine(
             {
-              primary:
-                row.state === PositionState.PROPOSED ? formatCountdown(row.start) : formatDateTime(Number(row.start)),
+              primary: formatDateTime(Number(row.start)),
               secondary: formatCountdown(row.expiration),
             },
             18,
