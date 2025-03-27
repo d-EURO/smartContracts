@@ -1,7 +1,7 @@
 import { getContractAddress } from '../scripts/utils/deployments';
 import { task } from 'hardhat/config';
 import { floatToDec18 } from '../scripts/utils/math';
-import { formatAddress } from '../scripts/utils/utils';
+import { etherscanUrl, formatAddress, hyperlink } from '../scripts/utils/utils';
 import {
   colors,
   formatDateTime,
@@ -14,6 +14,7 @@ import { getTokenPrices } from '../scripts/utils/coingecko';
 
 enum PositionState {
   PROPOSED = 'PROPOSED',
+  COOLDOWN = 'COOLDOWN',
   CHALLENGED = 'CHALLENGED',
   UNDERCOLLATERIZED = 'UNDERCOLLATERIZED',
   CLOSED = 'CLOSED',
@@ -23,12 +24,13 @@ enum PositionState {
 interface PositionData {
   created: number;
   start: bigint;
+  cooldown: bigint;
   state: PositionState;
   position: string;
   original: string;
   owner: string;
   collateralAddress: string;
-  collateral: string;
+  collateralSymbol: string;
   price: string;
   collateralBalance: string;
   collateralValue: string;
@@ -71,11 +73,13 @@ task('get-positions', 'Get positions owned by an account')
     await Promise.all(
       events.map(async (event) => {
         try {
+          const now = Date.now() / 1000;
           const position = await hre.ethers.getContractAt('Position', event.args.position);
           const original = await position.original();
           const collateral = await hre.ethers.getContractAt('ERC20Wrapper', await position.collateral());
           const created = (await event.getBlock()).timestamp;
           const start = await position.start();
+          const cooldown = await position.cooldown();
 
           const owner = await position.owner();
           const positionAddress = await position.getAddress();
@@ -87,19 +91,22 @@ task('get-positions', 'Get positions owned by an account')
           const collateralSymbol = await collateral.symbol();
           const collateralAddress = (await collateral.getAddress()).toLowerCase();
           const collateralValue = (collateralBalance * price) / floatToDec18(1);
-          const collateralUtilization = collateralValue > 0 ? Number((debt * 100000n) / collateralValue) / Number(1000) : 0;
+          const collateralUtilization =
+            collateralValue > 0 ? Number((debt * 100000n) / collateralValue) / Number(1000) : 0;
           const expiration = await position.expiration();
           const isClosed = await position.isClosed();
           const challengedAmount = await position.challengedAmount();
           const challengePeriod = await position.challengePeriod();
           const state =
-            Date.now() / 1000 < start
+            now < start
               ? PositionState.PROPOSED
               : challengedAmount > 0
                 ? PositionState.CHALLENGED
-                : isClosed
-                  ? PositionState.CLOSED
-                  : PositionState.OPEN;
+                : now < cooldown
+                  ? PositionState.COOLDOWN
+                  : isClosed
+                    ? PositionState.CLOSED
+                    : PositionState.OPEN;
 
           // WFPS & DEPS need direct price fetching
           if (['WFPS', 'DEPS'].includes(collateralSymbol.toUpperCase()) && !specialTokenPrice[collateralAddress]) {
@@ -113,11 +120,12 @@ task('get-positions', 'Get positions owned by an account')
             created,
             start,
             state,
+            cooldown,
             position: positionAddress,
             original,
             owner,
             collateralAddress,
-            collateral: collateralSymbol,
+            collateralSymbol,
             price: formatUnits(price, 36n - collateralDecimals),
             collateralBalance: formatUnits(collateralBalance, collateralDecimals),
             collateralValue: formatEther(collateralValue),
@@ -158,13 +166,16 @@ task('get-positions', 'Get positions owned by an account')
         format: (row) =>
           formatMultiLine(
             {
-              primary: row.state === PositionState.PROPOSED ? formatCountdown(row.start) : formatDateTime(Number(row.created)),
+              primary: [PositionState.PROPOSED, PositionState.COOLDOWN].includes(row.state)
+                ? formatCountdown(row.cooldown) // same as start for proposed
+                : formatDateTime(Number(row.created)),
               primaryColor: row.state === PositionState.PROPOSED ? colors.red : undefined,
               secondary: row.state,
               secondaryColor: [
                 PositionState.PROPOSED,
                 PositionState.CHALLENGED,
                 PositionState.UNDERCOLLATERIZED,
+                PositionState.COOLDOWN,
               ].includes(row.state)
                 ? colors.red
                 : colors.dim,
@@ -196,9 +207,9 @@ task('get-positions', 'Get positions owned by an account')
         format: (row) =>
           formatMultiLine(
             {
-              primary: row.collateral,
+              primary: hyperlink(etherscanUrl(row.collateralAddress), row.collateralSymbol),
               secondary: formatNumberWithSeparator(row.price, 2),
-              secondaryColor: colors.dim,
+              secondaryColor: row.state === PositionState.UNDERCOLLATERIZED ? colors.red : colors.dim,
             },
             12,
             'right',

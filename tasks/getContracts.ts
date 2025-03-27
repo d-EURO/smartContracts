@@ -3,7 +3,7 @@ import { formatAddress } from '../scripts/utils/utils';
 import { createTable, colors } from '../scripts/utils/table';
 import { task } from 'hardhat/config';
 
-task('get-contracts', 'Get Decentralized EURO Protocol Addresses').setAction(async ({}) => {
+task('get-contracts', 'Get Decentralized EURO Protocol Contract Addresses on Ethereum Mainnet').setAction(async ({}) => {
   const protocolDeployment = await getFullDeployment();
 
   console.log('> Decentralized EURO Protocol Contracts\n');
@@ -12,7 +12,6 @@ task('get-contracts', 'Get Decentralized EURO Protocol Addresses').setAction(asy
   console.log('Network:', protocolDeployment.network);
   console.log();
 
-  // Convert contract data to array format for table
   const contractsData = Object.entries(protocolDeployment.contracts).map(([contractName, contractData]) => {
     return {
       name: contractName,
@@ -21,7 +20,6 @@ task('get-contracts', 'Get Decentralized EURO Protocol Addresses').setAction(asy
     };
   });
 
-  // Create and configure table
   const table = createTable()
     .setColumns([
       {
@@ -42,7 +40,6 @@ task('get-contracts', 'Get Decentralized EURO Protocol Addresses').setAction(asy
     .showHeaderSeparator(true)
     .setColumnSeparator('  ');
 
-  // Print the table
   table.print();
   console.log();
 });
