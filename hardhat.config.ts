@@ -11,6 +11,7 @@ import { getChildFromSeed } from './helper/wallet';
 
 // Import tasks
 import './tasks/getPositions';
+import './tasks/getContracts';
 
 import dotenv from 'dotenv';
 dotenv.config();

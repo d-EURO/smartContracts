@@ -29,7 +29,8 @@
     "redeploy:network": "npx hardhat deploymode=base --reset --network",
     "deployPositions:network": "export deploymode=pos && npx hardhat deploy --network",
     "positions": "npx hardhat get-positions --network mainnet --sort created",
-    "positions:sort": "npx hardhat get-positions --network mainnet --sort"
+    "positions:sort": "npx hardhat get-positions --network mainnet --sort",
+    "contracts": "npx hardhat get-contracts"
   },
   "repository": {
     "type": "git",

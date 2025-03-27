@@ -1,4 +1,4 @@
-import { getFlashbotDeploymentAddress } from '../scripts/utils/deployments';
+import { getContractAddress } from '../scripts/utils/deployments';
 import { task } from 'hardhat/config';
 import { floatToDec18 } from '../scripts/utils/math';
 import { formatAddress } from '../scripts/utils/utils';
@@ -57,7 +57,7 @@ task('get-positions', 'Get positions owned by an account')
 
     // Get MintingHubGateway contract
     const [signer] = await hre.ethers.getSigners();
-    const mintingHubGatewayAddress = await getFlashbotDeploymentAddress('mintingHubGateway');
+    const mintingHubGatewayAddress = await getContractAddress('mintingHubGateway');
     const mintingHubGateway = await hre.ethers.getContractAt('MintingHub', mintingHubGatewayAddress, signer);
 
     // Filter PositionOpened events, starting from block 22088283 (see deployments metadata)

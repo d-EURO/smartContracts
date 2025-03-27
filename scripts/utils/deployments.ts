@@ -1,9 +1,21 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-// import { ethers } from 'hardhat';
 
 dotenv.config();
+
+interface DeploymentData {
+  network: string;
+  blockNumber: number;
+  deployer: string;
+  contracts: {
+    [contractName: string]: {
+      address: string;
+      constructorArgs: any[];
+    };
+  };
+  timestamp: number;
+}
 
 export async function loadFileJSON(filePath: string) {
   const resolvedPath = path.resolve(process.cwd(), filePath);
@@ -16,7 +28,7 @@ export async function loadFileJSON(filePath: string) {
 }
 
 // Get the address of a contract deployed by Flashbots
-export async function getFlashbotDeploymentAddress(contractName: string): Promise<string> {
+export async function getContractAddress(contractName: string): Promise<string> {
   if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
     throw new Error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
   }
@@ -26,11 +38,19 @@ export async function getFlashbotDeploymentAddress(contractName: string): Promis
   return contractData.address;
 }
 
-export async function getFlashbotDeploymentDeployer(): Promise<string> {
+export async function getDeployer(): Promise<string> {
   if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
     throw new Error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
   }
 
   const deployment = await loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
   return deployment.deployer;
+}
+
+export async function getFullDeployment(): Promise<DeploymentData> {
+  if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
+    throw new Error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
+  }
+
+  return loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
 }

@@ -18,7 +18,7 @@ import {
 import { mainnet } from '../../constants/addresses';
 import UNISWAP_V3_ROUTER from '../../constants/abi/UniswapV3Router.json';
 import UNISWAP_V3_FACTORY from '../../constants/abi/UniswapV3Factory.json';
-import { getFlashbotDeploymentAddress } from '../../scripts/utils/deployments'; // Flashbots deployment
+import { getContractAddress } from '../../scripts/utils/deployments'; // Flashbots deployment
 // import { getDeployedAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
 // TODO: Dynamically handle the deployment method or remove unused imports
 
@@ -131,14 +131,14 @@ async function fetchDeployedAddresses(): Promise<DeployedAddresses | null> {
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Config;
 
     const addresses = {
-      dEURO: await getFlashbotDeploymentAddress('decentralizedEURO'),
-      positionFactory: await getFlashbotDeploymentAddress('positionFactory'),
-      positionRoller: await getFlashbotDeploymentAddress('positionRoller'),
-      depsWrapper: await getFlashbotDeploymentAddress('depsWrapper'),
-      frontendGateway: await getFlashbotDeploymentAddress('frontendGateway'),
-      mintingHubGateway: await getFlashbotDeploymentAddress('mintingHubGateway'),
-      savingsGateway: await getFlashbotDeploymentAddress('savingsGateway'),
-      bridge: await getFlashbotDeploymentAddress(config.bridge),
+      dEURO: await getContractAddress('decentralizedEURO'),
+      positionFactory: await getContractAddress('positionFactory'),
+      positionRoller: await getContractAddress('positionRoller'),
+      depsWrapper: await getContractAddress('depsWrapper'),
+      frontendGateway: await getContractAddress('frontendGateway'),
+      mintingHubGateway: await getContractAddress('mintingHubGateway'),
+      savingsGateway: await getContractAddress('savingsGateway'),
+      bridge: await getContractAddress(config.bridge),
       collateralToken: config.collateralToken,
     };
 
