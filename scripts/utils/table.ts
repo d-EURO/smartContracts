@@ -35,6 +35,7 @@ export interface TableConfig<T extends Record<string, any> = Record<string, any>
     key: string;
     direction?: 'asc' | 'desc';
   };
+  shouldDimRow?: (row: T) => boolean;
 }
 
 /**
@@ -102,6 +103,11 @@ export function createTable<T extends Record<string, any>>() {
       return this;
     },
 
+    setShouldDimRow(dimRowFn: (row: T) => boolean) {
+      tableConfig.shouldDimRow = dimRowFn;
+      return this;
+    },
+
     print(): void {
       printTable(tableData, tableConfig);
     },
@@ -121,6 +127,7 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
     columnSeparator = '  ',
     rowSpacing = true,
     sort,
+    shouldDimRow,
   } = config;
   const columns = allColumns.filter((col) => col.visible !== false);
   if (sort) {
@@ -151,9 +158,8 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
       console.log(headerParts.join(columnSeparator));
     } else {
       const headerValues = columns.map((col) => col.header.split('\n'));
-
-      renderMultiLineContent(headerValues, columns, columnSeparator, (value, _, __) =>
-        padWithColors(value, columns[_].width, columns[_].align, colors.bold),
+      renderMultiLineContent(headerValues, columns, columnSeparator, (value, colIndex, _) =>
+        padWithColors(value, columns[colIndex].width, columns[colIndex].align, colors.bold),
       );
     }
   }
@@ -165,6 +171,7 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
   }
 
   data.forEach((row, index) => {
+    const shouldDim = shouldDimRow && shouldDimRow(row);
     const formattedValues = columns.map((col) => {
       return col.format(row);
     });
@@ -172,12 +179,19 @@ export function printTable<T extends Record<string, any>>(data: T[], config: Tab
     const hasMultiLine = formattedValues.some((val) => val.includes('\n'));
     if (!hasMultiLine) {
       const rowParts = formattedValues.map((value, i) => {
-        return padWithColors(value, columns[i].width, columns[i].align);
+        return padWithColors(value, columns[i].width, columns[i].align, shouldDim ? colors.dim : undefined);
       });
       console.log(rowParts.join(columnSeparator));
     } else {
       const valueLines = formattedValues.map((val) => val.split('\n'));
-      renderMultiLineContent(valueLines, columns, columnSeparator);
+      renderMultiLineContent(valueLines, columns, columnSeparator, (value, colIndex, _) => {
+        return padWithColors(
+          value,
+          columns[colIndex].width,
+          columns[colIndex].align,
+          shouldDim ? colors.dim : undefined,
+        );
+      });
     }
 
     if (rowSpacing && index < data.length - 1) {

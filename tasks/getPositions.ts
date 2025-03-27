@@ -158,6 +158,7 @@ task('get-positions', 'Get positions owned by an account')
     if (sort) table.setSorting(sort);
     table.setData(positionsData);
     table.setRowSpacing(true);
+    table.setShouldDimRow((row) => row.isClosed);
     table.setColumns([
       {
         header: 'Created\nState',
