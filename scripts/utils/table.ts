@@ -255,7 +255,11 @@ export function formatNumberWithSeparator(value: number | string, decimals: numb
  * @returns String without ANSI codes
  */
 function stripAnsi(str: string): string {
-  return str.replace(/\x1b\[[0-9;]*m/g, '');
+  // Strip regular ANSI color codes
+  let result = str.replace(/\x1b\[[0-9;]*m/g, '');
+  // Strip OSC 8 hyperlink sequences (for clickable links)
+  result = result.replace(/\u001b\]8;;.*?\u0007(.*?)\u001b\]8;;\u0007/g, '$1');
+  return result;
 }
 
 /**

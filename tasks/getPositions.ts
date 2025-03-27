@@ -33,7 +33,7 @@ interface PositionData {
   collateralBalance: string;
   collateralValue: string;
   debt: string;
-  utilization: bigint;
+  utilization: number;
   expiration: bigint;
   virtualPrice: string;
   isClosed: boolean;
@@ -87,7 +87,7 @@ task('get-positions', 'Get positions owned by an account')
           const collateralSymbol = await collateral.symbol();
           const collateralAddress = (await collateral.getAddress()).toLowerCase();
           const collateralValue = (collateralBalance * price) / floatToDec18(1);
-          const collateralUtilization = collateralValue > 0 ? (debt * 100n) / collateralValue : 0n;
+          const collateralUtilization = collateralValue > 0 ? Number((debt * 100000n) / collateralValue) / Number(1000) : 0;
           const expiration = await position.expiration();
           const isClosed = await position.isClosed();
           const challengedAmount = await position.challengedAmount();
@@ -180,9 +180,9 @@ task('get-positions', 'Get positions owned by an account')
         format: (row) =>
           formatMultiLine(
             {
-              primary: formatAddress(row.position),
+              primary: formatAddress(row.position, true),
               primaryColor: row.original === row.position ? colors.yellow : undefined,
-              secondary: formatAddress(row.owner),
+              secondary: formatAddress(row.owner, true),
               secondaryColor: colors.dim,
             },
             15,
