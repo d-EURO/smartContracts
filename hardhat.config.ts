@@ -10,8 +10,9 @@ import { HardhatUserConfig } from 'hardhat/config';
 import { getChildFromSeed } from './helper/wallet';
 
 // Import tasks
-import './tasks/getPositions';
 import './tasks/getContracts';
+import './tasks/monitorPositions';
+import './tasks/monitorAll';
 
 import dotenv from 'dotenv';
 dotenv.config();

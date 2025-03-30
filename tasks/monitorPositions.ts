@@ -5,7 +5,7 @@ import { etherscanUrl, formatAddress, hyperlink } from '../scripts/utils/utils';
 import {
   colors,
   formatDateTime,
-  formatNumberWithSeparator,
+  formatCurrency,
   formatMultiLine,
   createTable,
   formatCountdown,
@@ -44,11 +44,9 @@ interface PositionData {
   marketPrice?: string;
 }
 
-// npx hardhat get-positions --network mainnet --owner <ADDRESS> --sort <COLUMN>
-// Sort options: created, position, owner, collateral, price, collateralBalance, collateralValue, debt, utilization, expiration
-// TODO: Optionally output to CSV.
-task('get-positions', 'Get positions owned by an account')
-  .addOptionalParam('owner', 'The address of the owner')
+// npx hardhat monitor-positions --network mainnet --owner <ADDRESS> --sort <COLUMN>
+task('monitor-positions', 'Monitor positions in the dEuro Protocol')
+  .addOptionalParam('owner', 'Filter positions by owner address')
   .addOptionalParam(
     'sort',
     'Column to sort by in descending order (created, position, owner, collateral, price, collateralBalance, collateralValue, debt, utilization, expiration)',
@@ -59,7 +57,7 @@ task('get-positions', 'Get positions owned by an account')
 
     // Get MintingHubGateway contract
     const [signer] = await hre.ethers.getSigners();
-    const mintingHubGatewayAddress = await getContractAddress('mintingHubGateway');
+    const mintingHubGatewayAddress = getContractAddress('mintingHubGateway');
     const mintingHubGateway = await hre.ethers.getContractAt('MintingHub', mintingHubGatewayAddress, signer);
 
     // Filter PositionOpened events, starting from block 22088283 (see deployments metadata)
@@ -209,7 +207,7 @@ task('get-positions', 'Get positions owned by an account')
           formatMultiLine(
             {
               primary: hyperlink(etherscanUrl(row.collateralAddress), row.collateralSymbol),
-              secondary: formatNumberWithSeparator(row.price, 2),
+              secondary: formatCurrency(row.price, 2),
               secondaryColor: row.state === PositionState.UNDERCOLLATERIZED ? colors.red : colors.dim,
             },
             12,
@@ -223,8 +221,8 @@ task('get-positions', 'Get positions owned by an account')
         format: (row) =>
           formatMultiLine(
             {
-              primary: formatNumberWithSeparator(row.collateralBalance, 4),
-              secondary: formatNumberWithSeparator(row.collateralValue, 2),
+              primary: formatCurrency(row.collateralBalance, 4),
+              secondary: formatCurrency(row.collateralValue, 2),
             },
             15,
             'right',
@@ -237,8 +235,8 @@ task('get-positions', 'Get positions owned by an account')
         format: (row) =>
           formatMultiLine(
             {
-              primary: formatNumberWithSeparator(row.debt, 2),
-              secondary: formatNumberWithSeparator(Number(row.utilization), 2) + '%',
+              primary: formatCurrency(row.debt, 2),
+              secondary: formatCurrency(Number(row.utilization), 2) + '%',
               secondaryColor: Number(row.utilization) > 75 ? colors.green : undefined,
             },
             15,
@@ -253,9 +251,9 @@ task('get-positions', 'Get positions owned by an account')
           const isUndercollaterized = row.state === PositionState.UNDERCOLLATERIZED;
           return formatMultiLine(
             {
-              primary: formatNumberWithSeparator(row.virtualPrice, 2),
+              primary: formatCurrency(row.virtualPrice, 2),
               primaryColor: isUndercollaterized ? colors.red : undefined,
-              secondary: formatNumberWithSeparator(marketPrices[row.collateralAddress], 2),
+              secondary: formatCurrency(marketPrices[row.collateralAddress], 2),
               secondaryColor: isUndercollaterized ? colors.red : undefined,
             },
             15,
@@ -271,7 +269,7 @@ task('get-positions', 'Get positions owned by an account')
           const isChallenged = BigInt(row.challengedAmount.replace('.', '')) > 0n;
           return formatMultiLine(
             {
-              primary: formatNumberWithSeparator(row.challengedAmount, 4),
+              primary: formatCurrency(row.challengedAmount, 4),
               primaryColor: isChallenged ? colors.red : undefined,
               secondary: formatCountdown(row.challengePeriod, true, true),
               secondaryColor: isChallenged ? colors.red : undefined,

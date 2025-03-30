@@ -1,10 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
+import { DeploymentAddresses } from '../monitoring/types';
 
 dotenv.config();
 
-interface DeploymentData {
+export interface DeploymentData {
   network: string;
   blockNumber: number;
   deployer: string;
@@ -17,7 +18,7 @@ interface DeploymentData {
   timestamp: number;
 }
 
-export async function loadFileJSON(filePath: string) {
+export function loadFileJSON(filePath: string) {
   const resolvedPath = path.resolve(process.cwd(), filePath);
   if (!fs.existsSync(resolvedPath)) {
     console.error(`File not found: ${resolvedPath}`);
@@ -28,29 +29,41 @@ export async function loadFileJSON(filePath: string) {
 }
 
 // Get the address of a contract deployed by Flashbots
-export async function getContractAddress(contractName: string): Promise<string> {
+export function getContractAddress(contractName: string): string {
   if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
     throw new Error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
   }
 
-  const deployment = await loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
+  const deployment = loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
   const contractData = deployment.contracts[contractName] as { address: string; constructorArgs: any[] };
   return contractData.address;
 }
 
-export async function getDeployer(): Promise<string> {
+export function getDeployer(): string {
   if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
     throw new Error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
   }
 
-  const deployment = await loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
+  const deployment = loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
   return deployment.deployer;
 }
 
-export async function getFullDeployment(): Promise<DeploymentData> {
+export function getFullDeployment(): DeploymentData {
   if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
     throw new Error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
   }
 
   return loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
+}
+
+export function getDeploymentAddresses(): DeploymentAddresses {
+  if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
+    throw new Error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
+  }
+
+  const deployment = getFullDeployment();
+  return {
+    deployer: deployment.deployer,
+    ...Object.fromEntries(Object.entries(deployment.contracts).map(([name, data]) => [name, data.address])),
+  } as DeploymentAddresses;
 }
