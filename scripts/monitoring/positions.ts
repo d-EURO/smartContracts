@@ -87,8 +87,8 @@ export async function getPositions(
           collateralAddress,
           collateralSymbol,
           collateralDecimals,
-          price: formatUnits(price, 36n - collateralDecimals),
-          virtualPrice: formatUnits(virtualPrice, 36n - collateralDecimals),
+          price,
+          virtualPrice,
           collateralBalance,
           collateralValue,
           debt,
@@ -112,12 +112,13 @@ export async function getPositions(
   const marketPrices = { ...(await getTokenPrices(collateralAddresses)), ...specialTokenPrice };
   positionsData.forEach((pos) => {
     const marketPrice = marketPrices[pos.collateralAddress];
+    const virtualPrice = formatUnits(pos.virtualPrice, 36n - pos.collateralDecimals);
     if (marketPrice) {
-      if (Number(pos.virtualPrice) > Number(marketPrice) && pos.state !== PositionStatus.CHALLENGED) {
+      if (Number(virtualPrice) > Number(marketPrice) && pos.state !== PositionStatus.CHALLENGED) {
         pos.state = PositionStatus.UNDERCOLLATERIZED;
       }
       pos.marketPrice = marketPrice;
-      pos.utilizationMarket = (Number(marketPrice) * 100000) / Number(pos.virtualPrice) / 1000;
+      pos.utilizationMarket = (Number(marketPrice) * 100000) / Number(virtualPrice) / 1000;
     }
 
     // Update state and risk level

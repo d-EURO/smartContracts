@@ -27,7 +27,7 @@ export default class MonitoringModule {
     this.deployment = getDeploymentAddresses();
   }
 
-  async initialize() {
+  async init() {
     await this.initializeContracts();
     return this;
   }

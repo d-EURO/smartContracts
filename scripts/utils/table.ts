@@ -1,4 +1,4 @@
-import { formatEther } from 'ethers';
+import { formatUnits } from 'ethers';
 import { BigNumberish } from 'ethers/src.ts/utils';
 
 // ANSI color codes
@@ -260,16 +260,16 @@ export function formatNumber(value: number | string, decimals: number = 2): stri
  * @param decimals Number of decimal places
  * @returns Formatted number string with apostrophe as thousands separator
  */
-export function formatCurrency(value: number | string, decimals: number = 2): string {
+export function formatCurrency(value: BigNumberish, decimals: number = 2): string {
   const num = Number(value).toFixed(decimals);
   const [integerPart, decimalPart] = num.split('.');
   const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, "'");
   return decimalPart ? `${formattedInteger}.${decimalPart}` : formattedInteger;
 }
 
-export function formatCurrencyFromWei(value: BigNumberish, decimals: number = 2): string {
-  const num = formatEther(value);
-  return formatCurrency(num, decimals);
+export function formatCurrencyFromWei(value: BigNumberish, precision: number = 2, decimals: BigNumberish = 18): string {
+  const num = formatUnits(value, decimals);
+  return formatCurrency(num, precision);
 }
 
 /**

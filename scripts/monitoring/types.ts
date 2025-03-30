@@ -132,8 +132,8 @@ export interface PositionState {
   original: string;
   debt: bigint;
   interest: bigint;
-  price: string;
-  virtualPrice: string;
+  price: bigint;
+  virtualPrice: bigint;
   collateralAddress: string;
   collateralSymbol: string;
   collateralBalance: bigint;
