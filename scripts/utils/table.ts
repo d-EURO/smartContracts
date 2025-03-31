@@ -11,6 +11,7 @@ export const colors = {
   blue: '\x1b[34m',
   grey: '\x1b[90m',
   red: '\x1b[31m',
+  underline: '\x1b[4m',
 };
 
 export interface MultiLineCell {
@@ -61,7 +62,20 @@ export function formatMultiLine(cell: MultiLineCell, width: number = 20, align: 
   }
 }
 
-export function createTable<T extends Record<string, any>>() {
+export interface Table<T extends Record<string, any>> {
+  addColumn(column: TableColumn<T>): Table<T>;
+  setColumns(columns: TableColumn<T>[]): Table<T>;
+  setData(data: T[]): Table<T>;
+  setSorting(key: string, direction?: 'asc' | 'desc'): Table<T>;
+  showHeader(show: boolean): Table<T>;
+  showHeaderSeparator(show: boolean): Table<T>;
+  setColumnSeparator(separator: string): Table<T>;
+  setRowSpacing(spacing: boolean): Table<T>;
+  setShouldDimRow(dimRowFn: (row: T) => boolean): Table<T>;
+  print(): void;
+}
+
+export function createTable<T extends Record<string, any>>(): Table<T> {
   let tableData: T[] = [];
   let tableConfig: TableConfig<T> = { columns: [] };
 

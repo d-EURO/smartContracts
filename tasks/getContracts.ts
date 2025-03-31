@@ -1,7 +1,8 @@
 import { getFullDeployment } from '../scripts/utils/deployments';
-import { formatAddress } from '../scripts/utils/utils';
+import { formatHash } from '../scripts/utils/utils';
 import { createTable, colors } from '../scripts/utils/table';
 import { task } from 'hardhat/config';
+import { printTitle } from '../scripts/monitoring/utils';
 
 interface ContractData {
   name: string;
@@ -13,10 +14,10 @@ task('get-contracts', 'Get Decentralized EURO Protocol Contract Addresses on Eth
   async ({}) => {
     const protocolDeployment = getFullDeployment();
 
-    console.log('> Decentralized EURO Protocol Contracts\n');
-    console.log('Deployer:', formatAddress(protocolDeployment.deployer, true));
-    console.log('Timestamp:', new Date(protocolDeployment.timestamp * 1000).toLocaleString());
-    console.log('Network:', protocolDeployment.network);
+    printTitle('Decentralized EURO Protocol Contracts');
+    console.log(`Network:     ${protocolDeployment.network}`);
+    console.log(`Deployer:    ${formatHash(protocolDeployment.deployer, true, 'address', false)}`);
+    console.log(`Timestamp:   ${new Date(protocolDeployment.timestamp * 1000).toLocaleString('de-DE')}`);
     console.log();
 
     const contractsData: ContractData[] = Object.entries(protocolDeployment.contracts).map(
@@ -24,7 +25,7 @@ task('get-contracts', 'Get Decentralized EURO Protocol Contract Addresses on Eth
         return {
           name: contractName,
           address: contractData.address,
-          hyperlink: formatAddress(contractData.address, true),
+          hyperlink: formatHash(contractData.address, true, 'address', false),
         };
       },
     );
@@ -47,6 +48,7 @@ task('get-contracts', 'Get Decentralized EURO Protocol Contract Addresses on Eth
       .setData(contractsData)
       .setSorting('name', 'asc')
       .showHeaderSeparator(true)
+      .setRowSpacing(false)
       .setColumnSeparator('  ');
 
     table.print();

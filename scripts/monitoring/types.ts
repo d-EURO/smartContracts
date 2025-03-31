@@ -48,6 +48,8 @@ export interface DecentralizedEuroState {
   equity: bigint; // solvency
   equityAddress: string;
   solvencyStatus: HealthStatus;
+  minApplicationPeriod: bigint;
+  minApplicationFee: bigint;
   lossEvents: EventTrendData;
   profitEvents: EventTrendData;
   minterAppliedEvents: EventTrendData;
@@ -90,7 +92,7 @@ export interface SavingsGatewayState {
   nextChange: bigint;
   hasPendingChange: boolean;
   changeTime: string;
-  tradeEvents: EventTrendData;
+  savedEvents: EventTrendData;
   interestCollectedEvents: EventTrendData;
   withdrawnEvents: EventTrendData;
   rateProposedEvents: EventTrendData;

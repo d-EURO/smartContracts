@@ -17,6 +17,8 @@ export async function getDecentralizedEuroState(deuro: DecentralizedEURO): Promi
   const reserveBalance = await deuro.balanceOf(equityAddress);
   const minterReserve = await deuro.minterReserve();
   const equity = await deuro.equity();
+  const minApplicationPeriod = await deuro.MIN_APPLICATION_PERIOD();
+  const minApplicationFee = await deuro.MIN_FEE();
   const solvencyStatus = computeSolvencyStatus(
     equity,
     monitorConfig.thresholds.minimumEquity,
@@ -38,6 +40,8 @@ export async function getDecentralizedEuroState(deuro: DecentralizedEURO): Promi
     equity,
     equityAddress,
     solvencyStatus,
+    minApplicationPeriod,
+    minApplicationFee,
     lossEvents,
     profitEvents,
     minterAppliedEvents,
@@ -49,7 +53,7 @@ export async function getDecentralizedEuroState(deuro: DecentralizedEURO): Promi
 async function processLossEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
   const events = await deuro.queryFilter(deuro.filters.Loss(), monitorConfig.deploymentBlock, 'latest');
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const lossTrend = aggregateData(processedEvents, [{ name: 'loss', key: 'amount', ops: Operator.sum }]);
+  const lossTrend = aggregateData(processedEvents, [{ name: 'Loss (dEURO)', key: 'amount', ops: Operator.sum }]);
   return {
     trend: lossTrend,
     events: processedEvents,
@@ -59,7 +63,7 @@ async function processLossEvents(deuro: DecentralizedEURO, color?: string): Prom
 async function processProfitEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
   const events = await deuro.queryFilter(deuro.filters.Profit(), monitorConfig.deploymentBlock, 'latest');
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const profitTrend = aggregateData(processedEvents, [{ name: 'profit', key: 'amount', ops: Operator.sum }]);
+  const profitTrend = aggregateData(processedEvents, [{ name: 'Profit (dEURO)', key: 'amount', ops: Operator.sum }]);
   return {
     trend: profitTrend,
     events: processedEvents,
@@ -69,7 +73,14 @@ async function processProfitEvents(deuro: DecentralizedEURO, color?: string): Pr
 async function processMinterAppliedEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
   const events = await deuro.queryFilter(deuro.filters.MinterApplied(), monitorConfig.deploymentBlock, 'latest');
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const minterAppliedTrend = aggregateData(processedEvents, [{ name: 'minterApplied', key: '', ops: Operator.count }]);
+  const minterAppliedTrend = aggregateData(processedEvents, [
+    {
+      name: 'MinterApplied (occ.)',
+      key: '',
+      ops: Operator.count,
+      valueFormatter: (value) => value.toString(),
+    },
+  ]);
   return {
     trend: minterAppliedTrend,
     events: processedEvents,
@@ -79,7 +90,9 @@ async function processMinterAppliedEvents(deuro: DecentralizedEURO, color?: stri
 async function processMinterDeniedEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
   const events = await deuro.queryFilter(deuro.filters.MinterDenied(), monitorConfig.deploymentBlock, 'latest');
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const minterDeniedTrend = aggregateData(processedEvents, [{ name: 'minterDenied', key: '', ops: Operator.count }]);
+  const minterDeniedTrend = aggregateData(processedEvents, [
+    { name: 'MinterDenied (occ.)', key: '', ops: Operator.count, valueFormatter: (value) => value.toString() },
+  ]);
   return {
     trend: minterDeniedTrend,
     events: processedEvents,
@@ -90,7 +103,7 @@ async function processProfitsDistributedEvents(deuro: DecentralizedEURO, color?:
   const events = await deuro.queryFilter(deuro.filters.ProfitDistributed(), monitorConfig.deploymentBlock, 'latest');
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const profitsDistributedTrend = aggregateData(processedEvents, [
-    { name: 'profitsDistributed', key: 'amount', ops: Operator.sum },
+    { name: 'ProfitsDistributed (dEURO)', key: 'amount', ops: Operator.sum },
   ]);
   return {
     trend: profitsDistributedTrend,

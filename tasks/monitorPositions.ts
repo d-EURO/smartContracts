@@ -1,5 +1,5 @@
 import { task } from 'hardhat/config';
-import { etherscanUrl, formatAddress, hyperlink } from '../scripts/utils/utils';
+import { etherscanUrl, formatHash, hyperlink } from '../scripts/utils/utils';
 import {
   colors,
   formatDateTime,
@@ -11,8 +11,9 @@ import {
 } from '../scripts/utils/table';
 import MonitoringModule from '../scripts/monitoring';
 import { PositionState, PositionStatus } from '../scripts/monitoring/types';
+import { printTitle } from '../scripts/monitoring/utils';
 
-// npx hardhat monitor-positions --network mainnet --owner <ADDRESS> --sort <COLUMN>
+// npx hardhat monitor-positions --network mainnet --owner <ADDRESS> --sort <COLUMN> (default sort: created)
 task('monitor-positions', 'Monitor positions in the dEuro Protocol')
   .addOptionalParam('owner', 'Filter positions by owner address')
   .addOptionalParam(
@@ -26,17 +27,18 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
     monitoringModule = await monitoringModule.init();
     const positionsData = await monitoringModule.getPositions();
 
-    console.log(`> Found ${positionsData.length} positions\n`);
+    printTitle('Positions');
+    console.log(`Found ${colors.green}${positionsData.length}${colors.reset} positions\n`);
 
-    // Create and configure the table
+
     const table = createTable<PositionState>();
-    if (sort) table.setSorting(sort);
+    table.setSorting(sort || 'created', 'desc');
     table.setData(positionsData);
     table.setRowSpacing(true);
     table.setShouldDimRow((row) => row.isClosed);
     table.setColumns([
       {
-        header: 'Created\nState',
+        header: 'Created\n' + colors.dim + 'State' + colors.reset,
         width: 18,
         align: 'left',
         format: (row) =>
@@ -61,15 +63,15 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
           ),
       },
       {
-        header: 'Position\nOwner',
+        header: 'Position\n' + colors.dim + 'Owner' + colors.reset,
         width: 15,
         align: 'left',
         format: (row) =>
           formatMultiLine(
             {
-              primary: formatAddress(row.address, true),
+              primary: formatHash(row.address, true),
               primaryColor: row.original === row.address ? colors.yellow : undefined,
-              secondary: formatAddress(row.owner, true),
+              secondary: formatHash(row.owner, true),
               secondaryColor: colors.dim,
             },
             15,
@@ -77,7 +79,7 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
           ),
       },
       {
-        header: 'Collateral\nPrice',
+        header: 'Collateral\n' + colors.dim + 'Price' + colors.reset,
         width: 12,
         align: 'right',
         format: (row) =>
@@ -92,7 +94,7 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
           ),
       },
       {
-        header: 'Balance\nValue',
+        header: 'Balance\n' + colors.dim + 'Value' + colors.reset,
         width: 15,
         align: 'right',
         format: (row) =>
@@ -106,7 +108,7 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
           ),
       },
       {
-        header: 'Debt\nUtil. %',
+        header: 'Debt\n' + colors.dim + 'Util. %' + colors.reset,
         width: 15,
         align: 'right',
         format: (row) =>
@@ -121,7 +123,7 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
           ),
       },
       {
-        header: 'Liq. Price\nMark. Price',
+        header: 'Liq. Price\n' + colors.dim + 'Mark. Price' + colors.reset,
         width: 15,
         align: 'right',
         format: function (row) {
@@ -139,7 +141,7 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
         },
       },
       {
-        header: 'Challenge\nPeriod',
+        header: 'Challenge\n' + colors.dim + 'Period' + colors.reset,
         width: 15,
         align: 'right',
         format: function (row) {
@@ -157,9 +159,9 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
         },
       },
       {
-        header: 'Start\nExpiry',
+        header: 'Start\n' + colors.dim + 'Expiry' + colors.reset,
         width: 18,
-        align: 'left',
+        align: 'right',
         format: (row) =>
           formatMultiLine(
             {
@@ -167,7 +169,7 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
               secondary: formatCountdown(row.expiration),
             },
             18,
-            'left',
+            'right',
           ),
       },
     ]);

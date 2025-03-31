@@ -1,3 +1,5 @@
+import { colors, createTable, formatCurrencyFromWei, formatMultiLine, Table } from '../utils/table';
+import { formatHash } from '../utils/utils';
 import { EventData } from './types';
 
 /**
@@ -49,27 +51,29 @@ export async function processEvents(events: any[], color?: string): Promise<Even
   );
 }
 
-type OperatorType = (a: number, b: number) => number;
+type OperatorType = (a: bigint, b: bigint) => bigint;
 
 export const Operator: Record<string, OperatorType> = {
-  sum: (a: number, b: number) => a + b,
-  max: (a: number, b: number) => Math.max(a, b),
-  min: (a: number, b: number) => Math.min(a, b),
-  count: (a: number, _) => a + 1,
+  sum: (a: bigint, b: bigint) => a + b,
+  max: (a: bigint, b: bigint) => (a > b ? a : b),
+  min: (a: bigint, b: bigint) => (a < b ? a : b),
+  count: (a: bigint, _) => a + 1n,
 };
 
 interface Metric {
   name: string;
   key: string;
   ops: OperatorType;
+  valueFormatter?: (value: bigint) => string;
+  filter?: (event: EventData) => boolean;
 }
 
 export interface MetricResult {
   value: {
-    day: number;
-    week: number;
-    month: number;
-    year: number;
+    day: bigint;
+    week: bigint;
+    month: bigint;
+    year: bigint;
   };
   count: {
     day: number;
@@ -77,6 +81,8 @@ export interface MetricResult {
     month: number;
     year: number;
   };
+  last: EventData;
+  valueFormatter: (value: bigint) => string;
 }
 
 export function aggregateData(events: EventData[], metrics: Metric[]): Record<string, MetricResult> {
@@ -84,13 +90,17 @@ export function aggregateData(events: EventData[], metrics: Metric[]): Record<st
 
   for (const event of events) {
     for (const metric of metrics) {
+      if (metric.filter && !metric.filter(event)) {
+        continue;
+      }
+
       if (!result[metric.name]) {
         result[metric.name] = {
           value: {
-            day: 0,
-            week: 0,
-            month: 0,
-            year: 0,
+            day: 0n,
+            week: 0n,
+            month: 0n,
+            year: 0n,
           },
           count: {
             day: 0,
@@ -98,11 +108,13 @@ export function aggregateData(events: EventData[], metrics: Metric[]): Record<st
             month: 0,
             year: 0,
           },
+          last: events[0],
+          valueFormatter: metric.valueFormatter || formatCurrencyFromWei,
         };
       }
 
       const timestamp = event.timestamp;
-      const value = event.data[metric.key] ?? 0; // 0 if undefined, e.g. for event count only
+      const value = event.data[metric.key] ?? 0; // 0 if undefined, e.g. for "event count" only
 
       if (timestamp > Time.dayAgo) {
         result[metric.name].value.day = metric.ops(result[metric.name].value.day, value);
@@ -124,4 +136,98 @@ export function aggregateData(events: EventData[], metrics: Metric[]): Record<st
   }
 
   return result;
+}
+
+export function eventTrendDataToArray(
+  eventTrendData: Record<string, MetricResult>,
+): { name: string; data: MetricResult }[] {
+  return Object.keys(eventTrendData).map((name) => ({
+    name,
+    data: eventTrendData[name],
+  }));
+}
+
+export function createEventTrendsTable(name: string): Table<{ name: string; data: MetricResult }> {
+  const eventTrendsTable = createTable<{ name: string; data: MetricResult }>();
+  eventTrendsTable.setColumns([
+    {
+      header: `${name}\n${colors.dim}Last TX${colors.dim}`,
+      width: 30,
+      align: 'left',
+      format: (row) =>
+        formatMultiLine(
+          {
+            primary: row.name,
+            secondary: formatHash(row.data.last.txHash, true, 'tx'),
+          },
+          20,
+          'left',
+        ),
+    },
+    {
+      header: `Day\n${colors.dim}Count${colors.dim}`,
+      width: 20,
+      align: 'right',
+      format: (row) =>
+        formatMultiLine(
+          {
+            primary: row.data.valueFormatter(row.data.value.day),
+            secondary: row.data.count.day.toString(),
+          },
+          20,
+          'right',
+        ),
+    },
+    {
+      header: `Week\n${colors.dim}Count${colors.dim}`,
+      width: 20,
+      align: 'right',
+      format: (row) =>
+        formatMultiLine(
+          {
+            primary: row.data.valueFormatter(row.data.value.week),
+            secondary: row.data.count.week.toString(),
+          },
+          20,
+          'right',
+        ),
+    },
+    {
+      header: `Month\n${colors.dim}Count${colors.dim}`,
+      width: 20,
+      align: 'right',
+      format: (row) =>
+        formatMultiLine(
+          {
+            primary: row.data.valueFormatter(row.data.value.month),
+            secondary: row.data.count.month.toString(),
+          },
+          20,
+          'right',
+        ),
+    },
+    {
+      header: `Year\n${colors.dim}Count${colors.dim}`,
+      width: 20,
+      align: 'right',
+      format: (row) =>
+        formatMultiLine(
+          {
+            primary: row.data.valueFormatter(row.data.value.year),
+            secondary: row.data.count.year.toString(),
+          },
+          20,
+          'right',
+        ),
+    },
+  ]);
+  eventTrendsTable.showHeaderSeparator(true);
+  eventTrendsTable.setColumnSeparator('  ');
+  eventTrendsTable.setRowSpacing(true);
+  return eventTrendsTable;
+}
+
+export function printTitle(title: string) {
+  console.log(`${colors.bold}${title}${colors.reset}`);
+  console.log('='.repeat(title.length));
 }

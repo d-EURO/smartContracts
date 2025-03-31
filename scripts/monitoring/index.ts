@@ -57,6 +57,8 @@ export default class MonitoringModule {
     }
   }
 
+  // TODO: Create getDEPSWrapperState function
+
   /**
    * Gets the state of the DecentralizedEURO contract
    * @returns DecentralizedEuroState
@@ -102,6 +104,7 @@ export default class MonitoringModule {
   /**
    * Gets all active challenges
    * @returns Array of challenges
+   * // TODO: Integrate into monitoring
    */
   async getChallenges() {
     return getChallenges(this.contracts.mintingHubGateway, this.hre);

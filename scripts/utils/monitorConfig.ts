@@ -1,4 +1,4 @@
-import { BridgeType } from '../monitoring/types';
+import { BridgeType, PositionStatus } from '../monitoring/types';
 
 /**
  * Configuration for dEuro Protocol Monitoring System
@@ -6,27 +6,27 @@ import { BridgeType } from '../monitoring/types';
  */
 export const monitorConfig = {
   bridges: ['bridgeEURC', 'bridgeEURT', 'bridgeVEUR', 'bridgeEURS'] as BridgeType[],
-  deploymentBlock: 22088283,          // Deployment block number for the dEuro protocol
+  deploymentBlock: 22088283, // Deployment block number for the dEuro protocol
   thresholds: {
     // Equity thresholds
-    minimumEquity: 1000,              // dEURO
-    equityWarningLevel: 5000,         // dEURO
+    minimumEquity: 1000, // dEURO
+    equityWarningLevel: 5000, // dEURO
 
     // Bridge thresholds
-    bridgeUtilizationWarning: 50,     // %
-    bridgeUtilizationCritical: 80,    // %
-    bridgeExpirationWarning: 90,      // days
-    bridgeExpirationCritical: 30,     // days
+    bridgeUtilizationWarning: 60, // %
+    bridgeUtilizationCritical: 80, // %
+    bridgeExpirationWarning: 30, // days
+    bridgeExpirationCritical: 20, // days
 
     // Position thresholds
-    positionUtilizationWarning: 50,   // %
-    positionUtilizationCritical: 80,  // %
-    positionExpirationWarning: 7,     // days
-    positionExpirationCritical: 3,    // days
+    positionUtilizationWarning: 50, // %
+    positionUtilizationCritical: 80, // %
+    positionExpirationWarning: 7, // days
+    positionExpirationCritical: 3, // days
 
     // Interest rate thresholds
-    interestRateMinimum: 0.1,         // %
-    interestRateMaximum: 15,          // %
+    interestRateMinimum: 0.1, // %
+    interestRateMaximum: 15, // %
   },
 
   // Time intervals for monitoring (in seconds)
@@ -55,15 +55,15 @@ export const monitorConfig = {
   // Risk levels for positions
   riskLevels: {
     high: {
-      states: ['CHALLENGED', 'UNDERCOLLATERIZED'],
+      states: [PositionStatus.CHALLENGED, PositionStatus.UNDERCOLLATERIZED],
       utilizationThreshold: 80,
     },
     medium: {
-      states: ['EXPIRING', 'COOLDOWN'],
+      states: [PositionStatus.EXPIRING, PositionStatus.COOLDOWN],
       utilizationThreshold: 50,
     },
     low: {
-      states: ['OPEN'],
+      states: [PositionStatus.OPEN],
       utilizationMax: 50,
     },
   },

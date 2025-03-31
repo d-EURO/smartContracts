@@ -12,6 +12,10 @@ import { getChildFromSeed } from './helper/wallet';
 // Import tasks
 import './tasks/getContracts';
 import './tasks/monitorPositions';
+import './tasks/monitorBridges';
+import './tasks/monitorDecentralizedEuro';
+import './tasks/monitorEquity';
+import './tasks/monitorSavingsGateway';
 import './tasks/monitorAll';
 
 import dotenv from 'dotenv';

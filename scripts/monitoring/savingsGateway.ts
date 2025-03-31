@@ -37,7 +37,7 @@ export async function getSavingsGatewayState(
     nextChange,
     hasPendingChange,
     changeTime,
-    tradeEvents: savedEvents,
+    savedEvents,
     interestCollectedEvents,
     withdrawnEvents,
     rateProposedEvents,
@@ -54,7 +54,7 @@ async function processSavedEvents(savingsGateway: SavingsGateway, color?: string
     'latest',
   );
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const savedTrend = aggregateData(processedEvents, [{ name: 'amount', key: 'amount', ops: Operator.sum }]);
+  const savedTrend = aggregateData(processedEvents, [{ name: 'Saved (dEURO)', key: 'amount', ops: Operator.sum }]);
   return {
     trend: savedTrend,
     events: processedEvents,
@@ -69,7 +69,7 @@ async function processInterestCollectedEvents(savingsGateway: SavingsGateway, co
   );
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const interestCollectedTrend = aggregateData(processedEvents, [
-    { name: 'interest', key: 'interest', ops: Operator.sum },
+    { name: 'Interest Collected (dEURO)', key: 'interest', ops: Operator.sum },
   ]);
   return {
     trend: interestCollectedTrend,
@@ -84,7 +84,7 @@ async function processWithdrawnEvents(savingsGateway: SavingsGateway, color?: st
     'latest',
   );
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const withdrawnTrend = aggregateData(processedEvents, [{ name: 'withdrawn', key: 'amount', ops: Operator.sum }]);
+  const withdrawnTrend = aggregateData(processedEvents, [{ name: 'Withdrawn (dEURO)', key: 'amount', ops: Operator.sum }]);
   return {
     trend: withdrawnTrend,
     events: processedEvents,
@@ -98,7 +98,9 @@ async function processRateProposedEvents(savingsGateway: SavingsGateway, color?:
     'latest',
   );
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const rateProposedTrend = aggregateData(processedEvents, [{ name: 'rateProposed', key: '', ops: Operator.count }]);
+  const rateProposedTrend = aggregateData(processedEvents, [
+    { name: 'Rate Proposed (occ.)', key: '', ops: Operator.count, valueFormatter: (value) => value.toString() }
+  ]);
   return {
     trend: rateProposedTrend,
     events: processedEvents,
@@ -112,7 +114,9 @@ async function processRateChangedEvents(savingsGateway: SavingsGateway, color?: 
     'latest',
   );
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const rateChangedTrend = aggregateData(processedEvents, [{ name: 'rateChanged', key: '', ops: Operator.count }]);
+  const rateChangedTrend = aggregateData(processedEvents, [
+    { name: 'Rate Changed (occ.)', key: '', ops: Operator.count, valueFormatter: (value) => value.toString() }
+  ]);
   return {
     trend: rateChangedTrend,
     events: processedEvents,

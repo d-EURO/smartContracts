@@ -5,9 +5,9 @@ import { Equity } from '../../typechain';
 import { aggregateData, Operator, processEvents } from './utils';
 
 /**
- * Fetches the state of the DecentralizedEURO contract
- * @param deuro DecentralizedEURO contract
- * @returns DecentralizedEuroState
+ * Fetches the state of the Equity contract
+ * @param equity Equity contract
+ * @returns EquityState
  */
 export async function getEquityState(equity: Equity): Promise<EquityState> {
   const address = await equity.getAddress();
@@ -29,12 +29,12 @@ export async function getEquityState(equity: Equity): Promise<EquityState> {
   };
 }
 
-async function processTradeEvents(deuro: Equity, color?: string): Promise<EventTrendData> {
-  const events = await deuro.queryFilter(deuro.filters.Trade(), monitorConfig.deploymentBlock, 'latest');
+async function processTradeEvents(equity: Equity, color?: string): Promise<EventTrendData> {
+  const events = await equity.queryFilter(equity.filters.Trade(), monitorConfig.deploymentBlock, 'latest');
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const tradeTrend = aggregateData(processedEvents, [
-    { name: 'inflow', key: 'amount', ops: (a: number, b: number) => (b > 0 ? a + b : a) },
-    { name: 'outflow', key: 'amount', ops: (a: number, b: number) => (b < 0 ? a + b : a) },
+    { name: 'Inflow (dEURO)', key: 'totPrice', ops: Operator.sum, filter: (event) => event.data.amount > 0 },
+    { name: 'Outflow (dEURO)', key: 'totPrice', ops: Operator.sum, filter: (event) => event.data.amount < 0 },
   ]);
   return {
     trend: tradeTrend,
@@ -42,10 +42,12 @@ async function processTradeEvents(deuro: Equity, color?: string): Promise<EventT
   };
 }
 
-async function processDelegationEvents(deuro: Equity, color?: string): Promise<EventTrendData> {
-  const events = await deuro.queryFilter(deuro.filters.Delegation(), monitorConfig.deploymentBlock, 'latest');
+async function processDelegationEvents(equity: Equity, color?: string): Promise<EventTrendData> {
+  const events = await equity.queryFilter(equity.filters.Delegation(), monitorConfig.deploymentBlock, 'latest');
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const delegationTrend = aggregateData(processedEvents, [{ name: 'delegation', key: '', ops: Operator.count }]);
+  const delegationTrend = aggregateData(processedEvents, [
+    { name: 'Delegation (occ.)', key: '', ops: Operator.count, valueFormatter: (value) => value.toString() },
+  ]);
   return {
     trend: delegationTrend,
     events: processedEvents,
