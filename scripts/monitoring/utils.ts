@@ -226,8 +226,3 @@ export function createEventTrendsTable(name: string): Table<{ name: string; data
   eventTrendsTable.setRowSpacing(true);
   return eventTrendsTable;
 }
-
-export function printTitle(title: string) {
-  console.log(`${colors.bold}${title}${colors.reset}`);
-  console.log('='.repeat(title.length));
-}

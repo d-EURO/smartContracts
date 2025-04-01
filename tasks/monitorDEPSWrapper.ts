@@ -1,7 +1,7 @@
 import { task } from 'hardhat/config';
 import { colors, formatCurrencyFromWei, createTable } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
-import { createEventTrendsTable, eventTrendDataToArray, printTitle } from '../scripts/monitoring/utils';
+import { createEventTrendsTable, eventTrendDataToArray } from '../scripts/monitoring/utils';
 
 // npx hardhat monitor-deps --network mainnet
 task('monitor-deps', 'Monitor DEPSWrapper contract state')
@@ -9,8 +9,6 @@ task('monitor-deps', 'Monitor DEPSWrapper contract state')
   .setAction(async ({ includeEventTxs }, hre) => {
     const monitoringModule = await getMonitoringModule(hre);
     const depsState = await monitoringModule.getDEPSWrapperState();
-
-    printTitle('DEPSWrapper State');
 
     const metricsTable = createTable<{ key: string; value: string }>();
     metricsTable.setColumns([

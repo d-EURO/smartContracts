@@ -11,13 +11,17 @@ import { getChildFromSeed } from './helper/wallet';
 
 // Import tasks
 import './tasks/getContracts';
-import './tasks/monitorPositions';
-import './tasks/monitorBridges';
-import './tasks/monitorDecentralizedEuro';
-import './tasks/monitorEquity';
-import './tasks/monitorDEPSWrapper';
-import './tasks/monitorSavingsGateway';
-import './tasks/monitorAll';
+// Only import monitoring tasks if not in CI environment
+// Prevents errors when typechain hasn't been generated yet
+if (!process.env.CI) {
+  require('./tasks/monitorPositions');
+  require('./tasks/monitorBridges');
+  require('./tasks/monitorDecentralizedEuro');
+  require('./tasks/monitorEquity');
+  require('./tasks/monitorDEPSWrapper');
+  require('./tasks/monitorSavingsGateway');
+  require('./tasks/monitorAll');
+}
 
 import dotenv from 'dotenv';
 dotenv.config();

@@ -1,7 +1,7 @@
 import { task } from 'hardhat/config';
 import { colors, formatCurrencyFromWei, createTable, healthStatusColor } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
-import { createEventTrendsTable, eventTrendDataToArray, printTitle } from '../scripts/monitoring/utils';
+import { createEventTrendsTable, eventTrendDataToArray } from '../scripts/monitoring/utils';
 
 // npx hardhat monitor-deuro --network mainnet
 task('monitor-deuro', 'Monitor DecentralizedEURO contract state')
@@ -10,7 +10,6 @@ task('monitor-deuro', 'Monitor DecentralizedEURO contract state')
     const monitoringModule = await getMonitoringModule(hre);
     const deuroState = await monitoringModule.getDecentralizedEuroState();
 
-    printTitle('DecentralizedEURO State (Core)');
     console.log(
       `Solvency Status: ${healthStatusColor(deuroState.solvencyStatus)}${deuroState.solvencyStatus}${colors.reset}\n`,
     );

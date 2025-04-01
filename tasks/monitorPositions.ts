@@ -11,7 +11,6 @@ import {
 } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
 import { PositionState, PositionStatus } from '../scripts/monitoring/types';
-import { printTitle } from '../scripts/monitoring/utils';
 
 // npx hardhat monitor-positions --network mainnet --owner <ADDRESS> --sort <COLUMN> (default sort: created)
 task('monitor-positions', 'Monitor positions in the dEuro Protocol')

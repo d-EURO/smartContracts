@@ -2,7 +2,6 @@ import { getFullDeployment } from '../scripts/utils/deployments';
 import { formatHash } from '../scripts/utils/utils';
 import { createTable, colors } from '../scripts/utils/table';
 import { task } from 'hardhat/config';
-import { printTitle } from '../scripts/monitoring/utils';
 
 interface ContractData {
   name: string;

@@ -18,5 +18,7 @@ jobs:
         run: npm i
       - name: Create dummy .env from .env.example
         run: mv .env.example .env
+      - name: Compile contracts
+        run: npm run compile
       - name: Run Tests
-        run: npm test
+        run: CI=true npm test

@@ -1,7 +1,7 @@
 import { task } from 'hardhat/config';
 import { formatCurrencyFromWei, createTable } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
-import { createEventTrendsTable, eventTrendDataToArray, printTitle } from '../scripts/monitoring/utils';
+import { createEventTrendsTable, eventTrendDataToArray } from '../scripts/monitoring/utils';
 
 // npx hardhat monitor-equity --network mainnet
 task('monitor-equity', 'Monitor Equity contract state')
@@ -9,8 +9,6 @@ task('monitor-equity', 'Monitor Equity contract state')
   .setAction(async ({ includeEventTxs }, hre) => {
     const monitoringModule = await getMonitoringModule(hre);
     const equityState = await monitoringModule.getEquityState();
-
-    printTitle('Equity State (Core)');
 
     const metricsTable = createTable<{ key: string; value: string }>();
     metricsTable.setColumns([
