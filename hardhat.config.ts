@@ -10,7 +10,18 @@ import { HardhatUserConfig } from 'hardhat/config';
 import { getChildFromSeed } from './helper/wallet';
 
 // Import tasks
-import './tasks/getPositions';
+import './tasks/getContracts';
+// Only import monitoring tasks if not in CI environment
+// Prevents errors when typechain hasn't been generated yet
+if (!process.env.CI) {
+  require('./tasks/monitorPositions');
+  require('./tasks/monitorBridges');
+  require('./tasks/monitorDecentralizedEuro');
+  require('./tasks/monitorEquity');
+  require('./tasks/monitorDEPSWrapper');
+  require('./tasks/monitorSavingsGateway');
+  require('./tasks/monitorAll');
+}
 
 import dotenv from 'dotenv';
 dotenv.config();

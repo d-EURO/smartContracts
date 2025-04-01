@@ -1,7 +1,6 @@
 import { ethers } from 'hardhat';
 import { config } from '../config/positionsConfig';
-import ERC20_ABI from '../../../abi/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json';
-import { getFlashbotDeploymentAddress } from '../../utils/deployments'; // Flashbots deployment
+import { getContractAddress } from '../../utils/deployments'; // Flashbots deployment
 // import { await getFlashbotDeploymentAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
 import fs from 'fs';
 import path from 'path';
@@ -31,8 +30,8 @@ async function main() {
   console.log('\nDeployer:          ', deployer.address);
 
   // Load config file
-  const mintingHubGatewayAddress = await getFlashbotDeploymentAddress('mintingHubGateway');
-  const dEuroAddress = await getFlashbotDeploymentAddress('decentralizedEURO');
+  const mintingHubGatewayAddress = await getContractAddress('mintingHubGateway');
+  const dEuroAddress = await getContractAddress('decentralizedEURO');
   const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
   const positionsToDeploy = config.positions.filter((p) => p.deploy);
   console.log('MintingHubGateway: ', mintingHubGatewayAddress);
@@ -60,7 +59,7 @@ async function main() {
     console.log(`\nDeploying position: ${position.name}`);
 
     try {
-      const collateralToken = await ethers.getContractAt(ERC20_ABI, position.collateralAddress);
+      const collateralToken = await ethers.getContractAt('ERC20', position.collateralAddress);
       const collateralDecimals = await collateralToken.decimals();
 
       // Position parameters
