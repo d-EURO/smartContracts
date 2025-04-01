@@ -12,22 +12,11 @@ import {
 } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
 import { BridgeState } from '../scripts/monitoring/types';
-import { printTitle } from '../scripts/monitoring/utils';
 
 // npx hardhat monitor-bridges --network mainnet
 task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async ({}, hre) => {
   const monitoringModule = await getMonitoringModule(hre);
   const bridgeStates = await monitoringModule.getBridgeStates();
-
-  printTitle('Bridge States');
-
-  const totalMinted = bridgeStates.reduce((sum, bridge) => sum + bridge.minted, 0n);
-  const totalLimit = bridgeStates.reduce((sum, bridge) => sum + bridge.limit, 0n);
-  const totalUtilization = Number((totalMinted * 10000n) / totalLimit) / 100;
-
-  console.log(`Total minted:          ${formatCurrencyFromWei(totalMinted)} dEURO`);
-  console.log(`Total limit:           ${formatCurrencyFromWei(totalLimit)} dEURO`);
-  console.log(`Overall utilization:   ${colors.green}${totalUtilization.toFixed(2)}%${colors.reset}\n`);
 
   const bridgesTable = createTable<BridgeState>();
   bridgesTable.setColumns([

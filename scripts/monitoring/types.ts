@@ -8,6 +8,16 @@ import {
 } from '../../typechain';
 import { MetricResult } from './utils';
 
+export interface DEPSWrapperState {
+  address: string;
+  totalSupply: bigint;
+  underlyingAddress: string;
+  underlyingSymbol: string; // nDEPS
+  transferEvents: EventTrendData;
+  wrapEvents: EventTrendData;
+  unwrapEvents: EventTrendData;
+}
+
 export type BridgeType = 'bridgeEURC' | 'bridgeEURT' | 'bridgeVEUR' | 'bridgeEURS';
 
 export interface DeploymentAddresses {
@@ -50,6 +60,7 @@ export interface DecentralizedEuroState {
   solvencyStatus: HealthStatus;
   minApplicationPeriod: bigint;
   minApplicationFee: bigint;
+  dailyVolume: bigint;
   lossEvents: EventTrendData;
   profitEvents: EventTrendData;
   minterAppliedEvents: EventTrendData;

@@ -14,7 +14,6 @@ task('get-contracts', 'Get Decentralized EURO Protocol Contract Addresses on Eth
   async ({}) => {
     const protocolDeployment = getFullDeployment();
 
-    printTitle('Decentralized EURO Protocol Contracts');
     console.log(`Network:     ${protocolDeployment.network}`);
     console.log(`Deployer:    ${formatHash(protocolDeployment.deployer, true, 'address', false)}`);
     console.log(`Timestamp:   ${new Date(protocolDeployment.timestamp * 1000).toLocaleString('de-DE')}`);

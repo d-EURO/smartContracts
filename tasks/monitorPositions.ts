@@ -26,7 +26,6 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
     const monitoringModule = await getMonitoringModule(hre);
     const positionsData = await monitoringModule.getPositions();
 
-    printTitle('Positions');
     console.log(`Found ${colors.green}${positionsData.length}${colors.reset} positions\n`);
 
     const table = createTable<PositionState>();

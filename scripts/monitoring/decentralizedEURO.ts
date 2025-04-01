@@ -1,4 +1,4 @@
-import { formatEther } from 'ethers';
+import { formatEther, ZeroAddress } from 'ethers';
 import { colors } from '../utils/table';
 import { DecentralizedEuroState, EventTrendData, HealthStatus } from './types';
 import monitorConfig from '../utils/monitorConfig';
@@ -21,9 +21,10 @@ export async function getDecentralizedEuroState(deuro: DecentralizedEURO): Promi
   const minApplicationFee = await deuro.MIN_FEE();
   const solvencyStatus = computeSolvencyStatus(
     equity,
-    monitorConfig.thresholds.minimumEquity,
+    monitorConfig.thresholds.equityCriticalLevel,
     monitorConfig.thresholds.equityWarningLevel,
   );
+  const dailyVolume = await getDailyVolume(deuro);
 
   // events
   const lossEvents = await processLossEvents(deuro, colors.red);
@@ -42,12 +43,34 @@ export async function getDecentralizedEuroState(deuro: DecentralizedEURO): Promi
     solvencyStatus,
     minApplicationPeriod,
     minApplicationFee,
+    dailyVolume,
     lossEvents,
     profitEvents,
     minterAppliedEvents,
     minterDeniedEvents,
     profitsDistributedEvents,
   };
+}
+
+// Compute the 24h volume of dEURO transfers (excluding minting and burning)
+async function getDailyVolume(deuro: DecentralizedEURO): Promise<bigint> {
+  const provider = deuro.runner?.provider;
+  if (!provider) return 0n;
+
+  const currentBlock = await provider.getBlockNumber();
+  const oneDayBlocks = Math.round(86400 / monitorConfig.blockTime);
+  const fromBlock = Math.max(currentBlock - oneDayBlocks, 0);
+  const events = await deuro.queryFilter(deuro.filters.Transfer(), fromBlock, 'latest');
+
+  let volume = 0n;
+  for (const event of events) {
+    const { from, to, value } = event.args;
+    if (from !== ZeroAddress && to !== ZeroAddress) {
+      volume += value;
+    }
+  }
+
+  return volume;
 }
 
 async function processLossEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
@@ -114,13 +137,13 @@ async function processProfitsDistributedEvents(deuro: DecentralizedEURO, color?:
 /**
  * Computes the solvency status based on equity and thresholds
  * @param equity Equity amount in wei
- * @param minimumEquity Minimum equity threshold
+ * @param equityCriticalLevel Minimum equity threshold
  * @param equityWarningLevel Warning level for equity
  * @returns HealthStatus indicating the solvency status
  */
-function computeSolvencyStatus(equity: bigint, minimumEquity: number, equityWarningLevel: number): HealthStatus {
+function computeSolvencyStatus(equity: bigint, equityCriticalLevel: number, equityWarningLevel: number): HealthStatus {
   const solvencyLevel = Number(formatEther(equity));
-  if (solvencyLevel < minimumEquity) {
+  if (solvencyLevel < equityCriticalLevel) {
     return HealthStatus.CRITICAL;
   } else if (solvencyLevel < equityWarningLevel) {
     return HealthStatus.WARNING;

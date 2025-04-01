@@ -7,10 +7,11 @@ import { BridgeType, PositionStatus } from '../monitoring/types';
 export const monitorConfig = {
   bridges: ['bridgeEURC', 'bridgeEURT', 'bridgeVEUR', 'bridgeEURS'] as BridgeType[],
   deploymentBlock: 22088283, // Deployment block number for the dEuro protocol
+  blockTime: 12.1, // Average block time in seconds
   thresholds: {
     // Equity thresholds
-    minimumEquity: 1000, // dEURO
-    equityWarningLevel: 5000, // dEURO
+    equityCriticalLevel: 10000, // dEURO
+    equityWarningLevel: 100000, // dEURO
 
     // Bridge thresholds
     bridgeUtilizationWarning: 60, // %

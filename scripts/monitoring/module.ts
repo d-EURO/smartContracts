@@ -4,6 +4,7 @@ import { getChallenges, getPositions } from './positions';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import {
   BridgeState,
+  DEPSWrapperState,
   DecentralizedEuroState,
   DeploymentAddresses,
   DeploymentContracts,
@@ -15,6 +16,7 @@ import monitorConfig from '../utils/monitorConfig';
 import { getDecentralizedEuroState } from './decentralizedEURO';
 import { getEquityState } from './equity';
 import { getBridgeState } from './stablecoinBridge';
+import { getDEPSWrapperState } from './depsWrapper';
 
 // A unified interface for all monitoring functions
 export class MonitoringModule {
@@ -57,7 +59,13 @@ export class MonitoringModule {
     }
   }
 
-  // TODO: Create getDEPSWrapperState function
+  /**
+   * Gets the state of the DEPSWrapper contract
+   * @returns DEPSWrapperState
+   */
+  async getDEPSWrapperState(): Promise<DEPSWrapperState> {
+    return getDEPSWrapperState(this.contracts.depsWrapper);
+  }
 
   /**
    * Gets the state of the DecentralizedEURO contract
@@ -115,10 +123,11 @@ export class MonitoringModule {
    * @returns Complete system state
    */
   async getCompleteSystemState() {
-    const [decentralizedEurotate, equityState, savingsGatewayState, bridgeStates, positions, challenges] =
+    const [decentralizedEurotate, equityState, depsWrapperState, savingsGatewayState, bridgeStates, positions, challenges] =
       await Promise.all([
         this.getDecentralizedEuroState(),
         this.getEquityState(),
+        this.getDEPSWrapperState(),
         this.getSavingsGatewayState(),
         this.getBridgeStates(),
         this.getPositions(),
@@ -128,6 +137,7 @@ export class MonitoringModule {
     return {
       decentralizedEurotate,
       equityState,
+      depsWrapperState,
       savingsGatewayState,
       bridgeStates,
       positions,

@@ -15,6 +15,7 @@ import './tasks/monitorPositions';
 import './tasks/monitorBridges';
 import './tasks/monitorDecentralizedEuro';
 import './tasks/monitorEquity';
+import './tasks/monitorDEPSWrapper';
 import './tasks/monitorSavingsGateway';
 import './tasks/monitorAll';
 
