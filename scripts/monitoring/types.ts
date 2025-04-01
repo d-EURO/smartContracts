@@ -75,7 +75,8 @@ export interface BridgeState {
   minted: bigint;
   utilization: number;
   horizon: bigint;
-  status: HealthStatus;
+  expirationStatus: HealthStatus;
+  utilizationStatus: HealthStatus;
 }
 
 export interface TopSaver {

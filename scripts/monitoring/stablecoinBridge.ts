@@ -28,17 +28,18 @@ export async function getBridgeState(
   const utilizationPercentage = Number((minted * BigInt(10000)) / limit) / 100;
   const daysToExpiry = Time.daysLeft(Number(horizon));
 
-  let status = HealthStatus.HEALTHY;
-  if (
-    utilizationPercentage > monitorConfig.thresholds.bridgeUtilizationCritical ||
-    daysToExpiry < monitorConfig.thresholds.bridgeExpirationCritical
-  ) {
-    status = HealthStatus.CRITICAL;
-  } else if (
-    utilizationPercentage > monitorConfig.thresholds.bridgeUtilizationWarning ||
-    daysToExpiry < monitorConfig.thresholds.bridgeExpirationWarning
-  ) {
-    status = HealthStatus.WARNING;
+  let expirationStatus = HealthStatus.HEALTHY;
+  if (daysToExpiry < monitorConfig.thresholds.bridgeExpirationCritical) {
+    expirationStatus = HealthStatus.CRITICAL;
+  } else if (daysToExpiry < monitorConfig.thresholds.bridgeExpirationWarning) {
+    expirationStatus = HealthStatus.WARNING;
+  }
+
+  let utilizationStatus = HealthStatus.HEALTHY;
+  if (utilizationPercentage > monitorConfig.thresholds.bridgeUtilizationCritical) {
+    utilizationStatus = HealthStatus.CRITICAL;
+  } else if (utilizationPercentage > monitorConfig.thresholds.bridgeUtilizationWarning) {
+    utilizationStatus = HealthStatus.WARNING;
   }
 
   return {
@@ -50,6 +51,7 @@ export async function getBridgeState(
     minted,
     utilization: utilizationPercentage,
     horizon,
-    status,
+    expirationStatus,
+    utilizationStatus,
   };
 }

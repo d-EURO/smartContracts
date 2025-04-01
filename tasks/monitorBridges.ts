@@ -7,16 +7,16 @@ import {
   createTable,
   formatCountdown,
   formatMultiLine,
+  healthStatusColor,
+  maxSeverity,
 } from '../scripts/utils/table';
-import MonitoringModule from '../scripts/monitoring';
-import { BridgeState, HealthStatus } from '../scripts/monitoring/types';
-import monitorConfig from '../scripts/utils/monitorConfig';
-import { printTitle, Time } from '../scripts/monitoring/utils';
+import { getMonitoringModule } from '../scripts/monitoring';
+import { BridgeState } from '../scripts/monitoring/types';
+import { printTitle } from '../scripts/monitoring/utils';
 
 // npx hardhat monitor-bridges --network mainnet
 task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async ({}, hre) => {
-  let monitoringModule = new MonitoringModule(hre);
-  monitoringModule = await monitoringModule.init();
+  const monitoringModule = await getMonitoringModule(hre);
   const bridgeStates = await monitoringModule.getBridgeStates();
 
   printTitle('Bridge States');
@@ -27,22 +27,7 @@ task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async (
 
   console.log(`Total minted:          ${formatCurrencyFromWei(totalMinted)} dEURO`);
   console.log(`Total limit:           ${formatCurrencyFromWei(totalLimit)} dEURO`);
-  console.log(
-    `Overall utilization:   ${getUtilizationColor(totalUtilization)}${totalUtilization.toFixed(2)}%${colors.reset}\n`,
-  );
-
-  // TODO: Add verbose warning
-  // const bridgesNearingExpiration = bridgeStates.filter(
-  //   (bridge) => Number(bridge.horizon) - Math.floor(Date.now() / 1000) < 60 * 60 * 24 * 30, // 30 days
-  // );
-  // if (bridgesNearingExpiration.length > 0) {
-  //   console.log(
-  //     `\n${colors.yellow}${colors.bold}Warning:${colors.reset} ${bridgesNearingExpiration.length} bridges are nearing expiration (< 30 days)`,
-  //   );
-  //   bridgesNearingExpiration.forEach((bridge) => {
-  //     console.log(`- ${bridge.name} (${formatCountdown(bridge.horizon)})`);
-  //   });
-  // }
+  console.log(`Overall utilization:   ${colors.green}${totalUtilization.toFixed(2)}%${colors.reset}\n`);
 
   const bridgesTable = createTable<BridgeState>();
   bridgesTable.setColumns([
@@ -96,7 +81,7 @@ task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async (
       width: 15,
       align: 'right',
       format: (row) => {
-        const color = getUtilizationColor(row.utilization);
+        const color = healthStatusColor(row.utilizationStatus);
         return `${color}${row.utilization.toFixed(2)}%${colors.reset}`;
       },
     },
@@ -109,7 +94,7 @@ task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async (
           {
             primary: formatDateTime(Number(row.horizon)),
             secondary: formatCountdown(row.horizon),
-            secondaryColor: getExpirationColor(row.horizon),
+            secondaryColor: healthStatusColor(row.expirationStatus),
           },
           20,
           'right',
@@ -121,7 +106,8 @@ task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async (
       width: 10,
       align: 'right',
       format: (row) => {
-        return `${getHealthStatusColor(row.status)}${row.status}${colors.reset}`;
+        const status = maxSeverity([row.expirationStatus, row.utilizationStatus]);
+        return `${healthStatusColor(status)}${status}${colors.reset}`;
       },
     },
   ]);
@@ -132,37 +118,3 @@ task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async (
   bridgesTable.setRowSpacing(true);
   bridgesTable.print();
 });
-
-function getExpirationColor(expiration: bigint): string {
-  const daysLeft = Time.daysLeft(Number(expiration));
-  if (daysLeft < monitorConfig.thresholds.bridgeExpirationCritical) {
-    return colors.red;
-  } else if (daysLeft < monitorConfig.thresholds.bridgeExpirationWarning) {
-    return colors.yellow;
-  } else {
-    return colors.green;
-  }
-}
-
-function getUtilizationColor(utilization: number): string {
-  if (utilization > monitorConfig.thresholds.bridgeUtilizationCritical) {
-    return colors.red;
-  } else if (utilization > monitorConfig.thresholds.bridgeUtilizationWarning) {
-    return colors.yellow;
-  } else {
-    return colors.green;
-  }
-}
-
-function getHealthStatusColor(status: HealthStatus): string {
-  switch (status) {
-    case HealthStatus.HEALTHY:
-      return colors.green;
-    case HealthStatus.WARNING:
-      return colors.yellow;
-    case HealthStatus.CRITICAL:
-      return colors.red;
-    default:
-      return '';
-  }
-}

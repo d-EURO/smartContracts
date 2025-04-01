@@ -1,8 +1,9 @@
 import { formatUnits } from 'ethers';
 import { BigNumberish } from 'ethers/src.ts/utils';
+import { HealthStatus } from '../monitoring/types';
 
 // ANSI color codes
-export const colors = {
+export const colors: Record<string, string> = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
   dim: '\x1b[2m',
@@ -341,4 +342,29 @@ function renderMultiLineContent(
 
     console.log(parts.join(columnSeparator));
   }
+}
+
+export function healthStatusColor(status: HealthStatus | HealthStatus[]): string {
+  let maxStatus = status;
+  if (Array.isArray(status)) {
+    maxStatus = maxSeverity(status);
+  }
+
+  switch (maxStatus) {
+    case HealthStatus.WARNING:
+      return colors.yellow;
+    case HealthStatus.CRITICAL:
+      return colors.red;
+    default:
+      return colors.green;
+  }
+}
+
+export function maxSeverity(status: HealthStatus[]): HealthStatus {
+  return status.reduce((max, current) => {
+    if (current === HealthStatus.CRITICAL) return current;
+    if (max === HealthStatus.CRITICAL) return max;
+    if (current === HealthStatus.WARNING) return current;
+    return max;
+  });
 }

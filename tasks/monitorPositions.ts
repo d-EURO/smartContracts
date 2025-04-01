@@ -9,7 +9,7 @@ import {
   formatCountdown,
   formatCurrencyFromWei,
 } from '../scripts/utils/table';
-import MonitoringModule from '../scripts/monitoring';
+import { getMonitoringModule } from '../scripts/monitoring';
 import { PositionState, PositionStatus } from '../scripts/monitoring/types';
 import { printTitle } from '../scripts/monitoring/utils';
 
@@ -23,13 +23,11 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
   .setAction(async ({ owner, sort }, hre) => {
     const { formatUnits } = hre.ethers;
 
-    let monitoringModule = new MonitoringModule(hre);
-    monitoringModule = await monitoringModule.init();
+    const monitoringModule = await getMonitoringModule(hre);
     const positionsData = await monitoringModule.getPositions();
 
     printTitle('Positions');
     console.log(`Found ${colors.green}${positionsData.length}${colors.reset} positions\n`);
-
 
     const table = createTable<PositionState>();
     table.setSorting(sort || 'created', 'desc');
