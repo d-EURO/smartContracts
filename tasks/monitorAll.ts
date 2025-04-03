@@ -4,8 +4,6 @@ import { colors, createTable, formatCurrencyFromWei, healthStatusColor } from '.
 import { createEventTrendsTable, eventTrendDataToArray } from '../scripts/monitoring/utils';
 
 task('monitor-all', 'Monitor entire system state').setAction(async ({ includeEventTxs }, hre) => {
-  await hre.run('get-contracts');
-
   const monitoringModule = await getMonitoringModule(hre);
   const {
     decentralizedEurotate: deuroState,
@@ -14,8 +12,11 @@ task('monitor-all', 'Monitor entire system state').setAction(async ({ includeEve
     savingsGatewayState: savingsState,
     bridgeStates,
   } = await monitoringModule.getCompleteSystemState();
-  const currentRatePercentage = Number(savingsState.currentRatePPM) / 10000;
+  
+  console.log('\n');
+  await hre.run('get-contracts');
 
+  const currentRatePercentage = Number(savingsState.currentRatePPM) / 10000;
   const totalMinted = bridgeStates.reduce((sum, bridge) => sum + bridge.minted, 0n);
   const totalLimit = bridgeStates.reduce((sum, bridge) => sum + bridge.limit, 0n);
   const totalUtilization = Number((totalMinted * 10000n) / totalLimit) / 100;

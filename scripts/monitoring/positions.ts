@@ -14,6 +14,7 @@ import { floatToDec18 } from '../utils/math';
 export async function getPositions(
   mintingHub: MintingHubGateway,
   hre: HardhatRuntimeEnvironment,
+  collateralPriceConversionRate?: number,
 ): Promise<PositionState[]> {
   const { formatUnits } = hre.ethers;
 
@@ -109,7 +110,7 @@ export async function getPositions(
 
   // Get collateral market prices
   const collateralAddresses = Array.from(new Set(positionsData.map((position) => position.collateralAddress)));
-  const marketPrices = { ...(await getTokenPrices(collateralAddresses)), ...specialTokenPrice };
+  const marketPrices = { ...(await getTokenPrices(collateralAddresses, collateralPriceConversionRate)), ...specialTokenPrice };
   positionsData.forEach((pos) => {
     const marketPrice = marketPrices[pos.collateralAddress];
     const virtualPrice = formatUnits(pos.virtualPrice, 36n - pos.collateralDecimals);

@@ -119,7 +119,7 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
           ),
       },
       {
-        header: 'Liq. Price\n' + colors.dim + 'Mark. Price' + colors.reset,
+        header: 'Liq. Price\n' + colors.dim + 'Market (€)' + colors.reset,
         width: 15,
         align: 'right',
         format: function (row) {
