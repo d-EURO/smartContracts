@@ -6,6 +6,7 @@ import {IOptimismMintableERC20, ILegacyMintableERC20} from "./interface/IOptimis
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 contract BridgedDecentralizedEURO is ERC20Permit, ERC3009, IOptimismMintableERC20, ILegacyMintableERC20 {
     /// @notice Address of the corresponding token on the remote chain.
@@ -39,7 +40,7 @@ contract BridgedDecentralizedEURO is ERC20Permit, ERC3009, IOptimismMintableERC2
         address _remoteToken,
         string memory _name,
         string memory _symbol
-    ) ERC20(_name, _symbol) {
+    ) ERC20Permit("DecentralizedEURO") ERC20(_name, _symbol) {
         REMOTE_TOKEN = _remoteToken;
         BRIDGE = _bridge;
     }
@@ -100,6 +101,6 @@ contract BridgedDecentralizedEURO is ERC20Permit, ERC3009, IOptimismMintableERC2
             interfaceId == type(ERC3009).interfaceId ||
             interfaceId == type(ILegacyMintableERC20).interfaceId ||
             interfaceId == type(IOptimismMintableERC20).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId == type(IERC165).interfaceId;
     }
 }
