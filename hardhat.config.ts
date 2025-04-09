@@ -31,8 +31,8 @@ if (!seed) throw new Error('Failed to import the seed string from .env');
 const w0 = getChildFromSeed(seed, 0); // deployer
 const deployerPk = process.env.DEPLOYER_PRIVATE_KEY ?? w0.privateKey;
 
-const alchemy = process.env.ALCHEMY_RPC_KEY;
-if (alchemy?.length == 0 || !alchemy) console.log('WARN: No Alchemy Key found in .env');
+const alchemyEthereumRpcUrl = process.env.ALCHEMY_ETHEREUM_RPC_KEY;
+if (alchemyEthereumRpcUrl?.length == 0 || !alchemyEthereumRpcUrl) console.log('WARN: No Alchemy Key found in .env');
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -54,14 +54,14 @@ const config: HardhatUserConfig = {
       process.env.USE_FORK === 'true'
         ? {
             forking: {
-              url: `https://eth-mainnet.g.alchemy.com/v2/${alchemy}`,
+              url: alchemyEthereumRpcUrl || 'NO_RPC_URL',
             },
             chainId: 1,
             accounts: [{ privateKey: deployerPk, balance: '10000000000000000000000' }],
           }
         : {},
     mainnet: {
-      url: `https://eth-mainnet.g.alchemy.com/v2/${alchemy}`,
+      url: alchemyEthereumRpcUrl || 'NO_RPC_URL',
       chainId: 1,
       gas: 'auto',
       gasPrice: 'auto',
@@ -69,10 +69,22 @@ const config: HardhatUserConfig = {
       timeout: 50_000,
     },
     polygon: {
-      url: `https://polygon-mainnet.g.alchemy.com/v2/${alchemy}`,
+      url: process.env.ALCHEMY_POLYGON_RPC_URL,
       chainId: 137,
       gas: 'auto',
       gasPrice: 'auto',
+      accounts: [deployerPk],
+      timeout: 50_000,
+    },
+    optimism: {
+      url: process.env.ALCHEMY_OPTIMSM_RPC_URL,
+      chainId: 10,
+      accounts: [deployerPk],
+      timeout: 50_000,
+    },
+    base: {
+      url: process.env.ALCHEMY_BASE_RPC_URL,
+      chainId: 8453,
       accounts: [deployerPk],
       timeout: 50_000,
     },
@@ -83,7 +95,12 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: {
+      mainnet: process.env.ETHERSCAN_API_KEY || '',
+      polygon: process.env.POLYGONSCAN_API_KEY || '',
+      optimisticEthereum: process.env.OPTIMISM_API_KEY || '',
+      base: process.env.BASESCAN_API_KEY || '',
+    },
   },
   sourcify: {
     enabled: true,
