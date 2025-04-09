@@ -30,9 +30,8 @@ const seed = process.env.DEPLOYER_ACCOUNT_SEED;
 if (!seed) throw new Error('Failed to import the seed string from .env');
 const w0 = getChildFromSeed(seed, 0); // deployer
 const deployerPk = process.env.DEPLOYER_PRIVATE_KEY ?? w0.privateKey;
-
-const alchemyEthereumRpcUrl = process.env.ALCHEMY_ETHEREUM_RPC_KEY;
-if (alchemyEthereumRpcUrl?.length == 0 || !alchemyEthereumRpcUrl) console.log('WARN: No Alchemy Key found in .env');
+const alchemyApiKey = process.env.ALCHEMY_API_KEY;
+if (alchemyApiKey?.length == 0 || !alchemyApiKey) console.log('WARN: No Alchemy Key found in .env');
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -54,14 +53,14 @@ const config: HardhatUserConfig = {
       process.env.USE_FORK === 'true'
         ? {
             forking: {
-              url: alchemyEthereumRpcUrl || 'NO_RPC_URL',
+              url: `https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
             },
             chainId: 1,
             accounts: [{ privateKey: deployerPk, balance: '10000000000000000000000' }],
           }
         : {},
     mainnet: {
-      url: alchemyEthereumRpcUrl || 'NO_RPC_URL',
+      url: `https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
       chainId: 1,
       gas: 'auto',
       gasPrice: 'auto',
@@ -69,7 +68,7 @@ const config: HardhatUserConfig = {
       timeout: 50_000,
     },
     polygon: {
-      url: process.env.ALCHEMY_POLYGON_RPC_URL,
+      url: `https://polygon-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
       chainId: 137,
       gas: 'auto',
       gasPrice: 'auto',
@@ -77,13 +76,13 @@ const config: HardhatUserConfig = {
       timeout: 50_000,
     },
     optimism: {
-      url: process.env.ALCHEMY_OPTIMSM_RPC_URL,
+      url: `https://opt-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
       chainId: 10,
       accounts: [deployerPk],
       timeout: 50_000,
     },
     base: {
-      url: process.env.ALCHEMY_BASE_RPC_URL,
+      url: `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
       chainId: 8453,
       accounts: [deployerPk],
       timeout: 50_000,
