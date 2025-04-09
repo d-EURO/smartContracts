@@ -1,6 +1,6 @@
 {
-  "network": "optimism",
-  "chainId": 10,
+  "network": "base",
+  "chainId": 8453,
   "bridgedToken": {
     "address": "0x1B5F7fA46ED0F487F049C42f374cA4827d65A264",
     "remoteToken": "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
@@ -9,5 +9,5 @@
     "symbol": "dEURO"
   },
   "deployer": "0x01AE4C18c2677f97BaB536C48d6C36858f5c86D7",
-  "timestamp": 1744137595487
+  "timestamp": 1744138461
 }
