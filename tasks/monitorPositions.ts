@@ -126,7 +126,7 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
           const isUndercollaterized = row.state === PositionStatus.UNDERCOLLATERIZED;
           return formatMultiLine(
             {
-              primary: formatCurrencyFromWei(row.virtualPrice, 2, 36n - row.collateralDecimals),
+              primary: formatCurrencyFromWei(row.liveVirtualPrice, 2, 36n - row.collateralDecimals),
               primaryColor: isUndercollaterized ? colors.red : undefined,
               secondary: formatCurrency(row.marketPrice ?? 0, 2),
               secondaryColor: isUndercollaterized ? colors.red : undefined,
@@ -137,7 +137,7 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
         },
       },
       {
-        header: 'Challenge\n' + colors.dim + 'Period' + colors.reset,
+        header: 'Challenge\n' + colors.dim + 'Price' + colors.reset,
         width: 15,
         align: 'right',
         format: function (row) {
@@ -146,7 +146,7 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
             {
               primary: formatCurrencyFromWei(row.challengedAmount, 4, row.collateralDecimals),
               primaryColor: isChallenged ? colors.red : undefined,
-              secondary: formatCountdown(row.challengePeriod, true, true),
+              secondary: isChallenged ? formatCurrencyFromWei(row.virtualPrice, 2, 36n - row.collateralDecimals) : '-',
               secondaryColor: isChallenged ? colors.red : undefined,
             },
             15,
