@@ -39,6 +39,7 @@ export async function getPositions(
         const address = await position.getAddress();
         const price = await position.price();
         const virtualPrice = await position.virtualPrice();
+        const collateralRequirement = await position.getCollateralRequirement();
         const debt = await position.getDebt();
         const interest = await position.getInterest();
         const collateralBalance = await collateral.balanceOf(address);
@@ -52,6 +53,8 @@ export async function getPositions(
         const isClosed = await position.isClosed();
         const challengedAmount = await position.challengedAmount();
         const challengePeriod = await position.challengePeriod();
+        const minimumCollateral = await position.minimumCollateral();
+        const liveVirtualPrice = collateralBalance > 0 ? (collateralRequirement * 10n ** 18n) / collateralBalance : price;
 
         // WFPS & DEPS need direct market price fetching
         if (['WFPS', 'DEPS'].includes(collateralSymbol.toUpperCase()) && !specialTokenPrice[collateralAddress]) {
@@ -101,6 +104,8 @@ export async function getPositions(
           challengedAmount,
           challengePeriod,
           riskLevel: RiskLevel.LOW, // Default
+          minimumCollateral,
+          liveVirtualPrice,
         });
       } catch (error) {
         console.error(`Error processing position ${event.args.position}:`, error);
@@ -110,10 +115,13 @@ export async function getPositions(
 
   // Get collateral market prices
   const collateralAddresses = Array.from(new Set(positionsData.map((position) => position.collateralAddress)));
-  const marketPrices = { ...(await getTokenPrices(collateralAddresses, collateralPriceConversionRate)), ...specialTokenPrice };
+  const marketPrices = {
+    ...(await getTokenPrices(collateralAddresses, collateralPriceConversionRate)),
+    ...specialTokenPrice,
+  };
   positionsData.forEach((pos) => {
     const marketPrice = marketPrices[pos.collateralAddress];
-    const virtualPrice = formatUnits(pos.virtualPrice, 36n - pos.collateralDecimals);
+    const virtualPrice = formatUnits(pos.liveVirtualPrice, 36n - pos.collateralDecimals);
     if (marketPrice) {
       if (Number(virtualPrice) > Number(marketPrice) && pos.state !== PositionStatus.CHALLENGED) {
         pos.state = PositionStatus.UNDERCOLLATERIZED;

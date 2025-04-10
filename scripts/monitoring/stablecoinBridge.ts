@@ -29,7 +29,9 @@ export async function getBridgeState(
   const daysToExpiry = Time.daysLeft(Number(horizon));
 
   let expirationStatus = HealthStatus.HEALTHY;
-  if (daysToExpiry < monitorConfig.thresholds.bridgeExpirationCritical) {
+  if (daysToExpiry === 0) {
+    expirationStatus = minted > 0 ? HealthStatus.EXPIRED : HealthStatus.CLOSED;
+  } else if (daysToExpiry < monitorConfig.thresholds.bridgeExpirationCritical) {
     expirationStatus = HealthStatus.CRITICAL;
   } else if (daysToExpiry < monitorConfig.thresholds.bridgeExpirationWarning) {
     expirationStatus = HealthStatus.WARNING;
@@ -40,6 +42,8 @@ export async function getBridgeState(
     utilizationStatus = HealthStatus.CRITICAL;
   } else if (utilizationPercentage > monitorConfig.thresholds.bridgeUtilizationWarning) {
     utilizationStatus = HealthStatus.WARNING;
+  } else if (expirationStatus === HealthStatus.CLOSED) {
+    utilizationStatus = HealthStatus.CLOSED;
   }
 
   return {

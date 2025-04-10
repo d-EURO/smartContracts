@@ -127,6 +127,8 @@ export enum HealthStatus {
   HEALTHY = 'HEALTHY',
   WARNING = 'WARNING',
   CRITICAL = 'CRITICAL',
+  EXPIRED = 'EXPIRED',
+  CLOSED = 'CLOSED',
 }
 
 export enum ChallengeStatus {
@@ -165,6 +167,8 @@ export interface PositionState {
   isClosed: boolean;
   state: PositionStatus;
   riskLevel: RiskLevel;
+  minimumCollateral: bigint;
+  liveVirtualPrice: bigint;
 }
 
 export interface ChallengeState {

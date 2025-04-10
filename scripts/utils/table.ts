@@ -354,7 +354,10 @@ export function healthStatusColor(status: HealthStatus | HealthStatus[]): string
     case HealthStatus.WARNING:
       return colors.yellow;
     case HealthStatus.CRITICAL:
+    case HealthStatus.EXPIRED:
       return colors.red;
+    case HealthStatus.CLOSED:
+      return colors.grey;
     default:
       return colors.green;
   }

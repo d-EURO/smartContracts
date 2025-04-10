@@ -11,7 +11,7 @@ import {
   maxSeverity,
 } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
-import { BridgeState } from '../scripts/monitoring/types';
+import { BridgeState, HealthStatus } from '../scripts/monitoring/types';
 
 // npx hardhat monitor-bridges --network mainnet
 task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async ({}, hre) => {
@@ -102,6 +102,7 @@ task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async (
   ]);
 
   bridgesTable.setData(bridgeStates);
+  bridgesTable.setShouldDimRow((row) => row.expirationStatus === HealthStatus.CLOSED);
   bridgesTable.setSorting('utilization', 'desc');
   bridgesTable.showHeaderSeparator(true);
   bridgesTable.setRowSpacing(true);

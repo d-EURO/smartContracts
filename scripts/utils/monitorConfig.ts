@@ -68,6 +68,10 @@ export const monitorConfig = {
       utilizationMax: 50,
     },
   },
+
+  // CS-dEUR-021
+  // Fraction of minimum collateral that is considered "dust" in PPM
+  dustFraction: 100000, // 10%
 };
 
 export default monitorConfig;
