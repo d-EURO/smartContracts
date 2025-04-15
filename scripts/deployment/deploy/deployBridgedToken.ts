@@ -14,7 +14,12 @@ const token = process.env.BRIDGED_TOKEN || 'MISSING_TOKEN';
 async function main() {
   const [deployer] = await ethers.getSigners();
   const network = await ethers.provider.getNetwork();
-  const bridgedToken = tokenConfig[token];
+
+  // Make sure we're briding a supported token
+  if (!tokenConfig[token]) {
+    console.error(`Token ${token} not supported. Supported tokens: ${Object.keys(tokenConfig).join(', ')}`);
+    process.exit(1);
+  }
 
   // Make sure we're on a supported network
   if (!bridgeConfig[network.name]) {
@@ -22,6 +27,7 @@ async function main() {
     process.exit(1);
   }
 
+  const bridgedToken = tokenConfig[token];
   const networkConfig = bridgeConfig[network.name];
   const bridgeAddress = networkConfig.bridge;
 
