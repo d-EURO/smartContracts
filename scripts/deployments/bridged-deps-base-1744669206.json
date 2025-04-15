@@ -1,0 +1,14 @@
+{
+  "network": "base",
+  "chainId": 8453,
+  "bridgedToken": {
+    "address": "0x5F674bF6d559229bDd29D642d2e0978f1E282722",
+    "remoteToken": "0x103747924E74708139a9400e4Ab4BEA79FFFA380",
+    "bridge": "0x4200000000000000000000000000000000000010",
+    "name": "Decentralized Euro Protocol Share",
+    "symbol": "DEPS"
+  },
+  "deployer": "0x01AE4C18c2677f97BaB536C48d6C36858f5c86D7",
+  "timestamp": 1744669206,
+  "txHash": "0x18e8ad5f19b1c6efb1273d0f9bc64180b234dea114a262ec6c265fd27940a316"
+}

@@ -8,7 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
-contract BridgedDecentralizedEURO is ERC20Permit, ERC3009, IOptimismMintableERC20, ILegacyMintableERC20 {
+contract BridgedToken is ERC20Permit, ERC3009, IOptimismMintableERC20, ILegacyMintableERC20 {
     /// @notice Address of the corresponding token on the remote chain.
     address public immutable REMOTE_TOKEN;
 
@@ -25,9 +25,11 @@ contract BridgedDecentralizedEURO is ERC20Permit, ERC3009, IOptimismMintableERC2
     /// @param amount  Amount of tokens burned.
     event Burn(address indexed account, uint256 amount);
 
+    error OnlyBridge();
+
     /// @notice A modifier that only allows the bridge to call.
     modifier onlyBridge() {
-        require(msg.sender == BRIDGE, "DecentralizedEURO: only bridge can mint and burn");
+        if (msg.sender != BRIDGE) revert OnlyBridge();
         _;
     }
 
@@ -40,7 +42,7 @@ contract BridgedDecentralizedEURO is ERC20Permit, ERC3009, IOptimismMintableERC2
         address _remoteToken,
         string memory _name,
         string memory _symbol
-    ) ERC20Permit("DecentralizedEURO") ERC20(_name, _symbol) {
+    ) ERC20Permit(_name) ERC20(_name, _symbol) {
         REMOTE_TOKEN = _remoteToken;
         BRIDGE = _bridge;
     }
