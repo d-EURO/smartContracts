@@ -1,0 +1,17 @@
+{
+  "network": "mainnet",
+  "chainId": "1",
+  "blockNumber": 22327608,
+  "deployer": "0x695490efF37d998d2fA16c5db57322E9825c62B9",
+  "bridgeAddress": "0xdC6450e91f49048FBFF5F424046985fa03BE0130",
+  "config": {
+    "name": "StablecoinBridgeEURe",
+    "sourceToken": "0x3231Cb76718CDeF2155FC47b5286d82e6eDA273f",
+    "limitAmount": "100000",
+    "durationWeeks": 26,
+    "description": "EURe Bridge"
+  },
+  "deploymentTxHash": "0x9cb364ed9efb6ef5938ddcf38a73c75c21c8a81a2cc91d62fc50cfec078c80ab",
+  "minterSetupTxHash": "0x3c76b6fba8a0bb85ddd4209004a4329ad0384425f47def162b26d253f53e51d8",
+  "timestamp": 1745361808
+}
