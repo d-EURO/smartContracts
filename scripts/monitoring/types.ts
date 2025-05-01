@@ -153,13 +153,12 @@ export interface PositionState {
   collateralAddress: string;
   collateralSymbol: string;
   collateralBalance: bigint;
-  collateralValue: bigint;
+  collateralValue?: number;
   collateralDecimals: bigint;
   challengedAmount: bigint;
   challengePeriod: bigint;
-  utilization: number;
   marketPrice?: string;
-  utilizationMarket: number;
+  collateralization?: number;
   created: number;
   start: bigint;
   expiration: bigint;

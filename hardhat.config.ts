@@ -21,6 +21,8 @@ if (!process.env.CI) {
   require('./tasks/monitorDEPSWrapper');
   require('./tasks/monitorSavingsGateway');
   require('./tasks/monitorAll');
+  require('./tasks/monitorSimplePositions');
+  require('./tasks/monitorTVL');
 }
 
 import dotenv from 'dotenv';

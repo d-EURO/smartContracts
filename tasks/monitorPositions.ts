@@ -90,29 +90,29 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
           ),
       },
       {
-        header: 'Balance\n' + colors.dim + 'Value' + colors.reset,
+        header: 'Balance\n' + colors.dim + 'Market Val.' + colors.reset,
         width: 15,
         align: 'right',
         format: (row) =>
           formatMultiLine(
             {
               primary: formatCurrencyFromWei(row.collateralBalance, 4, row.collateralDecimals),
-              secondary: formatCurrencyFromWei(row.collateralValue, 2),
+              secondary: formatCurrency(row.collateralValue, 2),
             },
             15,
             'right',
           ),
       },
       {
-        header: 'Debt\n' + colors.dim + 'Util. %' + colors.reset,
+        header: 'Debt\n' + colors.dim + 'Col. %' + colors.reset,
         width: 15,
         align: 'right',
         format: (row) =>
           formatMultiLine(
             {
               primary: formatCurrencyFromWei(row.debt, 2),
-              secondary: formatCurrency(Number(row.utilization), 2) + '%',
-              secondaryColor: Number(row.utilization) > 75 ? colors.green : undefined,
+              secondary: formatCurrency(Number(row.collateralization), 2) + '%',
+              secondaryColor: Number(row.collateralization) > 75 ? colors.green : undefined,
             },
             15,
             'right',

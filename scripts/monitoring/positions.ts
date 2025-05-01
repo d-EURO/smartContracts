@@ -46,9 +46,6 @@ export async function getPositions(
         const collateralDecimals = await collateral.decimals();
         const collateralSymbol = await collateral.symbol();
         const collateralAddress = (await collateral.getAddress()).toLowerCase();
-        const collateralValue = (collateralBalance * price) / floatToDec18(1);
-        const collateralUtilization =
-          collateralValue > 0 ? Number((debt * 100000n) / collateralValue) / Number(1000) : 0;
         const expiration = await position.expiration();
         const isClosed = await position.isClosed();
         const challengedAmount = await position.challengedAmount();
@@ -94,11 +91,8 @@ export async function getPositions(
           price,
           virtualPrice,
           collateralBalance,
-          collateralValue,
           debt,
           interest,
-          utilization: collateralUtilization,
-          utilizationMarket: 100, // Default, lowered if market price is available
           expiration,
           isClosed,
           challengedAmount,
@@ -127,20 +121,21 @@ export async function getPositions(
         pos.state = PositionStatus.UNDERCOLLATERIZED;
       }
       pos.marketPrice = marketPrice;
-      pos.utilizationMarket = (Number(marketPrice) * 100000) / Number(virtualPrice) / 1000;
+      pos.collateralValue = Number(formatUnits(pos.collateralBalance, pos.collateralDecimals)) * Number(marketPrice);
+      pos.collateralization = pos.debt > 0 ? (Number(pos.collateralValue) * 100000) / Number(formatUnits(pos.debt, 18)) / 1000 : 0;
     }
 
     // Update state and risk level
     if (
       pos.state === PositionStatus.CHALLENGED ||
       pos.state === PositionStatus.UNDERCOLLATERIZED ||
-      (pos.utilizationMarket && pos.utilizationMarket > monitorConfig.thresholds.positionUtilizationCritical)
+      (pos.collateralization && pos.collateralization < monitorConfig.thresholds.positionCollateralizationCritical)
     ) {
       pos.riskLevel = RiskLevel.HIGH;
     } else if (
       pos.state === PositionStatus.EXPIRING ||
       pos.state === PositionStatus.COOLDOWN ||
-      (pos.utilizationMarket && pos.utilizationMarket > monitorConfig.thresholds.positionUtilizationWarning)
+      (pos.collateralization && pos.collateralization < monitorConfig.thresholds.positionUtilizationWarning)
     ) {
       pos.riskLevel = RiskLevel.MEDIUM;
     } else {

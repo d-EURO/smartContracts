@@ -20,8 +20,8 @@ export const monitorConfig = {
     bridgeExpirationCritical: 20, // days
 
     // Position thresholds
-    positionUtilizationWarning: 50, // %
-    positionUtilizationCritical: 80, // %
+    positionUtilizationWarning: 110, // %
+    positionCollateralizationCritical: 105, // %
     positionExpirationWarning: 7, // days
     positionExpirationCritical: 3, // days
 
