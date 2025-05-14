@@ -47,7 +47,9 @@ export async function batchedEventQuery<T extends BaseContract>(
     // log w/ process.stdout.write to update the same line
     const processedBlocks = Math.min(currentBatch[currentBatch.length-1].toBlock - startBlock + 1, totalBlocks);
     const percentage = Math.floor((processedBlocks / totalBlocks) * 100);
-    process.stdout.write(`\r${eventName} events: ${processedBlocks}/${totalBlocks} blocks processed (${percentage}%)`);
+    const filledSections = Math.floor((processedBlocks / totalBlocks) * 20);
+    const progressBar = '█'.repeat(filledSections) + '='.repeat(20 - filledSections);
+    process.stdout.write(`\r${eventName} events: |${progressBar}| ${processedBlocks}/${totalBlocks} blocks processed (${percentage}%)`);
     
     const batchPromises = currentBatch.map(({ fromBlock, toBlock }) => {
       return contract.queryFilter(eventFilter, fromBlock, toBlock)
@@ -61,7 +63,8 @@ export async function batchedEventQuery<T extends BaseContract>(
     events = [...events, ...batchResults.flat()];
   }
   
-  process.stdout.write(`\r${eventName} events: ${totalBlocks}/${totalBlocks} blocks processed (100%)\n`);
+  const completedBar = '█'.repeat(20);
+  process.stdout.write(`\r${eventName} events: |${completedBar}| ${totalBlocks}/${totalBlocks} blocks processed (100%)\n`);
   
   return events;
 }
