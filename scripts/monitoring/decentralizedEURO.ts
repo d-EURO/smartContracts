@@ -4,6 +4,7 @@ import { DecentralizedEuroState, EventTrendData, HealthStatus } from './types';
 import monitorConfig from '../utils/monitorConfig';
 import { DecentralizedEURO } from '../../typechain';
 import { aggregateData, Operator, processEvents } from './utils';
+import { batchedEventQuery } from '../utils/blockchain';
 
 /**
  * Fetches the state of the DecentralizedEURO contract
@@ -60,7 +61,7 @@ async function getDailyVolume(deuro: DecentralizedEURO): Promise<bigint> {
   const currentBlock = await provider.getBlockNumber();
   const oneDayBlocks = Math.round(86400 / monitorConfig.blockTime);
   const fromBlock = Math.max(currentBlock - oneDayBlocks, 0);
-  const events = await deuro.queryFilter(deuro.filters.Transfer(), fromBlock, 'latest');
+  const events = await batchedEventQuery(deuro, deuro.filters.Transfer(), fromBlock);
 
   let volume = 0n;
   for (const event of events) {
@@ -74,7 +75,7 @@ async function getDailyVolume(deuro: DecentralizedEURO): Promise<bigint> {
 }
 
 async function processLossEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
-  const events = await deuro.queryFilter(deuro.filters.Loss(), monitorConfig.deploymentBlock, 'latest');
+  const events = await batchedEventQuery(deuro, deuro.filters.Loss(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const lossTrend = aggregateData(processedEvents, [{ name: 'Loss (dEURO)', key: 'amount', ops: Operator.sum }]);
   return {
@@ -84,7 +85,7 @@ async function processLossEvents(deuro: DecentralizedEURO, color?: string): Prom
 }
 
 async function processProfitEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
-  const events = await deuro.queryFilter(deuro.filters.Profit(), monitorConfig.deploymentBlock, 'latest');
+  const events = await batchedEventQuery(deuro, deuro.filters.Profit(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const profitTrend = aggregateData(processedEvents, [{ name: 'Profit (dEURO)', key: 'amount', ops: Operator.sum }]);
   return {
@@ -94,7 +95,7 @@ async function processProfitEvents(deuro: DecentralizedEURO, color?: string): Pr
 }
 
 async function processMinterAppliedEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
-  const events = await deuro.queryFilter(deuro.filters.MinterApplied(), monitorConfig.deploymentBlock, 'latest');
+  const events = await batchedEventQuery(deuro, deuro.filters.MinterApplied(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const minterAppliedTrend = aggregateData(processedEvents, [
     {
@@ -111,7 +112,7 @@ async function processMinterAppliedEvents(deuro: DecentralizedEURO, color?: stri
 }
 
 async function processMinterDeniedEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
-  const events = await deuro.queryFilter(deuro.filters.MinterDenied(), monitorConfig.deploymentBlock, 'latest');
+  const events = await batchedEventQuery(deuro, deuro.filters.MinterDenied(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const minterDeniedTrend = aggregateData(processedEvents, [
     { name: 'MinterDenied (occ.)', key: '', ops: Operator.count, valueFormatter: (value) => value.toString() },
@@ -123,7 +124,7 @@ async function processMinterDeniedEvents(deuro: DecentralizedEURO, color?: strin
 }
 
 async function processProfitsDistributedEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
-  const events = await deuro.queryFilter(deuro.filters.ProfitDistributed(), monitorConfig.deploymentBlock, 'latest');
+  const events = await batchedEventQuery(deuro, deuro.filters.ProfitDistributed(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const profitsDistributedTrend = aggregateData(processedEvents, [
     { name: 'ProfitsDistributed (dEURO)', key: 'amount', ops: Operator.sum },
