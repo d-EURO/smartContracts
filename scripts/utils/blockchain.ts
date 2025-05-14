@@ -38,18 +38,21 @@ export async function batchedEventQuery<T extends BaseContract>(
   }
 
   let events: any[] = [];
+  const totalBlocks = latestBlock - startBlock + 1;
+  const eventName = eventFilter.fragment?.name || 'events';
+  
   for (let i = 0; i < blockRanges.length; i += concurrencyLimit) {
     const currentBatch = blockRanges.slice(i, i + concurrencyLimit);
-    
-    console.log(
-      `Processing batch ${Math.floor(i/concurrencyLimit) + 1}/${Math.ceil(blockRanges.length/concurrencyLimit)}, ` +
-      `blocks: ${currentBatch[0].fromBlock}-${currentBatch[currentBatch.length-1].toBlock}`
-    );
+
+    // log w/ process.stdout.write to update the same line
+    const processedBlocks = Math.min(currentBatch[currentBatch.length-1].toBlock - startBlock + 1, totalBlocks);
+    const percentage = Math.floor((processedBlocks / totalBlocks) * 100);
+    process.stdout.write(`\r${eventName} events: ${processedBlocks}/${totalBlocks} blocks processed (${percentage}%)`);
     
     const batchPromises = currentBatch.map(({ fromBlock, toBlock }) => {
       return contract.queryFilter(eventFilter, fromBlock, toBlock)
         .catch(error => {
-          console.error(`Error querying blocks ${fromBlock}-${toBlock}:`, error);
+          console.error(`\nError querying blocks ${fromBlock}-${toBlock}:`, error);
           return [];
         });
     });
@@ -57,6 +60,8 @@ export async function batchedEventQuery<T extends BaseContract>(
     const batchResults = await Promise.all(batchPromises);
     events = [...events, ...batchResults.flat()];
   }
+  
+  process.stdout.write(`\r${eventName} events: ${totalBlocks}/${totalBlocks} blocks processed (100%)\n`);
   
   return events;
 }
