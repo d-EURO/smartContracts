@@ -14,12 +14,11 @@ import { PositionState, PositionStatus } from '../scripts/monitoring/types';
 
 // npx hardhat monitor-positions --network mainnet --owner <ADDRESS> --sort <COLUMN> (default sort: created)
 task('monitor-positions', 'Monitor positions in the dEuro Protocol')
-  .addOptionalParam('owner', 'Filter positions by owner address')
   .addOptionalParam(
     'sort',
     'Column to sort by in descending order (created, position, owner, collateral, price, collateralBalance, collateralValue, debt, utilization, expiration)',
   )
-  .setAction(async ({ owner, sort }, hre) => {
+  .setAction(async ({ sort }, hre) => {
     const { formatUnits } = hre.ethers;
 
     const monitoringModule = await getMonitoringModule(hre);
