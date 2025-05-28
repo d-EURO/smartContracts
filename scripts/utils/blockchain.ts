@@ -5,6 +5,56 @@ export interface BlockRange {
   toBlock: number;
 }
 
+// Event Queue Singleton for managing event queries
+class EventQueryQueue {
+  private static instance: EventQueryQueue;
+  private queue: Array<() => Promise<any>> = [];
+  private running = false;
+  
+  private constructor() {}
+  
+  public static getInstance(): EventQueryQueue {
+    if (!EventQueryQueue.instance) {
+      EventQueryQueue.instance = new EventQueryQueue();
+    }
+    return EventQueryQueue.instance;
+  }
+  
+  public async enqueue<T>(task: () => Promise<T>): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      // Add task to queue
+      this.queue.push(async () => {
+        try {
+          const result = await task();
+          resolve(result);
+          return result;
+        } catch (error) {
+          reject(error);
+          throw error;
+        }
+      });
+      
+      // Process queue if not already running
+      this.processQueue();
+    });
+  }
+  
+  private async processQueue(): Promise<void> {
+    if (this.running || this.queue.length === 0) return;
+    
+    this.running = true;
+    
+    try {
+      while (this.queue.length > 0) {
+        const task = this.queue.shift()!;
+        await task();
+      }
+    } finally {
+      this.running = false;
+    }
+  }
+}
+
 /**
  * Display a progress bar for block processing
  * @param eventName Name of the event being processed
@@ -32,7 +82,144 @@ export function displayBlockProgress(
 }
 
 /**
+ * Sleep function for the retry mechanism
+ * @param ms Milliseconds to sleep
+ * @returns Promise that resolves after ms milliseconds
+ */
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Executes a promise with retry logic
+ * @param fn Function that returns a promise
+ * @param maxRetries Maximum number of retry attempts
+ * @param retryDelay Base delay between retries in ms (will increase with backoff)
+ * @returns Promise result
+ */
+async function executeWithRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 5,
+  retryDelay: number = 2000
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      
+      if (attempt < maxRetries) {
+        const delay = retryDelay * Math.pow(1.5, attempt); // Exponential backoff
+        console.log(`\nRetrying operation (attempt ${attempt + 1}/${maxRetries}), waiting ${Math.round(delay/1000)}s...`);
+        await sleep(delay);
+      }
+    }
+  }
+  
+  throw lastError;
+}
+
+/**
+ * Helper function to process a single event query
+ */
+async function processSingleEventQuery<T extends BaseContract>(
+  contract: T,
+  eventFilter: any,
+  startBlock: number,
+  endBlock: number,
+  chunkSize: number,
+  concurrencyLimit: number
+): Promise<any[]> {
+  const blockRanges: BlockRange[] = [];
+  for (let fromBlock = startBlock; fromBlock <= endBlock; fromBlock += chunkSize) {
+    const toBlock = Math.min(fromBlock + chunkSize - 1, endBlock);
+    blockRanges.push({ fromBlock, toBlock });
+  }
+
+  let events: any[] = [];
+  const totalBlocks = endBlock - startBlock + 1;
+  const eventName = eventFilter.fragment?.name || 'events';
+  
+  for (let i = 0; i < blockRanges.length; i += concurrencyLimit) {
+    const currentBatch = blockRanges.slice(i, i + concurrencyLimit);
+
+    const processedBlocks = Math.min(currentBatch[currentBatch.length-1].toBlock - startBlock + 1, totalBlocks);
+    displayBlockProgress(eventName, processedBlocks, totalBlocks);
+    
+    const batchPromises = currentBatch.map(({ fromBlock, toBlock }) => {
+      return executeWithRetry(
+        () => contract.queryFilter(eventFilter, fromBlock, toBlock),
+        3, // Max 3 retries per query
+        2000 // Start with 2s delay, then exponential backoff
+      ).catch(error => {
+        console.error(`\nError querying blocks ${fromBlock}-${toBlock} after multiple retries:`, error);
+        return []; // Return empty array to continue execution
+      });
+    });
+    
+    // If we're hitting many errors, slow down the concurrent requests
+    try {
+      const batchResults = await Promise.all(batchPromises);
+      events = [...events, ...batchResults.flat()];
+    } catch (error) {
+      console.error('\nError processing batch, reducing concurrency limit and retrying...');
+      
+      // Process the failed batch with reduced concurrency
+      const reducedConcurrency = Math.max(1, Math.floor(concurrencyLimit / 2));
+      const results = await processRangesWithReducedConcurrency(
+        contract, eventFilter, currentBatch, reducedConcurrency
+      );
+      events = [...events, ...results];
+    }
+  }
+  
+  displayBlockProgress(eventName, totalBlocks, totalBlocks, true);
+  
+  return events;
+}
+
+/**
+ * Process a set of block ranges with reduced concurrency when errors occur
+ */
+async function processRangesWithReducedConcurrency<T extends BaseContract>(
+  contract: T,
+  eventFilter: any,
+  ranges: BlockRange[],
+  concurrencyLimit: number
+): Promise<any[]> {
+  let results: any[] = [];
+  
+  // Process in smaller batches
+  for (let i = 0; i < ranges.length; i += concurrencyLimit) {
+    const batch = ranges.slice(i, i + concurrencyLimit);
+    
+    const batchPromises = batch.map(({ fromBlock, toBlock }) => {
+      return executeWithRetry(
+        () => contract.queryFilter(eventFilter, fromBlock, toBlock),
+        5, // More retries for the problematic ranges
+        3000 // Longer initial delay
+      ).catch(error => {
+        console.error(`\nError querying blocks ${fromBlock}-${toBlock} after multiple retries:`, error);
+        return []; // Return empty array to continue execution
+      });
+    });
+    
+    // Wait for each promise to complete and add a delay between them
+    const batchResults = await Promise.all(batchPromises);
+    results = [...results, ...batchResults.flat()];
+    
+    // Add a delay between batches to avoid overwhelming the provider
+    if (i + concurrencyLimit < ranges.length) {
+      await sleep(2000);
+    }
+  }
+  
+  return results;
+}
+
+/**
  * Queries events in batched, parallel fashion to handle provider block range limitations
+ * Uses a queue to ensure only one event type is queried at a time for clean console output
  * @param contract Contract to query events from
  * @param eventFilter Event filter to use for querying (from contract.filters)
  * @param startBlock First block to query from
@@ -47,45 +234,36 @@ export async function batchedEventQuery<T extends BaseContract>(
   startBlock: number,
   endBlock: number | 'latest' = 'latest',
   chunkSize: number = 500,
-  concurrencyLimit: number = 100,
+  concurrencyLimit: number = 30, // Reduced default concurrency to avoid overwhelming the provider
 ): Promise<any[]> {
+  // Get the latest block number with retry logic
+  const getLatestBlock = async (): Promise<number> => {
+    try {
+      return await executeWithRetry(async () => {
+        const blockNum = await contract.runner?.provider?.getBlockNumber();
+        if (!blockNum && blockNum !== 0) {
+          throw new Error('Could not determine latest block number');
+        }
+        return blockNum;
+      });
+    } catch (error) {
+      console.error('Failed to get latest block number:', error);
+      throw error;
+    }
+  };
+
   const latestBlock = endBlock === 'latest' 
-    ? await contract.runner?.provider?.getBlockNumber() 
+    ? await getLatestBlock()
     : endBlock;
-    
-  if (!latestBlock) {
-    throw new Error('Could not determine latest block number');
-  }
   
-  const blockRanges: BlockRange[] = [];
-  for (let fromBlock = startBlock; fromBlock <= latestBlock; fromBlock += chunkSize) {
-    const toBlock = Math.min(fromBlock + chunkSize - 1, latestBlock);
-    blockRanges.push({ fromBlock, toBlock });
-  }
-
-  let events: any[] = [];
-  const totalBlocks = latestBlock - startBlock + 1;
-  const eventName = eventFilter.fragment?.name || 'events';
-  
-  for (let i = 0; i < blockRanges.length; i += concurrencyLimit) {
-    const currentBatch = blockRanges.slice(i, i + concurrencyLimit);
-
-    const processedBlocks = Math.min(currentBatch[currentBatch.length-1].toBlock - startBlock + 1, totalBlocks);
-    displayBlockProgress(eventName, processedBlocks, totalBlocks);
-    
-    const batchPromises = currentBatch.map(({ fromBlock, toBlock }) => {
-      return contract.queryFilter(eventFilter, fromBlock, toBlock)
-        .catch(error => {
-          console.error(`\nError querying blocks ${fromBlock}-${toBlock}:`, error);
-          return [];
-        });
-    });
-    
-    const batchResults = await Promise.all(batchPromises);
-    events = [...events, ...batchResults.flat()];
-  }
-  
-  displayBlockProgress(eventName, totalBlocks, totalBlocks, true);
-  
-  return events;
+  // Queue the event query to ensure only one runs at a time
+  const queue = EventQueryQueue.getInstance();
+  return queue.enqueue(() => processSingleEventQuery(
+    contract,
+    eventFilter,
+    startBlock,
+    latestBlock,
+    chunkSize,
+    concurrencyLimit
+  ));
 }
