@@ -132,16 +132,37 @@ export class MonitoringModule {
    * @returns Complete system state
    */
   async getCompleteSystemState() {
-    const [decentralizedEurotate, equityState, depsWrapperState, savingsGatewayState, bridgeStates, positions, challenges] =
-      await Promise.all([
-        this.getDecentralizedEuroState(),
-        this.getEquityState(),
-        this.getDEPSWrapperState(),
-        this.getSavingsGatewayState(),
-        this.getBridgeStates(),
-        this.getPositions(),
-        this.getChallenges(),
-      ]);
+    console.log('🔄 Starting complete system state collection...');
+    
+    console.log('📊 Fetching dEURO state...');
+    const decentralizedEurotate = await this.getDecentralizedEuroState();
+    console.log('✅ dEURO state complete');
+    
+    console.log('📊 Fetching equity state...');
+    const equityState = await this.getEquityState();
+    console.log('✅ Equity state complete');
+    
+    console.log('📊 Fetching DEPS wrapper state...');
+    const depsWrapperState = await this.getDEPSWrapperState();
+    console.log('✅ DEPS wrapper state complete');
+    
+    console.log('📊 Fetching savings gateway state...');
+    const savingsGatewayState = await this.getSavingsGatewayState();
+    console.log('✅ Savings gateway state complete');
+    
+    console.log('📊 Fetching bridge states...');
+    const bridgeStates = await this.getBridgeStates();
+    console.log('✅ Bridge states complete');
+    
+    console.log('📊 Fetching positions...');
+    const positions = await this.getPositions();
+    console.log('✅ Positions complete');
+    
+    console.log('📊 Fetching challenges...');
+    const challenges = await this.getChallenges();
+    console.log('✅ Challenges complete');
+
+    console.log('🎉 All system state collection complete!');
 
     return {
       decentralizedEurotate,

@@ -89,28 +89,45 @@ export function displayBlockProgress(
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Executes a promise with retry logic
+ * Creates a timeout promise that rejects after the specified time
+ * @param ms Timeout in milliseconds
+ * @returns Promise that rejects with timeout error
+ */
+const createTimeout = (ms: number) => 
+  new Promise<never>((_, reject) => 
+    setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms)
+  );
+
+/**
+ * Executes a promise with timeout and retry logic
  * @param fn Function that returns a promise
  * @param maxRetries Maximum number of retry attempts
  * @param retryDelay Base delay between retries in ms (will increase with backoff)
+ * @param timeoutMs Timeout for individual attempts in ms
  * @returns Promise result
  */
 async function executeWithRetry<T>(
   fn: () => Promise<T>,
   maxRetries: number = 5,
-  retryDelay: number = 2000
+  retryDelay: number = 2000,
+  timeoutMs: number = 30000 // 30 second timeout for RPC calls
 ): Promise<T> {
   let lastError: any;
   
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await fn();
-    } catch (error) {
+      // Race between the function call and timeout
+      return await Promise.race([
+        fn(),
+        createTimeout(timeoutMs)
+      ]);
+    } catch (error: any) {
       lastError = error;
       
       if (attempt < maxRetries) {
         const delay = retryDelay * Math.pow(1.5, attempt); // Exponential backoff
-        console.log(`\nRetrying operation (attempt ${attempt + 1}/${maxRetries}), waiting ${Math.round(delay/1000)}s...`);
+        const errorMsg = error.message?.includes('timed out') ? 'RPC timeout' : error.message;
+        console.log(`\nRetrying operation (attempt ${attempt + 1}/${maxRetries}) after ${errorMsg}, waiting ${Math.round(delay/1000)}s...`);
         await sleep(delay);
       }
     }
@@ -150,7 +167,8 @@ async function processSingleEventQuery<T extends BaseContract>(
       return executeWithRetry(
         () => contract.queryFilter(eventFilter, fromBlock, toBlock),
         3, // Max 3 retries per query
-        2000 // Start with 2s delay, then exponential backoff
+        2000, // Start with 2s delay, then exponential backoff
+        30000 // 30s timeout for RPC calls
       ).catch(error => {
         console.error(`\nError querying blocks ${fromBlock}-${toBlock} after multiple retries:`, error);
         return []; // Return empty array to continue execution
@@ -197,7 +215,8 @@ async function processRangesWithReducedConcurrency<T extends BaseContract>(
       return executeWithRetry(
         () => contract.queryFilter(eventFilter, fromBlock, toBlock),
         5, // More retries for the problematic ranges
-        3000 // Longer initial delay
+        3000, // Longer initial delay
+        30000 // 30s timeout for RPC calls
       ).catch(error => {
         console.error(`\nError querying blocks ${fromBlock}-${toBlock} after multiple retries:`, error);
         return []; // Return empty array to continue execution
@@ -245,7 +264,7 @@ export async function batchedEventQuery<T extends BaseContract>(
           throw new Error('Could not determine latest block number');
         }
         return blockNum;
-      });
+      }, 3, 2000, 15000); // 3 retries, 2s delay, 15s timeout for block number query
     } catch (error) {
       console.error('Failed to get latest block number:', error);
       throw error;
