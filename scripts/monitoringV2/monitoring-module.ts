@@ -2,13 +2,16 @@ import { ethers } from 'ethers';
 import  { DecentralizedEUROABI }  from '../../exports/abis/core/DecentralizedEURO';
 import  { EquityABI }  from '../../exports/abis/core/Equity';
 import  { DEPSWrapperABI }  from '../../exports/abis/utils/DEPSWrapper';
+import  { SavingsGatewayABI }  from '../../exports/abis/core/SavingsGateway';
 import { ADDRESS } from '../../exports/address.config';
 import { decentralizedEuroState } from './decentralizedEURO';
 import { equityState } from './equity';
 import { depsWrapperState } from './depsWrapper';
+import { savingsGatewayState } from './savingsGateway';
 import { DecentralizedEuroStateExtended } from './dto/deuro.dto';
 import { EquityStateExtended } from './dto/equity.dto';
 import { DEPSWrapperStateExtended } from './dto/depsWrapper.dto';
+import { SavingsGatewayStateExtended } from './dto/savingsGateway.dto';
 
 export class MonitoringModule {
     private provider: ethers.Provider;
@@ -32,5 +35,11 @@ export class MonitoringModule {
     async getDEPSWrapperState(): Promise<DEPSWrapperStateExtended> {
         const depsWrapper = new ethers.Contract(ADDRESS[this.blockchainId].DEPSwrapper, DEPSWrapperABI, this.provider);
         return depsWrapperState(depsWrapper);
+    }
+
+    async getSavingsGatewayState(): Promise<SavingsGatewayStateExtended> {
+        const savingsGateway = new ethers.Contract(ADDRESS[this.blockchainId].savingsGateway, SavingsGatewayABI, this.provider);
+        const deuro = new ethers.Contract(ADDRESS[this.blockchainId].decentralizedEURO, DecentralizedEUROABI, this.provider);
+        return savingsGatewayState(savingsGateway, deuro);
     }
 }

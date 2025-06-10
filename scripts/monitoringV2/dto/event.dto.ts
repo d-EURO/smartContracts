@@ -58,6 +58,31 @@ export interface UnwrapEvent extends BaseEvent {
   value: bigint;
 }
 
+export interface SavedEvent extends BaseEvent {
+  account: string;
+  amount: bigint;
+}
+
+export interface InterestCollectedEvent extends BaseEvent {
+  account: string;
+  interest: bigint;
+}
+
+export interface WithdrawnEvent extends BaseEvent {
+  account: string;
+  amount: bigint;
+}
+
+export interface RateProposedEvent extends BaseEvent {
+  who: string;
+  nextRate: bigint;
+  nextChange: bigint;
+}
+
+export interface RateChangedEvent extends BaseEvent {
+  newRate: bigint;
+}
+
 export interface EventData {
   name: string;
   data: any;
