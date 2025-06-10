@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { PositionRollerState } from './dto/positionRoller.dto';
+import { PositionRollerState } from './dto';
 
 export async function positionRollerState(
   contract: ethers.Contract,

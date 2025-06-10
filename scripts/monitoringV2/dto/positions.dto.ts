@@ -1,10 +1,3 @@
-import { BaseEvent } from './event.dto';
-
-export interface PositionOpenedEvent extends BaseEvent {
-  position: string;
-  owner: string;
-}
-
 export interface PositionState {
   address: string;
   owner: string;

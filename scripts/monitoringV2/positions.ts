@@ -1,11 +1,11 @@
 import { Contract, ethers } from 'ethers';
 import {
-  PositionOpenedEvent,
   PositionState,
   PositionCollateralState,
   ChallengeData,
   PositionsStateExtended,
-} from './dto/positions.dto';
+  PositionOpenedEvent,
+} from './dto';
 import { ERC20ABI } from '../../exports/abis/utils/ERC20';
 import { PositionV2ABI } from '../../exports/abis/MintingHubV2/PositionV2';
 

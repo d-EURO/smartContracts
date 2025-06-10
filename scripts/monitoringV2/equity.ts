@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { EquityState } from './dto/equity.dto';
+import { EquityState } from './dto';
 
 export async function equityState(contract: ethers.Contract): Promise<EquityState> {
   const address = await contract.getAddress();

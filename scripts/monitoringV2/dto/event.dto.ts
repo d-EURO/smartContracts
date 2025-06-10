@@ -49,13 +49,19 @@ export interface DelegationEvent extends BaseEvent {
 }
 
 export interface WrapEvent extends BaseEvent {
+  from: string;
   to: string;
   value: bigint;
+  user: string;
+  amount: bigint;
 }
 
 export interface UnwrapEvent extends BaseEvent {
   from: string;
+  to: string;
   value: bigint;
+  user: string;
+  amount: bigint;
 }
 
 export interface SavedEvent extends BaseEvent {
@@ -97,31 +103,3 @@ export interface RollEvent extends BaseEvent {
   mint: bigint;
 }
 
-export interface EventData {
-  name: string;
-  data: any;
-  txHash: string;
-  timestamp: number;
-}
-
-export interface MetricResult {
-  value: {
-    day: bigint;
-    week: bigint;
-    month: bigint;
-    year: bigint;
-  };
-  count: {
-    day: number;
-    week: number;
-    month: number;
-    year: number;
-  };
-  last: EventData;
-  valueFormatter: (value: bigint) => string;
-}
-
-export interface EventTrendData {
-  trend: Record<string, MetricResult>;
-  events: EventData[];
-}
