@@ -8,7 +8,6 @@ import {
   RateChangedEvent 
 } from './dto/event.dto';
 import { fetchEvents } from './utils';
-import { DecentralizedEUROABI } from '../../exports/abis/core/DecentralizedEURO';
 
 export async function savingsGatewayState(
   savingsContract: ethers.Contract,

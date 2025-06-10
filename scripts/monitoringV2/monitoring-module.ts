@@ -3,15 +3,18 @@ import  { DecentralizedEUROABI }  from '../../exports/abis/core/DecentralizedEUR
 import  { EquityABI }  from '../../exports/abis/core/Equity';
 import  { DEPSWrapperABI }  from '../../exports/abis/utils/DEPSWrapper';
 import  { SavingsGatewayABI }  from '../../exports/abis/core/SavingsGateway';
+import  { StablecoinBridgeABI }  from '../../exports/abis/utils/StablecoinBridge';
 import { ADDRESS } from '../../exports/address.config';
 import { decentralizedEuroState } from './decentralizedEURO';
 import { equityState } from './equity';
 import { depsWrapperState } from './depsWrapper';
 import { savingsGatewayState } from './savingsGateway';
+import { stablecoinBridgeState } from './stablecoinBridge';
 import { DecentralizedEuroStateExtended } from './dto/deuro.dto';
 import { EquityStateExtended } from './dto/equity.dto';
 import { DEPSWrapperStateExtended } from './dto/depsWrapper.dto';
 import { SavingsGatewayStateExtended } from './dto/savingsGateway.dto';
+import { StablecoinBridgeState, Bridge } from './dto/stablecoinBridge.dto';
 
 export class MonitoringModule {
     private provider: ethers.Provider;
@@ -41,5 +44,18 @@ export class MonitoringModule {
         const savingsGateway = new ethers.Contract(ADDRESS[this.blockchainId].savingsGateway, SavingsGatewayABI, this.provider);
         const deuro = new ethers.Contract(ADDRESS[this.blockchainId].decentralizedEURO, DecentralizedEUROABI, this.provider);
         return savingsGatewayState(savingsGateway, deuro);
+    }
+
+    async getBridgeState(bridgeType: Bridge): Promise<StablecoinBridgeState> {
+        const bridgeAddress = ADDRESS[this.blockchainId][bridgeType as keyof typeof ADDRESS[1]];
+        const bridge = new ethers.Contract(bridgeAddress, StablecoinBridgeABI, this.provider);
+        return stablecoinBridgeState(bridge, bridgeType);
+    }
+
+    async getAllBridgeStates(): Promise<StablecoinBridgeState[]> {
+        const bridges = Object.values(Bridge);
+        return Promise.all(
+            bridges.map(bridge => this.getBridgeState(bridge))
+        );
     }
 }

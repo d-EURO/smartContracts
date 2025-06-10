@@ -44,22 +44,19 @@ const blockCache = new Map<number, { timestamp: number }>();
  */
 async function getCachedBlockTimestamp(event: any): Promise<number> {
   const blockNumber = event.blockNumber;
-  
+
   if (blockCache.has(blockNumber)) {
     return blockCache.get(blockNumber)!.timestamp;
   }
-  
+
   // Add timeout protection for block lookups
   const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`Block lookup timed out for block ${blockNumber}`)), 30000)
+    setTimeout(() => reject(new Error(`Block lookup timed out for block ${blockNumber}`)), 30000),
   );
-  
+
   try {
-    const block = await Promise.race([
-      event.getBlock(),
-      timeoutPromise
-    ]);
-    
+    const block = await Promise.race([event.getBlock(), timeoutPromise]);
+
     const blockData = { timestamp: block.timestamp };
     blockCache.set(blockNumber, blockData);
     return block.timestamp;
@@ -88,17 +85,17 @@ export async function processEvents(events: any[], color?: string): Promise<Even
     }
     eventsByBlock.get(blockNumber)!.push(event);
   }
-  
+
   console.log(`📦 Processing ${events.length} events across ${eventsByBlock.size} unique blocks...`);
-  
+
   // Process events with cached block lookups
   const processedEvents: EventData[] = [];
-  
+
   for (const [blockNumber, blockEvents] of eventsByBlock) {
     try {
       // Get timestamp once per block
       const timestamp = await getCachedBlockTimestamp(blockEvents[0]);
-      
+
       // Process all events in this block
       for (const event of blockEvents) {
         processedEvents.push({
@@ -112,7 +109,7 @@ export async function processEvents(events: any[], color?: string): Promise<Even
       console.error(`Error processing block ${blockNumber}:`, error);
     }
   }
-  
+
   return processedEvents;
 }
 
@@ -298,13 +295,10 @@ export function createEventTrendsTable(name: string): Table<{ name: string; data
  * @param eventFilter The event filter to apply, e.g. contract.filters.Transfer()
  * @returns Processed events sorted by timestamp (newest first)
  */
-export async function fetchEvents<T extends BaseEvent>(
-  contract: Contract,
-  eventFilter: any
-): Promise<T[]> {
+export async function fetchEvents<T extends BaseEvent>(contract: Contract, eventFilter: any): Promise<T[]> {
   const events = await batchedEventQuery(contract, eventFilter, monitorConfig.deploymentBlock);
   const processedEvents: T[] = [];
-  
+
   for (const event of events) {
     const block = await event.getBlock();
     processedEvents.push({
@@ -313,6 +307,6 @@ export async function fetchEvents<T extends BaseEvent>(
       timestamp: block.timestamp,
     } as T);
   }
-  
+
   return processedEvents.sort((a, b) => b.timestamp - a.timestamp);
 }
