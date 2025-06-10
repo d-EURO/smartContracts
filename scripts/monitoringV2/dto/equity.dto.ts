@@ -1,5 +1,3 @@
-import { TradeEvent, DelegationEvent } from "./event.dto";
-
 export interface EquityState {
   address: string;
   name: string;
@@ -13,9 +11,4 @@ export interface EquityState {
   valuationFactor: number;
   minHoldingDuration: bigint;
   quorum: number;
-}
-
-export interface EquityStateExtended extends EquityState {
-  tradeEvents: TradeEvent[];
-  delegationEvents: DelegationEvent[];
 }

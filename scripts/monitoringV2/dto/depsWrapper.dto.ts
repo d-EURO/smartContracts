@@ -1,5 +1,3 @@
-import { TransferEvent, WrapEvent, UnwrapEvent } from "./event.dto";
-
 export interface DEPSWrapperState {
   address: string;
   name: string;
@@ -8,10 +6,4 @@ export interface DEPSWrapperState {
   totalSupply: bigint;
   underlyingAddress: string;
   underlyingSymbol: string;
-}
-
-export interface DEPSWrapperStateExtended extends DEPSWrapperState {
-  transferEvents: TransferEvent[];
-  wrapEvents: WrapEvent[];
-  unwrapEvents: UnwrapEvent[];
 }

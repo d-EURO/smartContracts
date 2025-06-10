@@ -83,6 +83,20 @@ export interface RateChangedEvent extends BaseEvent {
   newRate: bigint;
 }
 
+export interface PositionOpenedEvent extends BaseEvent {
+  position: string;
+  owner: string;
+}
+
+export interface RollEvent extends BaseEvent {
+  source: string;
+  collWithdraw: bigint;
+  repay: bigint;
+  target: string;
+  collDeposit: bigint;
+  mint: bigint;
+}
+
 export interface EventData {
   name: string;
   data: any;

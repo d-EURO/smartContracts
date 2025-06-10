@@ -9,8 +9,6 @@ export enum Bridge {
   EURE = 'bridgeEURE',
 }
 
-export type BridgeType = Bridge;
-
 export interface StablecoinBridgeState {
   bridgeType: Bridge;
   address: string;

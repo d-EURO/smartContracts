@@ -1,9 +1,7 @@
 import { ethers } from 'ethers';
-import { EquityStateExtended } from './dto/equity.dto';
-import { TradeEvent, DelegationEvent } from './dto/event.dto';
-import { fetchEvents } from './utils';
+import { EquityState } from './dto/equity.dto';
 
-export async function equityState(contract: ethers.Contract): Promise<EquityStateExtended> {
+export async function equityState(contract: ethers.Contract): Promise<EquityState> {
   const address = await contract.getAddress();
   const name = await contract.name();
   const symbol = await contract.symbol();
@@ -17,8 +15,6 @@ export async function equityState(contract: ethers.Contract): Promise<EquityStat
   const minHoldingDuration = await contract.MIN_HOLDING_DURATION();
   const quorum = await contract.QUORUM();
 
-  const tradeEvents = await fetchEvents<TradeEvent>(contract, contract.filters.Trade());
-  const delegationEvents = await fetchEvents<DelegationEvent>(contract, contract.filters.Delegation());
 
   return {
     address,
@@ -33,8 +29,6 @@ export async function equityState(contract: ethers.Contract): Promise<EquityStat
     valuationFactor,
     minHoldingDuration,
     quorum,
-    tradeEvents,
-    delegationEvents,
   };
 }
 
