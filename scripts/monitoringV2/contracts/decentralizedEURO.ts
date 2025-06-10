@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { DecentralizedEuroState } from './dto';
+import { DecentralizedEuroState } from '../dto';
 
 
 export async function decentralizedEuroState(contract: ethers.Contract): Promise<DecentralizedEuroState> {

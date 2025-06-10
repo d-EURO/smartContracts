@@ -3,16 +3,16 @@ import {
   PositionState,
   PositionCollateralState,
   ChallengeData,
-  PositionsStateExtended,
+  MintingHubState,
   PositionOpenedEvent,
-} from './dto';
-import { ERC20ABI } from '../../exports/abis/utils/ERC20';
-import { PositionV2ABI } from '../../exports/abis/MintingHubV2/PositionV2';
+} from '../dto';
+import { ERC20ABI } from '../../../exports/abis/utils/ERC20';
+import { PositionV2ABI } from '../../../exports/abis/MintingHubV2/PositionV2';
 
 export async function positionsState(
   mintingHub: Contract, 
   positionEvents: PositionOpenedEvent[]
-): Promise<PositionsStateExtended> {
+): Promise<MintingHubState> {
   // positions
   const positions = await Promise.all(
     positionEvents.map((event) => getPositionState(event.position, mintingHub.runner!.provider!, event.timestamp)),

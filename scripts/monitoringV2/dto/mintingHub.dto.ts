@@ -45,7 +45,7 @@ export interface ChallengeData {
   positionOwner: string;
 }
 
-export interface PositionsStateExtended {
+export interface MintingHubState {
   positions: PositionState[];
   collaterals: PositionCollateralState[];
   challenges: ChallengeData[];

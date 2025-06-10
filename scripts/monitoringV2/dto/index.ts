@@ -4,7 +4,7 @@ export * from './equity.dto';
 export * from './depsWrapper.dto';
 export * from './savingsGateway.dto';
 export * from './frontendGateway.dto';
-export * from './positions.dto';
+export * from './mintingHub.dto';
 export * from './positionRoller.dto';
 export * from './stablecoinBridge.dto';
 

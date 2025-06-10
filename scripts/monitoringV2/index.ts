@@ -8,13 +8,13 @@ import { FrontendGatewayABI } from '../../exports/abis/core/FrontendGateway';
 import { MintingHubGatewayABI } from '../../exports/abis/core/MintingHubGateway';
 import { PositionRollerABI } from '../../exports/abis/MintingHubV2/PositionRoller';
 import { ADDRESS } from '../../exports/address.config';
-import { decentralizedEuroState } from './decentralizedEURO';
-import { equityState } from './equity';
-import { depsWrapperState } from './depsWrapper';
-import { savingsGatewayState } from './savingsGateway';
-import { stablecoinBridgeState } from './stablecoinBridge';
-import { frontendGatewayState } from './frontendGateway';
-import { positionsState } from './positions';
+import { decentralizedEuroState } from './contracts/decentralizedEURO';
+import { equityState } from './contracts/equity';
+import { depsWrapperState } from './contracts/depsWrapper';
+import { savingsGatewayState } from './contracts/savingsGateway';
+import { stablecoinBridgeState } from './contracts/stablecoinBridge';
+import { frontendGatewayState } from './contracts/frontendGateway';
+import { positionsState } from './contracts/mintingHub';
 import {
   // State DTOs
   DecentralizedEuroState,
@@ -24,7 +24,7 @@ import {
   StablecoinBridgeState,
   Bridge,
   FrontendGatewayState,
-  PositionsStateExtended,
+  MintingHubState,
   PositionRollerState,
 
   // Event system DTOs
@@ -51,7 +51,7 @@ import {
   RollEvent,
 } from './dto';
 import { fetchEvents } from './utils';
-import { positionRollerState } from './positionRoller';
+import { positionRollerState } from './contracts/positionRoller';
 
 const EVENTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
@@ -113,7 +113,7 @@ export class MonitoringModule {
     return frontendGatewayState(contracts.frontendGatewayContract);
   }
 
-  async getPositionsState(positionEvents?: PositionOpenedEvent[]): Promise<PositionsStateExtended> {
+  async getPositionsState(positionEvents?: PositionOpenedEvent[]): Promise<MintingHubState> {
     const contracts = this.getContracts();
     positionEvents ??= (await this.getAllEvents()).positionOpenedEvents;
     return positionsState(contracts.mintingHubContract, positionEvents);

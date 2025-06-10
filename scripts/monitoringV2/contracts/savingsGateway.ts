@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { SavingsGatewayState } from './dto/savingsGateway.dto';
+import { SavingsGatewayState } from '../dto/savingsGateway.dto';
 
 export async function savingsGatewayState(
   savingsContract: ethers.Contract,
