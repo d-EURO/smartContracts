@@ -36,6 +36,18 @@ export interface ProfitDistributedEvent extends BaseEvent {
   amount: bigint;
 }
 
+export interface TradeEvent extends BaseEvent {
+  who: string;
+  amount: bigint;
+  totPrice: bigint;
+  newPrice: bigint;
+}
+
+export interface DelegationEvent extends BaseEvent {
+  from: string;
+  to: string;
+}
+
 export interface EventData {
   name: string;
   data: any;

@@ -1,4 +1,4 @@
-// depricated
+// deprecated
 
 import {
   DecentralizedEURO,
