@@ -5,6 +5,7 @@ import  { DEPSWrapperABI }  from '../../exports/abis/utils/DEPSWrapper';
 import  { SavingsGatewayABI }  from '../../exports/abis/core/SavingsGateway';
 import  { StablecoinBridgeABI }  from '../../exports/abis/utils/StablecoinBridge';
 import  { FrontendGatewayABI }  from '../../exports/abis/core/FrontendGateway';
+import  { MintingHubGatewayABI }  from '../../exports/abis/core/MintingHubGateway';
 import { ADDRESS } from '../../exports/address.config';
 import { decentralizedEuroState } from './decentralizedEURO';
 import { equityState } from './equity';
@@ -12,12 +13,14 @@ import { depsWrapperState } from './depsWrapper';
 import { savingsGatewayState } from './savingsGateway';
 import { stablecoinBridgeState } from './stablecoinBridge';
 import { frontendGatewayState } from './frontendGateway';
+import { positionsState } from './positions';
 import { DecentralizedEuroStateExtended } from './dto/deuro.dto';
 import { EquityStateExtended } from './dto/equity.dto';
 import { DEPSWrapperStateExtended } from './dto/depsWrapper.dto';
 import { SavingsGatewayStateExtended } from './dto/savingsGateway.dto';
 import { StablecoinBridgeState, Bridge } from './dto/stablecoinBridge.dto';
 import { FrontendGatewayState } from './dto/frontendGateway.dto';
+import { PositionsStateExtended } from './dto/positions.dto';
 
 export class MonitoringModule {
     private provider: ethers.Provider;
@@ -52,6 +55,11 @@ export class MonitoringModule {
     async getFrontendGatewayState(): Promise<FrontendGatewayState> {
         const frontendGateway = new ethers.Contract(ADDRESS[this.blockchainId].frontendGateway, FrontendGatewayABI, this.provider);
         return frontendGatewayState(frontendGateway);
+    }
+
+    async getPositionsState(): Promise<PositionsStateExtended> {
+        const mintingHubGateway = new ethers.Contract(ADDRESS[this.blockchainId].mintingHubGateway, MintingHubGatewayABI, this.provider);
+        return positionsState(mintingHubGateway);
     }
 
     async getBridgeState(bridgeType: Bridge): Promise<StablecoinBridgeState> {
