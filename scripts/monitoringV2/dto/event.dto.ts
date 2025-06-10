@@ -48,6 +48,16 @@ export interface DelegationEvent extends BaseEvent {
   to: string;
 }
 
+export interface WrapEvent extends BaseEvent {
+  to: string;
+  value: bigint;
+}
+
+export interface UnwrapEvent extends BaseEvent {
+  from: string;
+  value: bigint;
+}
+
 export interface EventData {
   name: string;
   data: any;
