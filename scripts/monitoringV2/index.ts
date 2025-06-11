@@ -83,8 +83,6 @@ export class MonitoringModule {
     const contracts = this.getContracts();
     const currentBlock = await this.provider.getBlockNumber();
     const fromBlock = this.eventsCache?.blockRange ? this.eventsCache.blockRange.to + 1 : getDeploymentBlock();
-    
-    console.log(`\x1b[33mFetching events from block ${fromBlock} to ${currentBlock}\x1b[0m`);
     const newEventsData = await this.fetchEventsInRange(contracts, fromBlock, currentBlock);
     this.eventsCache = this.eventsCache ? this.mergeEventsData(this.eventsCache, newEventsData) : newEventsData;
     this.eventsCacheExpiry = Date.now() + this.eventsCacheTTL;
@@ -175,6 +173,8 @@ export class MonitoringModule {
     fromBlock: number,
     toBlock: number,
   ): Promise<SystemEventsData> {
+    console.log(`\x1b[33mFetching events from block ${fromBlock} to ${toBlock}\x1b[0m`);
+
     const [
       deuroTransferEvents,
       deuroLossEvents,
