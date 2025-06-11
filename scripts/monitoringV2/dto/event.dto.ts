@@ -1,6 +1,7 @@
 export interface BaseEvent {
   txHash: string;
   timestamp: number;
+  logIndex: number;
 }
 
 export interface TransferEvent extends BaseEvent {
@@ -90,8 +91,10 @@ export interface RateChangedEvent extends BaseEvent {
 }
 
 export interface PositionOpenedEvent extends BaseEvent {
+  owner: string;  
   position: string;
-  owner: string;
+  original: string;
+  collateral: string;
 }
 
 export interface RollEvent extends BaseEvent {

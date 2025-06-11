@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  deuro-monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile.monitoring
+    container_name: deuro-monitoring-v2
+    restart: unless-stopped
+    environment:
+      - RPC_URL=${RPC_URL:-https://eth-mainnet.g.alchemy.com/v2/your-api-key}
+      - BLOCKCHAIN_ID=${BLOCKCHAIN_ID:-1}
+      - MONITOR_INTERVAL_MS=${MONITOR_INTERVAL_MS:-30000}
+      - OUTPUT_FILE=${OUTPUT_FILE:-/app/data/system-state.json}
+      - NODE_ENV=${NODE_ENV:-production}
+    volumes:
+      # Optional: persist monitoring data
+      - monitoring-data:/app/data
+      # Optional: mount config files
+      - ./monitoring.env:/app/.env
+    networks:
+      - monitoring-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "node", "-e", "console.log('Health check')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: Add a lightweight web server to serve monitoring data
+  monitoring-api:
+    image: nginx:alpine
+    container_name: deuro-monitoring-api
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - monitoring-data:/usr/share/nginx/html/data:ro
+      - ./scripts/monitoringV2/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - deuro-monitoring
+    networks:
+      - monitoring-network
+
+volumes:
+  monitoring-data:
+    driver: local
+
+networks:
+  monitoring-network:
+    driver: bridge

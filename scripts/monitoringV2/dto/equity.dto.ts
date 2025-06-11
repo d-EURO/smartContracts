@@ -10,5 +10,4 @@ export interface EquityState {
   dEuroAddress: string;
   valuationFactor: number;
   minHoldingDuration: bigint;
-  quorum: number;
 }

@@ -1,0 +1,20 @@
+FROM node:lts-alpine
+
+RUN mkdir /app && chown -R node:node /app
+
+WORKDIR /app
+USER node
+
+COPY --chown=node:node package.json yarn.lock ./
+RUN yarn install --production --frozen-lockfile
+
+COPY --chown=node:node scripts/monitoringV2/ ./scripts/monitoringV2/
+COPY --chown=node:node exports/ ./exports/
+COPY --chown=node:node constants/ ./constants/
+COPY --chown=node:node monitoring.env ./monitoring.env
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD node -e "console.log('Monitoring healthy')" || exit 1
+
+# Default command (no ts-node needed for production)
+CMD ["node", "-r", "ts-node/register", "scripts/monitoringV2/main.ts"]

@@ -9,13 +9,20 @@ import {
 import { ERC20ABI } from '../../../exports/abis/utils/ERC20';
 import { PositionV2ABI } from '../../../exports/abis/MintingHubV2/PositionV2';
 
-export async function positionsState(
+export async function mintingHubState(
   mintingHub: Contract, 
   positionEvents: PositionOpenedEvent[]
 ): Promise<MintingHubState> {
   // positions
+  const validPositionEvents = positionEvents.filter(event => {
+    if (!event.position || event.position === ethers.ZeroAddress) {
+      console.warn(`\x1b[33mSkipping position event with invalid address: ${event.position}\x1b[0m`);
+      return false;
+    }
+    return true;
+  });
   const positions = await Promise.all(
-    positionEvents.map((event) => getPositionState(event.position, mintingHub.runner!.provider!, event.timestamp)),
+    validPositionEvents.map((event) => getPositionState(event.position, mintingHub.runner!.provider!, event.timestamp)),
   );
 
   // collaterals
@@ -43,6 +50,10 @@ export async function getPositionState(
   provider: ethers.Provider,
   created: number = 0,
 ): Promise<PositionState> {
+  if (!positionAddress || positionAddress === ethers.ZeroAddress) {
+    throw new Error(`\x1b[31mInvalid position address: ${positionAddress}\x1b[0m`);
+  }
+  
   const position = new ethers.Contract(positionAddress, PositionV2ABI, provider);
 
   const [
@@ -126,10 +137,14 @@ export async function getPositionCollateralState(
   collateralAddress: string,
   provider: ethers.Provider,
 ): Promise<PositionCollateralState> {
+  if (!collateralAddress || collateralAddress === ethers.ZeroAddress) {
+    throw new Error(`\x1b[31mInvalid collateral address: ${collateralAddress}\x1b[0m`);
+  }
+  
   const collateral = new ethers.Contract(collateralAddress, ERC20ABI, provider);
 
   const [address, name, symbol, decimals] = await Promise.all([
-    collateral.address(),
+    collateral.getAddress(),
     collateral.name(),
     collateral.symbol(),
     collateral.decimals(),

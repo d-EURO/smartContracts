@@ -13,9 +13,6 @@ export async function equityState(contract: ethers.Contract): Promise<EquityStat
   const dEuroAddress = await contract.dEURO();
   const valuationFactor = await contract.VALUATION_FACTOR();
   const minHoldingDuration = await contract.MIN_HOLDING_DURATION();
-  const quorum = await contract.QUORUM();
-
-
   return {
     address,
     name,
@@ -28,7 +25,6 @@ export async function equityState(contract: ethers.Contract): Promise<EquityStat
     dEuroAddress,
     valuationFactor,
     minHoldingDuration,
-    quorum,
   };
 }
 
