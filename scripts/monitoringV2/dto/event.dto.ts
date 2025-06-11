@@ -4,60 +4,58 @@ export interface BaseEvent {
   logIndex: number;
 }
 
-export interface TransferEvent extends BaseEvent {
+export interface DeuroTransferEvent extends BaseEvent {
   from: string;
   to: string;
   value: bigint;
 }
 
-export interface MinterAppliedEvent extends BaseEvent {
+export interface DepsTransferEvent extends BaseEvent {
+  from: string;
+  to: string;
+  value: bigint;
+}
+
+export interface DeuroMinterAppliedEvent extends BaseEvent {
   minter: string;
   applicationPeriod: bigint;
   applicationFee: bigint;
   message: string;
 }
 
-export interface MinterDeniedEvent extends BaseEvent {
+export interface DeuroMinterDeniedEvent extends BaseEvent {
   minter: string;
   message: string;
 }
 
-export interface LossEvent extends BaseEvent {
+export interface DeuroLossEvent extends BaseEvent {
   reportingMinter: string;
   amount: bigint;
 }
 
-export interface ProfitEvent extends BaseEvent {
+export interface DeuroProfitEvent extends BaseEvent {
   reportingMinter: string;
   amount: bigint;
 }
 
-export interface ProfitDistributedEvent extends BaseEvent {
+export interface DeuroProfitDistributedEvent extends BaseEvent {
   recipient: string;
   amount: bigint;
 }
 
-export interface TradeEvent extends BaseEvent {
+export interface EquityTradeEvent extends BaseEvent {
   who: string;
   amount: bigint;
   totPrice: bigint;
   newPrice: bigint;
 }
 
-export interface DelegationEvent extends BaseEvent {
+export interface EquityDelegationEvent extends BaseEvent {
   from: string;
   to: string;
 }
 
-export interface WrapEvent extends BaseEvent {
-  from: string;
-  to: string;
-  value: bigint;
-  user: string;
-  amount: bigint;
-}
-
-export interface UnwrapEvent extends BaseEvent {
+export interface DepsWrapEvent extends BaseEvent {
   from: string;
   to: string;
   value: bigint;
@@ -65,39 +63,47 @@ export interface UnwrapEvent extends BaseEvent {
   amount: bigint;
 }
 
-export interface SavedEvent extends BaseEvent {
+export interface DepsUnwrapEvent extends BaseEvent {
+  from: string;
+  to: string;
+  value: bigint;
+  user: string;
+  amount: bigint;
+}
+
+export interface SavingsSavedEvent extends BaseEvent {
   account: string;
   amount: bigint;
 }
 
-export interface InterestCollectedEvent extends BaseEvent {
+export interface SavingsInterestCollectedEvent extends BaseEvent {
   account: string;
   interest: bigint;
 }
 
-export interface WithdrawnEvent extends BaseEvent {
+export interface SavingsWithdrawnEvent extends BaseEvent {
   account: string;
   amount: bigint;
 }
 
-export interface RateProposedEvent extends BaseEvent {
+export interface SavingsRateProposedEvent extends BaseEvent {
   who: string;
   nextRate: bigint;
   nextChange: bigint;
 }
 
-export interface RateChangedEvent extends BaseEvent {
+export interface SavingsRateChangedEvent extends BaseEvent {
   newRate: bigint;
 }
 
-export interface PositionOpenedEvent extends BaseEvent {
+export interface MintingHubPositionOpenedEvent extends BaseEvent {
   owner: string;  
   position: string;
   original: string;
   collateral: string;
 }
 
-export interface RollEvent extends BaseEvent {
+export interface RollerRollEvent extends BaseEvent {
   source: string;
   collWithdraw: bigint;
   repay: bigint;

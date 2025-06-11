@@ -1,56 +1,46 @@
 import { ethers } from 'ethers';
 import { 
-  TransferEvent, 
-  LossEvent, 
-  ProfitEvent, 
-  MinterAppliedEvent, 
-  MinterDeniedEvent, 
-  ProfitDistributedEvent,
-  TradeEvent,
-  DelegationEvent,
-  WrapEvent,
-  UnwrapEvent,
-  SavedEvent,
-  InterestCollectedEvent,
-  WithdrawnEvent,
-  RateProposedEvent,
-  RateChangedEvent,
-  PositionOpenedEvent,
-  RollEvent
+  DeuroTransferEvent,
+  DepsTransferEvent,
+  DeuroLossEvent, 
+  DeuroProfitEvent, 
+  DeuroMinterAppliedEvent, 
+  DeuroMinterDeniedEvent, 
+  DeuroProfitDistributedEvent,
+  EquityTradeEvent,
+  EquityDelegationEvent,
+  DepsWrapEvent,
+  DepsUnwrapEvent,
+  SavingsSavedEvent,
+  SavingsInterestCollectedEvent,
+  SavingsWithdrawnEvent,
+  SavingsRateProposedEvent,
+  SavingsRateChangedEvent,
+  MintingHubPositionOpenedEvent,
+  RollerRollEvent
 } from './event.dto';
 
 export interface SystemEventsData {
-  // DecentralizedEURO events
-  transferEvents: TransferEvent[];
-  lossEvents: LossEvent[];
-  profitEvents: ProfitEvent[];
-  minterAppliedEvents: MinterAppliedEvent[];
-  minterDeniedEvents: MinterDeniedEvent[];
-  profitsDistributedEvents: ProfitDistributedEvent[];
-  
-  // Equity events
-  tradeEvents: TradeEvent[];
-  delegationEvents: DelegationEvent[];
-  
-  // DEPSWrapper events
-  wrapEvents: WrapEvent[];
-  unwrapEvents: UnwrapEvent[];
-  transferWrapperEvents: TransferEvent[];
-  
-  // SavingsGateway events
-  savedEvents: SavedEvent[];
-  interestCollectedEvents: InterestCollectedEvent[];
-  withdrawnEvents: WithdrawnEvent[];
-  rateProposedEvents: RateProposedEvent[];
-  rateChangedEvents: RateChangedEvent[];
-  
-  // Positions events
-  positionOpenedEvents: PositionOpenedEvent[];
-  
-  // PositionRoller events
-  rollEvents: RollEvent[];
-  
-  // Metadata
+  deuroTransferEvents: DeuroTransferEvent[];
+  deuroLossEvents: DeuroLossEvent[];
+  deuroProfitEvents: DeuroProfitEvent[];
+  deuroMinterAppliedEvents: DeuroMinterAppliedEvent[];
+  deuroMinterDeniedEvents: DeuroMinterDeniedEvent[];
+  deuroProfitsDistributedEvents: DeuroProfitDistributedEvent[];
+  equityTradeEvents: EquityTradeEvent[];
+  equityDelegationEvents: EquityDelegationEvent[];
+  depsWrapEvents: DepsWrapEvent[];
+  depsUnwrapEvents: DepsUnwrapEvent[];
+  depsTransferEvents: DepsTransferEvent[];
+  savingsSavedEvents: SavingsSavedEvent[];
+  savingsInterestCollectedEvents: SavingsInterestCollectedEvent[];
+  savingsWithdrawnEvents: SavingsWithdrawnEvent[];
+  savingsRateProposedEvents: SavingsRateProposedEvent[];
+  savingsRateChangedEvents: SavingsRateChangedEvent[];
+  mintingHubPositionOpenedEvents: MintingHubPositionOpenedEvent[];
+  rollerRollEvents: RollerRollEvent[];
+
+  // Meta data
   lastEventFetch: number;
   blockRange: { from: number; to: number };
 }

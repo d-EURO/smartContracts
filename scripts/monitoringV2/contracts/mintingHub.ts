@@ -4,14 +4,14 @@ import {
   PositionCollateralState,
   ChallengeData,
   MintingHubState,
-  PositionOpenedEvent,
+  MintingHubPositionOpenedEvent,
 } from '../dto';
 import { ERC20ABI } from '../../../exports/abis/utils/ERC20';
 import { PositionV2ABI } from '../../../exports/abis/MintingHubV2/PositionV2';
 
 export async function mintingHubState(
   mintingHub: Contract, 
-  positionEvents: PositionOpenedEvent[]
+  positionEvents: MintingHubPositionOpenedEvent[]
 ): Promise<MintingHubState> {
   // positions
   const validPositionEvents = positionEvents.filter(event => {

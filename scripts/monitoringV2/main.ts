@@ -43,18 +43,18 @@ async function main() {
           monitoring.getDEPSWrapperState(),
           monitoring.getSavingsGatewayState(),
           monitoring.getFrontendGatewayState(),
-          monitoring.getMintingHubState(eventsData.positionOpenedEvents),
+          monitoring.getMintingHubState(eventsData.mintingHubPositionOpenedEvents),
           monitoring.getPositionRollerState(),
           monitoring.getAllBridgeStates(),
         ]);
 
         // Log key metrics
-        console.log(`📊 dEURO Supply: ${ethers.formatEther(deuroState.totalSupply)}`);
-        console.log(`💎 Equity Price: ${ethers.formatEther(equityState.price)}`);
-        console.log(`💰 Total Savings: ${ethers.formatEther(savingsState.totalSavings)}`);
-        console.log(`🏦 Active Positions: ${positionsState.positions.length}`);
-        console.log(`🌉 Bridge States: ${bridgeStates.length} bridges`);
-        console.log(`📅 Events Cache: ${eventsData.lastEventFetch ? 'Fresh' : 'Stale'}\n`);
+        console.log(`> dEURO Supply: ${ethers.formatEther(deuroState.totalSupply)}`);
+        console.log(`> Equity Price: ${ethers.formatEther(equityState.price)}`);
+        console.log(`> Total Savings: ${ethers.formatEther(savingsState.totalSavings)}`);
+        console.log(`> Active Positions: ${positionsState.positions.length}`);
+        console.log(`> Bridge States: ${bridgeStates.length} bridges`);
+        console.log(`> Events Cache: ${eventsData.lastEventFetch ? 'Fresh' : 'Stale'}\n`);
 
         // Export data as JSON (for consumption by other systems)
         const systemState = {

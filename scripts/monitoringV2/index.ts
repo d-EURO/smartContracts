@@ -30,27 +30,28 @@ import {
   PositionRollerState,
 
   // Event system DTOs
+  DeuroTransferEvent,
+  DepsTransferEvent,
+  DeuroLossEvent,
+  DeuroProfitEvent,
+  DeuroMinterAppliedEvent,
+  DeuroMinterDeniedEvent,
+  DeuroProfitDistributedEvent,
+  EquityTradeEvent,
+  EquityDelegationEvent,
+  DepsWrapEvent,
+  DepsUnwrapEvent,
+  SavingsSavedEvent,
+  SavingsInterestCollectedEvent,
+  SavingsWithdrawnEvent,
+  SavingsRateProposedEvent,
+  SavingsRateChangedEvent,
+  MintingHubPositionOpenedEvent,
+  RollerRollEvent,
+
+  // Event system DTOs
   SystemEventsData,
   ContractSet,
-
-  // Event DTOs
-  TransferEvent,
-  LossEvent,
-  ProfitEvent,
-  MinterAppliedEvent,
-  MinterDeniedEvent,
-  ProfitDistributedEvent,
-  TradeEvent,
-  DelegationEvent,
-  WrapEvent,
-  UnwrapEvent,
-  SavedEvent,
-  InterestCollectedEvent,
-  WithdrawnEvent,
-  RateProposedEvent,
-  RateChangedEvent,
-  PositionOpenedEvent,
-  RollEvent,
 } from './dto';
 import { fetchEvents, mergeEvents, getDeploymentBlock } from './utils';
 import { positionRollerState } from './contracts/positionRoller';
@@ -120,9 +121,9 @@ export class MonitoringModule {
     return frontendGatewayState(contracts.frontendGatewayContract);
   }
 
-  async getMintingHubState(positionEvents?: PositionOpenedEvent[]): Promise<MintingHubState> {
+  async getMintingHubState(positionEvents?: MintingHubPositionOpenedEvent[]): Promise<MintingHubState> {
     const contracts = this.getContracts();
-    positionEvents ??= (await this.getAllEvents()).positionOpenedEvents;
+    positionEvents ??= (await this.getAllEvents()).mintingHubPositionOpenedEvents;
     console.log(`Fetching MintingHub positions state`);
     return mintingHubState(contracts.mintingHubContract, positionEvents);
   }
@@ -175,114 +176,92 @@ export class MonitoringModule {
     toBlock: number,
   ): Promise<SystemEventsData> {
     const [
-      // DecentralizedEURO events
-      transferEvents,
-      lossEvents,
-      profitEvents,
-      minterAppliedEvents,
-      minterDeniedEvents,
-      profitsDistributedEvents,
-
-      // Equity events
-      tradeEvents,
-      delegationEvents,
-
-      // DEPSWrapper events
-      transferWrapperEvents,
-
-      // Savings events
-      savedEvents,
-      interestCollectedEvents,
-      withdrawnEvents,
-      rateProposedEvents,
-      rateChangedEvents,
-
-      // Position events
-      positionOpenedEvents,
-
-      // Roller events
-      rollEvents,
+      deuroTransferEvents,
+      deuroLossEvents,
+      deuroProfitEvents,
+      deuroMinterAppliedEvents,
+      deuroMinterDeniedEvents,
+      deuroProfitsDistributedEvents,
+      equityTradeEvents,
+      equityDelegationEvents,
+      depsTransferEvents,
+      savingsSavedEvents,
+      savingsInterestCollectedEvents,
+      savingsWithdrawnEvents,
+      savingsRateProposedEvents,
+      savingsRateChangedEvents,
+      mintingHubPositionOpenedEvents,
+      rollerRollEvents,
     ] = await Promise.all([
-      // DecentralizedEURO events
-      fetchEvents<TransferEvent>(
+      fetchEvents<DeuroTransferEvent>(
         contracts.deuroContract,
         contracts.deuroContract.filters.Transfer(),
         fromBlock,
         toBlock,
       ),
-      fetchEvents<LossEvent>(contracts.deuroContract, contracts.deuroContract.filters.Loss(), fromBlock, toBlock),
-      fetchEvents<ProfitEvent>(contracts.deuroContract, contracts.deuroContract.filters.Profit(), fromBlock, toBlock),
-      fetchEvents<MinterAppliedEvent>(
+      fetchEvents<DeuroLossEvent>(contracts.deuroContract, contracts.deuroContract.filters.Loss(), fromBlock, toBlock),
+      fetchEvents<DeuroProfitEvent>(contracts.deuroContract, contracts.deuroContract.filters.Profit(), fromBlock, toBlock),
+      fetchEvents<DeuroMinterAppliedEvent>(
         contracts.deuroContract,
         contracts.deuroContract.filters.MinterApplied(),
         fromBlock,
         toBlock,
       ),
-      fetchEvents<MinterDeniedEvent>(
+      fetchEvents<DeuroMinterDeniedEvent>(
         contracts.deuroContract,
         contracts.deuroContract.filters.MinterDenied(),
         fromBlock,
         toBlock,
       ),
-      fetchEvents<ProfitDistributedEvent>(
+      fetchEvents<DeuroProfitDistributedEvent>(
         contracts.deuroContract,
         contracts.deuroContract.filters.ProfitDistributed(),
         fromBlock,
         toBlock,
       ),
-
-      // Equity events
-      fetchEvents<TradeEvent>(contracts.equityContract, contracts.equityContract.filters.Trade(), fromBlock, toBlock),
-      fetchEvents<DelegationEvent>(
+      fetchEvents<EquityTradeEvent>(contracts.equityContract, contracts.equityContract.filters.Trade(), fromBlock, toBlock),
+      fetchEvents<EquityDelegationEvent>(
         contracts.equityContract,
         contracts.equityContract.filters.Delegation(),
         fromBlock,
         toBlock,
       ),
-
-      // DEPSWrapper events
-      fetchEvents<TransferEvent>(contracts.depsContract, contracts.depsContract.filters.Transfer(), fromBlock, toBlock),
-
-      // Savings events
-      fetchEvents<SavedEvent>(contracts.savingsContract, contracts.savingsContract.filters.Saved(), fromBlock, toBlock),
-      fetchEvents<InterestCollectedEvent>(
+      fetchEvents<DepsTransferEvent>(contracts.depsContract, contracts.depsContract.filters.Transfer(), fromBlock, toBlock),
+      fetchEvents<SavingsSavedEvent>(contracts.savingsContract, contracts.savingsContract.filters.Saved(), fromBlock, toBlock),
+      fetchEvents<SavingsInterestCollectedEvent>(
         contracts.savingsContract,
         contracts.savingsContract.filters.InterestCollected(),
         fromBlock,
         toBlock,
       ),
-      fetchEvents<WithdrawnEvent>(
+      fetchEvents<SavingsWithdrawnEvent>(
         contracts.savingsContract,
         contracts.savingsContract.filters.Withdrawn(),
         fromBlock,
         toBlock,
       ),
-      fetchEvents<RateProposedEvent>(
+      fetchEvents<SavingsRateProposedEvent>(
         contracts.savingsContract,
         contracts.savingsContract.filters.RateProposed(),
         fromBlock,
         toBlock,
       ),
-      fetchEvents<RateChangedEvent>(
+      fetchEvents<SavingsRateChangedEvent>(
         contracts.savingsContract,
         contracts.savingsContract.filters.RateChanged(),
         fromBlock,
         toBlock,
       ),
-
-      // Position events
-      fetchEvents<PositionOpenedEvent>(
+      fetchEvents<MintingHubPositionOpenedEvent>(
         contracts.mintingHubContract,
         contracts.mintingHubContract.filters.PositionOpened(),
         fromBlock,
         toBlock,
       ),
-
-      // Roller events
-      fetchEvents<RollEvent>(contracts.rollerContract, contracts.rollerContract.filters.Roll(), fromBlock, toBlock),
+      fetchEvents<RollerRollEvent>(contracts.rollerContract, contracts.rollerContract.filters.Roll(), fromBlock, toBlock),
     ]);
 
-    const wrapEvents: WrapEvent[] = transferWrapperEvents
+    const depsWrapEvents: DepsWrapEvent[] = depsTransferEvents
       .filter((event) => event.from === ethers.ZeroAddress)
       .map((event) => ({
         ...event,
@@ -290,7 +269,7 @@ export class MonitoringModule {
         amount: event.value,
       }));
 
-    const unwrapEvents: UnwrapEvent[] = transferWrapperEvents
+    const depsUnwrapEvents: DepsUnwrapEvent[] = depsTransferEvents
       .filter((event) => event.to === ethers.ZeroAddress)
       .map((event) => ({
         ...event,
@@ -299,37 +278,26 @@ export class MonitoringModule {
       }));
 
     return {
-      // DecentralizedEURO events
-      transferEvents,
-      lossEvents,
-      profitEvents,
-      minterAppliedEvents,
-      minterDeniedEvents,
-      profitsDistributedEvents,
+      deuroTransferEvents,
+      deuroLossEvents,
+      deuroProfitEvents,
+      deuroMinterAppliedEvents,
+      deuroMinterDeniedEvents,
+      deuroProfitsDistributedEvents,
+      equityTradeEvents,
+      equityDelegationEvents,
+      depsWrapEvents,
+      depsUnwrapEvents,
+      depsTransferEvents,
+      savingsSavedEvents,
+      savingsInterestCollectedEvents,
+      savingsWithdrawnEvents,
+      savingsRateProposedEvents,
+      savingsRateChangedEvents,
+      mintingHubPositionOpenedEvents,
+      rollerRollEvents,
 
-      // Equity events
-      tradeEvents,
-      delegationEvents,
-
-      // DEPSWrapper events
-      wrapEvents,
-      unwrapEvents,
-      transferWrapperEvents,
-
-      // SavingsGateway events
-      savedEvents,
-      interestCollectedEvents,
-      withdrawnEvents,
-      rateProposedEvents,
-      rateChangedEvents,
-
-      // Positions events
-      positionOpenedEvents,
-
-      // PositionRoller events
-      rollEvents,
-
-      // Metadata
+      // Meta data
       lastEventFetch: Date.now(),
       blockRange: { from: fromBlock, to: toBlock },
     };
@@ -338,34 +306,34 @@ export class MonitoringModule {
   private mergeEventsData(existing: SystemEventsData, newData: SystemEventsData): SystemEventsData {
     return {
       // DecentralizedEURO events
-      transferEvents: mergeEvents(existing.transferEvents, newData.transferEvents),
-      lossEvents: mergeEvents(existing.lossEvents, newData.lossEvents),
-      profitEvents: mergeEvents(existing.profitEvents, newData.profitEvents),
-      minterAppliedEvents: mergeEvents(existing.minterAppliedEvents, newData.minterAppliedEvents),
-      minterDeniedEvents: mergeEvents(existing.minterDeniedEvents, newData.minterDeniedEvents),
-      profitsDistributedEvents: mergeEvents(existing.profitsDistributedEvents, newData.profitsDistributedEvents),
+      deuroTransferEvents: mergeEvents(existing.deuroTransferEvents, newData.deuroTransferEvents),
+      deuroLossEvents: mergeEvents(existing.deuroLossEvents, newData.deuroLossEvents),
+      deuroProfitEvents: mergeEvents(existing.deuroProfitEvents, newData.deuroProfitEvents),
+      deuroMinterAppliedEvents: mergeEvents(existing.deuroMinterAppliedEvents, newData.deuroMinterAppliedEvents),
+      deuroMinterDeniedEvents: mergeEvents(existing.deuroMinterDeniedEvents, newData.deuroMinterDeniedEvents),
+      deuroProfitsDistributedEvents: mergeEvents(existing.deuroProfitsDistributedEvents, newData.deuroProfitsDistributedEvents),
 
       // Equity events
-      tradeEvents: mergeEvents(existing.tradeEvents, newData.tradeEvents),
-      delegationEvents: mergeEvents(existing.delegationEvents, newData.delegationEvents),
+      equityTradeEvents: mergeEvents(existing.equityTradeEvents, newData.equityTradeEvents),
+      equityDelegationEvents: mergeEvents(existing.equityDelegationEvents, newData.equityDelegationEvents),
 
       // DEPSWrapper events
-      wrapEvents: mergeEvents(existing.wrapEvents, newData.wrapEvents),
-      unwrapEvents: mergeEvents(existing.unwrapEvents, newData.unwrapEvents),
-      transferWrapperEvents: mergeEvents(existing.transferWrapperEvents, newData.transferWrapperEvents),
+      depsWrapEvents: mergeEvents(existing.depsWrapEvents, newData.depsWrapEvents),
+      depsUnwrapEvents: mergeEvents(existing.depsUnwrapEvents, newData.depsUnwrapEvents),
+      depsTransferEvents: mergeEvents(existing.depsTransferEvents, newData.depsTransferEvents),
 
       // SavingsGateway events
-      savedEvents: mergeEvents(existing.savedEvents, newData.savedEvents),
-      interestCollectedEvents: mergeEvents(existing.interestCollectedEvents, newData.interestCollectedEvents),
-      withdrawnEvents: mergeEvents(existing.withdrawnEvents, newData.withdrawnEvents),
-      rateProposedEvents: mergeEvents(existing.rateProposedEvents, newData.rateProposedEvents),
-      rateChangedEvents: mergeEvents(existing.rateChangedEvents, newData.rateChangedEvents),
+      savingsSavedEvents: mergeEvents(existing.savingsSavedEvents, newData.savingsSavedEvents),
+      savingsInterestCollectedEvents: mergeEvents(existing.savingsInterestCollectedEvents, newData.savingsInterestCollectedEvents),
+      savingsWithdrawnEvents: mergeEvents(existing.savingsWithdrawnEvents, newData.savingsWithdrawnEvents),
+      savingsRateProposedEvents: mergeEvents(existing.savingsRateProposedEvents, newData.savingsRateProposedEvents),
+      savingsRateChangedEvents: mergeEvents(existing.savingsRateChangedEvents, newData.savingsRateChangedEvents),
 
-      // Positions events
-      positionOpenedEvents: mergeEvents(existing.positionOpenedEvents, newData.positionOpenedEvents),
+      // MintingHub events
+      mintingHubPositionOpenedEvents: mergeEvents(existing.mintingHubPositionOpenedEvents, newData.mintingHubPositionOpenedEvents),
 
       // PositionRoller events
-      rollEvents: mergeEvents(existing.rollEvents, newData.rollEvents),
+      rollerRollEvents: mergeEvents(existing.rollerRollEvents, newData.rollerRollEvents),
 
       // Metadata
       lastEventFetch: Date.now(),
