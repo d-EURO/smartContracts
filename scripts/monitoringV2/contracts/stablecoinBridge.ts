@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { Bridge, StablecoinBridgeState } from '../dto/stablecoinBridge.dto';
-import { ERC20ABI } from '../../../exports/abis/utils/ERC20';
+import { ERC20ABI } from '@deuro/eurocoin';
 
 export async function stablecoinBridgeState(
   contract: ethers.Contract,

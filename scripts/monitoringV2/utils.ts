@@ -1,5 +1,5 @@
 import { Contract } from 'ethers';
-import { batchedEventQuery } from '../utils/blockchain';
+import { batchedEventQuery } from './blockchain';
 import { BaseEvent } from './dto';
 import { config } from 'dotenv';
 

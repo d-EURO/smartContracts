@@ -6,8 +6,7 @@ import {
   MintingHubState,
   MintingHubPositionOpenedEvent,
 } from '../dto';
-import { ERC20ABI } from '../../../exports/abis/utils/ERC20';
-import { PositionV2ABI } from '../../../exports/abis/MintingHubV2/PositionV2';
+import { ERC20ABI, PositionV2ABI } from '@deuro/eurocoin';
 
 export async function mintingHubState(
   mintingHub: Contract, 

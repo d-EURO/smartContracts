@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { DEPSWrapperState } from '../dto/depsWrapper.dto';
-import { EquityABI } from '../../../exports/abis/core/Equity';
+import { EquityABI } from '@deuro/eurocoin';
 
 export async function depsWrapperState(contract: ethers.Contract): Promise<DEPSWrapperState> {
   const address = await contract.getAddress();
