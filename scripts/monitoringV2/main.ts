@@ -35,7 +35,6 @@ async function main() {
           savingsState,
           frontendState,
           positionsState,
-          rollerState,
           bridgeStates,
         ] = await Promise.all([
           monitoring.getDecentralizedEuroState(),
@@ -44,7 +43,6 @@ async function main() {
           monitoring.getSavingsGatewayState(),
           monitoring.getFrontendGatewayState(),
           monitoring.getMintingHubState(eventsData.mintingHubPositionOpenedEvents),
-          monitoring.getPositionRollerState(),
           monitoring.getAllBridgeStates(),
         ]);
 
@@ -65,7 +63,6 @@ async function main() {
           savingsState,
           frontendState,
           positionsState,
-          rollerState,
           bridgeStates,
           eventsData,
         };

@@ -9,6 +9,7 @@ import {
   FrontendGatewayABI,
   MintingHubGatewayABI,
   PositionRollerABI,
+  PositionV2ABI,
 } from '@deuro/eurocoin';
 import { decentralizedEuroState } from './contracts/decentralizedEURO';
 import { equityState } from './contracts/equity';
@@ -27,7 +28,6 @@ import {
   Bridge,
   FrontendGatewayState,
   MintingHubState,
-  PositionRollerState,
 
   // Event system DTOs
   DeuroTransferEvent,
@@ -48,13 +48,16 @@ import {
   SavingsRateChangedEvent,
   MintingHubPositionOpenedEvent,
   RollerRollEvent,
+  PositionDeniedEvent,
 
   // Event system DTOs
   SystemEventsData,
   ContractSet,
 } from './dto';
 import { fetchEvents, mergeEvents, getDeploymentBlock } from './utils';
-import { positionRollerState } from './contracts/positionRoller';
+import { db } from './database/client';
+import { eventPersistence } from './database/eventPersistence';
+import { statePersistence } from './database/statePersistence';
 
 export class MonitoringModule {
   private provider: ethers.Provider;
@@ -76,62 +79,113 @@ export class MonitoringModule {
   }
 
   async getAllEvents(forceRefresh: boolean = false): Promise<SystemEventsData> {
-    if (!forceRefresh && this.eventsCache && Date.now() < this.eventsCacheExpiry) {
-      return this.eventsCache;
+    const cacheValid = !forceRefresh && this.eventsCache && Date.now() < this.eventsCacheExpiry;
+    
+    if (cacheValid) {
+      console.log('\x1b[32m[Cache] Using cached events data\x1b[0m');
+      // TODO: Does eventsCache make sense as it's currently implemented? 
+      return this.eventsCache!;
     }
 
     const contracts = this.getContracts();
     const currentBlock = await this.provider.getBlockNumber();
-    const fromBlock = this.eventsCache?.blockRange ? this.eventsCache.blockRange.to + 1 : getDeploymentBlock();
+    const lastProcessedBlock = await db.getLastProcessedBlock();
+    const fromBlock = lastProcessedBlock ? lastProcessedBlock + 1 : getDeploymentBlock();
     const newEventsData = await this.fetchEventsInRange(contracts, fromBlock, currentBlock);
-    this.eventsCache = this.eventsCache ? this.mergeEventsData(this.eventsCache, newEventsData) : newEventsData;
+    await this.persistEvents(newEventsData);
+    
+    const totalEvents = Object.values(newEventsData).reduce((sum, events) => {
+      return sum + (Array.isArray(events) ? events.length : 0);
+    }, 0);
+    await db.recordMonitoringCycle(currentBlock, totalEvents, 0);
+    
+    // TODO: Is mergeEventsData really necessary at all?
+    if (this.eventsCache && fromBlock > getDeploymentBlock()) {
+      this.eventsCache = this.mergeEventsData(this.eventsCache, newEventsData);
+    } else {
+      this.eventsCache = newEventsData;
+    }
+    
     this.eventsCacheExpiry = Date.now() + this.eventsCacheTTL;
+    console.log(`\x1b[32m[Cache] Updated events cache with ${totalEvents} new events\x1b[0m`);
     return this.eventsCache;
+  }
+
+  getCacheStats() {
+    const now = Date.now();
+    const cacheValid = this.eventsCache && now < this.eventsCacheExpiry;
+    const timeToExpiry = cacheValid ? Math.round((this.eventsCacheExpiry - now) / 1000) : 0;
+    
+    return {
+      eventsCacheValid: cacheValid,
+      eventsCacheTimeToExpirySeconds: timeToExpiry,
+      eventsCacheSizeApprox: this.eventsCache ? Object.keys(this.eventsCache).length : 0,
+    };
+  }
+
+  clearCaches() {
+    this.eventsCache = null;
+    this.eventsCacheExpiry = 0;
+    console.log('\x1b[33m[Cache] Cleared all caches\x1b[0m');
   }
 
   async getDecentralizedEuroState(): Promise<DecentralizedEuroState> {
     const contracts = this.getContracts();
     console.log(`Fetching DecentralizedEURO state`);
-    return decentralizedEuroState(contracts.deuroContract);
+    const state = await decentralizedEuroState(contracts.deuroContract);
+    await statePersistence.persistDeuroState(state);
+    
+    return state;
   }
 
   async getEquityState(): Promise<EquityState> {
     const contracts = this.getContracts();
     console.log(`Fetching Equity state`);
-    return equityState(contracts.equityContract);
+    const state = await equityState(contracts.equityContract);
+    await statePersistence.persistEquityState(state);
+    
+    return state;
   }
 
   async getDEPSWrapperState(): Promise<DEPSWrapperState> {
     const contracts = this.getContracts();
     console.log(`Fetching DEPSWrapper state`);
-    return depsWrapperState(contracts.depsContract);
+    const state = await depsWrapperState(contracts.depsContract);
+    await statePersistence.persistDepsState(state);
+    
+    return state;
   }
 
   async getSavingsGatewayState(): Promise<SavingsGatewayState> {
     const contracts = this.getContracts();
     console.log(`Fetching SavingsGateway state`);
-    return savingsGatewayState(contracts.savingsContract, contracts.deuroContract);
+    const state = await savingsGatewayState(contracts.savingsContract, contracts.deuroContract);
+    await statePersistence.persistSavingsState(state);
+    
+    return state;
   }
 
   async getFrontendGatewayState(): Promise<FrontendGatewayState> {
     const contracts = this.getContracts();
     console.log(`Fetching FrontendGateway state`);
-    return frontendGatewayState(contracts.frontendGatewayContract);
+    const state = await frontendGatewayState(contracts.frontendGatewayContract);
+    await statePersistence.persistFrontendState(state);
+    
+    return state;
   }
 
   async getMintingHubState(positionEvents?: MintingHubPositionOpenedEvent[]): Promise<MintingHubState> {
     const contracts = this.getContracts();
     positionEvents ??= (await this.getAllEvents()).mintingHubPositionOpenedEvents;
     console.log(`Fetching MintingHub positions state`);
-    return mintingHubState(contracts.mintingHubContract, positionEvents);
+    const state = await mintingHubState(contracts.mintingHubContract, positionEvents);
+    await statePersistence.persistPositionsState(state);
+    
+    return state;
   }
 
-  async getPositionRollerState(): Promise<PositionRollerState> {
-    const contracts = this.getContracts();
-    console.log(`Fetching PositionRoller state`);
-    return positionRollerState(contracts.rollerContract);
-  }
-
+  // TODO: Would it be possible to identify Bridges by their ABI and simply filter them from the 
+  // set of active minters? This way we don't have to make any changes when a new bridge is deployed.
   async getBridgeState(bridgeType: Bridge): Promise<StablecoinBridgeState> {
     const bridgeAddress = ADDRESS[this.blockchainId][bridgeType as keyof (typeof ADDRESS)[1]];
     const bridge = new ethers.Contract(bridgeAddress, StablecoinBridgeABI, this.provider);
@@ -181,7 +235,7 @@ export class MonitoringModule {
       deuroProfitEvents,
       deuroMinterAppliedEvents,
       deuroMinterDeniedEvents,
-      deuroProfitsDistributedEvents,
+      deuroProfitDistributedEvents,
       equityTradeEvents,
       equityDelegationEvents,
       depsTransferEvents,
@@ -261,6 +315,36 @@ export class MonitoringModule {
       fetchEvents<RollerRollEvent>(contracts.rollerContract, contracts.rollerContract.filters.Roll(), fromBlock, toBlock),
     ]);
 
+    // TODO: This won't work as intended. We instead need to fetch all active (not closed) positions from the database,
+    // filter those that have not passed their start time yet and then fetch PositionDenied events for those.
+    console.log(`\x1b[33mFetching PositionDenied events from ${mintingHubPositionOpenedEvents.length} position contracts\x1b[0m`);
+    const openedPositions = Array.from(
+      new Set(mintingHubPositionOpenedEvents.map(event => event.position))
+    ).filter(address => address && address !== ethers.ZeroAddress);
+
+    const positionDeniedEventsPromises = openedPositions.map(async (positionAddress) => {
+      try {
+        const positionContract = new ethers.Contract(positionAddress, PositionV2ABI, this.provider);
+        const events = await fetchEvents<PositionDeniedEvent>(
+          positionContract,
+          positionContract.filters.PositionDenied(),
+          fromBlock,
+          toBlock
+        );
+        // Add the position address to each event for context
+        return events.map(event => ({
+          ...event,
+          position: positionAddress,
+        }));
+      } catch (error) {
+        console.warn(`\x1b[33mFailed to fetch PositionDenied events from position ${positionAddress}:`, error instanceof Error ? error.message : String(error), '\x1b[0m');
+        return [];
+      }
+    });
+
+    const positionDeniedEventsArrays = await Promise.all(positionDeniedEventsPromises);
+    const positionDeniedEvents: PositionDeniedEvent[] = positionDeniedEventsArrays.flat();
+
     const depsWrapEvents: DepsWrapEvent[] = depsTransferEvents
       .filter((event) => event.from === ethers.ZeroAddress)
       .map((event) => ({
@@ -283,7 +367,7 @@ export class MonitoringModule {
       deuroProfitEvents,
       deuroMinterAppliedEvents,
       deuroMinterDeniedEvents,
-      deuroProfitsDistributedEvents,
+      deuroProfitDistributedEvents,
       equityTradeEvents,
       equityDelegationEvents,
       depsWrapEvents,
@@ -296,6 +380,7 @@ export class MonitoringModule {
       savingsRateChangedEvents,
       mintingHubPositionOpenedEvents,
       rollerRollEvents,
+      positionDeniedEvents,
 
       // Meta data
       lastEventFetch: Date.now(),
@@ -303,6 +388,7 @@ export class MonitoringModule {
     };
   }
 
+  // TODO: Same question as above - is this really necessary?
   private mergeEventsData(existing: SystemEventsData, newData: SystemEventsData): SystemEventsData {
     return {
       // DecentralizedEURO events
@@ -311,7 +397,7 @@ export class MonitoringModule {
       deuroProfitEvents: mergeEvents(existing.deuroProfitEvents, newData.deuroProfitEvents),
       deuroMinterAppliedEvents: mergeEvents(existing.deuroMinterAppliedEvents, newData.deuroMinterAppliedEvents),
       deuroMinterDeniedEvents: mergeEvents(existing.deuroMinterDeniedEvents, newData.deuroMinterDeniedEvents),
-      deuroProfitsDistributedEvents: mergeEvents(existing.deuroProfitsDistributedEvents, newData.deuroProfitsDistributedEvents),
+      deuroProfitDistributedEvents: mergeEvents(existing.deuroProfitDistributedEvents, newData.deuroProfitDistributedEvents),
 
       // Equity events
       equityTradeEvents: mergeEvents(existing.equityTradeEvents, newData.equityTradeEvents),
@@ -332,6 +418,9 @@ export class MonitoringModule {
       // MintingHub events
       mintingHubPositionOpenedEvents: mergeEvents(existing.mintingHubPositionOpenedEvents, newData.mintingHubPositionOpenedEvents),
 
+      // Position events
+      positionDeniedEvents: mergeEvents(existing.positionDeniedEvents, newData.positionDeniedEvents),
+
       // PositionRoller events
       rollerRollEvents: mergeEvents(existing.rollerRollEvents, newData.rollerRollEvents),
 
@@ -342,5 +431,11 @@ export class MonitoringModule {
         to: Math.max(existing.blockRange.to, newData.blockRange.to),
       },
     };
+  }
+
+  private async persistEvents(eventsData: SystemEventsData): Promise<void> {
+    console.log('\x1b[32mPersisting events to database...\x1b[0m');
+    await eventPersistence.persistAllEvents(eventsData);
+    console.log('\x1b[32mEvents persisted successfully\x1b[0m');
   }
 }

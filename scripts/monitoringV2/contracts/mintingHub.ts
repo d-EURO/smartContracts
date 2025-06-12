@@ -157,21 +157,27 @@ export async function getPositionCollateralState(
   };
 }
 
-export async function getChallenges(mintingHub: Contract, maxChallenges: number = 100): Promise<ChallengeData[]> {
+export async function getChallenges(mintingHub: Contract, maxConsecutiveEmpty: number = 100): Promise<ChallengeData[]> {
   const challenges: ChallengeData[] = [];
+  let consecutiveEmptyCount = 0;
+  let i = 0;
 
-  for (let i = 0; i < maxChallenges; i++) {
+  while (consecutiveEmptyCount < maxConsecutiveEmpty) {
     try {
       const challenge = await mintingHub.challenges(i); // throws if out of bounds
-      if (challenge.challenger === ethers.ZeroAddress) continue;
+      if (challenge.challenger === ethers.ZeroAddress) {
+        consecutiveEmptyCount++;
+        i++;
+        continue;
+      }
       
+      consecutiveEmptyCount = 0;
       const position = new ethers.Contract(challenge.position, PositionV2ABI, mintingHub.runner);
       const [collateralAddress, positionOwner] = await Promise.all([
         position.collateral(),
         position.owner(),
       ]);
       
-      // Get challenge data and current price
       const challengeData = await position.challengeData();
       const liqPrice = challengeData.liqPrice;
       const phase = Number(challengeData.phase);
@@ -189,6 +195,8 @@ export async function getChallenges(mintingHub: Contract, maxChallenges: number 
         currentPrice,
         positionOwner,
       });
+      
+      i++;
     } catch (error) {
       break;
     }

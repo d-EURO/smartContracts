@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { DEPSWrapperState } from '../dto/depsWrapper.dto';
+import { DEPSWrapperState } from '../dto';
 import { EquityABI } from '@deuro/eurocoin';
 
 export async function depsWrapperState(contract: ethers.Contract): Promise<DEPSWrapperState> {
@@ -8,10 +8,9 @@ export async function depsWrapperState(contract: ethers.Contract): Promise<DEPSW
   const symbol = await contract.symbol();
   const decimals = await contract.decimals();
   const totalSupply = await contract.totalSupply();
-  const underlyingAddress = await contract.underlying(); 
+  const underlyingAddress = await contract.underlying();
   const underlyingContract = new ethers.Contract(underlyingAddress, EquityABI, contract.runner);
   const underlyingSymbol = await underlyingContract.symbol();
-
 
   return {
     address,
@@ -23,4 +22,3 @@ export async function depsWrapperState(contract: ethers.Contract): Promise<DEPSW
     underlyingSymbol,
   };
 }
-

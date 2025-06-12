@@ -5,7 +5,6 @@ export * from './depsWrapper.dto';
 export * from './savingsGateway.dto';
 export * from './frontendGateway.dto';
 export * from './mintingHub.dto';
-export * from './positionRoller.dto';
 export * from './stablecoinBridge.dto';
 
 // Event DTOs

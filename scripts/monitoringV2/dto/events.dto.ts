@@ -17,7 +17,8 @@ import {
   SavingsRateProposedEvent,
   SavingsRateChangedEvent,
   MintingHubPositionOpenedEvent,
-  RollerRollEvent
+  RollerRollEvent,
+  PositionDeniedEvent
 } from './event.dto';
 
 export interface SystemEventsData {
@@ -26,7 +27,7 @@ export interface SystemEventsData {
   deuroProfitEvents: DeuroProfitEvent[];
   deuroMinterAppliedEvents: DeuroMinterAppliedEvent[];
   deuroMinterDeniedEvents: DeuroMinterDeniedEvent[];
-  deuroProfitsDistributedEvents: DeuroProfitDistributedEvent[];
+  deuroProfitDistributedEvents: DeuroProfitDistributedEvent[];
   equityTradeEvents: EquityTradeEvent[];
   equityDelegationEvents: EquityDelegationEvent[];
   depsWrapEvents: DepsWrapEvent[];
@@ -39,6 +40,7 @@ export interface SystemEventsData {
   savingsRateChangedEvents: SavingsRateChangedEvent[];
   mintingHubPositionOpenedEvents: MintingHubPositionOpenedEvent[];
   rollerRollEvents: RollerRollEvent[];
+  positionDeniedEvents: PositionDeniedEvent[];
 
   // Meta data
   lastEventFetch: number;

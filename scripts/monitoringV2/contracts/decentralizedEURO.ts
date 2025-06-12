@@ -1,7 +1,6 @@
 import { ethers } from 'ethers';
 import { DecentralizedEuroState } from '../dto';
 
-
 export async function decentralizedEuroState(contract: ethers.Contract): Promise<DecentralizedEuroState> {
   const address = await contract.getAddress();
   const name = await contract.name();
@@ -14,7 +13,6 @@ export async function decentralizedEuroState(contract: ethers.Contract): Promise
   const equity = await contract.equity();
   const minApplicationPeriod = await contract.MIN_APPLICATION_PERIOD();
   const minApplicationFee = await contract.MIN_FEE();
-
 
   return {
     address,
@@ -30,4 +28,3 @@ export async function decentralizedEuroState(contract: ethers.Contract): Promise
     minApplicationFee,
   };
 }
-

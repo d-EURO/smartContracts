@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { FrontendGatewayState } from '../dto/frontendGateway.dto';
+import { FrontendGatewayState } from '../dto';
 
 export async function frontendGatewayState(
   contract: ethers.Contract,

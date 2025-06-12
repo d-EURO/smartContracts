@@ -1,0 +1,29 @@
+{
+  "name": "deuro-monitoring-v2",
+  "version": "1.0.0",
+  "description": "dEURO Protocol Monitoring Service with Database Persistence",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node main.js",
+    "dev": "ts-node main.ts",
+    "docker:build": "docker build -t deuro-monitoring .",
+    "docker:run": "docker run --env-file .env deuro-monitoring"
+  },
+  "dependencies": {
+    "@deuro/eurocoin": "^1.0.0",
+    "ethers": "^6.0.0",
+    "pg": "^8.11.0",
+    "pg-format": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.10.0",
+    "@types/pg-format": "^1.0.2",
+    "typescript": "^5.0.0",
+    "ts-node": "^10.9.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

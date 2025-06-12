@@ -7,7 +7,55 @@ config({ path: '.env.monitoring' });
 
 const DEPLOYMENT_BLOCK = parseInt(process.env.DEPLOYMENT_BLOCK || 'MISSING_DEPLOYMENT_BLOCK');
 
-const blockCache = new Map<number, any>();
+// LRU Block Cache with size limit to prevent memory leaks
+class LRUBlockCache {
+  private cache = new Map<number, any>();
+  private readonly maxSize: number;
+  
+  constructor(maxSize: number = 10000) { // Default: cache up to 10k blocks
+    this.maxSize = maxSize;
+  }
+  
+  get(blockNumber: number): any {
+    const value = this.cache.get(blockNumber);
+    if (value !== undefined) {
+      // Move to end (most recently used)
+      this.cache.delete(blockNumber);
+      this.cache.set(blockNumber, value);
+    }
+    return value;
+  }
+  
+  set(blockNumber: number, block: any): void {
+    // Remove if already exists to update position
+    if (this.cache.has(blockNumber)) {
+      this.cache.delete(blockNumber);
+    }
+    // Remove oldest if at capacity
+    else if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
+    }
+    
+    this.cache.set(blockNumber, block);
+  }
+  
+  has(blockNumber: number): boolean {
+    return this.cache.has(blockNumber);
+  }
+  
+  size(): number {
+    return this.cache.size;
+  }
+  
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+const blockCache = new LRUBlockCache();
 
 /**
  * Shared utility for fetching and processing contract events over a specific block range
@@ -31,7 +79,11 @@ export async function fetchEvents<T extends BaseEvent>(
   const missingBlocks = uniqueBlockNumbers.filter((blockNum) => !blockCache.has(blockNum));
   if (missingBlocks.length > 0) {
     const newBlocks = await Promise.all(missingBlocks.map((blockNum) => events[0].provider.getBlock(blockNum)));
-    newBlocks.forEach((block) => blockCache.set(block.number, block));
+    newBlocks.forEach((block) => {
+      if (block && block.number !== undefined) {
+        blockCache.set(block.number, block);
+      }
+    });
   }
 
   // Map event arguments to a structured format
@@ -73,4 +125,22 @@ export function mergeEvents<T extends BaseEvent>(existingEvents: T[], newEvents:
 
 export function getDeploymentBlock(): number {
   return DEPLOYMENT_BLOCK;
+}
+
+/**
+ * Get block cache statistics for monitoring
+ */
+export function getBlockCacheStats() {
+  return {
+    blockCacheSize: blockCache.size(),
+    blockCacheMaxSize: 10000, // Current max size
+  };
+}
+
+/**
+ * Clear block cache (useful for testing or manual cache management)
+ */
+export function clearBlockCache() {
+  blockCache.clear();
+  console.log('\x1b[33m[Cache] Cleared block cache\x1b[0m');
 }

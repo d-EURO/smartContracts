@@ -112,3 +112,9 @@ export interface RollerRollEvent extends BaseEvent {
   mint: bigint;
 }
 
+export interface PositionDeniedEvent extends BaseEvent {
+  position: string;
+  sender: string;
+  message: string;
+}
+
