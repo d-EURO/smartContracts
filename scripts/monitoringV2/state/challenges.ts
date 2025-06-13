@@ -2,7 +2,7 @@ import { Contract, ethers } from 'ethers';
 import { ChallengeState } from '../dto';
 import { PositionV2ABI } from '@deuro/eurocoin';
 
-export async function challengesState(mintingHub: Contract): Promise<ChallengeState[]> {
+export async function getChallengesState(mintingHub: Contract): Promise<ChallengeState[]> {
   const challenges: ChallengeState[] = [];
   let i = 0;
   // Avoid infinite loop

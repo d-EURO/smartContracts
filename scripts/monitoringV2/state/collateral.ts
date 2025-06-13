@@ -2,17 +2,14 @@ import { ethers } from 'ethers';
 import { CollateralState, MintingHubPositionOpenedEvent } from '../dto';
 import { ERC20ABI } from '@deuro/eurocoin';
 
-export async function collateralState(
+export async function getCollateralState(
   positionOpenedEvents: MintingHubPositionOpenedEvent[],
   provider: ethers.Provider,
 ): Promise<CollateralState[]> {
-  return Promise.all(positionOpenedEvents.map((e) => getCollateralState(e.collateral, provider)));
+  return Promise.all(positionOpenedEvents.map((e) => getSingleCollateralState(e.collateral, provider)));
 }
 
-export async function getCollateralState(
-  collateralAddress: string,
-  provider: ethers.Provider,
-): Promise<CollateralState> {
+async function getSingleCollateralState(collateralAddress: string, provider: ethers.Provider): Promise<CollateralState> {
   if (!collateralAddress || collateralAddress === ethers.ZeroAddress) {
     throw new Error(`\x1b[31mInvalid collateral address: ${collateralAddress}\x1b[0m`);
   }

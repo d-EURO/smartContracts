@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { SavingsGatewayState } from '../dto/savingsGateway.dto';
 
-export async function savingsGatewayState(
+export async function getSavingsGatewayState(
   savingsContract: ethers.Contract,
   deuroContract: ethers.Contract
 ): Promise<SavingsGatewayState> {

@@ -2,7 +2,7 @@ import { Contract, ethers, ZeroAddress } from 'ethers';
 import { PositionState, MintingHubPositionOpenedEvent } from '../dto';
 import { ERC20ABI, PositionV2ABI } from '@deuro/eurocoin';
 
-export async function positionsState(
+export async function getPositionsState(
   mintingHub: Contract,
   activePositionAddresses: string[],
   positionOpenedEvents: MintingHubPositionOpenedEvent[],
@@ -82,7 +82,7 @@ export async function getPositionState(
     original,
     collateralAddress,
     collateralBalance,
-    expiredPurchasePrice: expiredPurchasePrice,
+    expiredPurchasePrice,
     price,
     virtualPrice,
     collateralRequirement,

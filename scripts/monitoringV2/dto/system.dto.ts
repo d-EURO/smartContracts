@@ -1,11 +1,22 @@
-import { ethers } from 'ethers';
-import { 
+import {
+  ChallengeState,
+  CollateralState,
+  DecentralizedEuroState,
+  DEPSWrapperState,
+  EquityState,
+  FrontendGatewayState,
+  MintingHubState,
+  PositionState,
+  SavingsGatewayState,
+  StablecoinBridgeState,
+} from '.';
+import {
   DeuroTransferEvent,
   DepsTransferEvent,
-  DeuroLossEvent, 
-  DeuroProfitEvent, 
-  DeuroMinterAppliedEvent, 
-  DeuroMinterDeniedEvent, 
+  DeuroLossEvent,
+  DeuroProfitEvent,
+  DeuroMinterAppliedEvent,
+  DeuroMinterDeniedEvent,
   DeuroProfitDistributedEvent,
   EquityTradeEvent,
   EquityDelegationEvent,
@@ -18,7 +29,7 @@ import {
   SavingsRateChangedEvent,
   MintingHubPositionOpenedEvent,
   RollerRollEvent,
-  PositionDeniedEvent
+  PositionDeniedEvent,
 } from './event.dto';
 
 export interface SystemEventsData {
@@ -47,12 +58,15 @@ export interface SystemEventsData {
   blockRange: { from: number; to: number };
 }
 
-export interface ContractSet {
-  deuroContract: ethers.Contract;
-  equityContract: ethers.Contract;
-  depsContract: ethers.Contract;
-  savingsContract: ethers.Contract;
-  frontendGatewayContract: ethers.Contract;
-  mintingHubContract: ethers.Contract;
-  rollerContract: ethers.Contract;
+export interface SystemStateData {
+  deuroState: DecentralizedEuroState;
+  equityState: EquityState;
+  depsState: DEPSWrapperState;
+  savingsState: SavingsGatewayState;
+  frontendState: FrontendGatewayState;
+  mintingHubState: MintingHubState;
+  positionsState: PositionState[];
+  challengesState: ChallengeState[];
+  collateralState: CollateralState[];
+  bridgeStates: StablecoinBridgeState[];
 }

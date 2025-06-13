@@ -2,7 +2,7 @@ import { ethers } from 'ethers';
 import { DEPSWrapperState } from '../dto';
 import { EquityABI } from '@deuro/eurocoin';
 
-export async function depsWrapperState(contract: ethers.Contract): Promise<DEPSWrapperState> {
+export async function getDepsWrapperState(contract: ethers.Contract): Promise<DEPSWrapperState> {
   const address = await contract.getAddress();
   const name = await contract.name();
   const symbol = await contract.symbol();

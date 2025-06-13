@@ -25,8 +25,11 @@ async function main() {
         const timestamp = new Date().toISOString();
         console.log(`\x1b[33m[${timestamp}] - Fetching system state...\x1b[0m`);
 
-        const eventsData = await monitoring.getEvents();
-        const [
+        const eventsData = await monitoring.getSystemEvents();
+        const systemState = await monitoring.getSystemState(eventsData.mintingHubPositionOpenedEvents);
+        
+        // Destructure for logging
+        const {
           deuroState,
           equityState,
           depsState,
@@ -37,18 +40,7 @@ async function main() {
           challengesState,
           collateralState,
           bridgeStates,
-        ] = await Promise.all([
-          monitoring.getDecentralizedEuroState(),
-          monitoring.getEquityState(),
-          monitoring.getDEPSWrapperState(),
-          monitoring.getSavingsGatewayState(),
-          monitoring.getFrontendGatewayState(),
-          monitoring.getMintingHubState(),
-          monitoring.getPositionsState(eventsData.mintingHubPositionOpenedEvents),
-          monitoring.getChallengesState(),
-          monitoring.getCollateralState(eventsData.mintingHubPositionOpenedEvents),
-          monitoring.getAllBridgeStates(),
-        ]);
+        } = systemState;
 
         // Log key metrics
         console.log(`> dEURO Supply: ${ethers.formatEther(deuroState.totalSupply)}`);
@@ -60,20 +52,20 @@ async function main() {
         console.log(`> Event Processing: Complete\n`);
 
         // Export data as JSON (for consumption by other systems)
-        const systemState = {
-          timestamp,
-          deuroState,
-          equityState,
-          depsState,
-          savingsState,
-          frontendState,
-          mintingHubState,
-          positionsState,
-          challengesState,
-          collateralState,
-          bridgeStates,
-          eventsData,
-        };
+        // const systemState = {
+        //   timestamp,
+        //   deuroState,
+        //   equityState,
+        //   depsState,
+        //   savingsState,
+        //   frontendState,
+        //   mintingHubState,
+        //   positionsState,
+        //   challengesState,
+        //   collateralState,
+        //   bridgeStates,
+        //   eventsData,
+        // };
 
         // TODO: Remove this when monitoring is stable
         // Write to file or send to monitoring system

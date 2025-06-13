@@ -6,7 +6,10 @@ export * from './savingsGateway.dto';
 export * from './frontendGateway.dto';
 export * from './mintingHub.dto';
 export * from './stablecoinBridge.dto';
+export * from './contracts.dto';
 
 // Event DTOs
 export * from './event.dto';
-export * from './events.dto';
+
+// System DTOs
+export * from './system.dto';

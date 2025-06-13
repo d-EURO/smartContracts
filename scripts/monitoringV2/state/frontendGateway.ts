@@ -1,7 +1,7 @@
 import { ethers } from 'ethers';
 import { FrontendGatewayState } from '../dto';
 
-export async function frontendGatewayState(
+export async function getFrontendGatewayState(
   contract: ethers.Contract,
 ): Promise<FrontendGatewayState> {
   const address = await contract.getAddress();

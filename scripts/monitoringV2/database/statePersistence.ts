@@ -335,6 +335,30 @@ export class StatePersistence extends BaseRepository {
     }
     console.log(`> Persisted ${collaterals.length} collateral states`);
   }
+
+  // ***** UNIFIED PERSISTENCE METHOD *****
+
+  async persistAllSystemState(systemState: import('../dto').SystemStateData): Promise<void> {
+    console.log('Persisting all system state components...');
+    
+    try {
+      await Promise.all([
+        this.persistDeuroState(systemState.deuroState),
+        this.persistEquityState(systemState.equityState),
+        this.persistDepsState(systemState.depsState),
+        this.persistSavingsState(systemState.savingsState),
+        this.persistFrontendState(systemState.frontendState),
+        this.persistMintingHubState(systemState.mintingHubState),
+        this.persistPositionsState(systemState.positionsState),
+        this.persistChallengesState(systemState.challengesState),
+        this.persistCollateralState(systemState.collateralState),
+      ]);
+      console.log('✓ All system state persisted successfully');
+    } catch (error) {
+      console.error('Failed to persist system state:', error);
+      throw error;
+    }
+  }
 }
 
 export const statePersistence = new StatePersistence();
