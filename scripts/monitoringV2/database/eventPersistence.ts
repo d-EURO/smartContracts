@@ -1,5 +1,6 @@
 import { BaseRepository, DatabaseField, TableConfig, Transformers } from './baseRepository';
 import {
+  TransferEvent,
   DeuroTransferEvent,
   DepsTransferEvent,
   DeuroMinterAppliedEvent,
@@ -118,7 +119,7 @@ export class EventPersistence extends BaseRepository {
 
   // ***** FIELD MAPPINGS *****
 
-  private static readonly TRANSFER_FIELDS: DatabaseField<DeuroTransferEvent>[] = [
+  private static readonly TRANSFER_FIELDS: DatabaseField<TransferEvent>[] = [
     { column: 'tx_hash', extractor: 'txHash' },
     { column: 'timestamp', extractor: 'timestamp', transformer: Transformers.timestampToDate },
     { column: 'log_index', extractor: 'logIndex' },
@@ -204,7 +205,7 @@ export class EventPersistence extends BaseRepository {
     { column: 'from_address', extractor: 'from' },
     { column: 'to_address', extractor: 'to' },
     { column: 'value', extractor: 'value', transformer: Transformers.bigIntToString },
-    { column: 'user', extractor: 'user' },
+    { column: 'user_address', extractor: 'user' },
     { column: 'amount', extractor: 'amount', transformer: Transformers.bigIntToString },
   ];
 
@@ -281,7 +282,7 @@ export class EventPersistence extends BaseRepository {
     await this.persistEvents(
       EventPersistence.EVENT_TABLES.deps_transfer,
       events,
-      EventPersistence.TRANSFER_FIELDS as DatabaseField<DepsTransferEvent>[],
+      EventPersistence.TRANSFER_FIELDS,
     );
   }
 

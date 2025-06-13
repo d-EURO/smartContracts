@@ -34,9 +34,11 @@ export class EventsService {
   ) {}
 
   async getSystemEvents(fromBlock: number, toBlock: number): Promise<SystemEventsData> {
+    const startTime = Date.now();
     const eventsData = await this.getEventsInRange(this.contracts, fromBlock, toBlock);
     await this.persistEvents(eventsData);
-    await this.recordMonitoringCycle(toBlock, eventsData);
+    const duration = Date.now() - startTime;
+    await this.recordMonitoringCycle(toBlock, eventsData, duration);
     return eventsData;
   }
 
@@ -225,9 +227,12 @@ export class EventsService {
   private async recordMonitoringCycle(
     currentBlock: number,
     eventsData: SystemEventsData,
-    duration: number = 0, // TODO: compute duration, currently set to 0
+    duration: number,
   ): Promise<void> {
-    const totalEvents = Object.values(eventsData).reduce((sum, e) => sum + (Array.isArray(e) ? e.length : 0), 0);
+    const totalEvents = Object.entries(eventsData).reduce((sum, [key, value]) => {
+      if (key === 'lastEventFetch' || key === 'blockRange') return sum;
+      return sum + (Array.isArray(value) ? value.length : 0);
+    }, 0);
     await db.recordMonitoringCycle(currentBlock, totalEvents, duration);
     console.log(`\x1b[32mProcessed ${totalEvents} new events in ${duration}ms\x1b[0m`);
   }

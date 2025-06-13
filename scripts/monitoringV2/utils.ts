@@ -110,37 +110,8 @@ export async function fetchEvents<T extends BaseEvent>(
   return processedEvents.sort((a, b) => b.timestamp - a.timestamp);
 }
 
-/**
- * Merges new events with existing events, removing duplicates and maintaining sort order
- * @param existingEvents Currently cached events
- * @param newEvents Newly fetched events
- * @returns Merged and deduplicated events sorted by timestamp (newest first)
- */
-export function mergeEvents<T extends BaseEvent>(existingEvents: T[], newEvents: T[]): T[] {
-  const eventMap = new Map<string, T>();
-  for (const event of existingEvents) eventMap.set(`${event.txHash}-${event.logIndex || 0}`, event);
-  for (const event of newEvents) eventMap.set(`${event.txHash}-${event.logIndex || 0}`, event);
-  return Array.from(eventMap.values()).sort((a, b) => b.timestamp - a.timestamp);
-}
 
 export function getDeploymentBlock(): number {
   return DEPLOYMENT_BLOCK;
 }
 
-/**
- * Get block cache statistics for monitoring
- */
-export function getBlockCacheStats() {
-  return {
-    blockCacheSize: blockCache.size(),
-    blockCacheMaxSize: 10000, // Current max size
-  };
-}
-
-/**
- * Clear block cache (useful for testing or manual cache management)
- */
-export function clearBlockCache() {
-  blockCache.clear();
-  console.log('\x1b[33m[Cache] Cleared block cache\x1b[0m');
-}

@@ -4,17 +4,14 @@ export interface BaseEvent {
   logIndex: number;
 }
 
-export interface DeuroTransferEvent extends BaseEvent {
+export interface TransferEvent extends BaseEvent {
   from: string;
   to: string;
   value: bigint;
 }
 
-export interface DepsTransferEvent extends BaseEvent {
-  from: string;
-  to: string;
-  value: bigint;
-}
+export type DeuroTransferEvent = TransferEvent;
+export type DepsTransferEvent = TransferEvent;
 
 export interface DeuroMinterAppliedEvent extends BaseEvent {
   minter: string;
