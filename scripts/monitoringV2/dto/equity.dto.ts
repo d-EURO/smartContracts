@@ -5,7 +5,6 @@ export interface EquityState {
   decimals: number;
   totalSupply: bigint;
   price: bigint;
-  marketCap: bigint;
   totalVotes: bigint;
   dEuroAddress: string;
   valuationFactor: number;

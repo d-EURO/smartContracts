@@ -327,14 +327,70 @@ CREATE TABLE frontend_state_daily (
   last_updated TIMESTAMP DEFAULT NOW()
 );
 
--- Positions Daily State (aggregated)
-CREATE TABLE positions_state_daily (
+-- MintingHub Daily State (configuration only)
+CREATE TABLE minting_hub_state_daily (
   date DATE PRIMARY KEY,
-  total_positions INTEGER NOT NULL,
-  active_positions INTEGER NOT NULL,
-  total_collateral_value DECIMAL(78,0) NOT NULL,
-  total_debt DECIMAL(78,0) NOT NULL,
-  total_interest DECIMAL(78,0) NOT NULL,
+  opening_fee DECIMAL(78,0) NOT NULL,
+  challenger_reward DECIMAL(78,0) NOT NULL,
+  expired_price_factor INTEGER NOT NULL,
+  position_factory VARCHAR(42) NOT NULL,
+  deuro VARCHAR(42) NOT NULL,
+  position_roller VARCHAR(42) NOT NULL,
+  rate VARCHAR(42) NOT NULL,
+  last_updated TIMESTAMP DEFAULT NOW()
+);
+
+-- Individual Position States (current state, not daily snapshots)
+CREATE TABLE position_states (
+  address VARCHAR(42) PRIMARY KEY,
+  owner VARCHAR(42) NOT NULL,
+  original VARCHAR(42) NOT NULL,
+  collateral_address VARCHAR(42) NOT NULL,
+  collateral_balance DECIMAL(78,0) NOT NULL,
+  expired_purchase_price DECIMAL(78,0) NOT NULL,
+  price DECIMAL(78,0) NOT NULL,
+  virtual_price DECIMAL(78,0) NOT NULL,
+  collateral_requirement DECIMAL(78,0) NOT NULL,
+  debt DECIMAL(78,0) NOT NULL,
+  interest DECIMAL(78,0) NOT NULL,
+  minimum_collateral DECIMAL(78,0) NOT NULL,
+  limit_amount DECIMAL(78,0) NOT NULL,
+  principal DECIMAL(78,0) NOT NULL,
+  risk_premium_ppm INTEGER NOT NULL,
+  reserve_contribution INTEGER NOT NULL,
+  fixed_annual_rate_ppm INTEGER NOT NULL,
+  last_accrual DECIMAL(78,0) NOT NULL,
+  start_time DECIMAL(78,0) NOT NULL,
+  cooldown DECIMAL(78,0) NOT NULL,
+  expiration DECIMAL(78,0) NOT NULL,
+  challenged_amount DECIMAL(78,0) NOT NULL,
+  challenge_period DECIMAL(78,0) NOT NULL,
+  is_closed BOOLEAN NOT NULL,
+  created INTEGER, -- Only set from events, never overwritten
+  last_updated TIMESTAMP DEFAULT NOW()
+);
+
+-- Individual Challenge States (current state, not daily snapshots)
+CREATE TABLE challenge_states (
+  id INTEGER PRIMARY KEY,
+  challenger VARCHAR(42) NOT NULL,
+  position VARCHAR(42) NOT NULL,
+  start_time INTEGER NOT NULL,
+  size DECIMAL(78,0) NOT NULL,
+  collateral_address VARCHAR(42) NOT NULL,
+  liq_price DECIMAL(78,0) NOT NULL,
+  phase INTEGER NOT NULL,
+  current_price DECIMAL(78,0) NOT NULL,
+  position_owner VARCHAR(42) NOT NULL,
+  last_updated TIMESTAMP DEFAULT NOW()
+);
+
+-- Collateral States (current state, not daily snapshots)
+CREATE TABLE collateral_states (
+  address VARCHAR(42) PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  symbol VARCHAR(10) NOT NULL,
+  decimals INTEGER NOT NULL,
   last_updated TIMESTAMP DEFAULT NOW()
 );
 
@@ -366,7 +422,20 @@ CREATE INDEX idx_equity_state_last_updated ON equity_state_daily(last_updated);
 CREATE INDEX idx_deps_state_last_updated ON deps_state_daily(last_updated);
 CREATE INDEX idx_savings_state_last_updated ON savings_state_daily(last_updated);
 CREATE INDEX idx_frontend_state_last_updated ON frontend_state_daily(last_updated);
-CREATE INDEX idx_positions_state_last_updated ON positions_state_daily(last_updated);
+CREATE INDEX idx_minting_hub_state_last_updated ON minting_hub_state_daily(last_updated);
+
+-- Individual state table indexes
+CREATE INDEX idx_position_states_owner ON position_states(owner);
+CREATE INDEX idx_position_states_collateral ON position_states(collateral_address);
+CREATE INDEX idx_position_states_is_closed ON position_states(is_closed);
+CREATE INDEX idx_position_states_last_updated ON position_states(last_updated);
+
+CREATE INDEX idx_challenge_states_challenger ON challenge_states(challenger);
+CREATE INDEX idx_challenge_states_position ON challenge_states(position);
+CREATE INDEX idx_challenge_states_last_updated ON challenge_states(last_updated);
+
+CREATE INDEX idx_collateral_states_symbol ON collateral_states(symbol);
+CREATE INDEX idx_collateral_states_last_updated ON collateral_states(last_updated);
 
 -- =======================
 -- MONITORING METADATA

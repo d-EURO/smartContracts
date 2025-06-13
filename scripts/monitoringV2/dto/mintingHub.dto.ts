@@ -6,6 +6,7 @@ export interface PositionState {
   collateralBalance: bigint;
   price: bigint;
   virtualPrice: bigint;
+  expiredPurchasePrice: bigint;
   collateralRequirement: bigint;
   debt: bigint;
   interest: bigint;
@@ -22,17 +23,17 @@ export interface PositionState {
   challengedAmount: bigint;
   challengePeriod: bigint;
   isClosed: boolean;
-  created: number;
+  created?: number;
 }
 
-export interface PositionCollateralState {
+export interface CollateralState {
   address: string;
   name: string;
   symbol: string;
   decimals: number;
 }
 
-export interface ChallengeData {
+export interface ChallengeState {
   id: number;
   challenger: string;
   position: string;
@@ -46,7 +47,11 @@ export interface ChallengeData {
 }
 
 export interface MintingHubState {
-  positions: PositionState[];
-  collaterals: PositionCollateralState[];
-  challenges: ChallengeData[];
+  openingFee: number;
+  challengerReward: number;
+  expiredPriceFactor: number;
+  positionFactory: string;
+  deuro: string;
+  positionRoller: string;
+  rate: string;
 }

@@ -53,11 +53,17 @@ import {
   // Event system DTOs
   SystemEventsData,
   ContractSet,
+  PositionState,
+  ChallengeState,
+  CollateralState,
 } from './dto';
 import { fetchEvents, mergeEvents, getDeploymentBlock } from './utils';
 import { db } from './database/client';
 import { eventPersistence } from './database/eventPersistence';
 import { statePersistence } from './database/statePersistence';
+import { positionsState } from './contracts/positions';
+import { challengesState } from './contracts/challenges';
+import { collateralState } from './contracts/collateral';
 
 export class MonitoringModule {
   private provider: ethers.Provider;
@@ -174,13 +180,41 @@ export class MonitoringModule {
     return state;
   }
 
-  async getMintingHubState(positionEvents?: MintingHubPositionOpenedEvent[]): Promise<MintingHubState> {
+  async getMintingHubState(): Promise<MintingHubState> {
     const contracts = this.getContracts();
-    positionEvents ??= (await this.getAllEvents()).mintingHubPositionOpenedEvents;
     console.log(`Fetching MintingHub positions state`);
-    const state = await mintingHubState(contracts.mintingHubContract, positionEvents);
-    await statePersistence.persistPositionsState(state);
+    const state = await mintingHubState(contracts.mintingHubContract);
+    await statePersistence.persistMintingHubState(state);
     
+    return state;
+  }
+
+  async getPositionsState(positionEvents?: MintingHubPositionOpenedEvent[]): Promise<PositionState[]> {
+    const contracts = this.getContracts();
+    console.log(`Fetching positions state`);
+    const activePositions: string[] = await db.getActivePositionAddresses(); // TODO: Implement this method to fetch active position addresses from the database
+    positionEvents ??= (await this.getAllEvents()).mintingHubPositionOpenedEvents;
+    const state = await positionsState(contracts.mintingHubContract, activePositions, positionEvents);
+    await statePersistence.persistPositionsState(state); // TODO: Implement this method to persist positions state in the database
+    
+    return state;
+  }
+
+  async getChallengesState(): Promise<ChallengeState[]> {
+    const contracts = this.getContracts();
+    console.log(`Fetching challenges state`);
+    const state = await challengesState(contracts.mintingHubContract);
+    await statePersistence.persistChallengesState(state); // TODO: Implement this method to persist challenges state in the database
+
+    return state;
+  }
+
+  async getCollateralState(positionEvents?: MintingHubPositionOpenedEvent[]): Promise<CollateralState[]> {
+    console.log(`Fetching collateral state`);
+    positionEvents ??= (await this.getAllEvents()).mintingHubPositionOpenedEvents;
+    const state = await collateralState(positionEvents, this.provider);
+    await statePersistence.persistCollateralState(state); // TODO: Implement this method to persist collateral state in the database
+
     return state;
   }
 

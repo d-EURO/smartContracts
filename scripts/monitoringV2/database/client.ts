@@ -250,6 +250,53 @@ export class DatabaseClient {
   }
 
   /**
+   * Get active position addresses from the database.
+   * Optional filters can be applied.
+   */
+  public async getActivePositionAddresses(filters?: {
+    owner?: string;
+    collateral?: string;
+    original?: string;
+    limit?: number;
+  }): Promise<string[]> {
+    let query = `
+      SELECT DISTINCT position 
+      FROM minting_hub_position_opened_events
+    `;
+    const params: any[] = [];
+    const whereConditions: string[] = [];
+
+    if (filters?.owner) {
+      whereConditions.push(`owner = $${params.length + 1}`);
+      params.push(filters.owner);
+    }
+
+    if (filters?.collateral) {
+      whereConditions.push(`collateral = $${params.length + 1}`);
+      params.push(filters.collateral);
+    }
+
+    if (filters?.original) {
+      whereConditions.push(`original = $${params.length + 1}`);
+      params.push(filters.original);
+    }
+
+    if (whereConditions.length > 0) {
+      query += ` WHERE ` + whereConditions.join(' AND ');
+    }
+
+    query += ` ORDER BY position`;
+
+    if (filters?.limit) {
+      query += ` LIMIT $${params.length + 1}`;
+      params.push(filters.limit);
+    }
+
+    const rows = await this.fetch<{ position: string }>(query, params);
+    return rows.map(row => row.position);
+  }
+
+  /**
    * Gracefully close the database connection pool.
    * Should be called during application shutdown.
    */

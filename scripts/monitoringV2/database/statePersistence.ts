@@ -1,4 +1,6 @@
 import { BaseRepository, DatabaseField, TableConfig, Transformers } from './baseRepository';
+import { db } from './client';
+import format from 'pg-format';
 
 import {
   DecentralizedEuroState,
@@ -7,6 +9,9 @@ import {
   SavingsGatewayState,
   FrontendGatewayState,
   MintingHubState,
+  PositionState,
+  ChallengeState,
+  CollateralState,
 } from '../dto';
 
 export class StatePersistence extends BaseRepository {
@@ -39,9 +44,24 @@ export class StatePersistence extends BaseRepository {
       conflictFields: ['date'],
       hasLastUpdated: true
     },
-    positions_state: {
-      name: 'positions_state_daily',
+    minting_hub_state: {
+      name: 'minting_hub_state_daily',
       conflictFields: ['date'],
+      hasLastUpdated: true
+    },
+    position_states: {
+      name: 'position_states',
+      conflictFields: ['address'],
+      hasLastUpdated: true
+    },
+    challenge_states: {
+      name: 'challenge_states',
+      conflictFields: ['id'],
+      hasLastUpdated: true
+    },
+    collateral_states: {
+      name: 'collateral_states',
+      conflictFields: ['address'],
       hasLastUpdated: true
     }
   };
@@ -71,7 +91,6 @@ export class StatePersistence extends BaseRepository {
     { column: 'decimals', extractor: 'decimals' },
     { column: 'total_supply', extractor: 'totalSupply', transformer: Transformers.bigIntToString },
     { column: 'price', extractor: 'price', transformer: Transformers.bigIntToString },
-    { column: 'market_cap', extractor: 'marketCap', transformer: Transformers.bigIntToString },
     { column: 'total_votes', extractor: 'totalVotes', transformer: Transformers.bigIntToString },
     { column: 'deuro_address', extractor: 'dEuroAddress' },
     { column: 'valuation_factor', extractor: 'valuationFactor' },
@@ -119,13 +138,63 @@ export class StatePersistence extends BaseRepository {
     { column: 'change_time_lock', extractor: 'changeTimeLock', transformer: Transformers.bigIntToString }
   ];
 
-  private static readonly POSITIONS_STATE_FIELDS: DatabaseField<any>[] = [
+  private static readonly MINTING_HUB_STATE_FIELDS: DatabaseField<MintingHubState>[] = [
     { column: 'date', extractor: () => Transformers.currentDate() },
-    { column: 'total_positions', extractor: 'totalPositions' },
-    { column: 'active_positions', extractor: 'activePositions' },
-    { column: 'total_collateral_value', extractor: 'totalCollateralValue', transformer: Transformers.bigIntToString },
-    { column: 'total_debt', extractor: 'totalDebt', transformer: Transformers.bigIntToString },
-    { column: 'total_interest', extractor: 'totalInterest', transformer: Transformers.bigIntToString }
+    { column: 'opening_fee', extractor: 'openingFee', transformer: (value: number) => value.toString() },
+    { column: 'challenger_reward', extractor: 'challengerReward', transformer: (value: number) => value.toString() },
+    { column: 'expired_price_factor', extractor: 'expiredPriceFactor' },
+    { column: 'position_factory', extractor: 'positionFactory' },
+    { column: 'deuro', extractor: 'deuro' },
+    { column: 'position_roller', extractor: 'positionRoller' },
+    { column: 'rate', extractor: 'rate' }
+  ];
+
+  private static readonly POSITION_STATE_FIELDS: DatabaseField<PositionState>[] = [
+    { column: 'address', extractor: 'address' },
+    { column: 'owner', extractor: 'owner' },
+    { column: 'original', extractor: 'original' },
+    { column: 'collateral_address', extractor: 'collateralAddress' },
+    { column: 'collateral_balance', extractor: 'collateralBalance', transformer: Transformers.bigIntToString },
+    { column: 'expired_purchase_price', extractor: 'expiredPurchasePrice', transformer: Transformers.bigIntToString },
+    { column: 'price', extractor: 'price', transformer: Transformers.bigIntToString },
+    { column: 'virtual_price', extractor: 'virtualPrice', transformer: Transformers.bigIntToString },
+    { column: 'collateral_requirement', extractor: 'collateralRequirement', transformer: Transformers.bigIntToString },
+    { column: 'debt', extractor: 'debt', transformer: Transformers.bigIntToString },
+    { column: 'interest', extractor: 'interest', transformer: Transformers.bigIntToString },
+    { column: 'minimum_collateral', extractor: 'minimumCollateral', transformer: Transformers.bigIntToString },
+    { column: 'limit_amount', extractor: 'limit', transformer: Transformers.bigIntToString },
+    { column: 'principal', extractor: 'principal', transformer: Transformers.bigIntToString },
+    { column: 'risk_premium_ppm', extractor: 'riskPremiumPPM' },
+    { column: 'reserve_contribution', extractor: 'reserveContribution' },
+    { column: 'fixed_annual_rate_ppm', extractor: 'fixedAnnualRatePPM' },
+    { column: 'last_accrual', extractor: 'lastAccrual', transformer: Transformers.bigIntToString },
+    { column: 'start_time', extractor: 'start', transformer: Transformers.bigIntToString },
+    { column: 'cooldown', extractor: 'cooldown', transformer: Transformers.bigIntToString },
+    { column: 'expiration', extractor: 'expiration', transformer: Transformers.bigIntToString },
+    { column: 'challenged_amount', extractor: 'challengedAmount', transformer: Transformers.bigIntToString },
+    { column: 'challenge_period', extractor: 'challengePeriod', transformer: Transformers.bigIntToString },
+    { column: 'is_closed', extractor: 'isClosed' },
+    { column: 'created', extractor: 'created', transformer: Transformers.normalizeUndefined }
+  ];
+
+  private static readonly CHALLENGE_STATE_FIELDS: DatabaseField<ChallengeState>[] = [
+    { column: 'id', extractor: 'id' },
+    { column: 'challenger', extractor: 'challenger' },
+    { column: 'position', extractor: 'position' },
+    { column: 'start_time', extractor: 'start' },
+    { column: 'size', extractor: 'size', transformer: Transformers.bigIntToString },
+    { column: 'collateral_address', extractor: 'collateralAddress' },
+    { column: 'liq_price', extractor: 'liqPrice', transformer: Transformers.bigIntToString },
+    { column: 'phase', extractor: 'phase' },
+    { column: 'current_price', extractor: 'currentPrice', transformer: Transformers.bigIntToString },
+    { column: 'position_owner', extractor: 'positionOwner' }
+  ];
+
+  private static readonly COLLATERAL_STATE_FIELDS: DatabaseField<CollateralState>[] = [
+    { column: 'address', extractor: 'address' },
+    { column: 'name', extractor: 'name' },
+    { column: 'symbol', extractor: 'symbol' },
+    { column: 'decimals', extractor: 'decimals' }
   ];
 
   // ***** PERSISTENCE METHODS *****
@@ -170,26 +239,101 @@ export class StatePersistence extends BaseRepository {
     );
   }
 
-  async persistPositionsState(state: MintingHubState): Promise<void> {
-    const activePositions = state.positions.filter(p => !p.isClosed);
-    const totalCollateralValue = activePositions.reduce((sum, p) => sum + p.collateralBalance, 0n);
-    const totalDebt = activePositions.reduce((sum, p) => sum + p.debt, 0n);
-    const totalInterest = activePositions.reduce((sum, p) => sum + p.interest, 0n);
-
-    // Create an aggregate state object for persistence
-    const aggregatedState = {
-      totalPositions: state.positions.length,
-      activePositions: activePositions.length,
-      totalCollateralValue,
-      totalDebt,
-      totalInterest
-    };
-
+  async persistMintingHubState(state: MintingHubState): Promise<void> {
     await this.persistDailyState(
-      StatePersistence.STATE_TABLES.positions_state,
-      aggregatedState,
-      StatePersistence.POSITIONS_STATE_FIELDS
+      StatePersistence.STATE_TABLES.minting_hub_state,
+      state,
+      StatePersistence.MINTING_HUB_STATE_FIELDS
     );
+  }
+
+  async persistPositionsState(positions: PositionState[]): Promise<void> {
+    if (positions.length === 0) return;
+
+    for (const position of positions) {
+      await this.persistPositionState(position);
+    }
+    console.log(`> Persisted ${positions.length} position states`);
+  }
+
+  private async persistPositionState(position: PositionState): Promise<void> {
+    const tableConfig = StatePersistence.STATE_TABLES.position_states;
+    const allFields = StatePersistence.POSITION_STATE_FIELDS;
+
+    // Filter out 'created' field if it's undefined to preserve existing value
+    const fields = position.created === undefined 
+      ? allFields.filter(f => f.column !== 'created')
+      : allFields;
+
+    const columnNames = fields.map(f => f.column);
+    const quotedTable = format.ident(tableConfig.name);
+    const quotedColumns = columnNames.map(col => format.ident(col)).join(', ');
+    const placeholders = fields.map((_, index) => `$${index + 1}`).join(', ');
+    
+    // For updates, exclude conflict fields and conditionally exclude 'created'
+    const updateFields = fields.filter(f => !tableConfig.conflictFields.includes(f.column));
+    
+    let updateClause: string;
+    if (updateFields.length === 0) {
+      updateClause = tableConfig.hasLastUpdated
+        ? `DO UPDATE SET ${format.ident('last_updated')} = NOW()`
+        : 'DO NOTHING';
+    } else {
+      const updateSet = updateFields
+        .map(field => `${format.ident(field.column)} = EXCLUDED.${format.ident(field.column)}`)
+        .join(', ');
+      const lastUpdatedClause = tableConfig.hasLastUpdated ? `, ${format.ident('last_updated')} = NOW()` : '';
+      updateClause = `DO UPDATE SET ${updateSet}${lastUpdatedClause}`;
+    }
+
+    const query = `
+      INSERT INTO ${quotedTable} (${quotedColumns})
+      VALUES (${placeholders})
+      ON CONFLICT (${format.ident('address')}) 
+      ${updateClause}
+    `;
+
+    const params: any[] = [];
+    for (const field of fields) {
+      const value = this.extractAndTransformValue(position, field);
+      params.push(value);
+    }
+
+    try {
+      await db.query(query, params);
+    } catch (error) {
+      console.error(`Error persisting position ${position.address}:`, error);
+      throw new Error(`Failed to persist position ${position.address}: ${error}`);
+    }
+  }
+
+  async persistChallengesState(challenges: ChallengeState[]): Promise<void> {
+    if (challenges.length === 0) return;
+
+    // Clear existing challenges and insert new ones (challenges are ephemeral)
+    await db.query('DELETE FROM challenge_states');
+    
+    for (const challenge of challenges) {
+      await this.persistDailyState(
+        StatePersistence.STATE_TABLES.challenge_states,
+        challenge,
+        StatePersistence.CHALLENGE_STATE_FIELDS
+      );
+    }
+    console.log(`> Persisted ${challenges.length} challenge states`);
+  }
+
+  async persistCollateralState(collaterals: CollateralState[]): Promise<void> {
+    if (collaterals.length === 0) return;
+
+    for (const collateral of collaterals) {
+      await this.persistDailyState(
+        StatePersistence.STATE_TABLES.collateral_states,
+        collateral,
+        StatePersistence.COLLATERAL_STATE_FIELDS
+      );
+    }
+    console.log(`> Persisted ${collaterals.length} collateral states`);
   }
 }
 

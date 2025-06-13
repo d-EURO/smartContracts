@@ -43,7 +43,10 @@ const ALLOWED_TABLES = [
   'deps_state_daily',
   'savings_state_daily',
   'frontend_state_daily',
-  'positions_state_daily',
+  'minting_hub_state_daily',
+  'position_states',
+  'challenge_states',
+  'collateral_states',
 ] as const;
 
 const ALLOWED_TABLES_SET = new Set(ALLOWED_TABLES);
@@ -191,7 +194,7 @@ export class BaseRepository {
 
   // ***** HELPER FUNCTIONS *****
 
-  private validateTableName(tableName: string): void {
+  protected validateTableName(tableName: string): void {
     if (!ALLOWED_TABLES_SET.has(tableName as AllowedTableName)) {
       throw new Error(`Table '${tableName}' is not in the allowed list`);
     }
@@ -206,7 +209,7 @@ export class BaseRepository {
     }
   }
 
-  private extractAndTransformValue<T>(obj: T, field: DatabaseField<T>): any {
+  protected extractAndTransformValue<T>(obj: T, field: DatabaseField<T>): any {
     let value: any;
 
     if (typeof field.extractor === 'function') {

@@ -34,7 +34,10 @@ async function main() {
           depsState,
           savingsState,
           frontendState,
+          mintingHubState,
           positionsState,
+          challengesState,
+          collateralState,
           bridgeStates,
         ] = await Promise.all([
           monitoring.getDecentralizedEuroState(),
@@ -42,7 +45,10 @@ async function main() {
           monitoring.getDEPSWrapperState(),
           monitoring.getSavingsGatewayState(),
           monitoring.getFrontendGatewayState(),
-          monitoring.getMintingHubState(eventsData.mintingHubPositionOpenedEvents),
+          monitoring.getMintingHubState(),
+          monitoring.getPositionsState(eventsData.mintingHubPositionOpenedEvents),
+          monitoring.getChallengesState(),
+          monitoring.getCollateralState(eventsData.mintingHubPositionOpenedEvents),
           monitoring.getAllBridgeStates(),
         ]);
 
@@ -50,7 +56,8 @@ async function main() {
         console.log(`> dEURO Supply: ${ethers.formatEther(deuroState.totalSupply)}`);
         console.log(`> Equity Price: ${ethers.formatEther(equityState.price)}`);
         console.log(`> Total Savings: ${ethers.formatEther(savingsState.totalSavings)}`);
-        console.log(`> Active Positions: ${positionsState.positions.length}`);
+        console.log(`> Active Positions: ${positionsState.filter(p => !p.isClosed).length}`);
+        console.log(`> Active Challenges: ${challengesState.length}`);
         console.log(`> Bridge States: ${bridgeStates.length} bridges`);
         console.log(`> Events Cache: ${eventsData.lastEventFetch ? 'Fresh' : 'Stale'}\n`);
 
@@ -62,7 +69,10 @@ async function main() {
           depsState,
           savingsState,
           frontendState,
+          mintingHubState,
           positionsState,
+          challengesState,
+          collateralState,
           bridgeStates,
           eventsData,
         };
