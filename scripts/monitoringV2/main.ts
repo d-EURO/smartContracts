@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { config } from 'dotenv';
 import { ethers } from 'ethers';
-import { MonitoringModule } from './index';
+import { MonitoringModule } from './monitoring';
+import { getDeploymentBlock } from './utils';
+import { db } from './database/client';
 
 config({ path: '.env.monitoring' });
 
@@ -13,75 +15,28 @@ async function main() {
   console.log(`Starting dEURO Monitoring V2`);
   console.log(`> RPC: ${RPC_URL}`);
   console.log(`> Chain ID: ${BLOCKCHAIN_ID}`);
-  console.log(`> Interval: ${INTERVAL_MS}ms\n`);
+  console.log(`> Monitoring Interval: ${INTERVAL_MS}ms\n`);
 
   try {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const monitoring = new MonitoringModule(provider, BLOCKCHAIN_ID);
 
-    // Monitoring cycle
     async function runMonitoringCycle() {
       try {
         const timestamp = new Date().toISOString();
-        console.log(`\x1b[33m[${timestamp}] - Fetching system state...\x1b[0m`);
+        const currentBlock = await provider.getBlockNumber();
+        const lastProcessedBlock = await db.getLastProcessedBlock();
+        const fromBlock = lastProcessedBlock ? lastProcessedBlock + 1 : getDeploymentBlock();
 
-        const eventsData = await monitoring.getSystemEvents();
-        const systemState = await monitoring.getSystemState(eventsData.mintingHubPositionOpenedEvents);
-        
-        // Destructure for logging
-        const {
-          deuroState,
-          equityState,
-          depsState,
-          savingsState,
-          frontendState,
-          mintingHubState,
-          positionsState,
-          challengesState,
-          collateralState,
-          bridgeStates,
-        } = systemState;
-
-        // Log key metrics
-        console.log(`> dEURO Supply: ${ethers.formatEther(deuroState.totalSupply)}`);
-        console.log(`> Equity Price: ${ethers.formatEther(equityState.price)}`);
-        console.log(`> Total Savings: ${ethers.formatEther(savingsState.totalSavings)}`);
-        console.log(`> Active Positions: ${positionsState.filter((p) => !p.isClosed).length}`);
-        console.log(`> Active Challenges: ${challengesState.length}`);
-        console.log(`> Bridge States: ${bridgeStates.length} bridges`);
-        console.log(`> Event Processing: Complete\n`);
-
-        // Export data as JSON (for consumption by other systems)
-        // const systemState = {
-        //   timestamp,
-        //   deuroState,
-        //   equityState,
-        //   depsState,
-        //   savingsState,
-        //   frontendState,
-        //   mintingHubState,
-        //   positionsState,
-        //   challengesState,
-        //   collateralState,
-        //   bridgeStates,
-        //   eventsData,
-        // };
-
-        // TODO: Remove this when monitoring is stable
-        // Write to file or send to monitoring system
-        // console.log('\x1b[33mMonitoring cycle completed successfully.\x1b[0m');
-        // if (process.env.OUTPUT_FILE) {
-        //   console.log(`\x1b[33mWriting system state to file...\x1b[0m`);
-        //   const jsonString = JSON.stringify(
-        //     systemState,
-        //     (_key, value) => {
-        //       return typeof value === 'bigint' ? value.toString() : value;
-        //     },
-        //     2,
-        //   );
-        //   await require('fs').promises.writeFile(process.env.OUTPUT_FILE, jsonString);
-        //   console.log(`\x1b[32mSystem state written to ${process.env.OUTPUT_FILE}\x1b[0m`);
-        // }
+        if (fromBlock <= currentBlock) {
+          console.log(
+            `\x1b[33m[${timestamp}] - Fetching system state from block ${fromBlock} to ${currentBlock}\x1b[0m`,
+          );
+          const { mintingHubPositionOpenedEvents } = await monitoring.getSystemEvents(fromBlock, currentBlock);
+          await monitoring.getSystemState(mintingHubPositionOpenedEvents);
+        } else {
+          console.log(`\x1b[33m[${timestamp}] - No new blocks to process (${fromBlock}/${currentBlock})\x1b[0m`);
+        }
       } catch (error) {
         console.error('\x1b[31mError during monitoring cycle:\x1b[0m', error);
       }

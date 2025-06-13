@@ -1,17 +1,5 @@
 import { ethers } from 'ethers';
 import {
-  ADDRESS,
-  DecentralizedEUROABI,
-  EquityABI,
-  DEPSWrapperABI,
-  SavingsGatewayABI,
-  FrontendGatewayABI,
-  MintingHubGatewayABI,
-  PositionRollerABI,
-  PositionV2ABI,
-} from '@deuro/eurocoin';
-import {
-  // Event system DTOs
   DeuroTransferEvent,
   DepsTransferEvent,
   DeuroLossEvent,
@@ -31,144 +19,25 @@ import {
   MintingHubPositionOpenedEvent,
   RollerRollEvent,
   PositionDeniedEvent,
-
-  // System DTOs
   SystemEventsData,
   ContractSet,
-  SystemStateData,
-} from './dto';
-import { fetchEvents, getDeploymentBlock } from './utils';
-import { db } from './database/client';
-import { eventPersistence } from './database/eventPersistence';
-import { statePersistence } from './database/statePersistence';
-import {
-  getStablecoinBridgesStates,
-  getChallengesState,
-  getCollateralState,
-  getDecentralizedEuroState,
-  getDepsWrapperState,
-  getEquityState,
-  getFrontendGatewayState,
-  getMintingHubState,
-  getPositionsState,
-  getSavingsGatewayState,
-} from './state';
+} from '../dto';
+import { PositionV2ABI } from '@deuro/eurocoin';
+import { fetchEvents } from '../utils';
+import { db } from '../database/client';
+import { eventPersistence } from '../database/eventPersistence';
 
-export class MonitoringModule {
-  private provider: ethers.Provider;
-  private blockchainId: number;
-  private contracts: ContractSet;
+export class EventsService {
+  constructor(
+    private contracts: ContractSet,
+    private provider: ethers.Provider,
+  ) {}
 
-  constructor(provider: ethers.Provider, blockchainId: number = 1) {
-    this.provider = provider;
-    this.blockchainId = blockchainId;
-    this.contracts = this.createAllContracts();
-  }
-
-  private createAllContracts(): ContractSet {
-    return {
-      deuroContract: new ethers.Contract(
-        ADDRESS[this.blockchainId].decentralizedEURO,
-        DecentralizedEUROABI,
-        this.provider,
-      ),
-      equityContract: new ethers.Contract(ADDRESS[this.blockchainId].equity, EquityABI, this.provider),
-      depsContract: new ethers.Contract(ADDRESS[this.blockchainId].DEPSwrapper, DEPSWrapperABI, this.provider),
-      savingsContract: new ethers.Contract(ADDRESS[this.blockchainId].savingsGateway, SavingsGatewayABI, this.provider),
-      frontendGatewayContract: new ethers.Contract(
-        ADDRESS[this.blockchainId].frontendGateway,
-        FrontendGatewayABI,
-        this.provider,
-      ),
-      mintingHubContract: new ethers.Contract(
-        ADDRESS[this.blockchainId].mintingHubGateway,
-        MintingHubGatewayABI,
-        this.provider,
-      ),
-      rollerContract: new ethers.Contract(ADDRESS[this.blockchainId].roller, PositionRollerABI, this.provider),
-    };
-  }
-
-  async getSystemEvents(): Promise<SystemEventsData> {
-    const currentBlock = await this.provider.getBlockNumber();
-    const lastProcessedBlock = await db.getLastProcessedBlock();
-    const fromBlock = lastProcessedBlock ? lastProcessedBlock + 1 : getDeploymentBlock();
-
-    console.log(`\x1b[33mFetching fresh events from block ${fromBlock} to ${currentBlock}\x1b[0m`);
-    const eventsData = await this.getEventsInRange(this.contracts, fromBlock, currentBlock);
-
-    if (fromBlock <= currentBlock) {
-      await this.persistEvents(eventsData);
-
-      const totalEvents = Object.values(eventsData).reduce((sum, e) => sum + (Array.isArray(e) ? e.length : 0), 0);
-      await db.recordMonitoringCycle(currentBlock, totalEvents, 0); // TODO: compute duration, currently set to 0
-      console.log(`\x1b[32mProcessed ${totalEvents} new events\x1b[0m`);
-    } else {
-      console.log(`\x1b[32mNo new blocks to process\x1b[0m`);
-    }
-
+  async getSystemEvents(fromBlock: number, toBlock: number): Promise<SystemEventsData> {
+    const eventsData = await this.getEventsInRange(this.contracts, fromBlock, toBlock);
+    await this.persistEvents(eventsData);
+    await this.recordMonitoringCycle(toBlock, eventsData);
     return eventsData;
-  }
-
-  async getSystemState(positionEvents: MintingHubPositionOpenedEvent[]): Promise<SystemStateData> {
-    console.log(`\x1b[33mFetching complete system state...\x1b[0m`);
-    const systemState = await this.getSystemStateData(positionEvents);
-    await this.persistSystemState(systemState);
-    console.log(`\x1b[32mSystem state fetched and persisted successfully\x1b[0m`);
-    return systemState;
-  }
-
-  private async getSystemStateData(positionEvents: MintingHubPositionOpenedEvent[]): Promise<SystemStateData> {
-    const activePositionAddresses: string[] = await db.getActivePositionAddresses();
-
-    const results = await Promise.allSettled([
-      getDecentralizedEuroState(this.contracts.deuroContract),
-      getEquityState(this.contracts.equityContract),
-      getDepsWrapperState(this.contracts.depsContract),
-      getSavingsGatewayState(this.contracts.savingsContract, this.contracts.deuroContract),
-      getFrontendGatewayState(this.contracts.frontendGatewayContract),
-      getMintingHubState(this.contracts.mintingHubContract),
-      getPositionsState(this.contracts.mintingHubContract, activePositionAddresses, positionEvents),
-      getChallengesState(this.contracts.mintingHubContract),
-      getCollateralState(positionEvents, this.provider),
-      getStablecoinBridgesStates(this.provider, this.blockchainId),
-    ]);
-
-    const [
-      deuroState,
-      equityState,
-      depsState,
-      savingsState,
-      frontendState,
-      mintingHubState,
-      positionsState,
-      challengesState,
-      collateralState,
-      bridgeStates,
-    ] = results.map((result, index) => {
-      if (result.status === 'fulfilled') return result.value;
-      console.error(`\x1b[31mState fetch failed for index ${index}:`, result.reason, '\x1b[0m');
-      return null;
-    });
-
-    return {
-      deuroState,
-      equityState,
-      depsState,
-      savingsState,
-      frontendState,
-      mintingHubState,
-      positionsState,
-      challengesState,
-      collateralState,
-      bridgeStates,
-    } as SystemStateData;
-  }
-
-  private async persistSystemState(systemState: SystemStateData): Promise<void> {
-    console.log('\x1b[32mPersisting system state to database...\x1b[0m');
-    await statePersistence.persistAllSystemState(systemState);
-    console.log('\x1b[32mSystem state persisted successfully\x1b[0m');
   }
 
   private async getEventsInRange(
@@ -351,5 +220,15 @@ export class MonitoringModule {
     console.log('\x1b[32mPersisting events to database...\x1b[0m');
     await eventPersistence.persistAllEvents(eventsData);
     console.log('\x1b[32mEvents persisted successfully\x1b[0m');
+  }
+
+  private async recordMonitoringCycle(
+    currentBlock: number,
+    eventsData: SystemEventsData,
+    duration: number = 0, // TODO: compute duration, currently set to 0
+  ): Promise<void> {
+    const totalEvents = Object.values(eventsData).reduce((sum, e) => sum + (Array.isArray(e) ? e.length : 0), 0);
+    await db.recordMonitoringCycle(currentBlock, totalEvents, duration);
+    console.log(`\x1b[32mProcessed ${totalEvents} new events in ${duration}ms\x1b[0m`);
   }
 }
