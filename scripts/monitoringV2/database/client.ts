@@ -30,7 +30,6 @@ export class DatabaseClient {
   private static signalHandlersSetup = false;
 
   private constructor(config: DatabaseConfig) {
-    // Handle SSL configuration more securely
     let sslConfig: any = false;
     if (config.ssl === true) {
       sslConfig = { rejectUnauthorized: true };
@@ -47,7 +46,6 @@ export class DatabaseClient {
       connectionTimeoutMillis: config.connectionTimeoutMillis || 2000,
     };
 
-    // Use either connectionString or individual parameters
     if (config.connectionString) {
       poolConfig.connectionString = config.connectionString;
     } else {
@@ -60,12 +58,10 @@ export class DatabaseClient {
 
     this.pool = new Pool(poolConfig);
 
-    // Handle pool errors
     this.pool.on('error', (err: Error) => {
       console.error('Database pool error:', err);
     });
 
-    // Setup graceful shutdown (only once)
     if (!DatabaseClient.signalHandlersSetup) {
       process.on('SIGINT', this.gracefulShutdown.bind(this));
       process.on('SIGTERM', this.gracefulShutdown.bind(this));
@@ -75,7 +71,7 @@ export class DatabaseClient {
 
   public static getInstance(): DatabaseClient {
     if (!DatabaseClient.instance) {
-      // Support DATABASE_URL for easier deployment
+      // Support DATABASE_URL for easy deployment
       if (process.env.DATABASE_URL) {
         const config: DatabaseConfig = {
           connectionString: process.env.DATABASE_URL,
@@ -83,7 +79,6 @@ export class DatabaseClient {
         };
         DatabaseClient.instance = new DatabaseClient(config);
       } else {
-        // Parse port safely
         const port = parseInt(process.env.DB_PORT || '5432');
         if (isNaN(port) || port <= 0 || port > 65535) {
           throw new Error(`Invalid DB_PORT: ${process.env.DB_PORT}. Must be a valid port number.`);

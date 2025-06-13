@@ -8,18 +8,16 @@ config({ path: '.env.monitoring' });
 async function main() {
   const RPC_URL = process.env.RPC_URL;
   const BLOCKCHAIN_ID = parseInt(process.env.BLOCKCHAIN_ID || '1');
-  const INTERVAL_MS = parseInt(process.env.MONITOR_INTERVAL_MS || '3000000'); // 5 minutes default
-  const EVENTS_CACHE_TTL = parseInt(process.env.EVENTS_CACHE_TTL || '3600000'); // 1 hour default
+  const INTERVAL_MS = parseInt(process.env.MONITOR_INTERVAL_MS || '300000'); // 5 minutes default
 
   console.log(`Starting dEURO Monitoring V2`);
   console.log(`> RPC: ${RPC_URL}`);
   console.log(`> Chain ID: ${BLOCKCHAIN_ID}`);
   console.log(`> Interval: ${INTERVAL_MS}ms\n`);
-  console.log(`> Events Cache TTL: ${EVENTS_CACHE_TTL}ms\n`);
 
   try {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const monitoring = new MonitoringModule(provider, BLOCKCHAIN_ID, EVENTS_CACHE_TTL);
+    const monitoring = new MonitoringModule(provider, BLOCKCHAIN_ID);
 
     // Monitoring cycle
     async function runMonitoringCycle() {
@@ -59,7 +57,7 @@ async function main() {
         console.log(`> Active Positions: ${positionsState.filter(p => !p.isClosed).length}`);
         console.log(`> Active Challenges: ${challengesState.length}`);
         console.log(`> Bridge States: ${bridgeStates.length} bridges`);
-        console.log(`> Events Cache: ${eventsData.lastEventFetch ? 'Fresh' : 'Stale'}\n`);
+        console.log(`> Event Processing: Complete\n`);
 
         // Export data as JSON (for consumption by other systems)
         const systemState = {

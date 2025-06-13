@@ -57,7 +57,7 @@ import {
   ChallengeState,
   CollateralState,
 } from './dto';
-import { fetchEvents, mergeEvents, getDeploymentBlock } from './utils';
+import { fetchEvents, getDeploymentBlock } from './utils';
 import { db } from './database/client';
 import { eventPersistence } from './database/eventPersistence';
 import { statePersistence } from './database/statePersistence';
@@ -68,15 +68,11 @@ import { collateralState } from './contracts/collateral';
 export class MonitoringModule {
   private provider: ethers.Provider;
   private blockchainId: number = 1;
-  private eventsCacheTTL: number;
-  private eventsCacheExpiry: number = 0;
-  private eventsCache: SystemEventsData | null = null;
   private contracts: ContractSet | null = null;
 
-  constructor(provider: ethers.Provider, blockchainId: number = 1, eventsCacheTTL: number = 3600000) {
+  constructor(provider: ethers.Provider, blockchainId: number = 1) {
     this.provider = provider;
     this.blockchainId = blockchainId;
-    this.eventsCacheTTL = eventsCacheTTL;
   }
 
   private getContracts(): ContractSet {
@@ -84,56 +80,30 @@ export class MonitoringModule {
     return this.contracts;
   }
 
-  async getAllEvents(forceRefresh: boolean = false): Promise<SystemEventsData> {
-    const cacheValid = !forceRefresh && this.eventsCache && Date.now() < this.eventsCacheExpiry;
-    
-    if (cacheValid) {
-      console.log('\x1b[32m[Cache] Using cached events data\x1b[0m');
-      // TODO: Does eventsCache make sense as it's currently implemented? 
-      return this.eventsCache!;
-    }
-
+  async getAllEvents(): Promise<SystemEventsData> {
     const contracts = this.getContracts();
     const currentBlock = await this.provider.getBlockNumber();
     const lastProcessedBlock = await db.getLastProcessedBlock();
     const fromBlock = lastProcessedBlock ? lastProcessedBlock + 1 : getDeploymentBlock();
-    const newEventsData = await this.fetchEventsInRange(contracts, fromBlock, currentBlock);
-    await this.persistEvents(newEventsData);
     
-    const totalEvents = Object.values(newEventsData).reduce((sum, events) => {
-      return sum + (Array.isArray(events) ? events.length : 0);
-    }, 0);
-    await db.recordMonitoringCycle(currentBlock, totalEvents, 0);
+    console.log(`\x1b[33mFetching fresh events from block ${fromBlock} to ${currentBlock}\x1b[0m`);
+    const eventsData = await this.fetchEventsInRange(contracts, fromBlock, currentBlock);
     
-    // TODO: Is mergeEventsData really necessary at all?
-    if (this.eventsCache && fromBlock > getDeploymentBlock()) {
-      this.eventsCache = this.mergeEventsData(this.eventsCache, newEventsData);
+    if (fromBlock <= currentBlock) {
+      await this.persistEvents(eventsData);
+      
+      const totalEvents = Object.values(eventsData).reduce((sum, events) => {
+        return sum + (Array.isArray(events) ? events.length : 0);
+      }, 0);
+      await db.recordMonitoringCycle(currentBlock, totalEvents, 0);
+      console.log(`\x1b[32mProcessed ${totalEvents} new events\x1b[0m`);
     } else {
-      this.eventsCache = newEventsData;
+      console.log(`\x1b[32mNo new blocks to process\x1b[0m`);
     }
     
-    this.eventsCacheExpiry = Date.now() + this.eventsCacheTTL;
-    console.log(`\x1b[32m[Cache] Updated events cache with ${totalEvents} new events\x1b[0m`);
-    return this.eventsCache;
+    return eventsData;
   }
 
-  getCacheStats() {
-    const now = Date.now();
-    const cacheValid = this.eventsCache && now < this.eventsCacheExpiry;
-    const timeToExpiry = cacheValid ? Math.round((this.eventsCacheExpiry - now) / 1000) : 0;
-    
-    return {
-      eventsCacheValid: cacheValid,
-      eventsCacheTimeToExpirySeconds: timeToExpiry,
-      eventsCacheSizeApprox: this.eventsCache ? Object.keys(this.eventsCache).length : 0,
-    };
-  }
-
-  clearCaches() {
-    this.eventsCache = null;
-    this.eventsCacheExpiry = 0;
-    console.log('\x1b[33m[Cache] Cleared all caches\x1b[0m');
-  }
 
   async getDecentralizedEuroState(): Promise<DecentralizedEuroState> {
     const contracts = this.getContracts();
@@ -189,13 +159,12 @@ export class MonitoringModule {
     return state;
   }
 
-  async getPositionsState(positionEvents?: MintingHubPositionOpenedEvent[]): Promise<PositionState[]> {
+  async getPositionsState(positionEvents: MintingHubPositionOpenedEvent[]): Promise<PositionState[]> {
     const contracts = this.getContracts();
     console.log(`Fetching positions state`);
-    const activePositions: string[] = await db.getActivePositionAddresses(); // TODO: Implement this method to fetch active position addresses from the database
-    positionEvents ??= (await this.getAllEvents()).mintingHubPositionOpenedEvents;
+    const activePositions: string[] = await db.getActivePositionAddresses();
     const state = await positionsState(contracts.mintingHubContract, activePositions, positionEvents);
-    await statePersistence.persistPositionsState(state); // TODO: Implement this method to persist positions state in the database
+    await statePersistence.persistPositionsState(state);
     
     return state;
   }
@@ -204,16 +173,15 @@ export class MonitoringModule {
     const contracts = this.getContracts();
     console.log(`Fetching challenges state`);
     const state = await challengesState(contracts.mintingHubContract);
-    await statePersistence.persistChallengesState(state); // TODO: Implement this method to persist challenges state in the database
+    await statePersistence.persistChallengesState(state);
 
     return state;
   }
 
-  async getCollateralState(positionEvents?: MintingHubPositionOpenedEvent[]): Promise<CollateralState[]> {
+  async getCollateralState(positionEvents: MintingHubPositionOpenedEvent[]): Promise<CollateralState[]> {
     console.log(`Fetching collateral state`);
-    positionEvents ??= (await this.getAllEvents()).mintingHubPositionOpenedEvents;
     const state = await collateralState(positionEvents, this.provider);
-    await statePersistence.persistCollateralState(state); // TODO: Implement this method to persist collateral state in the database
+    await statePersistence.persistCollateralState(state);
 
     return state;
   }
@@ -422,50 +390,6 @@ export class MonitoringModule {
     };
   }
 
-  // TODO: Same question as above - is this really necessary?
-  private mergeEventsData(existing: SystemEventsData, newData: SystemEventsData): SystemEventsData {
-    return {
-      // DecentralizedEURO events
-      deuroTransferEvents: mergeEvents(existing.deuroTransferEvents, newData.deuroTransferEvents),
-      deuroLossEvents: mergeEvents(existing.deuroLossEvents, newData.deuroLossEvents),
-      deuroProfitEvents: mergeEvents(existing.deuroProfitEvents, newData.deuroProfitEvents),
-      deuroMinterAppliedEvents: mergeEvents(existing.deuroMinterAppliedEvents, newData.deuroMinterAppliedEvents),
-      deuroMinterDeniedEvents: mergeEvents(existing.deuroMinterDeniedEvents, newData.deuroMinterDeniedEvents),
-      deuroProfitDistributedEvents: mergeEvents(existing.deuroProfitDistributedEvents, newData.deuroProfitDistributedEvents),
-
-      // Equity events
-      equityTradeEvents: mergeEvents(existing.equityTradeEvents, newData.equityTradeEvents),
-      equityDelegationEvents: mergeEvents(existing.equityDelegationEvents, newData.equityDelegationEvents),
-
-      // DEPSWrapper events
-      depsWrapEvents: mergeEvents(existing.depsWrapEvents, newData.depsWrapEvents),
-      depsUnwrapEvents: mergeEvents(existing.depsUnwrapEvents, newData.depsUnwrapEvents),
-      depsTransferEvents: mergeEvents(existing.depsTransferEvents, newData.depsTransferEvents),
-
-      // SavingsGateway events
-      savingsSavedEvents: mergeEvents(existing.savingsSavedEvents, newData.savingsSavedEvents),
-      savingsInterestCollectedEvents: mergeEvents(existing.savingsInterestCollectedEvents, newData.savingsInterestCollectedEvents),
-      savingsWithdrawnEvents: mergeEvents(existing.savingsWithdrawnEvents, newData.savingsWithdrawnEvents),
-      savingsRateProposedEvents: mergeEvents(existing.savingsRateProposedEvents, newData.savingsRateProposedEvents),
-      savingsRateChangedEvents: mergeEvents(existing.savingsRateChangedEvents, newData.savingsRateChangedEvents),
-
-      // MintingHub events
-      mintingHubPositionOpenedEvents: mergeEvents(existing.mintingHubPositionOpenedEvents, newData.mintingHubPositionOpenedEvents),
-
-      // Position events
-      positionDeniedEvents: mergeEvents(existing.positionDeniedEvents, newData.positionDeniedEvents),
-
-      // PositionRoller events
-      rollerRollEvents: mergeEvents(existing.rollerRollEvents, newData.rollerRollEvents),
-
-      // Metadata
-      lastEventFetch: Date.now(),
-      blockRange: {
-        from: Math.min(existing.blockRange.from, newData.blockRange.from),
-        to: Math.max(existing.blockRange.to, newData.blockRange.to),
-      },
-    };
-  }
 
   private async persistEvents(eventsData: SystemEventsData): Promise<void> {
     console.log('\x1b[32mPersisting events to database...\x1b[0m');
