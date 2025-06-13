@@ -3,9 +3,22 @@ import { batchedEventQuery } from './blockchain';
 import { BaseEvent } from './dto';
 import { config } from 'dotenv';
 
+// Load environment configuration
 config({ path: '.env.monitoring' });
 
-const DEPLOYMENT_BLOCK = parseInt(process.env.DEPLOYMENT_BLOCK || 'MISSING_DEPLOYMENT_BLOCK');
+const DEPLOYMENT_BLOCK = (() => {
+  const deploymentBlock = process.env.DEPLOYMENT_BLOCK;
+  if (!deploymentBlock) {
+    console.error('DEPLOYMENT_BLOCK environment variable is required');
+    process.exit(1);
+  }
+  const parsed = parseInt(deploymentBlock);
+  if (isNaN(parsed) || parsed <= 0) {
+    console.error('DEPLOYMENT_BLOCK must be a valid positive block number');
+    process.exit(1);
+  }
+  return parsed;
+})();
 
 // LRU Block Cache with size limit to prevent memory leaks
 class LRUBlockCache {

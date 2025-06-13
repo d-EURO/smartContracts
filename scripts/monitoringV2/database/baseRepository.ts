@@ -1,11 +1,6 @@
 import { db } from './client';
 import format from 'pg-format';
-
-export interface BaseEvent {
-  txHash: string;
-  timestamp: number;
-  logIndex: number;
-}
+import { BaseEvent } from '../dto/event.dto';
 
 export interface DatabaseField<T> {
   column: string;
@@ -47,6 +42,7 @@ const ALLOWED_TABLES = [
   'position_states',
   'challenge_states',
   'collateral_states',
+  'bridge_states',
 ] as const;
 
 const ALLOWED_TABLES_SET = new Set(ALLOWED_TABLES);

@@ -14,7 +14,8 @@
     "@deuro/eurocoin": "^1.0.0",
     "ethers": "^6.0.0",
     "pg": "^8.11.0",
-    "pg-format": "^1.0.4"
+    "pg-format": "^1.0.4",
+    "dotenv": "^16.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

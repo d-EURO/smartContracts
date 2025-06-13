@@ -12,6 +12,7 @@ import {
   PositionState,
   ChallengeState,
   CollateralState,
+  StablecoinBridgeState,
 } from '../dto';
 
 export class StatePersistence extends BaseRepository {
@@ -62,6 +63,11 @@ export class StatePersistence extends BaseRepository {
     collateral_states: {
       name: 'collateral_states',
       conflictFields: ['address'],
+      hasLastUpdated: true
+    },
+    bridge_states: {
+      name: 'bridge_states',
+      conflictFields: ['bridge_address'],
       hasLastUpdated: true
     }
   };
@@ -195,6 +201,18 @@ export class StatePersistence extends BaseRepository {
     { column: 'name', extractor: 'name' },
     { column: 'symbol', extractor: 'symbol' },
     { column: 'decimals', extractor: 'decimals' }
+  ];
+
+  private static readonly BRIDGE_STATE_FIELDS: DatabaseField<StablecoinBridgeState>[] = [
+    { column: 'bridge_type', extractor: 'bridgeType' },
+    { column: 'bridge_address', extractor: 'address' },
+    { column: 'eur_address', extractor: 'eurAddress' },
+    { column: 'eur_symbol', extractor: 'eurSymbol' },
+    { column: 'eur_decimals', extractor: 'eurDecimals' },
+    { column: 'deuro_address', extractor: 'dEuroAddress' },
+    { column: 'limit_amount', extractor: 'limit', transformer: Transformers.bigIntToString },
+    { column: 'minted_amount', extractor: 'minted', transformer: Transformers.bigIntToString },
+    { column: 'horizon', extractor: 'horizon', transformer: Transformers.bigIntToString }
   ];
 
   // ***** PERSISTENCE METHODS *****
@@ -336,6 +354,19 @@ export class StatePersistence extends BaseRepository {
     console.log(`> Persisted ${collaterals.length} collateral states`);
   }
 
+  async persistBridgeStates(bridgeStates: StablecoinBridgeState[]): Promise<void> {
+    if (bridgeStates.length === 0) return;
+
+    for (const bridgeState of bridgeStates) {
+      await this.persistDailyState(
+        StatePersistence.STATE_TABLES.bridge_states,
+        bridgeState,
+        StatePersistence.BRIDGE_STATE_FIELDS
+      );
+    }
+    console.log(`> Persisted ${bridgeStates.length} bridge states`);
+  }
+
   // ***** UNIFIED PERSISTENCE METHOD *****
 
   async persistAllSystemState(systemState: import('../dto').SystemStateData): Promise<void> {
@@ -352,6 +383,7 @@ export class StatePersistence extends BaseRepository {
         this.persistPositionsState(systemState.positionsState),
         this.persistChallengesState(systemState.challengesState),
         this.persistCollateralState(systemState.collateralState),
+        this.persistBridgeStates(systemState.bridgeStates),
       ]);
       console.log('✓ All system state persisted successfully');
     } catch (error) {

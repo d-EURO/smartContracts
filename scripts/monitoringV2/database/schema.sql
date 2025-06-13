@@ -437,6 +437,23 @@ CREATE INDEX idx_challenge_states_last_updated ON challenge_states(last_updated)
 CREATE INDEX idx_collateral_states_symbol ON collateral_states(symbol);
 CREATE INDEX idx_collateral_states_last_updated ON collateral_states(last_updated);
 
+-- Bridge states - tracks current state of each StablecoinBridge
+CREATE TABLE bridge_states (
+  bridge_type VARCHAR(20) NOT NULL,
+  bridge_address VARCHAR(42) NOT NULL PRIMARY KEY,
+  eur_address VARCHAR(42) NOT NULL,
+  eur_symbol VARCHAR(20) NOT NULL,
+  eur_decimals INTEGER NOT NULL,
+  deuro_address VARCHAR(42) NOT NULL,
+  limit_amount NUMERIC(78,0) NOT NULL,
+  minted_amount NUMERIC(78,0) NOT NULL,
+  horizon NUMERIC(78,0) NOT NULL,
+  last_updated TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_bridge_states_type ON bridge_states(bridge_type);
+CREATE INDEX idx_bridge_states_last_updated ON bridge_states(last_updated);
+
 -- =======================
 -- MONITORING METADATA
 -- =======================
