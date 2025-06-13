@@ -24,8 +24,8 @@ async function main() {
       try {
         const timestamp = new Date().toISOString();
         console.log(`\x1b[33m[${timestamp}] - Fetching system state...\x1b[0m`);
-        
-        const eventsData = await monitoring.getAllEvents();
+
+        const eventsData = await monitoring.getEvents();
         const [
           deuroState,
           equityState,
@@ -54,7 +54,7 @@ async function main() {
         console.log(`> dEURO Supply: ${ethers.formatEther(deuroState.totalSupply)}`);
         console.log(`> Equity Price: ${ethers.formatEther(equityState.price)}`);
         console.log(`> Total Savings: ${ethers.formatEther(savingsState.totalSavings)}`);
-        console.log(`> Active Positions: ${positionsState.filter(p => !p.isClosed).length}`);
+        console.log(`> Active Positions: ${positionsState.filter((p) => !p.isClosed).length}`);
         console.log(`> Active Challenges: ${challengesState.length}`);
         console.log(`> Bridge States: ${bridgeStates.length} bridges`);
         console.log(`> Event Processing: Complete\n`);
@@ -75,28 +75,27 @@ async function main() {
           eventsData,
         };
 
-        // Optional: write to file or send to monitoring system
-        console.log('\x1b[33mMonitoring cycle completed successfully.\x1b[0m');
-        if (process.env.OUTPUT_FILE) {
-          console.log(`\x1b[33mWriting system state to file...\x1b[0m`);
-          const jsonString = JSON.stringify(
-            systemState,
-            (_key, value) => {
-              return typeof value === 'bigint' ? value.toString() : value;
-            },
-            2,
-          );
-          await require('fs').promises.writeFile(process.env.OUTPUT_FILE, jsonString);
-          console.log(`\x1b[32mSystem state written to ${process.env.OUTPUT_FILE}\x1b[0m`);
-        }
+        // TODO: Remove this when monitoring is stable
+        // Write to file or send to monitoring system
+        // console.log('\x1b[33mMonitoring cycle completed successfully.\x1b[0m');
+        // if (process.env.OUTPUT_FILE) {
+        //   console.log(`\x1b[33mWriting system state to file...\x1b[0m`);
+        //   const jsonString = JSON.stringify(
+        //     systemState,
+        //     (_key, value) => {
+        //       return typeof value === 'bigint' ? value.toString() : value;
+        //     },
+        //     2,
+        //   );
+        //   await require('fs').promises.writeFile(process.env.OUTPUT_FILE, jsonString);
+        //   console.log(`\x1b[32mSystem state written to ${process.env.OUTPUT_FILE}\x1b[0m`);
+        // }
       } catch (error) {
         console.error('\x1b[31mError during monitoring cycle:\x1b[0m', error);
       }
     }
 
     await runMonitoringCycle();
-
-    // Run monitoring cycle every INTERVAL_MS milliseconds
     setInterval(runMonitoringCycle, INTERVAL_MS);
   } catch (error) {
     console.error('\x1b[31mFailed to initialize monitoring:\x1b[0m', error);
@@ -104,7 +103,6 @@ async function main() {
   }
 }
 
-// Handle graceful shutdown
 process.on('SIGINT', () => {
   console.log('\x1b[33m\nShutting down monitoring...\x1b[0m');
   process.exit(0);

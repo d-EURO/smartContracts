@@ -67,114 +67,90 @@ import { collateralState } from './contracts/collateral';
 
 export class MonitoringModule {
   private provider: ethers.Provider;
-  private blockchainId: number = 1;
-  private contracts: ContractSet | null = null;
+  private blockchainId: number;
+  private contracts: ContractSet;
 
   constructor(provider: ethers.Provider, blockchainId: number = 1) {
     this.provider = provider;
     this.blockchainId = blockchainId;
+    this.contracts = this.createAllContracts();
   }
 
-  private getContracts(): ContractSet {
-    this.contracts ??= this.createAllContracts();
-    return this.contracts;
-  }
-
-  async getAllEvents(): Promise<SystemEventsData> {
-    const contracts = this.getContracts();
+  async getEvents(): Promise<SystemEventsData> {
     const currentBlock = await this.provider.getBlockNumber();
     const lastProcessedBlock = await db.getLastProcessedBlock();
     const fromBlock = lastProcessedBlock ? lastProcessedBlock + 1 : getDeploymentBlock();
-    
+
     console.log(`\x1b[33mFetching fresh events from block ${fromBlock} to ${currentBlock}\x1b[0m`);
-    const eventsData = await this.fetchEventsInRange(contracts, fromBlock, currentBlock);
-    
+    const eventsData = await this.getEventsInRange(this.contracts, fromBlock, currentBlock);
+
     if (fromBlock <= currentBlock) {
       await this.persistEvents(eventsData);
-      
-      const totalEvents = Object.values(eventsData).reduce((sum, events) => {
-        return sum + (Array.isArray(events) ? events.length : 0);
-      }, 0);
-      await db.recordMonitoringCycle(currentBlock, totalEvents, 0);
+
+      const totalEvents = Object.values(eventsData).reduce((sum, e) => sum + (Array.isArray(e) ? e.length : 0), 0);
+      await db.recordMonitoringCycle(currentBlock, totalEvents, 0); // TODO: compute duration, currently set to 0
       console.log(`\x1b[32mProcessed ${totalEvents} new events\x1b[0m`);
     } else {
       console.log(`\x1b[32mNo new blocks to process\x1b[0m`);
     }
-    
+
     return eventsData;
   }
 
-
   async getDecentralizedEuroState(): Promise<DecentralizedEuroState> {
-    const contracts = this.getContracts();
     console.log(`Fetching DecentralizedEURO state`);
-    const state = await decentralizedEuroState(contracts.deuroContract);
+    const state = await decentralizedEuroState(this.contracts.deuroContract);
     await statePersistence.persistDeuroState(state);
-    
     return state;
   }
 
   async getEquityState(): Promise<EquityState> {
-    const contracts = this.getContracts();
     console.log(`Fetching Equity state`);
-    const state = await equityState(contracts.equityContract);
+    const state = await equityState(this.contracts.equityContract);
     await statePersistence.persistEquityState(state);
-    
     return state;
   }
 
   async getDEPSWrapperState(): Promise<DEPSWrapperState> {
-    const contracts = this.getContracts();
     console.log(`Fetching DEPSWrapper state`);
-    const state = await depsWrapperState(contracts.depsContract);
+    const state = await depsWrapperState(this.contracts.depsContract);
     await statePersistence.persistDepsState(state);
-    
     return state;
   }
 
   async getSavingsGatewayState(): Promise<SavingsGatewayState> {
-    const contracts = this.getContracts();
     console.log(`Fetching SavingsGateway state`);
-    const state = await savingsGatewayState(contracts.savingsContract, contracts.deuroContract);
+    const state = await savingsGatewayState(this.contracts.savingsContract, this.contracts.deuroContract);
     await statePersistence.persistSavingsState(state);
-    
     return state;
   }
 
   async getFrontendGatewayState(): Promise<FrontendGatewayState> {
-    const contracts = this.getContracts();
     console.log(`Fetching FrontendGateway state`);
-    const state = await frontendGatewayState(contracts.frontendGatewayContract);
+    const state = await frontendGatewayState(this.contracts.frontendGatewayContract);
     await statePersistence.persistFrontendState(state);
-    
     return state;
   }
 
   async getMintingHubState(): Promise<MintingHubState> {
-    const contracts = this.getContracts();
     console.log(`Fetching MintingHub positions state`);
-    const state = await mintingHubState(contracts.mintingHubContract);
+    const state = await mintingHubState(this.contracts.mintingHubContract);
     await statePersistence.persistMintingHubState(state);
-    
     return state;
   }
 
   async getPositionsState(positionEvents: MintingHubPositionOpenedEvent[]): Promise<PositionState[]> {
-    const contracts = this.getContracts();
     console.log(`Fetching positions state`);
     const activePositions: string[] = await db.getActivePositionAddresses();
-    const state = await positionsState(contracts.mintingHubContract, activePositions, positionEvents);
+    const state = await positionsState(this.contracts.mintingHubContract, activePositions, positionEvents);
     await statePersistence.persistPositionsState(state);
-    
     return state;
   }
 
   async getChallengesState(): Promise<ChallengeState[]> {
-    const contracts = this.getContracts();
     console.log(`Fetching challenges state`);
-    const state = await challengesState(contracts.mintingHubContract);
+    const state = await challengesState(this.contracts.mintingHubContract);
     await statePersistence.persistChallengesState(state);
-
     return state;
   }
 
@@ -182,11 +158,10 @@ export class MonitoringModule {
     console.log(`Fetching collateral state`);
     const state = await collateralState(positionEvents, this.provider);
     await statePersistence.persistCollateralState(state);
-
     return state;
   }
 
-  // TODO: Would it be possible to identify Bridges by their ABI and simply filter them from the 
+  // TODO: Would it be possible to identify Bridges by their ABI and simply filter them from the
   // set of active minters? This way we don't have to make any changes when a new bridge is deployed.
   async getBridgeState(bridgeType: Bridge): Promise<StablecoinBridgeState> {
     const bridgeAddress = ADDRESS[this.blockchainId][bridgeType as keyof (typeof ADDRESS)[1]];
@@ -224,7 +199,7 @@ export class MonitoringModule {
     };
   }
 
-  private async fetchEventsInRange(
+  private async getEventsInRange(
     contracts: ContractSet,
     fromBlock: number,
     toBlock: number,
@@ -256,7 +231,12 @@ export class MonitoringModule {
         toBlock,
       ),
       fetchEvents<DeuroLossEvent>(contracts.deuroContract, contracts.deuroContract.filters.Loss(), fromBlock, toBlock),
-      fetchEvents<DeuroProfitEvent>(contracts.deuroContract, contracts.deuroContract.filters.Profit(), fromBlock, toBlock),
+      fetchEvents<DeuroProfitEvent>(
+        contracts.deuroContract,
+        contracts.deuroContract.filters.Profit(),
+        fromBlock,
+        toBlock,
+      ),
       fetchEvents<DeuroMinterAppliedEvent>(
         contracts.deuroContract,
         contracts.deuroContract.filters.MinterApplied(),
@@ -275,15 +255,30 @@ export class MonitoringModule {
         fromBlock,
         toBlock,
       ),
-      fetchEvents<EquityTradeEvent>(contracts.equityContract, contracts.equityContract.filters.Trade(), fromBlock, toBlock),
+      fetchEvents<EquityTradeEvent>(
+        contracts.equityContract,
+        contracts.equityContract.filters.Trade(),
+        fromBlock,
+        toBlock,
+      ),
       fetchEvents<EquityDelegationEvent>(
         contracts.equityContract,
         contracts.equityContract.filters.Delegation(),
         fromBlock,
         toBlock,
       ),
-      fetchEvents<DepsTransferEvent>(contracts.depsContract, contracts.depsContract.filters.Transfer(), fromBlock, toBlock),
-      fetchEvents<SavingsSavedEvent>(contracts.savingsContract, contracts.savingsContract.filters.Saved(), fromBlock, toBlock),
+      fetchEvents<DepsTransferEvent>(
+        contracts.depsContract,
+        contracts.depsContract.filters.Transfer(),
+        fromBlock,
+        toBlock,
+      ),
+      fetchEvents<SavingsSavedEvent>(
+        contracts.savingsContract,
+        contracts.savingsContract.filters.Saved(),
+        fromBlock,
+        toBlock,
+      ),
       fetchEvents<SavingsInterestCollectedEvent>(
         contracts.savingsContract,
         contracts.savingsContract.filters.InterestCollected(),
@@ -314,38 +309,28 @@ export class MonitoringModule {
         fromBlock,
         toBlock,
       ),
-      fetchEvents<RollerRollEvent>(contracts.rollerContract, contracts.rollerContract.filters.Roll(), fromBlock, toBlock),
+      fetchEvents<RollerRollEvent>(
+        contracts.rollerContract,
+        contracts.rollerContract.filters.Roll(),
+        fromBlock,
+        toBlock,
+      ),
     ]);
 
-    // TODO: This won't work as intended. We instead need to fetch all active (not closed) positions from the database,
-    // filter those that have not passed their start time yet and then fetch PositionDenied events for those.
-    console.log(`\x1b[33mFetching PositionDenied events from ${mintingHubPositionOpenedEvents.length} position contracts\x1b[0m`);
-    const openedPositions = Array.from(
-      new Set(mintingHubPositionOpenedEvents.map(event => event.position))
-    ).filter(address => address && address !== ethers.ZeroAddress);
-
-    const positionDeniedEventsPromises = openedPositions.map(async (positionAddress) => {
-      try {
-        const positionContract = new ethers.Contract(positionAddress, PositionV2ABI, this.provider);
-        const events = await fetchEvents<PositionDeniedEvent>(
+    // TODO: Review this and add additional filters to getActivePositionAddresses: isOriginal, isActive, etc.
+    console.log(`\x1b[33mFetching PositionDenied from position contracts\x1b[0m`);
+    const activePositionAddresses: string[] = await db.getActivePositionAddresses();
+    const positionDeniedEvents: PositionDeniedEvent[] = await Promise.all(
+      activePositionAddresses.map(async (p) => {
+        const positionContract = new ethers.Contract(p, PositionV2ABI, this.provider);
+        return fetchEvents<PositionDeniedEvent>(
           positionContract,
           positionContract.filters.PositionDenied(),
           fromBlock,
-          toBlock
+          toBlock,
         );
-        // Add the position address to each event for context
-        return events.map(event => ({
-          ...event,
-          position: positionAddress,
-        }));
-      } catch (error) {
-        console.warn(`\x1b[33mFailed to fetch PositionDenied events from position ${positionAddress}:`, error instanceof Error ? error.message : String(error), '\x1b[0m');
-        return [];
-      }
-    });
-
-    const positionDeniedEventsArrays = await Promise.all(positionDeniedEventsPromises);
-    const positionDeniedEvents: PositionDeniedEvent[] = positionDeniedEventsArrays.flat();
+      }),
+    ).then((events) => events.flat());
 
     const depsWrapEvents: DepsWrapEvent[] = depsTransferEvents
       .filter((event) => event.from === ethers.ZeroAddress)
@@ -389,7 +374,6 @@ export class MonitoringModule {
       blockRange: { from: fromBlock, to: toBlock },
     };
   }
-
 
   private async persistEvents(eventsData: SystemEventsData): Promise<void> {
     console.log('\x1b[32mPersisting events to database...\x1b[0m');
