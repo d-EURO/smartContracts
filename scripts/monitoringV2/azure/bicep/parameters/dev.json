@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "West Europe"
+    },
+    "env": {
+      "value": "dev"
+    },
+    "namePrefix": {
+      "value": "deuro-monitoring"
+    },
+    "postgresAdminLogin": {
+      "value": "monitoring"
+    },
+    "postgresSkuName": {
+      "value": "Standard_B1ms"
+    },
+    "postgresSkuTier": {
+      "value": "Burstable"
+    },
+    "postgresStorageSizeGB": {
+      "value": 32
+    },
+    "containerAppCpu": {
+      "value": "1.0"
+    },
+    "containerAppMemory": {
+      "value": "2.0Gi"
+    },
+    "containerAppMinReplicas": {
+      "value": 1
+    },
+    "containerAppMaxReplicas": {
+      "value": 2
+    },
+    "logRetentionDays": {
+      "value": 30
+    },
+    "deploymentBlock": {
+      "value": "22300000"
+    },
+    "blockchainId": {
+      "value": "1"
+    },
+    "monitoringInterval": {
+      "value": "300000"
+    }
+  }
+}
