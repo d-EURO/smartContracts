@@ -2,12 +2,13 @@
 import { config } from 'dotenv';
 import { ethers } from 'ethers';
 import { MonitoringModule } from './monitoring';
-import { getDeploymentBlock } from './utils';
+import { getDeploymentBlock, validateConfiguration } from './utils';
 import { db } from './database/client';
 
 config({ path: '.env.monitoring' });
 
 async function main() {
+  validateConfiguration();
   const RPC_URL = process.env.RPC_URL;
   const BLOCKCHAIN_ID = parseInt(process.env.BLOCKCHAIN_ID || '1');
   const INTERVAL_MS = parseInt(process.env.MONITOR_INTERVAL_MS || '300000'); // 5 minutes default

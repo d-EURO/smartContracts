@@ -1,12 +1,66 @@
+# Dependencies
 node_modules
-npm-debug.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist
+*.tsbuildinfo
+
+# Environment files
+.env*
+!.env.monitoring.example
+
+# IDE and editor files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Git
 .git
 .gitignore
+
+# Documentation
 README.md
-.env
+*.md
+!database/schema.sql
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Azure deployment files
+azure/
+
+# Test files
+test/
+tests/
+__tests__/
+*.test.ts
+*.spec.ts
+
+# Coverage reports
 .nyc_output
-coverage
+coverage/
 .cache
-dist
-.DS_Store
-*.log
+
+# Temporary files
+tmp/
+temp/

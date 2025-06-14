@@ -9,13 +9,18 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
-COPY yarn.lock ./
 
-# Install dependencies
-RUN yarn install --frozen-lockfile --production
+# Install all dependencies
+RUN npm ci
 
-# Copy application code
+# Copy source code
 COPY . .
+
+# Build
+RUN npm run build
+
+# Remove dev dependencies to reduce image size
+RUN npm prune --production
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
@@ -36,5 +41,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD node -e "console.log('Health check passed')" || exit 1
 
-# Run the monitoring script
-CMD ["node", "main.js"]
+# Run the compiled monitoring script
+CMD ["node", "dist/main.js"]

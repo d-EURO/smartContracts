@@ -216,7 +216,7 @@ export class EventPersistence extends BaseRepository {
     { column: 'from_address', extractor: 'from' },
     { column: 'to_address', extractor: 'to' },
     { column: 'value', extractor: 'value', transformer: Transformers.bigIntToString },
-    { column: 'user', extractor: 'user' },
+    { column: 'user_address', extractor: 'user' },
     { column: 'amount', extractor: 'amount', transformer: Transformers.bigIntToString },
   ];
 

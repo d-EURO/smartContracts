@@ -272,7 +272,6 @@ CREATE TABLE equity_state_daily (
   decimals INTEGER NOT NULL,
   total_supply DECIMAL(78,0) NOT NULL,
   price DECIMAL(78,0) NOT NULL,
-  market_cap DECIMAL(78,0) NOT NULL,
   total_votes DECIMAL(78,0) NOT NULL,
   deuro_address VARCHAR(42) NOT NULL,
   valuation_factor INTEGER NOT NULL,
