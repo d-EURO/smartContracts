@@ -1,4 +1,5 @@
 import { ethers } from 'hardhat';
+import { parseUnits, formatUnits } from 'ethers';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -26,7 +27,7 @@ async function deployBridge() {
     const config = bridgeConfigs[bridgeKey];
     console.log(`Deploying ${config.name}...`);
     try {
-      const sourceToken = await ethers.getContractAt('ERC20', config.sourceToken, deployer);
+      const sourceToken = await ethers.getContractAt('ERC20', config.sourceToken);
       const sourceTokenName = await sourceToken.name();
       const sourceTokenSymbol = await sourceToken.symbol();
       const sourceTokenDecimals = await sourceToken.decimals();
@@ -37,17 +38,17 @@ async function deployBridge() {
     }
 
     const dEuroAddress = getContractAddress('decentralizedEURO');
-    const dEURO = await ethers.getContractAt('DecentralizedEURO', dEuroAddress, deployer);
+    const dEURO = await ethers.getContractAt('DecentralizedEURO', dEuroAddress);
     const dEuroDecimals = await dEURO.decimals();
-    const mintLimit = ethers.parseUnits(config.limitAmount, dEuroDecimals);
-    const StablecoinBridgeFactory = await ethers.getContractFactory('StablecoinBridge', deployer);
+    const mintLimit = parseUnits(config.limitAmount, Number(dEuroDecimals));
+    const StablecoinBridgeFactory = await ethers.getContractFactory('StablecoinBridge');
     console.log(`Deploying bridge for ${config.name}...`);
     console.log(`Source token: ${config.sourceToken}`);
     console.log(`dEURO address: ${dEuroAddress}`);
-    console.log(`Limit amount: ${ethers.formatUnits(mintLimit, dEuroDecimals)} (${mintLimit.toString()})`);
+    console.log(`Limit amount: ${formatUnits(mintLimit, Number(dEuroDecimals))} (${mintLimit.toString()})`);
     console.log(`Duration weeks: ${config.durationWeeks}`);
 
-    const bridge = await StablecoinBridgeFactory.deploy(
+    const bridge = await StablecoinBridgeFactory.connect(deployer).deploy(
       config.sourceToken,
       dEuroAddress,
       mintLimit,
@@ -65,11 +66,11 @@ async function deployBridge() {
     const minFee = await dEURO.MIN_FEE();
     const minApplicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
     const deployerBalance = await dEURO.balanceOf(deployer.address);
-    console.log(`Required minimum fee: ${ethers.formatUnits(minFee, dEuroDecimals)} dEURO`);
+    console.log(`Required minimum fee: ${formatUnits(minFee, Number(dEuroDecimals))} dEURO`);
     console.log(`Application period: ${Math.floor(Number(minApplicationPeriod) / 86400)} days`);
     if (deployerBalance < minFee) throw new Error('Insufficient dEURO balance for suggestMinter fee');
 
-    console.log(`Approving dEURO to spend ${ethers.formatUnits(minFee, dEuroDecimals)} dEURO from deployer...`);
+    console.log(`Approving dEURO to spend ${formatUnits(minFee, Number(dEuroDecimals))} dEURO from deployer...`);
     const approveTx = await dEURO.approve(dEuroAddress, minFee);
     await approveTx.wait();
     console.log(`Approval transaction completed: ${approveTx.hash}`);

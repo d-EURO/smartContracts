@@ -35,4 +35,11 @@ export const bridgeConfigs: Record<string, StablecoinBridgeConfig> = {
     durationWeeks: 26,
     description: "EURI Bridge"
   },
+  EURA: {
+    name: "StablecoinBridgeEURA",
+    sourceToken: "0x1a7e4e63778B4f12a199C062f3eFdD288afCBce8",
+    limitAmount: "100000", // 100'000 limit
+    durationWeeks: 26, // 6 months
+    description: "EURA Bridge"
+  }
 };
