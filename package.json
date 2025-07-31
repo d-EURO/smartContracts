@@ -61,7 +61,7 @@
     "dotenv": "^16.3.1",
     "ethers": "^6.15.0",
     "hardhat": "^2.17.3",
-    "hardhat-deploy": "^0.11.37",
+    "hardhat-deploy": "^1.0.4",
     "hardhat-gas-reporter": "^1.0.9",
     "mocha": "^10.7.0",
     "solidity-coverage": "^0.8.4",
