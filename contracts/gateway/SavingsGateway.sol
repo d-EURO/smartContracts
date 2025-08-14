@@ -17,7 +17,7 @@ contract SavingsGateway is Savings, Context {
         Account storage account = savings[accountOwner];
         uint64 ticks = currentTicks();
         if (ticks > account.ticks) {
-            uint192 earnedInterest = calculateInterest(account, ticks);
+            uint192 earnedInterest = calculateInterest(accountOwner, account, ticks);
             if (earnedInterest > 0) {
                 // collect interest as you go and trigger accounting event
                 (IDecentralizedEURO(address(deuro))).distributeProfits(address(this), earnedInterest);
@@ -39,6 +39,15 @@ contract SavingsGateway is Savings, Context {
         save(owner, amount);
     }
 
+    function saveAndCompound(uint192 amount, bytes32 frontendCode) public {
+        saveAndCompound(_msgSender(), amount, frontendCode);
+    }
+
+    function saveAndCompound(address owner, uint192 amount, bytes32 frontendCode) public {
+        GATEWAY.updateSavingCode(_msgSender(), frontendCode);
+        saveAndCompound(owner, amount);
+    }
+
     function adjust(uint192 targetAmount, bytes32 frontendCode) public {
         GATEWAY.updateSavingCode(_msgSender(), frontendCode);
         adjust(targetAmount);
@@ -48,4 +57,5 @@ contract SavingsGateway is Savings, Context {
         GATEWAY.updateSavingCode(_msgSender(), frontendCode);
         return withdraw(target, amount);
     }
+
 }
