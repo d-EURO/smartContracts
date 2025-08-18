@@ -30,10 +30,7 @@
     "deployPositions:network": "export deploymode=pos && npx hardhat deploy --network",
     "positions": "npx hardhat monitor-positions --network mainnet --sort created",
     "contracts": "npx hardhat get-contracts",
-    "monitor": "npx hardhat monitor-all --network mainnet",
-    "monitor:v2": "npx ts-node scripts/monitoringV2/main.ts",
-    "monitor:v2:docker": "docker-compose -f docker-compose.monitoring.yml up --build",
-    "monitor:v2:docker:down": "docker-compose -f docker-compose.monitoring.yml down"
+    "monitor": "npx hardhat monitor-all --network mainnet"
   },
   "repository": {
     "type": "git",
