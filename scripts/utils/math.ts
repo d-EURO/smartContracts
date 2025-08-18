@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { parseUnits } from "ethers";
 import type { Numeric } from "ethers/src.ts/utils";
 export const DECIMALS = BigInt(10 ** 18);
 
@@ -7,7 +7,7 @@ export function floatToDec18(x: any) {
 }
 
 export function floatToDec(x: any, unit: string | Numeric) {
-  return ethers.parseUnits(x.toString(), unit);
+  return parseUnits(x.toString(), unit);
 }
 
 export function dec18ToFloat(x: bigint): bigint {

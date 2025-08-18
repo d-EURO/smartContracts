@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { DECIMALS, floatToDec18 } from "../../scripts/math";
+import { DECIMALS, floatToDec18 } from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import {
   Equity,
@@ -13,7 +13,7 @@ import {
 } from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { evm_increaseTime } from "../utils";
-import { ContractTransactionReceipt, EventLog } from "ethers";
+import { ContractTransactionReceipt } from "ethers";
 
 describe("Roller Tests", () => {
   let owner: HardhatEthersSigner;
@@ -176,7 +176,7 @@ describe("Roller Tests", () => {
         )
       ).wait();
       const pos1Addr = await getPositionAddress(txPos1!);
-      pos1 = await ethers.getContractAt("Position", pos1Addr, owner);
+      pos1 = await ethers.getContractAt("Position", pos1Addr);
 
       // ---------------------------------------------------------------------------
       // give OWNER a 2nd position
@@ -196,7 +196,7 @@ describe("Roller Tests", () => {
         )
       ).wait();
       const pos2Addr = await getPositionAddress(txPos2!);
-      pos2 = await ethers.getContractAt("Position", pos2Addr, owner);
+      pos2 = await ethers.getContractAt("Position", pos2Addr);
     });
 
     it("fully open", async () => {
@@ -339,7 +339,7 @@ describe("Roller Tests", () => {
       );
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
-      clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
+      clone1 = await ethers.getContractAt("Position", cloneAddr);
 
       expect((await clone1.original()).toLowerCase()).to.be.equal(
         (await pos2.getAddress()).toLowerCase(),
@@ -372,7 +372,7 @@ describe("Roller Tests", () => {
         )
       ).wait();
       const pos1Addr = await getPositionAddress(txPos1!);
-      pos1 = await ethers.getContractAt("Position", pos1Addr, owner);
+      pos1 = await ethers.getContractAt("Position", pos1Addr);
 
       // ---------------------------------------------------------------------------
       // give ALICE 2nd position
@@ -395,7 +395,8 @@ describe("Roller Tests", () => {
         )
       ).wait();
       const pos2Addr = await getPositionAddress(txPos2!);
-      pos2 = await ethers.getContractAt("Position", pos2Addr, alice);
+      pos2 = await ethers.getContractAt("Position", pos2Addr);
+      pos2 = pos2.connect(alice);
     });
 
     it("fully open, correct owner", async () => {
@@ -440,7 +441,7 @@ describe("Roller Tests", () => {
         await pos2.getAddress(),
       );
       const cloneAddr = await getPositionAddress((await tx.wait())!);
-      clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
+      clone1 = await ethers.getContractAt("Position", cloneAddr);
       const newPositionBalance = await coin.balanceOf(
         await clone1.getAddress(),
       );
@@ -505,7 +506,7 @@ describe("Roller Tests", () => {
 
       // new position
       const cloneAddr = await getPositionAddress(receipt!);
-      clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
+      clone1 = await ethers.getContractAt("Position", cloneAddr);
 
       const p2 = await clone1.principal();
       const b2 = await deuro.balanceOf(owner.address);
@@ -583,7 +584,7 @@ describe("Roller Tests", () => {
       const [eSource, eCollWithdraw, eRepay, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
-      clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
+      clone1 = await ethers.getContractAt("Position", cloneAddr);
       const p2 = await clone1.principal();
       const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
@@ -647,7 +648,7 @@ describe("Roller Tests", () => {
       const [eSource, eCollWithdraw, eRepay, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
-      clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
+      clone1 = await ethers.getContractAt("Position", cloneAddr);
       const p2 = await clone1.principal();
       const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
@@ -749,7 +750,7 @@ describe("Roller Tests", () => {
       const [eSource, eCollWithdraw, eRepay, eTarget, eCollDeposit, eMint] = rollEvent?.args ?? [];
 
       const cloneAddr = await getPositionAddress((await tx.wait())!);
-      clone1 = await ethers.getContractAt("Position", cloneAddr, owner);
+      clone1 = await ethers.getContractAt("Position", cloneAddr);
       const p2 = await clone1.getDebt();
       const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
@@ -806,7 +807,7 @@ describe("Roller Tests", () => {
         )
       ).wait();
       const pos1Addr = await getPositionAddress(txPos1!);
-      pos1 = await ethers.getContractAt("Position", pos1Addr, owner);
+      pos1 = await ethers.getContractAt("Position", pos1Addr);
       pos1FixedAnnualRate = await pos1.fixedAnnualRatePPM();
       expect(pos1FixedAnnualRate).to.be.equal(prevRate + riskPremium);
 
@@ -829,7 +830,7 @@ describe("Roller Tests", () => {
         )
       ).wait();
       const pos2Addr = await getPositionAddress(txPos2!);
-      pos2 = await ethers.getContractAt("Position", pos2Addr, owner);
+      pos2 = await ethers.getContractAt("Position", pos2Addr);
       pos2FixedAnnualRate = await pos2.fixedAnnualRatePPM();
       expect(pos2FixedAnnualRate).to.be.equal(prevRate + riskPremium);
       expect(pos1FixedAnnualRate).to.be.equal(pos2FixedAnnualRate);
@@ -852,7 +853,7 @@ describe("Roller Tests", () => {
       await deuro.approve(roller.getAddress(), floatToDec18(20_000));
       const rollerTx = await roller.rollFully(pos1.getAddress(), pos2.getAddress());
       const rolledPosAddr = await getPositionAddress((await rollerTx.wait())!);
-      const rolledPosition = await ethers.getContractAt("Position", rolledPosAddr, owner);
+      const rolledPosition = await ethers.getContractAt("Position", rolledPosAddr);
 
       const rolledFixedAnnualRate = await rolledPosition.fixedAnnualRatePPM();
       expect(await pos1.isClosed()).to.be.true;

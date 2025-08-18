@@ -1,61 +1,130 @@
-import "@nomicfoundation/hardhat-ethers";
-import "@nomicfoundation/hardhat-verify";
-import "@nomicfoundation/hardhat-toolbox";
-import "@nomicfoundation/hardhat-network-helpers";
-import "@nomicfoundation/hardhat-ignition-ethers";
-import "hardhat-deploy";
-import "hardhat-abi-exporter";
-import "hardhat-contract-sizer";
-import { HardhatUserConfig } from "hardhat/config";
-import { getChildFromSeed } from "./helper/wallet";
+import '@nomicfoundation/hardhat-ethers';
+import '@nomicfoundation/hardhat-verify';
+import '@nomicfoundation/hardhat-toolbox';
+import '@nomicfoundation/hardhat-network-helpers';
+import '@nomicfoundation/hardhat-ignition-ethers';
+import 'hardhat-deploy';
+import 'hardhat-abi-exporter';
+import 'hardhat-contract-sizer';
+import { HardhatUserConfig } from 'hardhat/config';
+import { getChildFromSeed } from './helper/wallet';
 
-import dotenv from "dotenv";
+// Import tasks
+import './tasks/getContracts';
+
+// Lazy load monitoring tasks to avoid circular dependency with typechain
+// These tasks will only import their dependencies when actually executed
+import { task } from 'hardhat/config';
+
+// Define monitoring tasks with lazy loading
+task('monitor-positions', 'Monitor positions in the dEuro Protocol')
+  .addOptionalParam('sort', 'Column to sort by')
+  .setAction(async (args, hre) => {
+    const { monitorPositionsAction } = await import('./tasks/monitorPositions');
+    return monitorPositionsAction(args, hre);
+  });
+
+task('monitor-bridges', 'Monitor bridges in the dEuro Protocol')
+  .setAction(async (args, hre) => {
+    const { monitorBridgesAction } = await import('./tasks/monitorBridges');
+    return monitorBridgesAction(args, hre);
+  });
+
+task('monitor-deuro', 'Monitor the dEuro token')
+  .addFlag('includeEventTxs', 'Include detailed transaction events')
+  .setAction(async (args, hre) => {
+    const { monitorDecentralizedEuroAction } = await import('./tasks/monitorDecentralizedEuro');
+    return monitorDecentralizedEuroAction(args, hre);
+  });
+
+task('monitor-equity', 'Monitor the Equity contract')
+  .addFlag('includeEventTxs', 'Include detailed transaction events')
+  .setAction(async (args, hre) => {
+    const { monitorEquityAction } = await import('./tasks/monitorEquity');
+    return monitorEquityAction(args, hre);
+  });
+
+task('monitor-deps', 'Monitor the DEPS Wrapper')
+  .addFlag('includeEventTxs', 'Include detailed transaction events')
+  .setAction(async (args, hre) => {
+    const { monitorDEPSWrapperAction } = await import('./tasks/monitorDEPSWrapper');
+    return monitorDEPSWrapperAction(args, hre);
+  });
+
+task('monitor-savings', 'Monitor the Savings Gateway')
+  .addFlag('includeEventTxs', 'Include detailed transaction events')
+  .setAction(async (args, hre) => {
+    const { monitorSavingsGatewayAction } = await import('./tasks/monitorSavingsGateway');
+    return monitorSavingsGatewayAction(args, hre);
+  });
+
+task('monitor-all', 'Monitor all dEuro Protocol contracts')
+  .setAction(async (args, hre) => {
+    const { monitorAllAction } = await import('./tasks/monitorAll');
+    return monitorAllAction(args, hre);
+  });
+
+import dotenv from 'dotenv';
 dotenv.config();
 
 const seed = process.env.DEPLOYER_ACCOUNT_SEED;
-if (!seed) throw new Error("Failed to import the seed string from .env");
+if (!seed) throw new Error('Failed to import the seed string from .env');
 const w0 = getChildFromSeed(seed, 0); // deployer
-const deployerPk = process.env.PK ?? w0.privateKey;
-
-const alchemy = process.env.ALCHEMY_RPC_KEY;
-if (alchemy?.length == 0 || !alchemy)
-  console.log("WARN: No Alchemy Key found in .env");
+const deployerPk = process.env.DEPLOYER_PRIVATE_KEY ?? w0.privateKey;
+const alchemyApiKey = process.env.ALCHEMY_API_KEY;
+if (alchemyApiKey?.length == 0 || !alchemyApiKey) console.log('WARN: No Alchemy Key found in .env');
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.26",
+    version: '0.8.26',
     settings: {
       optimizer: {
         enabled: true,
         runs: 200,
       },
       outputSelection: {
-        "*": {
-          "*": ["storageLayout"],
+        '*': {
+          '*': ['storageLayout'],
         },
       },
     },
   },
   networks: {
-    hardhat: process.env.USE_FORK === "true" ? {
-      forking: {
-        url: `https://eth-mainnet.g.alchemy.com/v2/${alchemy}`,
-      },
-      chainId: 1
-    } : {},
+    hardhat:
+      process.env.USE_FORK === 'true'
+        ? {
+            forking: {
+              url: `https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
+            },
+            chainId: 1,
+            accounts: [{ privateKey: deployerPk, balance: '10000000000000000000000' }],
+          }
+        : {},
     mainnet: {
-      url: `https://eth-mainnet.g.alchemy.com/v2/${alchemy}`,
+      url: `https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
       chainId: 1,
-      gas: "auto",
-      gasPrice: "auto",
+      gas: 'auto',
+      gasPrice: 'auto',
       accounts: [deployerPk],
       timeout: 50_000,
     },
     polygon: {
-      url: `https://polygon-mainnet.g.alchemy.com/v2/${alchemy}`,
+      url: `https://polygon-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
       chainId: 137,
-      gas: "auto",
-      gasPrice: "auto",
+      gas: 'auto',
+      gasPrice: 'auto',
+      accounts: [deployerPk],
+      timeout: 50_000,
+    },
+    optimism: {
+      url: `https://opt-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
+      chainId: 10,
+      accounts: [deployerPk],
+      timeout: 50_000,
+    },
+    base: {
+      url: `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
+      chainId: 8453,
       accounts: [deployerPk],
       timeout: 50_000,
     },
@@ -66,18 +135,23 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: {
+      mainnet: process.env.ETHERSCAN_API_KEY || '',
+      polygon: process.env.POLYGONSCAN_API_KEY || '',
+      optimisticEthereum: process.env.OPTIMISM_API_KEY || '',
+      base: process.env.BASESCAN_API_KEY || '',
+    },
   },
   sourcify: {
     enabled: true,
   },
   paths: {
-    sources: "./contracts",
-    tests: "./test",
-    cache: "./cache",
-    artifacts: "./artifacts",
-    deploy: "./scripts/deployment/deploy",
-    deployments: "./scripts/deployment/deployments",
+    sources: './contracts',
+    tests: './test',
+    cache: './cache',
+    artifacts: './artifacts',
+    deploy: './scripts/deployment/deploy',
+    deployments: './scripts/deployment/deployments',
   },
   contractSizer: {
     alphaSort: false,
@@ -86,11 +160,11 @@ const config: HardhatUserConfig = {
   },
   gasReporter: {
     enabled: true,
-    currency: "USD",
+    currency: 'USD',
   },
   abiExporter: [
     {
-      path: "./abi",
+      path: './abi',
       clear: true,
       runOnCompile: true,
       flat: false,
@@ -98,7 +172,7 @@ const config: HardhatUserConfig = {
       pretty: false,
     },
     {
-      path: "./abi/signature",
+      path: './abi/signature',
       clear: true,
       runOnCompile: true,
       flat: false,
@@ -110,8 +184,8 @@ const config: HardhatUserConfig = {
     timeout: 120000,
   },
   typechain: {
-    outDir: "typechain",
-    target: "ethers-v6",
+    outDir: 'typechain',
+    target: 'ethers-v6',
   },
 };
 

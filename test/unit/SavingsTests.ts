@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { floatToDec18 } from "../../scripts/math";
+import { floatToDec18 } from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import {
   Equity,
@@ -397,7 +397,8 @@ describe("Savings Tests", () => {
         await evm_increaseTime(3 * 365 * 86400); // 3 years accrual time
 
         const savedStruct = await savings.savings(owner.address);
-        const futureTicks = await savings.ticks((await getTimeStamp()) + 1);
+        const timestamp = await getTimeStamp();
+        const futureTicks = await savings.ticks((timestamp ?? 0) + 1);
         const interestWithoutCap = ((futureTicks - savedStruct.ticks) * savedStruct.saved) / 1000000n / (365n * 86400n);
         const interest = await savings.calculateInterest(
           { saved: savedStruct.saved, ticks: savedStruct.ticks },

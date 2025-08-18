@@ -1,0 +1,14 @@
+{
+  "network": "base",
+  "chainId": 8453,
+  "bridgedToken": {
+    "address": "0x1B5F7fA46ED0F487F049C42f374cA4827d65A264",
+    "remoteToken": "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+    "bridge": "0x4200000000000000000000000000000000000010",
+    "name": "Decentralized EURO",
+    "symbol": "dEURO"
+  },
+  "deployer": "0x01AE4C18c2677f97BaB536C48d6C36858f5c86D7",
+  "timestamp": 1744138461,
+  "txHash": "0x2e3f0efab1868914609c8026d7a728dc4e57c23f7979ea5cab79fafeda3213de"
+}

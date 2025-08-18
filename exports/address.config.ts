@@ -12,32 +12,52 @@ export interface ChainAddress {
   bridgeEURS: Address;
   bridgeVEUR: Address;
   bridgeEURC: Address;
+  bridgeEURR: Address;
+  bridgeEUROP: Address;
+  bridgeEURI: Address;
+  bridgeEURE: Address;
+  bridgeEURA: Address;
   eurt: Address;
   eurs: Address;
   veur: Address;
   eurc: Address;
+  eurr: Address;
+  europ: Address;
+  euri: Address;
+  eure: Address;
+  eura: Address;
   roller: Address;
   positionFactoryV2: Address;
 }
 
 export const ADDRESS: Record<number, ChainAddress> = {
   [mainnet.id]: {
-    // natice contract addresses
-    decentralizedEURO: "0xe56E05a3E1375a147C122E5883667e57159485e6",
-    equity: "0xE80bC6275aEF1FC9664E5CFCFA2e2d92f342ec93",
-    frontendGateway: "0x4693ed9c9ACfeF5df8E7D9c8F97d5eEBf406e7C7",
-    savingsGateway: "0x9ae5ca00c7f1af085225720c905f15c020a753a3",
-    mintingHubGateway: "0x404aa0a74352dbe270e0497af39ecb890ec7716c",
-    DEPSwrapper: "0x19e75FE85FFbB5785C879e91E82156703D1a4207",
-    bridgeEURT: "0x1cb856645c82c874f391855a421dd58c8339e054",
-    bridgeEURS: "0x6bcdb5e4fdad13d0d7a31a0a2f2b1ae812e83eb6",
-    bridgeVEUR: "0x1ab98d5eb0722757549584066ea7bd512f6df819",
-    bridgeEURC: "0xc0ebb8ce7b9fb1bf4d6c3e705c7b081f8d871140",
+    // native contract addresses
+    decentralizedEURO: "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+    equity: "0xc71104001A3CCDA1BEf1177d765831Bd1bfE8eE6",
+    frontendGateway: "0x5c49C00f897bD970d964BFB8c3065ae65a180994",
+    savingsGateway: "0x073493d73258C4BEb6542e8dd3e1b2891C972303",
+    mintingHubGateway: "0x8B3c41c649B9c7085C171CbB82337889b3604618",
+    DEPSwrapper: "0x103747924E74708139a9400e4Ab4BEA79FFFA380",
+    bridgeEURT: "0x2353D16869F717BFCD22DaBc0ADbf4Dca62C609f",
+    bridgeEURS: "0x0423F419De1c44151B6b000e2dAA51859C1D5d2A",
+    bridgeVEUR: "0x3Ed40fA0E5C803e807eBD51355E388006f9E1fEE",
+    bridgeEURC: "0xD03cD3ea55e67bC61b78a0d70eE93018e2182Dbe",
+    bridgeEURR: "0x20B0a153fF16c7B1e962FD3D3352A00cf019f1a7",
+    bridgeEUROP: "0x3EF3d03EFCc1338d6210946f8cF5Fb1a8b630341",
+    bridgeEURI: "0xb66A40934a996373fA7602de9820C6bf3e8c9afE",
+    bridgeEURE: "0xdC6450e91f49048FBFF5F424046985fa03BE0130",
+    bridgeEURA: "0x05620F4bB92246b4e067EBC0B6f5c7FF6B771702",
     eurt: "0xC581b735A1688071A1746c968e0798D642EDE491",
     eurs: "0xdb25f211ab05b1c97d595516f45794528a807ad8",
     veur: "0x6ba75d640bebfe5da1197bb5a2aff3327789b5d3",
     eurc: "0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c",
-    roller: "0x5ddfb59ac12cabe7e443220222e6cdd4187651ca",
-    positionFactoryV2: "0x5f57ae8222c1b8a56c808af91a6d1171f1e0859a",
+    eurr: "0x50753CfAf86c094925Bf976f218D043f8791e408",
+    europ: "0x888883b5F5D21fb10Dfeb70e8f9722B9FB0E5E51",
+    euri: "0x9d1A7A3191102e9F900Faa10540837ba84dCBAE7",
+    eure: "0x3231Cb76718CDeF2155FC47b5286d82e6eDA273f",
+    eura: "0x1a7e4e63778b4f12a199c062f3efdd288afcbce8",
+    roller: "0x4CE0AB2FC21Bd27a47A64F594Fdf7654Ea57Dc79",
+    positionFactoryV2: "0x167144d66AC1D02EAAFCa3649ef3305ea31Ee5A8",
   },
 };

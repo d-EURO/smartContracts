@@ -43,12 +43,13 @@ async function main() {
   console.log(`Found ${config.positions.length} position(s) to deploy`);
 
   // Get contracts
-  const dEuro = await ethers.getContractAt('DecentralizedEURO', getDeployedAddress('DecentralizedEURO'), deployer);
+  const dEuro = await ethers.getContractAt('DecentralizedEURO', getDeployedAddress('DecentralizedEURO'));
+  const dEuroConnected = dEuro.connect(deployer);
   const mintingHubGateway = await ethers.getContractAt(
     'MintingHubGateway',
     getDeployedAddress('MintingHubGateway'),
-    deployer,
   );
+  const mintingHubGatewayConnected = mintingHubGateway.connect(deployer);
   const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
 
   // Before proceding, check MintingHubGateway is deployed (sanity check)
@@ -76,7 +77,7 @@ async function main() {
     try {
       const collateralToken = await ethers.getContractAt(ERC20_ABI, position.collateralAddress);
       await collateralToken.approve(getDeployedAddress('MintingHubGateway'), initialCollateral);
-      await dEuro.approve(getDeployedAddress('MintingHubGateway'), openingFee);
+      await dEuroConnected.approve(getDeployedAddress('MintingHubGateway'), openingFee);
 
       // Open position
       const tx = await mintingHubGateway[
@@ -100,7 +101,7 @@ async function main() {
       // Connect to the position
       const receipt = await tx.wait();
       const event = receipt?.logs
-        .map((log) => mintingHubGateway.interface.parseLog(log))
+        .map((log) => mintingHubGatewayConnected.interface.parseLog(log))
         .find((parsedLog) => parsedLog?.name === 'PositionOpened');
 
       if (!event) {

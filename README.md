@@ -18,6 +18,7 @@ The source code can be found in the [contracts](contracts) folder. The following
 | Position.sol          | A borrowed minting position holding collateral                                    |
 | PositionRoller.sol    | A module to roll positions into new ones                                          |
 | StablecoinBridge.sol  | Plugin for 1:1 swaps with other EUR stablecoins                                   |
+| BridgedToken.sol      | Generic bridged token contract for L2 deployments, e.g. dEURO on [Optimism](https://optimistic.etherscan.io/address/0x1B5F7fA46ED0F487F049C42f374cA4827d65A264) & [Base](https://basescan.org/address/0x1B5F7fA46ED0F487F049C42f374cA4827d65A264), DEPS on [Base](https://basescan.org/address/0x5F674bF6d559229bDd29D642d2e0978f1E282722) |
 | Savings.sol           | A module to pay out interest to ZCHF holders                                      |
 | Leadrate.sol          | A module that can provide a leading interest rate for the system                  |
 | PositionFactory.sol   | Create a completely new position in a newly deployed contract                     |
@@ -111,7 +112,7 @@ file: .env
 ALCHEMY_RPC_KEY=...
 DEPLOYER_SEED="test test test test test test test test test test test junk"
 DEPLOYER_SEED_INDEX=1 // optional, select deployer
-PK=... // optional, replaces deployer seed
+DEPLOYER_PRIVATE_KEY=... // optional, replaces deployer seed
 ETHERSCAN_API_KEY=...
 USE_FORK=false
 CONFIRM_DEPLOYMENT=false
@@ -161,6 +162,20 @@ hh deploy --network sepolia --tags positions
 > Test deployments on a local Mainnet fork using `npx hardhat node` with `USE_FORK=true` in `.env`.
 > The networks are configured in `hardhat.config.ts`, including the Mainnet fork.
 > Set `CONFIRM_DEPLOYMENT=true` to enable confirmation prompts before each deployment.
+
+#### Deploy Stablecoin Bridges
+
+Deploy bridges for EUR stablecoins using the dedicated deployment script:
+
+```shell
+# Deploy bridge for specific stablecoin, e.g. EUROP
+BRIDGE_KEY=EUROP npx hardhat run scripts/deployment/deploy/deployBridge.ts --network mainnet
+
+# Test on forked mainnet
+USE_FORK=true BRIDGE_KEY=EUROP npx hardhat run scripts/deployment/deploy/deployBridge.ts --network hardhat
+```
+
+Bridge keys and configurations are defined in `scripts/deployment/config/stablecoinBridgeConfig.ts`
 
 ### 5. Write Deployment Scripts (via ignition deploy and verify)
 
