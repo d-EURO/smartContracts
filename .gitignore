@@ -14,7 +14,6 @@ coverage.json
 *.iml
 /dist
 .env
-.env.monitoring
 launch.json
 scripts/deployment/deployments/localhost
 scripts/deployment/deployments/hardhat
