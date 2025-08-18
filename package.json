@@ -71,6 +71,7 @@
     "viem": "^2.21.16"
   },
   "dependencies": {
+    "@deuro/eurocoin": "^1.0.13",
     "@flashbots/ethers-provider-bundle": "^1.0.0",
     "hardhat-abi-exporter": "^2.10.0",
     "hardhat-contract-sizer": "^2.5.1",

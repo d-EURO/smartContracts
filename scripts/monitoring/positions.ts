@@ -4,11 +4,13 @@ import monitorConfig from '../utils/monitorConfig';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { MintingHubGateway } from '../../typechain';
 import { floatToDec18 } from '../utils/math';
+import { batchedEventQuery } from '../utils/blockchain';
 
 /**
  * Fetches all active positions with their states
  * @param mintingHub MintingHub contract
  * @param hre HardhatRuntimeEnvironment
+ * @param collateralPriceConversionRate Optional conversion rate for collateral prices
  * @returns Array of PositionState
  */
 export async function getPositions(
@@ -17,16 +19,20 @@ export async function getPositions(
   collateralPriceConversionRate?: number,
 ): Promise<PositionState[]> {
   const { formatUnits } = hre.ethers;
-
-  const positionOpenedEvent = mintingHub.filters.PositionOpened();
-  const events = await mintingHub.queryFilter(positionOpenedEvent, monitorConfig.deploymentBlock, 'latest');
+  
+  const events = await batchedEventQuery(
+    mintingHub,
+    mintingHub.filters.PositionOpened(),
+    monitorConfig.deploymentBlock,
+  );
+  
   const now = Date.now() / 1000;
 
   // Process all positions
   const positionsData: PositionState[] = [];
   const specialTokenPrice: { [key: string]: string } = {};
   await Promise.all(
-    events.map(async (event) => {
+    events.map(async (event, index) => {
       try {
         const position = await hre.ethers.getContractAt('Position', event.args.position);
         const original = await position.original();
