@@ -132,16 +132,13 @@ export class MonitoringModule {
    * @returns Complete system state
    */
   async getCompleteSystemState() {
-    const [decentralizedEurotate, equityState, depsWrapperState, savingsGatewayState, bridgeStates, positions, challenges] =
-      await Promise.all([
-        this.getDecentralizedEuroState(),
-        this.getEquityState(),
-        this.getDEPSWrapperState(),
-        this.getSavingsGatewayState(),
-        this.getBridgeStates(),
-        this.getPositions(),
-        this.getChallenges(),
-      ]);
+    const decentralizedEurotate = await this.getDecentralizedEuroState();
+    const equityState = await this.getEquityState();
+    const depsWrapperState = await this.getDEPSWrapperState();
+    const savingsGatewayState = await this.getSavingsGatewayState();
+    const bridgeStates = await this.getBridgeStates();
+    const positions = await this.getPositions();
+    const challenges = await this.getChallenges();
 
     return {
       decentralizedEurotate,

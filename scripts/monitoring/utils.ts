@@ -31,24 +31,87 @@ export class Time {
   }
 }
 
+// Block cache to avoid redundant RPC calls
+const blockCache = new Map<number, { timestamp: number }>();
+
 /**
- * Processes events to extract relevant data
+ * Gets block data with caching to avoid redundant RPC calls
+ * @param event Event with blockNumber
+ * @returns Block timestamp
+ */
+async function getCachedBlockTimestamp(event: any): Promise<number> {
+  const blockNumber = event.blockNumber;
+  
+  if (blockCache.has(blockNumber)) {
+    return blockCache.get(blockNumber)!.timestamp;
+  }
+  
+  // Add timeout protection for block lookups
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Block lookup timed out for block ${blockNumber}`)), 30000)
+  );
+  
+  try {
+    const block = await Promise.race([
+      event.getBlock(),
+      timeoutPromise
+    ]);
+    
+    const blockData = { timestamp: block.timestamp };
+    blockCache.set(blockNumber, blockData);
+    return block.timestamp;
+  } catch (error) {
+    console.error(`Failed to get block ${blockNumber}, using current timestamp:`, error);
+    // Fallback to current timestamp if block lookup fails
+    const fallbackTimestamp = Math.floor(Date.now() / 1000);
+    blockCache.set(blockNumber, { timestamp: fallbackTimestamp });
+    return fallbackTimestamp;
+  }
+}
+
+/**
+ * Processes events to extract relevant data with optimized block lookups
  * @param events Array of events to process
  * @param color Optional color for event display
  * @returns Array of EventData objects
  */
 export async function processEvents(events: any[], color?: string): Promise<EventData[]> {
-  return await Promise.all(
-    events.map(async (event) => {
-      return {
-        name: event.eventName,
-        data: event.args,
-        timestamp: (await event.getBlock()).timestamp,
-        txHash: event.transactionHash,
-        color,
-      };
-    }),
-  );
+  // Group events by block number to minimize RPC calls
+  const eventsByBlock = new Map<number, any[]>();
+  for (const event of events) {
+    const blockNumber = event.blockNumber;
+    if (!eventsByBlock.has(blockNumber)) {
+      eventsByBlock.set(blockNumber, []);
+    }
+    eventsByBlock.get(blockNumber)!.push(event);
+  }
+  
+  console.log(`📦 Processing ${events.length} events across ${eventsByBlock.size} unique blocks...`);
+  
+  // Process events with cached block lookups
+  const processedEvents: EventData[] = [];
+  
+  for (const [blockNumber, blockEvents] of eventsByBlock) {
+    try {
+      // Get timestamp once per block
+      const timestamp = await getCachedBlockTimestamp(blockEvents[0]);
+      
+      // Process all events in this block
+      for (const event of blockEvents) {
+        processedEvents.push({
+          name: event.eventName,
+          data: event.args,
+          timestamp,
+          txHash: event.transactionHash,
+          color,
+        });
+      }
+    } catch (error) {
+      console.error(`Error processing block ${blockNumber}:`, error);
+    }
+  }
+  
+  return processedEvents;
 }
 
 type OperatorType = (a: bigint, b: bigint) => bigint;

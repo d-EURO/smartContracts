@@ -1,6 +1,6 @@
 {
   "name": "@deuro/eurocoin",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "It shall support a wide range of collateralized minting methods that are governed by a democratic process.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -61,7 +61,7 @@
     "dotenv": "^16.3.1",
     "ethers": "^6.15.0",
     "hardhat": "^2.17.3",
-    "hardhat-deploy": "^0.11.37",
+    "hardhat-deploy": "^1.0.4",
     "hardhat-gas-reporter": "^1.0.9",
     "mocha": "^10.7.0",
     "solidity-coverage": "^0.8.4",
@@ -71,6 +71,7 @@
     "viem": "^2.21.16"
   },
   "dependencies": {
+    "@deuro/eurocoin": "^1.0.13",
     "@flashbots/ethers-provider-bundle": "^1.0.0",
     "hardhat-abi-exporter": "^2.10.0",
     "hardhat-contract-sizer": "^2.5.1",

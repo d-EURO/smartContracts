@@ -3,6 +3,7 @@ import { DEPSWrapperState, EventTrendData } from './types';
 import monitorConfig from '../utils/monitorConfig';
 import { DEPSWrapper, Equity__factory } from '../../typechain';
 import { aggregateData, Operator, processEvents } from './utils';
+import { batchedEventQuery } from '../utils/blockchain';
 
 /**
  * Fetches the state of the DEPSWrapper contract
@@ -16,10 +17,13 @@ export async function getDEPSWrapperState(depsWrapper: DEPSWrapper): Promise<DEP
   const equity = Equity__factory.connect(underlyingAddress, depsWrapper.runner);
   const underlyingSymbol = await equity.symbol();
 
-  // Process events
-  const transferEvents = await processTransferEvents(depsWrapper, colors.blue);
-  const wrapEvents = await processWrapEvents(depsWrapper, colors.green);
-  const unwrapEvents = await processUnwrapEvents(depsWrapper, colors.yellow);
+  // Query Transfer events once and reuse for all processing
+  const allTransferEvents = await batchedEventQuery(depsWrapper, depsWrapper.filters.Transfer(), monitorConfig.deploymentBlock);
+  
+  // Process events using the shared event data
+  const transferEvents = await processTransferEvents(allTransferEvents, colors.blue);
+  const wrapEvents = await processWrapEvents(allTransferEvents, colors.green);
+  const unwrapEvents = await processUnwrapEvents(allTransferEvents, colors.yellow);
 
   return {
     address,
@@ -33,9 +37,8 @@ export async function getDEPSWrapperState(depsWrapper: DEPSWrapper): Promise<DEP
 }
 
 // Wrap events tracked via Transfer events (from zero address)
-async function processWrapEvents(depsWrapper: DEPSWrapper, color?: string): Promise<EventTrendData> {
-  const events = await depsWrapper.queryFilter(depsWrapper.filters.Transfer(), monitorConfig.deploymentBlock, 'latest');
-  const wrapEvents = events.filter((event) => event.args.from === '0x0000000000000000000000000000000000000000');
+async function processWrapEvents(allEvents: any[], color?: string): Promise<EventTrendData> {
+  const wrapEvents = allEvents.filter((event) => event.args.from === '0x0000000000000000000000000000000000000000');
   const processedEvents = (await processEvents(wrapEvents, color)).sort((a, b) => b.timestamp - a.timestamp);
   const wrapTrend = aggregateData(processedEvents, [{ name: 'Wrap (DEPS)', key: 'value', ops: Operator.sum }]);
 
@@ -45,10 +48,9 @@ async function processWrapEvents(depsWrapper: DEPSWrapper, color?: string): Prom
   };
 }
 
-// Wrap events tracked via Transfer events (to zero address)
-async function processUnwrapEvents(depsWrapper: DEPSWrapper, color?: string): Promise<EventTrendData> {
-  const events = await depsWrapper.queryFilter(depsWrapper.filters.Transfer(), monitorConfig.deploymentBlock, 'latest');
-  const unwrapEvents = events.filter((event) => event.args.to === '0x0000000000000000000000000000000000000000');
+// Unwrap events tracked via Transfer events (to zero address)
+async function processUnwrapEvents(allEvents: any[], color?: string): Promise<EventTrendData> {
+  const unwrapEvents = allEvents.filter((event) => event.args.to === '0x0000000000000000000000000000000000000000');
   const processedEvents = (await processEvents(unwrapEvents, color)).sort((a, b) => b.timestamp - a.timestamp);
   const unwrapTrend = aggregateData(processedEvents, [{ name: 'Unwrap (DEPS)', key: 'value', ops: Operator.sum }]);
 
@@ -58,9 +60,8 @@ async function processUnwrapEvents(depsWrapper: DEPSWrapper, color?: string): Pr
   };
 }
 
-async function processTransferEvents(depsWrapper: DEPSWrapper, color?: string): Promise<EventTrendData> {
-  const events = await depsWrapper.queryFilter(depsWrapper.filters.Transfer(), monitorConfig.deploymentBlock, 'latest');
-  const transferEvents = events.filter(
+async function processTransferEvents(allEvents: any[], color?: string): Promise<EventTrendData> {
+  const transferEvents = allEvents.filter(
     (event) =>
       event.args.from !== '0x0000000000000000000000000000000000000000' &&
       event.args.to !== '0x0000000000000000000000000000000000000000',

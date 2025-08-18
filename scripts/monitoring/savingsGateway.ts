@@ -3,6 +3,7 @@ import monitorConfig from '../utils/monitorConfig';
 import { DecentralizedEURO, SavingsGateway } from '../../typechain';
 import { aggregateData, Operator, processEvents } from './utils';
 import { colors } from '../utils/table';
+import { batchedEventQuery } from '../utils/blockchain';
 
 /**
  * Fetches the state of the Leadrate contract
@@ -48,11 +49,7 @@ export async function getSavingsGatewayState(
 }
 
 async function processSavedEvents(savingsGateway: SavingsGateway, color?: string): Promise<EventTrendData> {
-  const events = await savingsGateway.queryFilter(
-    savingsGateway.filters.Saved(),
-    monitorConfig.deploymentBlock,
-    'latest',
-  );
+  const events = await batchedEventQuery(savingsGateway, savingsGateway.filters.Saved(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const savedTrend = aggregateData(processedEvents, [{ name: 'Saved (dEURO)', key: 'amount', ops: Operator.sum }]);
   return {
@@ -62,10 +59,10 @@ async function processSavedEvents(savingsGateway: SavingsGateway, color?: string
 }
 
 async function processInterestCollectedEvents(savingsGateway: SavingsGateway, color?: string): Promise<EventTrendData> {
-  const events = await savingsGateway.queryFilter(
+  const events = await batchedEventQuery(
+    savingsGateway,
     savingsGateway.filters.InterestCollected(),
     monitorConfig.deploymentBlock,
-    'latest',
   );
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const interestCollectedTrend = aggregateData(processedEvents, [
@@ -78,13 +75,15 @@ async function processInterestCollectedEvents(savingsGateway: SavingsGateway, co
 }
 
 async function processWithdrawnEvents(savingsGateway: SavingsGateway, color?: string): Promise<EventTrendData> {
-  const events = await savingsGateway.queryFilter(
+  const events = await batchedEventQuery(
+    savingsGateway,
     savingsGateway.filters.Withdrawn(),
     monitorConfig.deploymentBlock,
-    'latest',
   );
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const withdrawnTrend = aggregateData(processedEvents, [{ name: 'Withdrawn (dEURO)', key: 'amount', ops: Operator.sum }]);
+  const withdrawnTrend = aggregateData(processedEvents, [
+    { name: 'Withdrawn (dEURO)', key: 'amount', ops: Operator.sum },
+  ]);
   return {
     trend: withdrawnTrend,
     events: processedEvents,
@@ -92,14 +91,14 @@ async function processWithdrawnEvents(savingsGateway: SavingsGateway, color?: st
 }
 
 async function processRateProposedEvents(savingsGateway: SavingsGateway, color?: string): Promise<EventTrendData> {
-  const events = await savingsGateway.queryFilter(
+  const events = await batchedEventQuery(
+    savingsGateway,
     savingsGateway.filters.RateProposed(),
     monitorConfig.deploymentBlock,
-    'latest',
   );
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const rateProposedTrend = aggregateData(processedEvents, [
-    { name: 'Rate Proposed (occ.)', key: '', ops: Operator.count, valueFormatter: (value) => value.toString() }
+    { name: 'Rate Proposed (occ.)', key: '', ops: Operator.count, valueFormatter: (value) => value.toString() },
   ]);
   return {
     trend: rateProposedTrend,
@@ -108,14 +107,14 @@ async function processRateProposedEvents(savingsGateway: SavingsGateway, color?:
 }
 
 async function processRateChangedEvents(savingsGateway: SavingsGateway, color?: string): Promise<EventTrendData> {
-  const events = await savingsGateway.queryFilter(
+  const events = await batchedEventQuery(
+    savingsGateway,
     savingsGateway.filters.RateChanged(),
     monitorConfig.deploymentBlock,
-    'latest',
   );
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const rateChangedTrend = aggregateData(processedEvents, [
-    { name: 'Rate Changed (occ.)', key: '', ops: Operator.count, valueFormatter: (value) => value.toString() }
+    { name: 'Rate Changed (occ.)', key: '', ops: Operator.count, valueFormatter: (value) => value.toString() },
   ]);
   return {
     trend: rateChangedTrend,
