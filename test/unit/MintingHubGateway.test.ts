@@ -160,7 +160,7 @@ describe('Minting Tests', () => {
         frontendCode,
       );
       positionAddr = await getPositionAddressFromTX(tx);
-      positionContract = await ethers.getContractAt('Position', positionAddr, owner);
+      positionContract = await ethers.getContractAt('Position', positionAddr);
       const balAfter = await dEURO.balanceOf(owner.address);
       const balAfterVOL = await mockVOL.balanceOf(owner.address);
       const ddEURO = dec18ToFloat(balAfter - balBefore);
@@ -187,7 +187,7 @@ describe('Minting Tests', () => {
         frontendCode,
       );
       const positionAddr = await getPositionAddressFromTX(tx);
-      const positionContract = await ethers.getContractAt('Position', positionAddr, owner);
+      const positionContract = await ethers.getContractAt('Position', positionAddr);
       challengeAmount = initialCollateralClone / 2;
       const fchallengeAmount = floatToDec18(challengeAmount);
       const price = await positionContract.price();
@@ -270,7 +270,8 @@ describe('Minting Tests', () => {
           'clone(address,uint256,uint256,uint40,bytes32)'
         ](positionAddr, fInitialCollateralClone, fMintAmount, newExpiration, frontendCode);
       clonePositionAddr = await getPositionAddressFromTX(tx);
-      clonePositionContract = await ethers.getContractAt('Position', clonePositionAddr, alice);
+      clonePositionContract = await ethers.getContractAt('Position', clonePositionAddr);
+      clonePositionContract = clonePositionContract.connect(alice);
       await clonePositionContract.start();
 
       const newExpirationActual = await clonePositionContract.expiration();
@@ -407,7 +408,7 @@ describe('Minting Tests', () => {
       const dVOL = dec18ToFloat(balAfterVOL - balBeforeVOL);
       expect(dVOL).to.be.equal(BigInt(-initialCollateral));
       expect(ddEURO).to.be.equal(-dec18ToFloat(openingFeedEURO));
-      positionContract = await ethers.getContractAt('Position', positionAddr, owner);
+      positionContract = await ethers.getContractAt('Position', positionAddr);
 
       const interest = await positionContract.getInterest();
       expect(interest).to.be.equal(0);
@@ -458,7 +459,7 @@ describe('Minting Tests', () => {
       const dVOL = dec18ToFloat(balAfterVOL - balBeforeVOL);
       expect(dVOL).to.be.equal(BigInt(-initialCollateral));
       expect(ddEURO).to.be.equal(-dec18ToFloat(openingFeedEURO));
-      positionContract = await ethers.getContractAt('Position', positionAddr, owner);
+      positionContract = await ethers.getContractAt('Position', positionAddr);
     });
     it('bid on challenged, flat sale, not expired position', async () => {
       challengeAmount = initialCollateralClone / 2;
@@ -603,7 +604,7 @@ describe('Minting Tests', () => {
         frontendCode,
       );
       const positionAddr = await getPositionAddressFromTX(tx);
-      const positionContract = await ethers.getContractAt('Position', positionAddr, owner);
+      const positionContract = await ethers.getContractAt('Position', positionAddr);
       const expiration = await positionContract.expiration();
       await evm_increaseTimeTo(await positionContract.start());
       tx = await mintingHub['clone(address,uint256,uint256,uint40,bytes32)'](
@@ -614,7 +615,8 @@ describe('Minting Tests', () => {
         frontendCode,
       );
       const clonePositionAddr = await getPositionAddressFromTX(tx);
-      cloneContract = await ethers.getContractAt('Position', clonePositionAddr, alice);
+      cloneContract = await ethers.getContractAt('Position', clonePositionAddr);
+      cloneContract = cloneContract.connect(alice);
     });
     it('price should be zero at end of challenge', async () => {
       challengeAmount = initialCollateralClone / 2;
@@ -734,7 +736,7 @@ describe('Minting Tests', () => {
         frontendCode,
       );
       positionAddr = await getPositionAddressFromTX(tx);
-      positionContract = await ethers.getContractAt('Position', positionAddr, owner);
+      positionContract = await ethers.getContractAt('Position', positionAddr);
       expect(await positionContract.isClosed()).to.be.false;
     });
     it('owner can provide more collaterals to the position', async () => {
@@ -825,7 +827,7 @@ describe('Minting Tests', () => {
       frontendCode = ethers.randomBytes(32);
       const tx = await test.openPositionFor(alice.getAddress(), frontendCode);
       const positionAddr = await getPositionAddressFromTX(tx);
-      pos = await ethers.getContractAt('Position', positionAddr, owner);
+      pos = await ethers.getContractAt('Position', positionAddr);
 
       // ensure minter's reserve is at least half there to make tests more interesting
       const target = await dEURO.minterReserve();
@@ -992,7 +994,7 @@ describe('Minting Tests', () => {
         frontendCode1,
       );
       const pos1Addr = await getPositionAddressFromTX(txPos1);
-      pos1 = await ethers.getContractAt('Position', pos1Addr, owner);
+      pos1 = await ethers.getContractAt('Position', pos1Addr);
       expect(await gateway.referredPositions(pos1Addr)).to.be.equal(ethers.hexlify(frontendCode1));
       // ---------------------------------------------------------------------------
       // give ALICE a position
@@ -1012,7 +1014,7 @@ describe('Minting Tests', () => {
           frontendCode2,
         );
       const pos2Addr = await getPositionAddressFromTX(txPos2);
-      pos2 = await ethers.getContractAt('Position', pos2Addr, owner);
+      pos2 = await ethers.getContractAt('Position', pos2Addr);
       expect(await gateway.referredPositions(pos2Addr)).to.be.equal(ethers.hexlify(frontendCode2));
     });
 

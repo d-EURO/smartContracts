@@ -3,7 +3,6 @@ import {
   floatToDec18,
   dec18ToFloat,
   DECIMALS,
-  mulDec18,
 } from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import { evm_increaseTime, evm_increaseTimeTo } from "../utils";
@@ -20,9 +19,7 @@ import {
   PositionRollingTest,
 } from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { time } from "@nomicfoundation/hardhat-network-helpers";
 import { ContractTransactionResponse } from "ethers";
-import { float } from "hardhat/internal/core/params/argumentTypes";
 
 const weeks = 30;
 
@@ -1690,7 +1687,7 @@ describe("Position Tests", () => {
         ethers.randomBytes(32),
       );
       const positionAddr = await getPositionAddressFromTX(tx);
-      pos = await ethers.getContractAt("Position", positionAddr, owner);
+      pos = await ethers.getContractAt("Position", positionAddr);
 
       // ensure minter's reserve is at least half there to make tests more interesting
       const target = await dEURO.minterReserve();
@@ -2209,7 +2206,7 @@ describe("Position Tests", () => {
 
       const positionAddress = await getPositionAddressFromTX(tx);
       positionAddr = positionAddress;
-      positionContract = await ethers.getContractAt("Position", positionAddr, owner);
+      positionContract = await ethers.getContractAt("Position", positionAddr);
       
       // Wait until the position is active
       await evm_increaseTimeTo(await positionContract.start());

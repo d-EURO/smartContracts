@@ -114,7 +114,7 @@ describe("ForceSale Tests", () => {
 
     // PositionOpened
     const positionAddr = await getPositionAddressFromTX(tx);
-    position = await ethers.getContractAt("Position", positionAddr, owner);
+    position = await ethers.getContractAt("Position", positionAddr);
     getPositionAddressFromTX
   });
 
@@ -403,7 +403,7 @@ describe("ForceSale Tests", () => {
 
       const positionAddress = await getPositionAddressFromTX(tx);
       positionAddr = positionAddress;
-      positionContract = await ethers.getContractAt("Position", positionAddr, owner);
+      positionContract = await ethers.getContractAt("Position", positionAddr);
       
       // Wait until the position is active
       await evm_increaseTimeTo(await positionContract.start());

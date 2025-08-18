@@ -157,37 +157,49 @@ async function connectToContracts(config: DeployedAddresses, signer: HardhatEthe
 
   try {
     // Core contracts
-    const dEURO = await ethers.getContractAt('DecentralizedEURO', config.dEURO, signer);
-    const equity = await ethers.getContractAt('Equity', await dEURO.reserve(), signer);
-    const positionFactory = await ethers.getContractAt('PositionFactory', config.positionFactory, signer);
-    const positionRoller = await ethers.getContractAt('PositionRoller', config.positionRoller, signer);
-    const depsWrapper = await ethers.getContractAt('DEPSWrapper', config.depsWrapper, signer);
-    const frontendGateway = await ethers.getContractAt('FrontendGateway', config.frontendGateway, signer);
-    const mintingHubGateway = await ethers.getContractAt('MintingHubGateway', config.mintingHubGateway, signer);
-    const savingsGateway = await ethers.getContractAt('SavingsGateway', config.savingsGateway, signer);
-    const bridge = await ethers.getContractAt('StablecoinBridge', config.bridge, signer);
-    const bridgeSource = await ethers.getContractAt('ERC20', await bridge.eur(), signer);
-    const collateralToken = await ethers.getContractAt('ERC20', config.collateralToken, signer);
-    const weth = await ethers.getContractAt('ERC20', mainnet.WETH9, signer);
+    const dEURO = await ethers.getContractAt('DecentralizedEURO', config.dEURO);
+    const dEUROConnected = dEURO.connect(signer);
+    const equity = await ethers.getContractAt('Equity', await dEUROConnected.reserve());
+    const equityConnected = equity.connect(signer);
+    const positionFactory = await ethers.getContractAt('PositionFactory', config.positionFactory);
+    const positionFactoryConnected = positionFactory.connect(signer);
+    const positionRoller = await ethers.getContractAt('PositionRoller', config.positionRoller);
+    const positionRollerConnected = positionRoller.connect(signer);
+    const depsWrapper = await ethers.getContractAt('DEPSWrapper', config.depsWrapper);
+    const depsWrapperConnected = depsWrapper.connect(signer);
+    const frontendGateway = await ethers.getContractAt('FrontendGateway', config.frontendGateway);
+    const frontendGatewayConnected = frontendGateway.connect(signer);
+    const mintingHubGateway = await ethers.getContractAt('MintingHubGateway', config.mintingHubGateway);
+    const mintingHubGatewayConnected = mintingHubGateway.connect(signer);
+    const savingsGateway = await ethers.getContractAt('SavingsGateway', config.savingsGateway);
+    const savingsGatewayConnected = savingsGateway.connect(signer);
+    const bridge = await ethers.getContractAt('StablecoinBridge', config.bridge);
+    const bridgeConnected = bridge.connect(signer);
+    const bridgeSource = await ethers.getContractAt('ERC20', await bridgeConnected.eur());
+    const bridgeSourceConnected = bridgeSource.connect(signer);
+    const collateralToken = await ethers.getContractAt('ERC20', config.collateralToken);
+    const collateralTokenConnected = collateralToken.connect(signer);
+    const weth = await ethers.getContractAt('ERC20', mainnet.WETH9);
+    const wethConnected = weth.connect(signer);
     const swapRouter = new ethers.Contract(mainnet.UNISWAP_V3_ROUTER, UNISWAP_V3_ROUTER, signer);
 
     console.log('✓ Successfully connected to all contracts.');
-    console.log(`  ⋅ Using ${await bridgeSource.symbol()}-${await dEURO.symbol()} bridge`);
-    console.log(`  ⋅ Using ${await collateralToken.symbol()} (${await collateralToken.name()}) as collateral token`);
+    console.log(`  ⋅ Using ${await bridgeSourceConnected.symbol()}-${await dEUROConnected.symbol()} bridge`);
+    console.log(`  ⋅ Using ${await collateralTokenConnected.symbol()} (${await collateralTokenConnected.name()}) as collateral token`);
 
     return {
-      dEURO,
-      equity,
-      positionFactory,
-      positionRoller,
-      depsWrapper,
-      frontendGateway,
-      mintingHubGateway,
-      savingsGateway,
-      bridge,
-      bridgeSource,
-      collateralToken,
-      weth,
+      dEURO: dEUROConnected,
+      equity: equityConnected,
+      positionFactory: positionFactoryConnected,
+      positionRoller: positionRollerConnected,
+      depsWrapper: depsWrapperConnected,
+      frontendGateway: frontendGatewayConnected,
+      mintingHubGateway: mintingHubGatewayConnected,
+      savingsGateway: savingsGatewayConnected,
+      bridge: bridgeConnected,
+      bridgeSource: bridgeSourceConnected,
+      collateralToken: collateralTokenConnected,
+      weth: wethConnected,
       swapRouter,
     };
   } catch (error) {
@@ -430,12 +442,13 @@ async function testPositionCreationAndMinting(contracts: Contracts, signer: Hard
   }
 
   const positionAddress = event.args.position || event.args[1]; // Position address from event
-  const position = await ethers.getContractAt('Position', positionAddress, signer);
+  const position = await ethers.getContractAt('Position', positionAddress);
+  const positionConnected = position.connect(signer);
 
   // Pass approval and mint dEURO
   await ethers.provider.send('evm_increaseTime', [initPeriod]);
   await ethers.provider.send('evm_mine', []);
-  await position.mint(signer.address, ethers.parseEther('5000'));
+  await positionConnected.mint(signer.address, ethers.parseEther('5000'));
 
   // Check dEURO balance after minting
   const dEuroBalanceAfter = await contracts.dEURO.balanceOf(signer.address);
@@ -597,7 +610,7 @@ async function testPositionRolling(contracts: Contracts, sourcePosition: Positio
     throw new Error('Target position creation event not found');
   }
   const targetPositionAddress = event.args.position || event.args[1];
-  const targetPosition = await ethers.getContractAt('Position', targetPositionAddress, signer);
+  const targetPosition = await ethers.getContractAt('Position', targetPositionAddress);
 
   // Fast forward time to accrue interest (30 days)
   await ethers.provider.send('evm_increaseTime', [30 * 86400]);
