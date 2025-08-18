@@ -1,12 +1,10 @@
-import { task } from 'hardhat/config';
+import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { colors, formatCurrencyFromWei, createTable } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
 import { createEventTrendsTable, eventTrendDataToArray } from '../scripts/monitoring/utils';
 
 // npx hardhat monitor-deps --network mainnet
-task('monitor-deps', 'Monitor DEPSWrapper contract state')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async ({ includeEventTxs }, hre) => {
+export async function monitorDEPSWrapperAction({ includeEventTxs }: { includeEventTxs?: boolean }, hre: HardhatRuntimeEnvironment) {
     const monitoringModule = await getMonitoringModule(hre);
     const depsState = await monitoringModule.getDEPSWrapperState();
 
@@ -48,4 +46,4 @@ task('monitor-deps', 'Monitor DEPSWrapper contract state')
 
     // Event transactions
     // TODO: Print event transactions if includeEventTxs is true
-  });
+}

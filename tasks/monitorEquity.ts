@@ -1,12 +1,10 @@
-import { task } from 'hardhat/config';
+import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { formatCurrencyFromWei, createTable } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
 import { createEventTrendsTable, eventTrendDataToArray } from '../scripts/monitoring/utils';
 
 // npx hardhat monitor-equity --network mainnet
-task('monitor-equity', 'Monitor Equity contract state')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async ({ includeEventTxs }, hre) => {
+export async function monitorEquityAction({ includeEventTxs }: { includeEventTxs?: boolean }, hre: HardhatRuntimeEnvironment) {
     const monitoringModule = await getMonitoringModule(hre);
     const equityState = await monitoringModule.getEquityState();
 
@@ -48,4 +46,4 @@ task('monitor-equity', 'Monitor Equity contract state')
 
     // Event transactions
     // TODO: Print event transactions if includeEventTxs is true
-  });
+}

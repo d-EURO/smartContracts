@@ -291,7 +291,6 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
       let balAfter = await dEURO.balanceOf(owner.address);
       let balAfterVOL = await mockVOL.balanceOf(owner.address);
@@ -337,7 +336,6 @@ describe("Position Tests", () => {
       const positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
       challengeAmount = initialCollateralClone / 2;
       let fchallengeAmount = floatToDec18(challengeAmount);
@@ -372,7 +370,7 @@ describe("Position Tests", () => {
       expect(availableLimit).to.be.equal(0);
       let tx = mintingHub
         .connect(alice)
-        .clone(positionAddr, fInitialCollateralClone, fMintAmount, expiration);
+        ["clone(address,uint256,uint256,uint40)"](positionAddr, fInitialCollateralClone, fMintAmount, expiration);
       await expect(tx).to.be.revertedWithCustomError(
         positionContract,
         "LimitExceeded",
@@ -430,7 +428,7 @@ describe("Position Tests", () => {
       await expect(
         mintingHub
           .connect(alice)
-          .clone(
+          ["clone(address,uint256,uint256,uint40)"](
             owner.address,
             fInitialCollateralClone,
             fMintAmount,
@@ -446,7 +444,7 @@ describe("Position Tests", () => {
       await expect(
         mintingHub
           .connect(alice)
-          .clone(
+          ["clone(address,uint256,uint256,uint40)"](
             positionAddr,
             fInitialCollateralClone,
             fMintAmount,
@@ -483,7 +481,7 @@ describe("Position Tests", () => {
     it("should revert cloning position with insufficient initial collateral", async () => {
       let expiration = await positionContract.expiration();
       await expect(
-        mintingHub.connect(alice).clone(positionAddr, 0, 0, expiration),
+        mintingHub.connect(alice)["clone(address,uint256,uint256,uint40)"](positionAddr, 0, 0, expiration),
       ).to.be.revertedWithCustomError(mintingHub, "InsufficientCollateral");
     });
     it("clone position", async () => {
@@ -496,7 +494,7 @@ describe("Position Tests", () => {
       let newExpiration = expiration - duration;
       let tx = await mintingHub
         .connect(alice)
-        .clone(
+        ["clone(address,uint256,uint256,uint40)"](
           positionAddr,
           fInitialCollateralClone,
           fMintAmount,
@@ -510,8 +508,8 @@ describe("Position Tests", () => {
       clonePositionContract = await ethers.getContractAt(
         "Position",
         clonePositionAddr,
-        alice,
       );
+      clonePositionContract = clonePositionContract.connect(alice);
       let newStart = await clonePositionContract.start();
       let newExpirationActual = await clonePositionContract.expiration();
       let newInterest = await clonePositionContract.getInterest();
@@ -580,7 +578,7 @@ describe("Position Tests", () => {
       let price = await positionContract.price();
       let tx = mintingHub
         .connect(alice)
-        .clone(positionAddr, fInitialCollateralClone, available, expiration);
+        ["clone(address,uint256,uint256,uint40)"](positionAddr, fInitialCollateralClone, available, expiration);
       await expect(tx).to.be.revertedWithCustomError(
         positionContract,
         "InsufficientCollateral",
@@ -588,7 +586,7 @@ describe("Position Tests", () => {
 
       let pendingTx = mintingHub
         .connect(alice)
-        .clone(
+        ["clone(address,uint256,uint256,uint40)"](
           positionAddr,
           fInitialCollateralClone * 1000n,
           initialLimit,
@@ -675,7 +673,6 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
       await expect(
         positionContract.assertCloneable(),
@@ -698,7 +695,7 @@ describe("Position Tests", () => {
       await expect(
         mintingHub
           .connect(alice)
-          .clone(
+          ["clone(address,uint256,uint256,uint40)"](
             positionAddr,
             fInitialCollateralClone,
             fMintAmount,
@@ -761,7 +758,6 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
       let currentInterest = await positionContract.getInterest();
       expect(currentInterest).to.be.eq(0);
@@ -823,7 +819,6 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
     });
     it("should revert challenging from non minting hub address", async () => {
@@ -1067,11 +1062,10 @@ describe("Position Tests", () => {
       const positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
       const expiration = await positionContract.expiration();
       await evm_increaseTimeTo(await positionContract.start());
-      tx = await mintingHub.clone(
+      tx = await mintingHub["clone(address,uint256,uint256,uint40)"](
         positionAddr,
         fInitialCollateral,
         initialLimit / 2n,
@@ -1083,8 +1077,8 @@ describe("Position Tests", () => {
       cloneContract = await ethers.getContractAt(
         "Position",
         clonePositionAddr,
-        alice,
       );
+      cloneContract = cloneContract.connect(alice);
     });
     it("price should be zero at end of challenge", async () => {
       challengeAmount = initialCollateralClone / 2;
@@ -1239,7 +1233,6 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
     });
     it("should revert adjusting price from non position owner", async () => {
@@ -1343,7 +1336,6 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
       expect(await positionContract.isClosed()).to.be.false;
     });
@@ -1488,7 +1480,6 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
       await mockVOL.transfer(positionAddr, amount);
     });
@@ -1612,7 +1603,6 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
       await mockVOL.transfer(positionAddr, amount);
 
@@ -1621,7 +1611,7 @@ describe("Position Tests", () => {
       await positionContract.assertCloneable();
       const cloneLimit = await positionContract.availableForClones();
       const expiration = await positionContract.expiration();
-      tx = await mintingHub.clone(
+      tx = await mintingHub["clone(address,uint256,uint256,uint40)"](
         positionAddr,
         fInitialCollateral,
         cloneLimit,
@@ -1633,8 +1623,8 @@ describe("Position Tests", () => {
       clonePositionContract = await ethers.getContractAt(
         "Position",
         clonePositionAddr,
-        alice,
       );
+      clonePositionContract = clonePositionContract.connect(alice);
 
       let price = await clonePositionContract.price();
       await mockVOL.approve(await mintingHub.getAddress(), fchallengeAmount);
@@ -1905,7 +1895,6 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
       await evm_increaseTimeTo(await positionContract.start());
     });
@@ -2008,7 +1997,6 @@ describe("Position Tests", () => {
       const targetPositionContract = await ethers.getContractAt(
         "Position",
         targetPositionAddr,
-        owner,
       );
       await evm_increaseTimeTo(await targetPositionContract.start());
 
@@ -2100,7 +2088,6 @@ describe("Position Tests", () => {
       positionContract = await ethers.getContractAt(
         "Position",
         positionAddr,
-        owner,
       );
       await evm_increaseTimeTo(await positionContract.start());
 

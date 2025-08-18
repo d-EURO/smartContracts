@@ -1,12 +1,10 @@
-import { task } from 'hardhat/config';
+import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { colors, formatCurrencyFromWei, createTable, healthStatusColor } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
 import { createEventTrendsTable, eventTrendDataToArray } from '../scripts/monitoring/utils';
 
 // npx hardhat monitor-deuro --network mainnet
-task('monitor-deuro', 'Monitor DecentralizedEURO contract state')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async ({ includeEventTxs }, hre) => {
+export async function monitorDecentralizedEuroAction({ includeEventTxs }: { includeEventTxs?: boolean }, hre: HardhatRuntimeEnvironment) {
     const monitoringModule = await getMonitoringModule(hre);
     const deuroState = await monitoringModule.getDecentralizedEuroState();
 
@@ -56,4 +54,4 @@ task('monitor-deuro', 'Monitor DecentralizedEURO contract state')
 
     // Event transactions
     // TODO: Print event transactions if includeEventTxs is true
-  });
+}

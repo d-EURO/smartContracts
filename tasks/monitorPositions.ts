@@ -1,4 +1,3 @@
-import { task } from 'hardhat/config';
 import { etherscanUrl, formatHash, hyperlink } from '../scripts/utils/utils';
 import {
   colors,
@@ -11,14 +10,10 @@ import {
 } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
 import { PositionState, PositionStatus } from '../scripts/monitoring/types';
+import { HardhatRuntimeEnvironment } from 'hardhat/types';
 
-// npx hardhat monitor-positions --network mainnet --owner <ADDRESS> --sort <COLUMN> (default sort: created)
-task('monitor-positions', 'Monitor positions in the dEuro Protocol')
-  .addOptionalParam(
-    'sort',
-    'Column to sort by in descending order (created, position, owner, collateral, price, collateralBalance, collateralValue, debt, utilization, expiration)',
-  )
-  .setAction(async ({ sort }, hre) => {
+// Export the action separately for lazy loading
+export async function monitorPositionsAction({ sort }: { sort?: string }, hre: HardhatRuntimeEnvironment) {
     const { formatUnits } = hre.ethers;
 
     const monitoringModule = await getMonitoringModule(hre);
@@ -170,4 +165,4 @@ task('monitor-positions', 'Monitor positions in the dEuro Protocol')
     ]);
 
     table.print();
-  });
+}

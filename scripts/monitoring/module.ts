@@ -53,18 +53,22 @@ export class MonitoringModule {
     this.contracts.decentralizedEURO = await getContractAt(
       'DecentralizedEURO',
       this.deployment.decentralizedEURO,
-      signer,
     );
-    this.contracts.equity = await getContractAt('Equity', this.deployment.equity, signer);
+    this.contracts.decentralizedEURO = this.contracts.decentralizedEURO.connect(signer);
+    this.contracts.equity = await getContractAt('Equity', this.deployment.equity);
+    this.contracts.equity = this.contracts.equity.connect(signer);
     this.contracts.mintingHubGateway = await getContractAt(
       'MintingHubGateway',
       this.deployment.mintingHubGateway,
-      signer,
     );
-    this.contracts.savingsGateway = await getContractAt('SavingsGateway', this.deployment.savingsGateway, signer);
-    this.contracts.depsWrapper = await getContractAt('DEPSWrapper', this.deployment.depsWrapper, signer);
+    this.contracts.mintingHubGateway = this.contracts.mintingHubGateway.connect(signer);
+    this.contracts.savingsGateway = await getContractAt('SavingsGateway', this.deployment.savingsGateway);
+    this.contracts.savingsGateway = this.contracts.savingsGateway.connect(signer);
+    this.contracts.depsWrapper = await getContractAt('DEPSWrapper', this.deployment.depsWrapper);
+    this.contracts.depsWrapper = this.contracts.depsWrapper.connect(signer);
     for (const bridge of monitorConfig.bridges) {
-      this.contracts[bridge] = await getContractAt('StablecoinBridge', this.deployment[bridge], signer);
+      this.contracts[bridge] = await getContractAt('StablecoinBridge', this.deployment[bridge]);
+      this.contracts[bridge] = this.contracts[bridge].connect(signer);
     }
   }
 

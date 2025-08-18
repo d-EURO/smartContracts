@@ -1,4 +1,4 @@
-import { task } from 'hardhat/config';
+import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { formatHash } from '../scripts/utils/utils';
 import {
   colors,
@@ -14,7 +14,7 @@ import { getMonitoringModule } from '../scripts/monitoring';
 import { BridgeState, HealthStatus } from '../scripts/monitoring/types';
 
 // npx hardhat monitor-bridges --network mainnet
-task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async ({}, hre) => {
+export async function monitorBridgesAction(_: any, hre: HardhatRuntimeEnvironment) {
   const monitoringModule = await getMonitoringModule(hre);
   const bridgeStates = await monitoringModule.getBridgeStates();
 
@@ -107,4 +107,4 @@ task('monitor-bridges', 'Monitor Stablecoin Bridge contracts').setAction(async (
   bridgesTable.showHeaderSeparator(true);
   bridgesTable.setRowSpacing(true);
   bridgesTable.print();
-});
+}

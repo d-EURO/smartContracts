@@ -1,9 +1,10 @@
 import { Signer, TypedDataDomain } from "ethers";
 import { ethers } from "ethers";
 import type { BigNumberish } from "ethers/src.ts/utils";
-import { EIP3009 } from "../../typechain";
+import { ERC3009 } from "../../typechain";
+import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
-export async function getCancelAuthorizationSignature(token: EIP3009, signer: Signer, authorizer: string, nonce: Uint8Array) {
+export async function getCancelAuthorizationSignature(token: ERC3009, signer: Signer | HardhatEthersSigner, authorizer: string, nonce: Uint8Array) {
   const domain = await _getDomain(token, signer);
 
   return ethers.Signature.from(await signer.signTypedData(domain, {
@@ -13,7 +14,7 @@ export async function getCancelAuthorizationSignature(token: EIP3009, signer: Si
   }))
 }
 
-export async function getTransferAuthorizationSignature(token: EIP3009, signer: Signer, from: string, to: string, value: bigint, validAfter: number, validBefore: number, nonce: Uint8Array) {
+export async function getTransferAuthorizationSignature(token: ERC3009, signer: Signer | HardhatEthersSigner, from: string, to: string, value: bigint, validAfter: number, validBefore: number, nonce: Uint8Array) {
   const domain = await _getDomain(token, signer);
 
   return ethers.Signature.from(await signer.signTypedData(domain, {
@@ -30,7 +31,7 @@ export async function getTransferAuthorizationSignature(token: EIP3009, signer: 
   }))
 }
 
-async function _getDomain(token: EIP3009, signer: Signer) {
+async function _getDomain(token: ERC3009, signer: Signer | HardhatEthersSigner) {
   const [name, version, network, address] = await Promise.all([token.name(), "1", signer.provider?.getNetwork(), token.getAddress()]);
 
   return new EPI721Domain(name, version, network!.chainId, address);

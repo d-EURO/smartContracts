@@ -1,12 +1,10 @@
-import { task } from 'hardhat/config';
+import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { colors, formatCurrencyFromWei } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
 import { createEventTrendsTable, eventTrendDataToArray } from '../scripts/monitoring/utils';
 
 // npx hardhat monitor-savings --network mainnet
-task('monitor-savings', 'Monitor SavingsGateway contract state')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async ({ includeEventTxs }, hre) => {
+export async function monitorSavingsGatewayAction({ includeEventTxs }: { includeEventTxs?: boolean }, hre: HardhatRuntimeEnvironment) {
     const monitoringModule = await getMonitoringModule(hre);
     const savingsState = await monitoringModule.getSavingsGatewayState();
     const currentRatePercentage = Number(savingsState.currentRatePPM) / 10000;
@@ -34,4 +32,4 @@ task('monitor-savings', 'Monitor SavingsGateway contract state')
     eventTrendsTable.print();
 
     // TODO: Print event transactions if includeEventTxs is true
-  });
+}

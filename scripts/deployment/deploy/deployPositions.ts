@@ -39,8 +39,10 @@ async function main() {
   console.log(`\nFound ${positionsToDeploy.length} positions to deploy.`);
 
   // Get contracts
-  const dEuro = await ethers.getContractAt('DecentralizedEURO', dEuroAddress, deployer);
-  const mintingHubGateway = await ethers.getContractAt('MintingHubGateway', mintingHubGatewayAddress, deployer);
+  const dEuro = await ethers.getContractAt('DecentralizedEURO', dEuroAddress);
+  const dEuroConnected = dEuro.connect(deployer);
+  const mintingHubGateway = await ethers.getContractAt('MintingHubGateway', mintingHubGatewayAddress);
+  const mintingHubGatewayConnected = mintingHubGateway.connect(deployer);
 
   // Before proceding, check MintingHubGateway is deployed (sanity check)
   if ((await ethers.provider.getCode(mintingHubGatewayAddress)) === '0x') {
@@ -84,10 +86,10 @@ async function main() {
       }
 
       // dEURO
-      const currentDEuroAllowance = await dEuro.allowance(deployer.address, mintingHubGatewayAddress);
+      const currentDEuroAllowance = await dEuroConnected.allowance(deployer.address, mintingHubGatewayAddress);
       if (currentDEuroAllowance < openingFee) {
         console.log(`- Approving dEURO fee payment...`);
-        const dEuroApproveTx = await dEuro.approve(mintingHubGatewayAddress, openingFee);
+        const dEuroApproveTx = await dEuroConnected.approve(mintingHubGatewayAddress, openingFee);
         await dEuroApproveTx.wait();
         console.log(`  ✓ dEURO approval confirmed (tx: ${dEuroApproveTx.hash})`);
       }
@@ -114,7 +116,7 @@ async function main() {
       // Connect to the position
       const receipt = await tx.wait();
       const event = receipt?.logs
-        .map((log) => mintingHubGateway.interface.parseLog({ topics: [...log.topics], data: log.data }))
+        .map((log) => mintingHubGatewayConnected.interface.parseLog({ topics: [...log.topics], data: log.data }))
         .find((parsedLog) => parsedLog?.name === 'PositionOpened');
 
       if (!event) {

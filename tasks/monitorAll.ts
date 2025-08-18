@@ -1,9 +1,9 @@
-import { task } from 'hardhat/config';
+import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import { getMonitoringModule } from '../scripts/monitoring';
 import { colors, createTable, formatCurrencyFromWei, healthStatusColor } from '../scripts/utils/table';
 import { createEventTrendsTable, eventTrendDataToArray } from '../scripts/monitoring/utils';
 
-task('monitor-all', 'Monitor entire system state').setAction(async ({ includeEventTxs }, hre) => {
+export async function monitorAllAction(_: any, hre: HardhatRuntimeEnvironment) {
   const monitoringModule = await getMonitoringModule(hre);
   const {
     decentralizedEurotate: deuroState,
@@ -92,7 +92,7 @@ task('monitor-all', 'Monitor entire system state').setAction(async ({ includeEve
   console.log('\n\n');
   await hre.run('monitor-positions');
   console.log('\n\n');
-});
+}
 
 function formatSubTitle(title: string, width: number): { key: string; value: string } {
   const subtitle = '--- ' + title + ' ' + '-'.repeat(width - title.length - 5);
