@@ -18,28 +18,21 @@ export async function getPositions(
   hre: HardhatRuntimeEnvironment,
   collateralPriceConversionRate?: number,
 ): Promise<PositionState[]> {
-  console.log('🔍 Starting position analysis...');
   const { formatUnits } = hre.ethers;
   
-  console.log('📋 Querying PositionOpened events...');
   const events = await batchedEventQuery(
     mintingHub,
     mintingHub.filters.PositionOpened(),
     monitorConfig.deploymentBlock,
   );
-  console.log(`📋 Found ${events.length} position events`);
   
   const now = Date.now() / 1000;
 
   // Process all positions
-  console.log(`🔄 Processing ${events.length} positions...`);
   const positionsData: PositionState[] = [];
   const specialTokenPrice: { [key: string]: string } = {};
   await Promise.all(
     events.map(async (event, index) => {
-      if (index % 10 === 0) {
-        console.log(`📈 Processing position ${index + 1}/${events.length}...`);
-      }
       try {
         const position = await hre.ethers.getContractAt('Position', event.args.position);
         const original = await position.original();
@@ -125,16 +118,13 @@ export async function getPositions(
       }
     }),
   );
-  console.log(`✅ Finished processing ${positionsData.length} positions`);
 
   // Get collateral market prices
   const collateralAddresses = Array.from(new Set(positionsData.map((position) => position.collateralAddress)));
-  console.log(`💰 Fetching market prices for ${collateralAddresses.length} unique collateral tokens...`);
   const marketPrices = {
     ...(await getTokenPrices(collateralAddresses, collateralPriceConversionRate)),
     ...specialTokenPrice,
   };
-  console.log('✅ Market prices fetched successfully');
   positionsData.forEach((pos) => {
     const marketPrice = marketPrices[pos.collateralAddress];
     const virtualPrice = formatUnits(pos.liveVirtualPrice, 36n - pos.collateralDecimals);
@@ -164,7 +154,6 @@ export async function getPositions(
     }
   });
 
-  console.log('🎯 Position analysis complete!');
   return positionsData;
 }
 
