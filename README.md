@@ -162,6 +162,20 @@ hh deploy --network sepolia --tags positions
 > The networks are configured in `hardhat.config.ts`, including the Mainnet fork.
 > Set `CONFIRM_DEPLOYMENT=true` to enable confirmation prompts before each deployment.
 
+#### Deploy Stablecoin Bridges
+
+Deploy bridges for EUR stablecoins using the dedicated deployment script:
+
+```shell
+# Deploy bridge for specific stablecoin, e.g. EUROP
+BRIDGE_KEY=EUROP npx hardhat run scripts/deployment/deploy/deployBridge.ts --network mainnet
+
+# Test on forked mainnet
+USE_FORK=true BRIDGE_KEY=EUROP npx hardhat run scripts/deployment/deploy/deployBridge.ts --network hardhat
+```
+
+Bridge keys and configurations are defined in `scripts/deployment/config/stablecoinBridgeConfig.ts`
+
 ### 5. Write Deployment Scripts (via ignition deploy and verify)
 
 > Deployment modules are located in /ignition/modules. Deploy your contracts:

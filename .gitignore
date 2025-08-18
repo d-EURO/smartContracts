@@ -18,6 +18,7 @@ launch.json
 scripts/deployment/deployments/localhost
 scripts/deployment/deployments/hardhat
 scripts/deployments/deployPositions-*.json
+scripts/deployments/bridge-*.json
 scripts/test.ts
 .VSCodeCounter/
 .vscode/settings.json
