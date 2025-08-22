@@ -6,8 +6,8 @@ import {ILeadrate} from "../interface/ILeadrate.sol";
 import {Savings} from "../Savings.sol";
 
 /**
-* This is a
-*/
+ * This is a
+ */
 contract LiquidSavings {
     IDecentralizedEURO public immutable DEURO;
     ILeadrate public immutable RATE;
@@ -15,14 +15,14 @@ contract LiquidSavings {
 
     uint64 private ticks;
 
-    constructor(address _owner, address _deuro, address _leadRate){
+    constructor(address _owner, address _deuro, address _leadRate) {
         OWNER = _owner;
         DEURO = IDecentralizedEURO(_deuro);
         RATE = ILeadrate(_leadRate);
         ticks = RATE.currentTicks();
     }
 
-    function refresh() virtual external returns (uint64) {
+    function refresh() external virtual returns (uint64) {
         uint64 ticks_ = RATE.currentTicks();
         if (ticks_ > ticks) {
             uint192 earnedInterest = calculateInterest(ticks_);
