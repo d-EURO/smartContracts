@@ -112,6 +112,8 @@ describe("Basic Tests", () => {
         await dEURO.getAddress(),
         limit,
         weeks,
+        0, // 0% mint fee
+        0, // 0% burn fee
       );
       bridgeAddr = await bridge.getAddress();
     });

@@ -7,8 +7,10 @@ export default buildModule('StablecoinBridgeEURC', (m) => {
   const other = m.getParameter('other');
   const limit = m.getParameter('limit');
   const weeks = m.getParameter('weeks');
+  const mintFeePPM = m.getParameter('mintFeePPM', 0); // Default to 0% mint fee
+  const burnFeePPM = m.getParameter('burnFeePPM', 0); // Default to 0% burn fee
 
-  const stablecoinBridgeEURC = m.contract('StablecoinBridge', [other, decentralizedEURO, limit, weeks], {
+  const stablecoinBridgeEURC = m.contract('StablecoinBridge', [other, decentralizedEURO, limit, weeks, mintFeePPM, burnFeePPM], {
     id: 'StablecoinBridgeEURC',
   });
 

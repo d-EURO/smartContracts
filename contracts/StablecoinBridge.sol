@@ -15,6 +15,7 @@ contract StablecoinBridge {
 
     IERC20 public immutable eur; // the source stablecoin
     IDecentralizedEURO public immutable dEURO; // the dEURO
+    address public immutable reserve; // cached reserve address for gas efficiency
     uint8 private immutable eurDecimals;
     uint8 private immutable dEURODecimals;
 
@@ -29,18 +30,40 @@ contract StablecoinBridge {
     uint256 public immutable limit;
     uint256 public minted;
 
+    /**
+     * @notice The fee for minting (converting source EUR to dEURO) in parts per million
+     */
+    uint256 public immutable mintFeePPM;
+    
+    /**
+     * @notice The fee for burning (converting dEURO back to source EUR) in parts per million
+     */
+    uint256 public immutable burnFeePPM;
+
     error Limit(uint256 amount, uint256 limit);
     error Expired(uint256 time, uint256 expiration);
     error UnsupportedToken(address token);
 
-    constructor(address other, address dEUROAddress, uint256 limit_, uint256 weeks_) {
+    constructor(
+        address other, 
+        address dEUROAddress, 
+        uint256 limit_, 
+        uint256 weeks_, 
+        uint256 mintFeePPM_,
+        uint256 burnFeePPM_
+    ) {
+        require(mintFeePPM_ <= 1000000, "Mint fee cannot exceed 100%");
+        require(burnFeePPM_ <= 1000000, "Burn fee cannot exceed 100%");
         eur = IERC20(other);
         dEURO = IDecentralizedEURO(dEUROAddress);
+        reserve = address(dEURO.reserve()); // Cache reserve address to save gas
         eurDecimals = IERC20Metadata(other).decimals();
         dEURODecimals = IERC20Metadata(dEUROAddress).decimals();
         horizon = block.timestamp + weeks_ * 1 weeks;
         limit = limit_;
         minted = 0;
+        mintFeePPM = mintFeePPM_;
+        burnFeePPM = burnFeePPM_;
     }
 
     /**
@@ -59,7 +82,26 @@ contract StablecoinBridge {
         eur.safeTransferFrom(msg.sender, address(this), amount);
         
         uint256 targetAmount = _convertAmount(amount, eurDecimals, dEURODecimals);
-        _mint(target, targetAmount);
+        
+        if (mintFeePPM > 0) {
+            // Calculate fee and mint to user (minus fee)
+            uint256 feeAmount = targetAmount * mintFeePPM / 1_000_000;
+            uint256 mintAmount = targetAmount - feeAmount;
+            
+            // Check once before both mints
+            if (block.timestamp > horizon) revert Expired(block.timestamp, horizon);
+            
+            // Update minted amount
+            uint256 newMinted = minted + targetAmount;
+            if (newMinted > limit) revert Limit(targetAmount, limit);
+            minted = newMinted;
+            
+            // Mint to user and reserve in one go
+            dEURO.mint(target, mintAmount);
+            dEURO.mint(reserve, feeAmount);
+        } else {
+            _mint(target, targetAmount);
+        }
     }
 
     function _mint(address target, uint256 amount) internal {
@@ -85,10 +127,28 @@ contract StablecoinBridge {
     }
 
     function _burn(address dEUROHolder, address target, uint256 amount) internal {
-        uint256 sourceAmount = _convertAmount(amount, dEURODecimals, eurDecimals);
-        dEURO.burnFrom(dEUROHolder, amount);
-        eur.safeTransfer(target, sourceAmount);
-        minted -= amount;
+        if (burnFeePPM > 0) {
+            // Calculate fee amount
+            uint256 feeAmount = amount * burnFeePPM / 1_000_000;
+            uint256 burnAmountNet = amount - feeAmount;
+            
+            // Burn the net amount from user
+            dEURO.burnFrom(dEUROHolder, burnAmountNet);
+            
+            // Transfer the fee from user to reserve as profit
+            dEURO.transferFrom(dEUROHolder, reserve, feeAmount);
+            
+            // Return the full source amount (no fee deduction on source tokens)
+            uint256 sourceAmount = _convertAmount(burnAmountNet, dEURODecimals, eurDecimals);
+            eur.safeTransfer(target, sourceAmount);
+            
+            minted -= burnAmountNet;
+        } else {
+            dEURO.burnFrom(dEUROHolder, amount);
+            uint256 sourceAmount = _convertAmount(amount, dEURODecimals, eurDecimals);
+            eur.safeTransfer(target, sourceAmount);
+            minted -= amount;
+        }
     }
 
     /**

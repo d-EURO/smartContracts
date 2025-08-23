@@ -465,6 +465,8 @@ describe("Equity Tests", () => {
         await dEURO.getAddress(),
         ethers.parseEther("5000"),
         30,
+        0, // 0% mint fee
+        0, // 0% burn fee
       );
 
       await dEURO.initialize(await bridge.getAddress(), "");
@@ -525,6 +527,8 @@ describe("Equity Tests", () => {
           await newDEURO.getAddress(),
           ethers.parseEther("5000"),
           30,
+          0, // 0% mint fee
+          0, // 0% burn fee
         );
 
         await newDEURO.mint(
