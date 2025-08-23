@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
-import {StablecoinBridge} from "./StablecoinBridge.sol";
 import {IDecentralizedEURO} from "./interface/IDecentralizedEURO.sol";
 import {IStablecoinBridge} from "./interface/IStablecoinBridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -11,6 +10,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /**
  * @title Stablecoin Bridge V2
  * @notice A minting contract for another Euro stablecoin ('source stablecoin') that we trust.
+ * @author dEURO Association
  */
 contract StablecoinBridgeV2 is IStablecoinBridge {
     using SafeERC20 for IERC20;
@@ -43,7 +43,7 @@ contract StablecoinBridgeV2 is IStablecoinBridge {
 
     error Limit(uint256 amount, uint256 limit);
     error Expired(uint256 time, uint256 expiration);
-    error UnsupportedToken(address token);
+    error InvalidFee(uint24 suggestedFeePPM, uint24 maxFeePPM);
 
     constructor(
         address other,
@@ -53,8 +53,9 @@ contract StablecoinBridgeV2 is IStablecoinBridge {
         uint24 mintFeePPM_,
         uint24 burnFeePPM_
     ) {
-        require(mintFeePPM_ <= 1_000_000, "Mint fee cannot exceed 1000000");
-        require(burnFeePPM_ <= 1_000_000, "Burn fee cannot exceed 1000000");
+        if (mintFeePPM_ > 1_000_000) revert InvalidFee(mintFeePPM_, 1_000_000);
+        if (burnFeePPM_ > 1_000_000) revert InvalidFee(burnFeePPM_, 1_000_000);
+
         EURO = IERC20(other);
         DEURO = IDecentralizedEURO(dEUROAddress);
         EURO_DECIMALS = IERC20Metadata(other).decimals();
@@ -121,7 +122,7 @@ contract StablecoinBridgeV2 is IStablecoinBridge {
 
         uint256 sourceAmount = _convertAmount(sendAmount, DEURO_DECIMALS, EURO_DECIMALS);
         EURO.safeTransfer(target, sourceAmount);
-        minted -= amount;
+        minted -= sendAmount;
     }
 
     /**
