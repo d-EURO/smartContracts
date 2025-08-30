@@ -309,6 +309,31 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
+     * @notice Calculates the gross repayment amount needed to deduct exactly netUserAmount from the user's wallet
+     * @dev This function accounts for the current accrued interest and reserve mechanics
+     * @param netUserAmount The net amount the user wants to pay from their wallet
+     * @return grossAmount The amount to pass to the repay() function
+     */
+    function getGrossRepayAmount(uint256 netUserAmount) external view returns (uint256 grossAmount) {
+        uint256 currentInterest = _calculateInterest();
+        
+        if (netUserAmount <= currentInterest) {
+            // Only paying interest - no reserve adjustment needed
+            return netUserAmount;
+        } else {
+            // Paying interest + principal
+            uint256 principalNet = netUserAmount - currentInterest;
+            
+            // Calculate gross principal amount (accounting for reserve)
+            // principalGross * (1 - reserveContribution/1000000) = principalNet
+            // principalGross = principalNet * 1000000 / (1000000 - reserveContribution)
+            uint256 principalGross = (principalNet * 1_000_000) / (1_000_000 - reserveContribution);
+            
+            return currentInterest + principalGross;
+        }
+    }
+
+    /**
      * @notice "All in one" function to adjust the principal, the collateral amount,
      * and the price in one transaction.
      */
