@@ -4,6 +4,7 @@ pragma solidity ^0.8.10;
 import {IMintingHubGateway} from "./interface/IMintingHubGateway.sol";
 import {ICoinLendingGateway} from "./interface/ICoinLendingGateway.sol";
 import {IPosition} from "../MintingHubV2/interface/IPosition.sol";
+import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -17,17 +18,18 @@ interface IWETH is IERC20 {
 
 /**
  * @title Coin Lending Gateway
- * @notice A gateway contract that enables single-transaction native coin lending through the dEURO protocol
- * @dev This contract wraps native coins (ETH, MATIC, etc.) to their wrapped versions, approves them, and clones a position in a single transaction
+ * @notice An improved gateway that enables true single-transaction native coin lending with custom liquidation prices
+ * @dev This version handles the ownership transfer timing issue to allow price adjustments in the same transaction
  */
 contract CoinLendingGateway is ICoinLendingGateway, Context, Ownable, ReentrancyGuard, Pausable {
     IMintingHubGateway public immutable MINTING_HUB;
     IWETH public immutable WETH;
+    IDecentralizedEURO public immutable DEURO;
 
     error InsufficientCoin();
     error InvalidPosition();
     error TransferFailed();
-    error InvalidLiquidationPrice();
+    error PriceAdjustmentFailed();
 
     event PositionCreatedWithCoin(
         address indexed owner,
@@ -44,15 +46,17 @@ contract CoinLendingGateway is ICoinLendingGateway, Context, Ownable, Reentrancy
      * @notice Initializes the Coin Lending Gateway
      * @param _mintingHub The address of the MintingHubGateway contract
      * @param _weth The address of the wrapped native token contract (WETH, WMATIC, etc.)
+     * @param _deuro The address of the DecentralizedEURO contract
      */
-    constructor(address _mintingHub, address _weth) Ownable(_msgSender()) {
+    constructor(address _mintingHub, address _weth, address _deuro) Ownable(_msgSender()) {
         MINTING_HUB = IMintingHubGateway(_mintingHub);
         WETH = IWETH(_weth);
+        DEURO = IDecentralizedEURO(_deuro);
     }
 
     /**
      * @notice Creates a lending position using native coins in a single transaction
-     * @dev Wraps native coins to wrapped tokens, approves them for the MintingHub, clones position, and optionally adjusts price
+     * @dev This improved version uses a two-step clone process to handle ownership and price adjustment correctly
      * @param parent The parent position to clone from
      * @param initialMint The amount of dEURO to mint
      * @param expiration The expiration timestamp for the position
@@ -69,15 +73,18 @@ contract CoinLendingGateway is ICoinLendingGateway, Context, Ownable, Reentrancy
     ) external payable nonReentrant whenNotPaused returns (address position) {
         if (msg.value == 0) revert InsufficientCoin();
 
+        address finalOwner = _msgSender();
+
         // Wrap native coin to wrapped token
         WETH.deposit{value: msg.value}();
 
         // Approve wrapped token for MintingHub
         WETH.approve(address(MINTING_HUB), msg.value);
 
-        // Clone position through MintingHub
+        // Clone position with THIS contract as initial owner
+        // This allows us to call adjustPrice before transferring ownership
         position = MINTING_HUB.clone(
-            _msgSender(),    // owner
+            address(this),   // temporary owner (this contract)
             parent,          // parent position
             msg.value,       // collateral amount
             initialMint,     // mint amount
@@ -87,13 +94,34 @@ contract CoinLendingGateway is ICoinLendingGateway, Context, Ownable, Reentrancy
 
         if (position == address(0)) revert InvalidPosition();
 
-        // Adjust liquidation price if specified
+        // Now we own the position and can adjust the price if needed
         if (liquidationPrice > 0) {
-            _adjustPositionPrice(position, liquidationPrice);
+            uint256 currentPrice = IPosition(position).price();
+
+            if (liquidationPrice != currentPrice) {
+                // Add small buffer (0.01%) to account for potential interest accrual
+                uint256 adjustedPrice = (liquidationPrice * 10001) / 10000;
+
+                try IPosition(position).adjustPrice(adjustedPrice) {
+                    // Price adjustment successful
+                } catch {
+                    revert PriceAdjustmentFailed();
+                }
+            }
         }
 
+        // Transfer any minted dEURO to the final owner
+        // The minted dEURO is sent to this contract initially
+        uint256 deuroBalance = DEURO.balanceOf(address(this));
+        if (deuroBalance > 0) {
+            DEURO.transfer(finalOwner, deuroBalance);
+        }
+
+        // Finally, transfer ownership of the position to the user
+        Ownable(position).transferOwnership(finalOwner);
+
         emit PositionCreatedWithCoin(
-            _msgSender(),
+            finalOwner,
             position,
             msg.value,
             initialMint,
@@ -123,6 +151,7 @@ contract CoinLendingGateway is ICoinLendingGateway, Context, Ownable, Reentrancy
         uint256 liquidationPrice
     ) external payable nonReentrant whenNotPaused returns (address position) {
         if (msg.value == 0) revert InsufficientCoin();
+        if (owner == address(0)) revert InvalidPosition();
 
         // Wrap native coin to wrapped token
         WETH.deposit{value: msg.value}();
@@ -130,9 +159,9 @@ contract CoinLendingGateway is ICoinLendingGateway, Context, Ownable, Reentrancy
         // Approve wrapped token for MintingHub
         WETH.approve(address(MINTING_HUB), msg.value);
 
-        // Clone position through MintingHub
+        // Clone position with THIS contract as initial owner
         position = MINTING_HUB.clone(
-            owner,           // specified owner
+            address(this),   // temporary owner (this contract)
             parent,          // parent position
             msg.value,       // collateral amount
             initialMint,     // mint amount
@@ -144,8 +173,27 @@ contract CoinLendingGateway is ICoinLendingGateway, Context, Ownable, Reentrancy
 
         // Adjust liquidation price if specified
         if (liquidationPrice > 0) {
-            _adjustPositionPrice(position, liquidationPrice);
+            uint256 currentPrice = IPosition(position).price();
+
+            if (liquidationPrice != currentPrice) {
+                uint256 adjustedPrice = (liquidationPrice * 10001) / 10000;
+
+                try IPosition(position).adjustPrice(adjustedPrice) {
+                    // Price adjustment successful
+                } catch {
+                    revert PriceAdjustmentFailed();
+                }
+            }
         }
+
+        // Transfer any minted dEURO to the specified owner
+        uint256 deuroBalance = DEURO.balanceOf(address(this));
+        if (deuroBalance > 0) {
+            DEURO.transfer(owner, deuroBalance);
+        }
+
+        // Transfer ownership of the position to the specified owner
+        Ownable(position).transferOwnership(owner);
 
         emit PositionCreatedWithCoin(
             owner,
@@ -156,26 +204,6 @@ contract CoinLendingGateway is ICoinLendingGateway, Context, Ownable, Reentrancy
         );
 
         return position;
-    }
-
-    /**
-     * @dev Internal function to adjust the position's liquidation price
-     * @param position The address of the position to adjust
-     * @param liquidationPrice The new liquidation price
-     */
-    function _adjustPositionPrice(address position, uint256 liquidationPrice) internal {
-        // Get current price from position
-        uint256 currentPrice = IPosition(position).price();
-
-        // Only adjust if the liquidation price is different from current
-        if (liquidationPrice != currentPrice) {
-            // Add small buffer (0.01%) to account for potential interest accrual
-            uint256 adjustedPrice = (liquidationPrice * 10001) / 10000;
-
-            // Since we just created the position, we should be the owner
-            // and have the right to adjust the price
-            IPosition(position).adjustPrice(adjustedPrice);
-        }
     }
 
     /**

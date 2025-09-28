@@ -11,20 +11,24 @@ async function main() {
   const addresses = {
     mainnet: {
       mintingHubGateway: "0x...", // TODO: Add mainnet MintingHubGateway address
-      weth: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+      weth: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      deuro: "0x...", // TODO: Add mainnet DecentralizedEURO address
     },
     sepolia: {
       mintingHubGateway: "0x...", // TODO: Add sepolia MintingHubGateway address
-      weth: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9"
+      weth: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9",
+      deuro: "0x...", // TODO: Add sepolia DecentralizedEURO address
     },
     polygon: {
       mintingHubGateway: "0x...", // TODO: Add polygon MintingHubGateway address
-      weth: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619"
+      weth: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+      deuro: "0x...", // TODO: Add polygon DecentralizedEURO address
     },
     hardhat: {
       // For local testing, these will be deployed separately
       mintingHubGateway: process.env.MINTING_HUB_GATEWAY || "0x...",
-      weth: process.env.WETH_ADDRESS || "0x..."
+      weth: process.env.WETH_ADDRESS || "0x...",
+      deuro: process.env.DEURO_ADDRESS || "0x..."
     }
   };
 
@@ -34,15 +38,16 @@ async function main() {
     throw new Error(`No addresses configured for network: ${network}`);
   }
 
-  const { mintingHubGateway, weth } = networkAddresses;
+  const { mintingHubGateway, weth, deuro } = networkAddresses;
 
   console.log("Using addresses:");
   console.log(`  MintingHubGateway: ${mintingHubGateway}`);
   console.log(`  WETH: ${weth}`);
+  console.log(`  DecentralizedEURO: ${deuro}`);
 
   // Deploy CoinLendingGateway
   const CoinLendingGateway = await hre.ethers.getContractFactory("CoinLendingGateway");
-  const gateway = await CoinLendingGateway.deploy(mintingHubGateway, weth);
+  const gateway = await CoinLendingGateway.deploy(mintingHubGateway, weth, deuro);
 
   await gateway.deployed();
 
@@ -58,7 +63,7 @@ async function main() {
     try {
       await hre.run("verify:verify", {
         address: gateway.address,
-        constructorArguments: [mintingHubGateway, weth],
+        constructorArguments: [mintingHubGateway, weth, deuro],
       });
       console.log("Contract verified successfully");
     } catch (error) {
