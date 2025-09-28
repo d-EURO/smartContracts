@@ -10,7 +10,7 @@ interface ICoinLendingGateway {
      * @notice Emitted when a position is created with native coins
      * @param owner The owner of the newly created position
      * @param position The address of the newly created position
-     * @param ethAmount The amount of ETH used as collateral
+     * @param coinAmount The amount of native coin used as collateral
      * @param mintAmount The amount of dEURO minted
      * @param liquidationPrice The liquidation price set for the position
      */

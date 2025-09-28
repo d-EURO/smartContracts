@@ -8,8 +8,8 @@ import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 interface IWETH is IERC20 {
     function deposit() external payable;
@@ -31,14 +31,7 @@ contract CoinLendingGateway is ICoinLendingGateway, Context, Ownable, Reentrancy
     error TransferFailed();
     error PriceAdjustmentFailed();
 
-    event PositionCreatedWithCoin(
-        address indexed owner,
-        address indexed position,
-        uint256 coinAmount,
-        uint256 mintAmount,
-        uint256 liquidationPrice
-    );
-
+    // Events are already defined in the interface
     event CoinRescued(address indexed to, uint256 amount);
     event TokenRescued(address indexed token, address indexed to, uint256 amount);
 
