@@ -6,6 +6,9 @@ import {ICoinLendingGateway} from "./interface/ICoinLendingGateway.sol";
 import {IPosition} from "../MintingHubV2/interface/IPosition.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
 interface IWETH is IERC20 {
     function deposit() external payable;
@@ -17,7 +20,7 @@ interface IWETH is IERC20 {
  * @notice A gateway contract that enables single-transaction native coin lending through the dEURO protocol
  * @dev This contract wraps native coins (ETH, MATIC, etc.) to their wrapped versions, approves them, and clones a position in a single transaction
  */
-contract CoinLendingGateway is ICoinLendingGateway, Context {
+contract CoinLendingGateway is ICoinLendingGateway, Context, Ownable, ReentrancyGuard, Pausable {
     IMintingHubGateway public immutable MINTING_HUB;
     IWETH public immutable WETH;
 
@@ -34,12 +37,15 @@ contract CoinLendingGateway is ICoinLendingGateway, Context {
         uint256 liquidationPrice
     );
 
+    event CoinRescued(address indexed to, uint256 amount);
+    event TokenRescued(address indexed token, address indexed to, uint256 amount);
+
     /**
      * @notice Initializes the Coin Lending Gateway
      * @param _mintingHub The address of the MintingHubGateway contract
      * @param _weth The address of the wrapped native token contract (WETH, WMATIC, etc.)
      */
-    constructor(address _mintingHub, address _weth) {
+    constructor(address _mintingHub, address _weth) Ownable(_msgSender()) {
         MINTING_HUB = IMintingHubGateway(_mintingHub);
         WETH = IWETH(_weth);
     }
@@ -60,7 +66,7 @@ contract CoinLendingGateway is ICoinLendingGateway, Context {
         uint40 expiration,
         bytes32 frontendCode,
         uint256 liquidationPrice
-    ) external payable returns (address position) {
+    ) external payable nonReentrant whenNotPaused returns (address position) {
         if (msg.value == 0) revert InsufficientCoin();
 
         // Wrap native coin to wrapped token
@@ -115,7 +121,7 @@ contract CoinLendingGateway is ICoinLendingGateway, Context {
         uint40 expiration,
         bytes32 frontendCode,
         uint256 liquidationPrice
-    ) external payable returns (address position) {
+    ) external payable nonReentrant whenNotPaused returns (address position) {
         if (msg.value == 0) revert InsufficientCoin();
 
         // Wrap native coin to wrapped token
@@ -174,24 +180,45 @@ contract CoinLendingGateway is ICoinLendingGateway, Context {
 
     /**
      * @notice Rescue function to withdraw accidentally sent native coins
-     * @dev Only allows withdrawal if contract balance exists
+     * @dev Only owner can call this function
      */
-    function rescueCoin() external {
+    function rescueCoin() external onlyOwner {
         uint256 balance = address(this).balance;
         if (balance > 0) {
-            (bool success, ) = _msgSender().call{value: balance}("");
+            (bool success, ) = owner().call{value: balance}("");
             if (!success) revert TransferFailed();
+            emit CoinRescued(owner(), balance);
         }
     }
 
     /**
      * @notice Rescue function to withdraw accidentally sent tokens
+     * @dev Only owner can call this function
      * @param token The address of the token to rescue
      * @param to The address to send the tokens to
      * @param amount The amount of tokens to rescue
      */
-    function rescueToken(address token, address to, uint256 amount) external {
-        IERC20(token).transfer(to, amount);
+    function rescueToken(address token, address to, uint256 amount) external onlyOwner {
+        if (to == address(0)) revert TransferFailed();
+        bool success = IERC20(token).transfer(to, amount);
+        if (!success) revert TransferFailed();
+        emit TokenRescued(token, to, amount);
+    }
+
+    /**
+     * @notice Pause the contract (only owner)
+     * @dev Prevents lendWithCoin functions from being called
+     */
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /**
+     * @notice Unpause the contract (only owner)
+     * @dev Re-enables lendWithCoin functions
+     */
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     /**
