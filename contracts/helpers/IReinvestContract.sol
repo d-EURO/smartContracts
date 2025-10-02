@@ -6,13 +6,9 @@ interface ISavingsZCHF {
     /// @notice Account structure for savings information
     /// @param saved The amount of tokens saved
     /// @param ticks The tick value when funds were locked (used for unlock timing)
-    /// @param referrer The address of the referrer
-    /// @param referralFeePPM The referral fee in parts per million
     struct Account {
         uint192 saved;
-        uint256 ticks;
-        address referrer;
-        uint24 referralFeePPM;
+        uint64 ticks;
     }
 
     /// @notice Error thrown when attempting to withdraw locked funds
@@ -26,11 +22,7 @@ interface ISavingsZCHF {
 
     /// @notice Get the current tick value in the savings system
     /// @return Current tick value
-    function currentTicks() external view returns (uint256);
-
-    /// @notice Get the current interest rate in parts per million
-    /// @return Interest rate in PPM
-    function currentRatePPM() external view returns (uint256);
+    function currentTicks() external view returns (uint64);
 
     /// @notice Get the accrued interest for a specific account
     /// @param account The address to query
@@ -40,12 +32,6 @@ interface ISavingsZCHF {
     /// @notice Save tokens to the savings account
     /// @param amount The amount to save
     function save(uint192 amount) external;
-
-    /// @notice Save tokens with referral information
-    /// @param amount The amount to save
-    /// @param referrer The referrer address
-    /// @param referralFeePPM The referral fee in parts per million
-    function save(uint192 amount, address referrer, uint24 referralFeePPM) external;
 
     /// @notice Withdraw tokens from the savings account
     /// @param receiver The address to receive the withdrawn tokens

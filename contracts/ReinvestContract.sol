@@ -6,7 +6,7 @@ import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ERC4626, ERC20, IERC20} from '@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol';
 import {Ownable2Step, Ownable} from '@openzeppelin/contracts/access/Ownable2Step.sol';
 
-import {ISavingsZCHF} from './helpers/ISavingsZCHF.sol';
+import {ISavingsZCHF} from './helpers/IReinvestContract.sol';
 
 /**
  * @title SavingsVaultZCHF
@@ -29,7 +29,6 @@ contract SavingsVaultZCHF is ERC4626, Ownable2Step {
     ISavingsZCHF public immutable savings;
     uint256 public totalClaimed;
 
-    event SetReferral(address indexed referrer, uint24 referralFeePPM);
     event InterestClaimed(uint256 interest, uint256 totalClaimed);
 
     constructor(
@@ -54,17 +53,9 @@ contract SavingsVaultZCHF is ERC4626, Ownable2Step {
         return (totalAssets() * 1 ether) / totalShares;
     }
 
-    /// @notice Calculates the accrued interest for this contract, minus referral fee if applicable
-    /// @dev If the account has a referrer, a referral fee is deducted from the interest
+    /// @notice Calculates the accrued interest for this contract
     function _interest() internal view returns (uint256) {
-        uint256 interest = savings.accruedInterest(address(this));
-        ISavingsZCHF.Account memory state = info();
-
-        if (state.referrer != address(0)) {
-            return interest - (interest * state.referralFeePPM) / 1_000_000;
-        } else {
-            return interest;
-        }
+        return savings.accruedInterest(address(this));
     }
 
     function totalAssets() public view override returns (uint256) {
@@ -86,11 +77,9 @@ contract SavingsVaultZCHF is ERC4626, Ownable2Step {
     }
 
     /// @notice Returns the time (in seconds) until the vault's funds are unlocked.
-    /// @dev Uses the tick difference and current rate in parts per million (PPM) to compute time remaining.
-    function untilUnlocked() public view returns (uint256) {
-        if (isUnlocked()) return 0;
-        uint256 diff = savings.savings(address(this)).ticks - savings.currentTicks();
-        return (diff / savings.currentRatePPM());
+    /// @dev Returns 0 as funds are always unlocked in simplified version
+    function untilUnlocked() public pure returns (uint256) {
+        return 0;
     }
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual override {
@@ -130,8 +119,4 @@ contract SavingsVaultZCHF is ERC4626, Ownable2Step {
         }
     }
 
-    function setReferral(address referrer, uint24 referralFeePPM) external onlyOwner {
-        savings.save(0, referrer, referralFeePPM);
-        emit SetReferral(referrer, referralFeePPM);
-    }
 }
