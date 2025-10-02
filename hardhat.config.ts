@@ -135,12 +135,7 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: {
-      mainnet: process.env.ETHERSCAN_API_KEY || '',
-      polygon: process.env.POLYGONSCAN_API_KEY || '',
-      optimisticEthereum: process.env.OPTIMISM_API_KEY || '',
-      base: process.env.BASESCAN_API_KEY || '',
-    },
+    apiKey: process.env.ETHERSCAN_API_KEY || '',
   },
   sourcify: {
     enabled: true,

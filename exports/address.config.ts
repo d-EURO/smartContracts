@@ -7,6 +7,7 @@ export interface ChainAddress {
   frontendGateway: Address;
   savingsGateway: Address;
   mintingHubGateway: Address;
+  coinLendingGateway: Address;
   DEPSwrapper: Address;
   bridgeEURT: Address;
   bridgeEURS: Address;
@@ -38,11 +39,12 @@ export const ADDRESS: Record<number, ChainAddress> = {
     frontendGateway: "0x5c49C00f897bD970d964BFB8c3065ae65a180994",
     savingsGateway: "0x073493d73258C4BEb6542e8dd3e1b2891C972303",
     mintingHubGateway: "0x8B3c41c649B9c7085C171CbB82337889b3604618",
+    coinLendingGateway: "0x1DA37D613FB590eeD37520b72e9c6F0F6eee89D2",
     DEPSwrapper: "0x103747924E74708139a9400e4Ab4BEA79FFFA380",
     bridgeEURT: "0x2353D16869F717BFCD22DaBc0ADbf4Dca62C609f",
     bridgeEURS: "0x0423F419De1c44151B6b000e2dAA51859C1D5d2A",
     bridgeVEUR: "0x3Ed40fA0E5C803e807eBD51355E388006f9E1fEE",
-    bridgeEURC: "0xD03cD3ea55e67bC61b78a0d70eE93018e2182Dbe",
+    bridgeEURC: "0xB4fF7412f08C22d7381885e8BdA9EE9825092fd1",
     bridgeEURR: "0x20B0a153fF16c7B1e962FD3D3352A00cf019f1a7",
     bridgeEUROP: "0x3EF3d03EFCc1338d6210946f8cF5Fb1a8b630341",
     bridgeEURI: "0xb66A40934a996373fA7602de9820C6bf3e8c9afE",

@@ -7,6 +7,7 @@ export * from "./abis/core/Equity";
 export * from "./abis/core/FrontendGateway";
 export * from "./abis/core/MintingHubGateway";
 export * from "./abis/core/SavingsGateway";
+export * from "./abis/core/CoinLendingGateway";
 
 export * from "./abis/MintingHubV2/PositionFactoryV2";
 export * from "./abis/MintingHubV2/PositionRoller";
