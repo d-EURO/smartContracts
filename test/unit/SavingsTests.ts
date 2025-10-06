@@ -339,7 +339,7 @@ describe("Savings Tests", () => {
 
     describe("accrued interest", () => {
       it("should return 0 if nothing is saved", async () => {
-        const interest = await savings.accruedInterest(owner.address);
+        const interest = await savings["accruedInterest(address)"](owner.address);
         expect(interest).to.eq(0n);
       });
 
@@ -349,7 +349,7 @@ describe("Savings Tests", () => {
         await savings["save(uint192)"](amount);
         await evm_increaseTime(90 * 86400);
 
-        const interest = await savings.accruedInterest(owner.address);
+        const interest = await savings["accruedInterest(address)"](owner.address);
         expect(interest).to.be.gt(0n);
 
         const savedStruct = await savings.savings(owner.address);
@@ -362,11 +362,11 @@ describe("Savings Tests", () => {
         await savings["save(uint192)"](amount);
         await evm_increaseTime(100 * 86400);
 
-        const accruedBefore = await savings.accruedInterest(owner.address);
+        const accruedBefore = await savings["accruedInterest(address)"](owner.address);
         expect(accruedBefore).to.be.gt(0n);
 
         await savings.refreshMyBalance(); // collect interest
-        const accruedAfter = await savings.accruedInterest(owner.address);
+        const accruedAfter = await savings["accruedInterest(address)"](owner.address);
         expect(accruedAfter).to.eq(0n); 
       });
     });
