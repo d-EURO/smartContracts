@@ -853,4 +853,86 @@ describe("SavingsVaultDEURO Tests", () => {
       ).to.not.emit(vault, "InterestClaimed");
     });
   });
+
+  describe("Module Disabled Scenarios", () => {
+    beforeEach(async () => {
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(bob).approve(await vault.getAddress(), ethers.MaxUint256);
+    });
+
+    it("should revert deposits and mints when module disabled", async () => {
+      const depositAmount = floatToDec18(10_000);
+      await vault.connect(alice).deposit(depositAmount, alice.address);
+
+      const aliceSharesBefore = await vault.balanceOf(alice.address);
+      expect(aliceSharesBefore).to.be.gt(0n);
+
+      await savings.proposeChange(0, []);
+      await evm_increaseTime(7 * 86_400 + 1);
+      await savings.applyChange();
+
+      expect(await savings.currentRatePPM()).to.equal(0);
+
+      await expect(
+        vault.connect(bob).deposit(floatToDec18(1000), bob.address)
+      ).to.be.revertedWithCustomError(savings, "ModuleDisabled");
+
+      await expect(
+        vault.connect(bob).mint(floatToDec18(1000), bob.address)
+      ).to.be.revertedWithCustomError(savings, "ModuleDisabled");
+    });
+
+    it("should allow withdrawals and redemptions when module disabled", async () => {
+      const depositAmount = floatToDec18(10_000);
+      await vault.connect(alice).deposit(depositAmount, alice.address);
+
+      const aliceSharesBefore = await vault.balanceOf(alice.address);
+      expect(aliceSharesBefore).to.be.gt(0n);
+
+      await savings.proposeChange(0, []);
+      await evm_increaseTime(7 * 86_400 + 1);
+      await savings.applyChange();
+
+      const withdrawAmount = floatToDec18(5000);
+      await expect(
+        vault.connect(alice).withdraw(withdrawAmount, alice.address, alice.address)
+      ).to.not.be.reverted;
+
+      const aliceSharesAfterWithdraw = await vault.balanceOf(alice.address);
+      expect(aliceSharesAfterWithdraw).to.be.lt(aliceSharesBefore);
+      expect(aliceSharesAfterWithdraw).to.be.gt(0n);
+
+      const remainingShares = await vault.balanceOf(alice.address);
+      await expect(
+        vault.connect(alice).redeem(remainingShares, alice.address, alice.address)
+      ).to.not.be.reverted;
+
+      expect(await vault.balanceOf(alice.address)).to.equal(0n);
+    });
+
+    it("should include accrued interest in withdrawals when module disabled", async () => {
+      const depositAmount = floatToDec18(10_000);
+      await vault.connect(alice).deposit(depositAmount, alice.address);
+
+      await evm_increaseTime(100 * 86_400);
+
+      const totalAssetsBefore = await vault.totalAssets();
+      expect(totalAssetsBefore).to.be.gt(depositAmount);
+
+      await savings.proposeChange(0, []);
+      await evm_increaseTime(7 * 86_400 + 1);
+      await savings.applyChange();
+
+      const aliceShares = await vault.balanceOf(alice.address);
+      const aliceAssetsBefore = await deuro.balanceOf(alice.address);
+
+      await vault.connect(alice).redeem(aliceShares, alice.address, alice.address);
+
+      const aliceAssetsAfter = await deuro.balanceOf(alice.address);
+      const withdrawn = aliceAssetsAfter - aliceAssetsBefore;
+
+      expect(withdrawn).to.be.gt(depositAmount);
+      expect(await vault.balanceOf(alice.address)).to.equal(0n);
+    });
+  });
 });
