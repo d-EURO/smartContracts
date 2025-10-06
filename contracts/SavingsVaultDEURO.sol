@@ -6,11 +6,11 @@ import {SafeERC20} from '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ERC4626, ERC20, IERC20} from '@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol';
 import {Ownable2Step, Ownable} from '@openzeppelin/contracts/access/Ownable2Step.sol';
 
-import {ISavingsZCHF} from './interface/ISavingsZCHF.sol';
+import {ISavingsDEURO} from './interface/ISavingsDEURO.sol';
 
 /**
- * @title SavingsVaultZCHF
- * @notice ERC-4626-compatible vault adapter for the ISavingsZCHF module.
+ * @title SavingsVaultDEURO
+ * @notice ERC-4626-compatible vault adapter for the d-EURO Savings module.
  *         This vault tracks interest-bearing deposits using a custom price-based mechanism,
  *         where share value increases over time as interest accrues.
  *
@@ -19,23 +19,20 @@ import {ISavingsZCHF} from './interface/ISavingsZCHF.sol';
  *      instead of relying on the default totalAssets / totalSupply ratio when supply is zero.
  *
  *      Interest is recognized through a manual `_accrueInterest()` call, which updates the internal
- *      price based on newly accrued interest. Withdrawals are protected by a locking mechanism tied
- *      to `savings.currentTicks()`, preventing premature exits and mitigating manipulation of
- *      account-based interest shifts enforced by `savings.INTEREST_DELAY()`.
+ *      price based on newly accrued interest.
  */
-contract SavingsVaultZCHF is ERC4626, Ownable2Step {
+contract SavingsVaultDEURO is ERC4626, Ownable2Step {
 	using Math for uint256;
 
-	ISavingsZCHF public immutable savings;
+	ISavingsDEURO public immutable savings;
 	uint256 public totalClaimed;
 
-	event SetReferral(address indexed referrer, uint24 referralFeePPM);
 	event InterestClaimed(uint256 interest, uint256 totalClaimed);
 
 	constructor(
 		address _owner,
 		IERC20 _coin,
-		ISavingsZCHF _savings,
+		ISavingsDEURO _savings,
 		string memory _name,
 		string memory _symbol
 	) ERC4626(_coin) ERC20(_name, _symbol) Ownable(_owner) {
@@ -46,7 +43,7 @@ contract SavingsVaultZCHF is ERC4626, Ownable2Step {
 
 	/// @notice Returns the current savings account state for this contract
 	/// @dev Uses the external `savings` contract to fetch the account details
-	function info() public view returns (ISavingsZCHF.Account memory) {
+	function info() public view returns (ISavingsDEURO.Account memory) {
 		return savings.savings(address(this));
 	}
 
@@ -58,17 +55,9 @@ contract SavingsVaultZCHF is ERC4626, Ownable2Step {
 		return (totalAssets() * 1 ether) / totalShares;
 	}
 
-	/// @notice Calculates the accrued interest for this contract, minus referral fee if applicable
-	/// @dev If the account has a referrer, a referral fee is deducted from the interest
+	/// @notice Calculates the accrued interest for this contract
 	function _interest() internal view returns (uint256) {
-		uint256 interest = savings.accruedInterest(address(this));
-		ISavingsZCHF.Account memory state = info();
-
-		if (state.referrer != address(0)) {
-			return interest - (interest * state.referralFeePPM) / 1_000_000;
-		} else {
-			return interest;
-		}
+		return savings.accruedInterest(address(this));
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -84,25 +73,6 @@ contract SavingsVaultZCHF is ERC4626, Ownable2Step {
 
 	function _convertToAssets(uint256 shares, Math.Rounding rounding) internal view virtual override returns (uint256) {
 		return (shares * price()) / 1 ether;
-	}
-
-	// ---------------------------------------------------------------------------------------
-	// Locking mechanism to prevent premature withdrawals.
-	// Interest is shifted over time, and early exits could lead to exploitation
-	// at the expense of other depositors if not properly gated.
-
-	/// @notice Checks whether the vault's funds are unlocked and eligible for withdrawal.
-	/// @dev Compares the current tick with the tick at which the vault's funds become available.
-	function isUnlocked() public view returns (bool) {
-		return savings.currentTicks() >= savings.savings(address(this)).ticks;
-	}
-
-	/// @notice Returns the time (in seconds) until the vault's funds are unlocked.
-	/// @dev Uses the tick difference and current rate in parts per million (PPM) to compute time remaining.
-	function untilUnlocked() public view returns (uint256) {
-		if (isUnlocked()) return 0;
-		uint256 diff = savings.savings(address(this)).ticks - savings.currentTicks();
-		return (diff / savings.currentRatePPM());
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -127,9 +97,6 @@ contract SavingsVaultZCHF is ERC4626, Ownable2Step {
 	}
 
 	function _withdraw(address caller, address receiver, address owner, uint256 assets, uint256 shares) internal virtual override {
-		// 3 days in seconds (259200) fits safely in uint40 (max ~1.1e12)
-		if (isUnlocked() == false) revert ISavingsZCHF.FundsLocked(uint40(untilUnlocked()));
-
 		_accrueInterest();
 
 		if (caller != owner) {
@@ -152,7 +119,7 @@ contract SavingsVaultZCHF is ERC4626, Ownable2Step {
 	// ---------------------------------------------------------------------------------------
 
 	/// @notice Internal function to accrue and record interest if available
-	/// @dev Retrieves net interest (after referral fee, if any) via `_interest()`
+	/// @dev Retrieves net interest via `_interest()`
 	/// @dev If there is interest and shares exist, adds it to `totalClaimed` and emits an event
 	function _accrueInterest() internal {
 		uint256 interest = _interest();
@@ -161,15 +128,5 @@ contract SavingsVaultZCHF is ERC4626, Ownable2Step {
 			totalClaimed += interest;
 			emit InterestClaimed(interest, totalClaimed);
 		}
-	}
-
-	// ---------------------------------------------------------------------------------------
-
-	/// @notice Sets the referral for this contract's savings account
-	/// @dev Only callable by the contract owner
-	/// @dev The `savings` module enforces that the referral fee does not exceed the 25% (250,000 PPM) maximum
-	function setReferral(address referrer, uint24 referralFeePPM) external onlyOwner {
-		savings.save(0, referrer, referralFeePPM);
-		emit SetReferral(referrer, referralFeePPM);
 	}
 }
