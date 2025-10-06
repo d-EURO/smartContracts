@@ -37,6 +37,8 @@ contract SavingsVaultDEURO is ERC4626, Ownable2Step {
 		string memory _symbol
 	) ERC4626(_coin) ERC20(_name, _symbol) Ownable(_owner) {
 		savings = _savings;
+		// Approve the savings contract to transfer tokens from this vault
+		SafeERC20.forceApprove(_coin, address(_savings), type(uint256).max);
 	}
 
 	// ---------------------------------------------------------------------------------------
