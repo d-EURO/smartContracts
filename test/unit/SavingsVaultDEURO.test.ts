@@ -47,7 +47,6 @@ describe("SavingsVaultDEURO Tests", () => {
     // Deploy SavingsVaultDEURO
     const VaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
     vault = await VaultFactory.deploy(
-      owner.address,
       await deuro.getAddress(),
       await savings.getAddress(),
       VAULT_NAME,
@@ -88,10 +87,6 @@ describe("SavingsVaultDEURO Tests", () => {
         await savings.getAddress()
       );
       expect(allowance).to.equal(ethers.MaxUint256);
-    });
-
-    it("should set correct owner", async () => {
-      expect(await vault.owner()).to.equal(owner.address);
     });
 
     it("should initialize totalClaimed to 0", async () => {
@@ -277,7 +272,6 @@ describe("SavingsVaultDEURO Tests", () => {
     it("should start with price of 1 ether when empty", async () => {
       const emptyVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
       const emptyVault = await emptyVaultFactory.deploy(
-        owner.address,
         await deuro.getAddress(),
         await savings.getAddress(),
         "Empty Vault",
@@ -290,7 +284,6 @@ describe("SavingsVaultDEURO Tests", () => {
     it("should give first depositor fair 1:1 share ratio", async () => {
       const emptyVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
       const emptyVault = await emptyVaultFactory.deploy(
-        owner.address,
         await deuro.getAddress(),
         await savings.getAddress(),
         "Test Vault",
@@ -310,7 +303,6 @@ describe("SavingsVaultDEURO Tests", () => {
     it("should resist donation attack with reasonable initial deposit", async () => {
       const attackVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
       const attackVault = await attackVaultFactory.deploy(
-        owner.address,
         await deuro.getAddress(),
         await savings.getAddress(),
         "Attack Vault",
@@ -349,7 +341,6 @@ describe("SavingsVaultDEURO Tests", () => {
     it("should handle large first deposit correctly", async () => {
       const largeVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
       const largeVault = await largeVaultFactory.deploy(
-        owner.address,
         await deuro.getAddress(),
         await savings.getAddress(),
         "Large Vault",
@@ -509,7 +500,6 @@ describe("SavingsVaultDEURO Tests", () => {
       // Deploy fresh vault
       const freshVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
       const freshVault = await freshVaultFactory.deploy(
-        owner.address,
         await deuro.getAddress(),
         await savings.getAddress(),
         "Fresh",
@@ -769,43 +759,6 @@ describe("SavingsVaultDEURO Tests", () => {
       await vault.connect(alice).deposit(1n, alice.address);
 
       expect(await vault.totalClaimed()).to.be.gt(0n);
-    });
-  });
-
-  describe("Access Control & Admin", () => {
-    it("should allow owner to transfer ownership", async () => {
-      expect(await vault.owner()).to.equal(owner.address);
-
-      await vault.transferOwnership(alice.address);
-      expect(await vault.pendingOwner()).to.equal(alice.address);
-
-      await vault.connect(alice).acceptOwnership();
-      expect(await vault.owner()).to.equal(alice.address);
-
-      // Transfer back for other tests
-      await vault.connect(alice).transferOwnership(owner.address);
-      await vault.acceptOwnership();
-    });
-
-    it("should require pending owner to accept", async () => {
-      await vault.transferOwnership(bob.address);
-
-      await expect(
-        vault.connect(alice).acceptOwnership()
-      ).to.be.revertedWithCustomError(vault, "OwnableUnauthorizedAccount");
-
-      await vault.connect(bob).acceptOwnership();
-      expect(await vault.owner()).to.equal(bob.address);
-
-      // Restore
-      await vault.connect(bob).transferOwnership(owner.address);
-      await vault.acceptOwnership();
-    });
-
-    it("should prevent non-owner from transferring ownership", async () => {
-      await expect(
-        vault.connect(alice).transferOwnership(alice.address)
-      ).to.be.revertedWithCustomError(vault, "OwnableUnauthorizedAccount");
     });
   });
 

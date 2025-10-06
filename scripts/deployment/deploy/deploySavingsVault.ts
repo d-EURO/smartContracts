@@ -19,11 +19,9 @@ async function main() {
   }
 
   const networkConfig = vaultConfig[network.name];
-  const owner = networkConfig.owner || deployer.address;
 
   console.log(`Connected to ${network.name} (chainId: ${network.chainId})`);
   console.log(`Using deployer address: ${deployer.address}`);
-  console.log(`Using vault owner: ${owner}`);
   console.log(`Using dEURO address: ${networkConfig.deuro}`);
   console.log(`Using Savings address: ${networkConfig.savings}`);
 
@@ -31,7 +29,6 @@ async function main() {
   console.log('Deploying SavingsVaultDEURO...');
   const SavingsVaultFactory = await ethers.getContractFactory('SavingsVaultDEURO');
   const vault = await SavingsVaultFactory.deploy(
-    owner,
     networkConfig.deuro,
     networkConfig.savings,
     vaultMetadata.name,
@@ -49,7 +46,6 @@ async function main() {
     chainId: Number(network.chainId),
     vault: {
       address: vaultAddress,
-      owner: owner,
       deuro: networkConfig.deuro,
       savings: networkConfig.savings,
       name: vaultMetadata.name,
@@ -85,7 +81,6 @@ async function main() {
       await hre.run('verify:verify', {
         address: vaultAddress,
         constructorArguments: [
-          owner,
           networkConfig.deuro,
           networkConfig.savings,
           vaultMetadata.name,

@@ -5,7 +5,6 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC4626, ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
-import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
 import {ISavingsDEURO} from "./interface/ISavingsDEURO.sol";
 
@@ -22,7 +21,7 @@ import {ISavingsDEURO} from "./interface/ISavingsDEURO.sol";
  *      Interest is recognized through a manual `_accrueInterest()` call, which updates the internal
  *      price based on newly accrued interest.
  */
-contract SavingsVaultDEURO is ERC4626, Ownable2Step {
+contract SavingsVaultDEURO is ERC4626 {
     using Math for uint256;
     using SafeCast for uint256;
 
@@ -32,12 +31,11 @@ contract SavingsVaultDEURO is ERC4626, Ownable2Step {
     event InterestClaimed(uint256 interest, uint256 totalClaimed);
 
     constructor(
-        address _owner,
         IERC20 _coin,
         ISavingsDEURO _savings,
         string memory _name,
         string memory _symbol
-    ) ERC4626(_coin) ERC20(_name, _symbol) Ownable(_owner) {
+    ) ERC4626(_coin) ERC20(_name, _symbol) {
         SAVINGS = _savings;
         // Approve the savings contract to transfer tokens from this vault
         SafeERC20.forceApprove(_coin, address(_savings), type(uint256).max);
