@@ -36,6 +36,18 @@ const contractABI = [
   },
 
   {
+    from: `${ARTIFACTS_PATH}/SavingsVaultDEURO.sol/SavingsVaultDEURO.json`,
+    to: `${ABIS_EXPORT_PATH}/core/SavingsVaultDEURO.ts`,
+    exportName: 'SavingsVaultDEUROABI',
+  },
+
+  {
+    from: `${ARTIFACTS_PATH}/gateway/CoinLendingGateway.sol/CoinLendingGateway.json`,
+    to: `${ABIS_EXPORT_PATH}/core/CoinLendingGateway.ts`,
+    exportName: 'CoinLendingGatewayABI',
+  },
+
+  {
     from: `${ARTIFACTS_PATH}/MintingHubV2/PositionFactory.sol/PositionFactory.json`,
     to: `${ABIS_EXPORT_PATH}/MintingHubV2/PositionFactoryV2.ts`,
     exportName: 'PositionFactoryV2ABI',

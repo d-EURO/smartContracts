@@ -23,9 +23,10 @@ The source code can be found in the [contracts](contracts) folder. The following
 | Leadrate.sol          | A module that can provide a leading interest rate for the system                  |
 | PositionFactory.sol   | Create a completely new position in a newly deployed contract                     |
 | DEPSWrapper.sol       | Enables nDEPS to be wrapped in DEPS                                               |
-| FrontendGateway.sol   | A module that rewards frontend providers for referrals into the dEURO Ecosystem   |
-| MintingHubGateway.sol | Plugin for oracle-free collateralized minting with rewards for frontend providers |
-| SavingsGateway.sol    | A module to pay out interest to ZCHF holders and reward frontend providers        |
+| FrontendGateway.sol    | A module that rewards frontend providers for referrals into the dEURO Ecosystem   |
+| MintingHubGateway.sol  | Plugin for oracle-free collateralized minting with rewards for frontend providers |
+| SavingsGateway.sol     | A module to pay out interest to ZCHF holders and reward frontend providers        |
+| CoinLendingGateway.sol | Gateway for native coin (ETH/MATIC) lending with custom liquidation prices        |
 
 # Code basis and changes after the fork
 
