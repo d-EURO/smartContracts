@@ -1,7 +1,7 @@
 export interface StablecoinBridgeConfig {
   name: string;
   sourceToken: string;    // Address of source stablecoin
-  limitAmount: string;    // Max mint amount in dEURO
+  limitAmount: string;    // Max mint amount in JUSD
   durationWeeks: number;
   description: string;
 }

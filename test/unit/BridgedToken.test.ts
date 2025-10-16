@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { BridgedToken, DecentralizedEURO } from "../../typechain";
+import { BridgedToken, JuiceDollar } from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 import { floatToDec18 } from "../../scripts/utils/math";
 
@@ -12,23 +12,23 @@ describe("BridgedToken", () => {
   let notBridge: HardhatEthersSigner; // Account that is not the bridge
 
   let bridgedToken: BridgedToken;
-  let dEURO: DecentralizedEURO; // Remote token
+  let JUSD: JuiceDollar; // Remote token
 
   const TOKEN_NAME = "Bridged Decentralized EURO";
-  const TOKEN_SYMBOL = "dEURO.op";
+  const TOKEN_SYMBOL = "JUSD.op";
 
   before(async () => {
     [owner, alice, bob, bridge, notBridge] = await ethers.getSigners();
     
-    // Deploy DecentralizedEURO as the remote token
-    const decentralizedEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
-    dEURO = await decentralizedEUROFactory.deploy(10 * 86400);
+    // Deploy JuiceDollar as the remote token
+    const decentralizeJUSDFactory = await ethers.getContractFactory("JuiceDollar");
+    JUSD = await decentralizeJUSDFactory.deploy(10 * 86400);
     
     // Deploy BridgedToken
     const bridgedTokenFactory = await ethers.getContractFactory("BridgedToken");
     bridgedToken = await bridgedTokenFactory.deploy(
       await bridge.getAddress(), // Bridge address
-      await dEURO.getAddress(),  // Remote token address
+      await JUSD.getAddress(),  // Remote token address
       TOKEN_NAME,
       TOKEN_SYMBOL
     );
@@ -41,9 +41,9 @@ describe("BridgedToken", () => {
     });
 
     it("should set the correct remote token", async () => {
-      expect(await bridgedToken.REMOTE_TOKEN()).to.equal(await dEURO.getAddress());
-      expect(await bridgedToken.remoteToken()).to.equal(await dEURO.getAddress());
-      expect(await bridgedToken.l1Token()).to.equal(await dEURO.getAddress());
+      expect(await bridgedToken.REMOTE_TOKEN()).to.equal(await JUSD.getAddress());
+      expect(await bridgedToken.remoteToken()).to.equal(await JUSD.getAddress());
+      expect(await bridgedToken.l1Token()).to.equal(await JUSD.getAddress());
     });
 
     it("should set the correct bridge", async () => {

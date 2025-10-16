@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
-import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
 import {IReserve} from "../interface/IReserve.sol";
 import {MathUtil} from "../utils/MathUtil.sol";
 import {IMintingHub} from "./interface/IMintingHub.sol";
@@ -80,7 +80,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice The Eurocoin contract.
      */
-    IDecentralizedEURO public immutable deuro;
+    IJuiceDollar public immutable deuro;
 
     /**
      * @notice The collateral token.
@@ -93,7 +93,7 @@ contract Position is Ownable, IPosition, MathUtil {
     uint256 public immutable override minimumCollateral;
 
     /**
-     * @notice The interest in parts per million per year that is deducted when minting dEURO.
+     * @notice The interest in parts per million per year that is deducted when minting JUSD.
      */
     uint24 public immutable riskPremiumPPM;
 
@@ -198,7 +198,7 @@ contract Position is Ownable, IPosition, MathUtil {
     ) Ownable(_owner) {
         original = address(this);
         hub = _hub;
-        deuro = IDecentralizedEURO(_deuro);
+        deuro = IJuiceDollar(_deuro);
         collateral = IERC20(_collateral);
         riskPremiumPPM = _riskPremiumPPM;
         reserveContribution = _reservePPM;
@@ -380,18 +380,18 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice Returns the virtual price of the collateral in dEURO.
+     * @notice Returns the virtual price of the collateral in JUSD.
      */
     function virtualPrice() public view returns (uint256) {
         return _virtualPrice(_collateralBalance(), price);
     }
 
     /**
-     * @notice Computes the virtual price of the collateral in dEURO, which is the minimum collateral
+     * @notice Computes the virtual price of the collateral in JUSD, which is the minimum collateral
      * price required to cover the entire debt with interest overcollateralization, lower bounded by the floor price. 
      * Returns the challenged price if a challenge is active.
      * @param colBalance The collateral balance of the position.
-     * @param floorPrice The minimum price of the collateral in dEURO.
+     * @param floorPrice The minimum price of the collateral in JUSD.
      */
     function _virtualPrice(uint256 colBalance, uint256 floorPrice) internal view returns (uint256) {
         if (challengedAmount > 0) return challengedPrice;
@@ -517,11 +517,11 @@ contract Position is Ownable, IPosition, MathUtil {
      *      `debt = principal + interest`. Under normal conditions, this simplifies to:
      *      `amount = (principal * (1000000 - reservePPM)) / 1000000 + interest`.
      *
-     *      For example, if `principal` is 40, `interest` is 10, and `reservePPM` is 200000, repaying 42 dEURO
+     *      For example, if `principal` is 40, `interest` is 10, and `reservePPM` is 200000, repaying 42 JUSD
      *      is required to fully close the position.
      *
-     * @param amount The maximum amount of dEURO that `msg.sender` is willing to repay.
-     * @return used  The actual amount of dEURO used for interest and principal repayment.
+     * @param amount The maximum amount of JUSD that `msg.sender` is willing to repay.
+     * @return used  The actual amount of JUSD used for interest and principal repayment.
      *
      * Emits a {MintingUpdate} event.
      */
@@ -569,9 +569,9 @@ contract Position is Ownable, IPosition, MathUtil {
      * Do not allow a forced sale as long as there is an open challenge. Otherwise, a forced sale by the owner
      * himself could remove any incentive to launch challenges shortly before the expiration. (CS-ZCHF2-001)
      *
-     * @param buyer         The address buying the collateral. This address provides `proceeds` in dEURO to repay the outstanding debt.
+     * @param buyer         The address buying the collateral. This address provides `proceeds` in JUSD to repay the outstanding debt.
      * @param colAmount     The amount of collateral to be forcibly sold and transferred to the `buyer`.
-     * @param proceeds      The amount of dEURO proceeds provided by the `buyer` to repay the outstanding debt.
+     * @param proceeds      The amount of JUSD proceeds provided by the `buyer` to repay the outstanding debt.
      *
      * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and debt after the forced sale.
      */
@@ -677,7 +677,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Repays a specified amount of debt from `msg.sender`, prioritizing accrued interest first and then principal.
-     * @return The actual amount of dEURO used for interest and principal repayment.
+     * @return The actual amount of JUSD used for interest and principal repayment.
      */
     function _payDownDebt(uint256 amount) internal returns (uint256) {
         _accrueInterest();

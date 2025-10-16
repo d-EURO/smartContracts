@@ -1,6 +1,6 @@
 const KNOWN_ADDRESSES: Record<string, string> = {
   '0x01ae4c18c2677f97bab536c48d6c36858f5c86d7': 'Deployer',
-  '0xba3f535bbcccca2a154b573ca6c5a49baae0a3ea': 'DecentralizedEURO',
+  '0xba3f535bbcccca2a154b573ca6c5a49baae0a3ea': 'JuiceDollar',
   '0xc71104001a3ccda1bef1177d765831bd1bfe8ee6': 'Equity',
   '0x167144d66ac1d02eaafca3649ef3305ea31ee5a8': 'PositionFactory',
   '0x4ce0ab2fc21bd27a47a64f594fdf7654ea57dc79': 'PositionRoller',

@@ -437,7 +437,7 @@ export const PositionV2ABI = [
     name: 'deuro',
     outputs: [
       {
-        internalType: 'contract IDecentralizedEURO',
+        internalType: 'contract IJuiceDollar',
         name: '',
         type: 'address',
       },

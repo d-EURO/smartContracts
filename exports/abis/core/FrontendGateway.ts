@@ -423,7 +423,7 @@ export const FrontendGatewayABI = [
   },
   {
     inputs: [],
-    name: 'DEURO',
+    name: 'JUSD',
     outputs: [
       {
         internalType: 'contract IERC20',

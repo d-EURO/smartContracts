@@ -6,9 +6,9 @@ const ABIS_EXPORT_PATH = path.join(process.cwd(), 'exports/abis');
 
 const contractABI = [
   {
-    from: `${ARTIFACTS_PATH}/DecentralizedEURO.sol/DecentralizedEURO.json`,
-    to: `${ABIS_EXPORT_PATH}/core/DecentralizedEURO.ts`,
-    exportName: 'DecentralizedEUROABI',
+    from: `${ARTIFACTS_PATH}/JuiceDollar.sol/JuiceDollar.json`,
+    to: `${ABIS_EXPORT_PATH}/core/JuiceDollar.ts`,
+    exportName: 'JuiceDollarABI',
   },
 
   {
@@ -36,9 +36,9 @@ const contractABI = [
   },
 
   {
-    from: `${ARTIFACTS_PATH}/SavingsVaultDEURO.sol/SavingsVaultDEURO.json`,
-    to: `${ABIS_EXPORT_PATH}/core/SavingsVaultDEURO.ts`,
-    exportName: 'SavingsVaultDEUROABI',
+    from: `${ARTIFACTS_PATH}/SavingsVaultJUSD.sol/SavingsVaultJUSD.json`,
+    to: `${ABIS_EXPORT_PATH}/core/SavingsVaultJUSD.ts`,
+    exportName: 'SavingsVaultJUSDABI',
   },
 
   {

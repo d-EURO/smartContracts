@@ -1,5 +1,5 @@
 import {
-  DecentralizedEURO,
+  JuiceDollar,
   DEPSWrapper,
   Equity,
   MintingHubGateway,
@@ -22,7 +22,7 @@ export type BridgeType = 'bridgeEURC' | 'bridgeEURT' | 'bridgeVEUR' | 'bridgeEUR
 
 export interface DeploymentAddresses {
   deployer: string;
-  decentralizedEURO: string;
+  decentralizeJUSD: string;
   equity: string;
   mintingHubGateway: string;
   savingsGateway: string;
@@ -34,7 +34,7 @@ export interface DeploymentAddresses {
 }
 
 export interface DeploymentContracts {
-  decentralizedEURO: DecentralizedEURO;
+  decentralizeJUSD: JuiceDollar;
   equity: Equity;
   mintingHubGateway: MintingHubGateway;
   savingsGateway: SavingsGateway;

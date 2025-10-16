@@ -1,12 +1,12 @@
 {
     "contractsDir": "contracts-dbg",
-    "selectedContract": "DecentralizedEUROTest",
+    "selectedContract": "JuiceDollarTest",
     "autoOpen": true,
     "breakOnEntry": false,
     "symbols": {
         "hardhat": {
             "projectPaths": [
-                "c:\\Users\\luziu\\Documents\\GitHub\\DecentralizedEURO"
+                "c:\\Users\\luziu\\Documents\\GitHub\\JuiceDollar"
             ]
         }
     }

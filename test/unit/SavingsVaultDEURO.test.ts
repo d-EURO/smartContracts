@@ -3,25 +3,25 @@ import { ethers } from "hardhat";
 import { floatToDec18 } from "../../scripts/utils/math";
 import { evm_increaseTime } from "../utils";
 import {
-  SavingsVaultDEURO,
+  SavingsVaultJUSD,
   Savings,
-  DecentralizedEURO,
+  JuiceDollar,
   Equity,
 } from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
-describe("SavingsVaultDEURO Tests", () => {
+describe("SavingsVaultJUSD Tests", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
 
-  let vault: SavingsVaultDEURO;
+  let vault: SavingsVaultJUSD;
   let savings: Savings;
-  let deuro: DecentralizedEURO;
+  let deuro: JuiceDollar;
   let equity: Equity;
 
   const VAULT_NAME = "d-EURO Savings Vault";
-  const VAULT_SYMBOL = "sdEURO";
+  const VAULT_SYMBOL = "sJUSD";
   const INITIAL_RATE_PPM = 20000n; // 2% annual interest
 
   const getTimeStamp = async () => {
@@ -33,9 +33,9 @@ describe("SavingsVaultDEURO Tests", () => {
   beforeEach(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
-    // Deploy dEURO
-    const DecentralizedEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
-    deuro = await DecentralizedEUROFactory.deploy(10 * 86400);
+    // Deploy JUSD
+    const JuiceDollarFactory = await ethers.getContractFactory("JuiceDollar");
+    deuro = await JuiceDollarFactory.deploy(10 * 86400);
 
     const equityAddr = await deuro.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
@@ -44,8 +44,8 @@ describe("SavingsVaultDEURO Tests", () => {
     const SavingsFactory = await ethers.getContractFactory("Savings");
     savings = await SavingsFactory.deploy(await deuro.getAddress(), INITIAL_RATE_PPM);
 
-    // Deploy SavingsVaultDEURO
-    const VaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
+    // Deploy SavingsVaultJUSD
+    const VaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
     vault = await VaultFactory.deploy(
       await deuro.getAddress(),
       await savings.getAddress(),
@@ -77,7 +77,7 @@ describe("SavingsVaultDEURO Tests", () => {
       expect(await vault.SAVINGS()).to.equal(await savings.getAddress());
     });
 
-    it("should set correct asset (dEURO)", async () => {
+    it("should set correct asset (JUSD)", async () => {
       expect(await vault.asset()).to.equal(await deuro.getAddress());
     });
 
@@ -270,7 +270,7 @@ describe("SavingsVaultDEURO Tests", () => {
 
   describe("Inflation Attack Protection", () => {
     it("should start with price of 1 ether when empty", async () => {
-      const emptyVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
+      const emptyVaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
       const emptyVault = await emptyVaultFactory.deploy(
         await deuro.getAddress(),
         await savings.getAddress(),
@@ -282,7 +282,7 @@ describe("SavingsVaultDEURO Tests", () => {
     });
 
     it("should give first depositor fair 1:1 share ratio", async () => {
-      const emptyVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
+      const emptyVaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
       const emptyVault = await emptyVaultFactory.deploy(
         await deuro.getAddress(),
         await savings.getAddress(),
@@ -301,7 +301,7 @@ describe("SavingsVaultDEURO Tests", () => {
     });
 
     it("should resist donation attack with reasonable initial deposit", async () => {
-      const attackVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
+      const attackVaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
       const attackVault = await attackVaultFactory.deploy(
         await deuro.getAddress(),
         await savings.getAddress(),
@@ -339,7 +339,7 @@ describe("SavingsVaultDEURO Tests", () => {
     });
 
     it("should handle large first deposit correctly", async () => {
-      const largeVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
+      const largeVaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
       const largeVault = await largeVaultFactory.deploy(
         await deuro.getAddress(),
         await savings.getAddress(),
@@ -349,7 +349,7 @@ describe("SavingsVaultDEURO Tests", () => {
 
       await deuro.approve(await largeVault.getAddress(), ethers.MaxUint256);
 
-      // Owner has ~800k dEURO available after setup (2M - 200k for alice/bob - 1M equity)
+      // Owner has ~800k JUSD available after setup (2M - 200k for alice/bob - 1M equity)
       const largeDeposit = floatToDec18(500_000);
       await largeVault.deposit(largeDeposit, owner.address);
 
@@ -498,7 +498,7 @@ describe("SavingsVaultDEURO Tests", () => {
 
     it("should not emit InterestClaimed when totalSupply is 0", async () => {
       // Deploy fresh vault
-      const freshVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
+      const freshVaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
       const freshVault = await freshVaultFactory.deploy(
         await deuro.getAddress(),
         await savings.getAddress(),

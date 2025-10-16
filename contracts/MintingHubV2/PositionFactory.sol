@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Position} from "./Position.sol";
-import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
 
 contract PositionFactory {
     /**

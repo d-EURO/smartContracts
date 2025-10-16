@@ -1,6 +1,6 @@
 /**
  * @interface SavingsVaultConfig
- * @property {string} deuro - The address of the DecentralizedEURO token contract
+ * @property {string} deuro - The address of the JuiceDollar token contract
  * @property {string} savings - The address of the Savings contract (SavingsGateway)
  */
 export interface SavingsVaultConfig {
@@ -28,6 +28,6 @@ export const vaultConfig: SavingsVaultConfig = {
 };
 
 export const vaultMetadata = {
-  name: 'Savings Vault dEURO',
-  symbol: 'svdEURO',
+  name: 'Savings Vault JUSD',
+  symbol: 'svJUSD',
 };

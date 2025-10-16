@@ -5,14 +5,14 @@ import {TestHelper} from "../TestHelper.sol";
 import {Handler} from "./Handler.t.sol";
 import {Environment} from "./Environment.t.sol";
 import {Position} from "../../contracts/MintingHubV2/Position.sol";
-import {DecentralizedEURO} from "../../contracts/DecentralizedEURO.sol";
+import {JuiceDollar} from "../../contracts/JuiceDollar.sol";
 import {console} from "forge-std/Test.sol";
 
 contract Invariants is TestHelper {
     Environment internal s_env;
     Handler internal s_handler;
 
-    /// @notice Set up dEURO environment
+    /// @notice Set up JUSD environment
     function setUp() public {
         // Create environment and handler
         s_env = new Environment();
@@ -39,13 +39,13 @@ contract Invariants is TestHelper {
         targetContract(address(s_handler));
     }
 
-    /// @dev check that positions has no trapped dEURO
-    function invariant_positionHasNoTrappeddEURO() public view {
+    /// @dev check that positions has no trapped JUSD
+    function invariant_positionHasNoTrappedJUSD() public view {
         Position[] memory positions = s_env.getPositions();
         for (uint256 i = 0; i < positions.length; i++) {
             Position pos = positions[i];
             uint256 trapped = s_env.deuro().balanceOf(address(pos));
-            assertEq(trapped, 0, "Position has trapped dEURO");
+            assertEq(trapped, 0, "Position has trapped JUSD");
         }
     }
 
@@ -122,7 +122,7 @@ contract Invariants is TestHelper {
         }
     }
 
-    /// @dev check that minterReserve in dEURO equals the sum of all positions' reserved amounts
+    /// @dev check that minterReserve in JUSD equals the sum of all positions' reserved amounts
     function invariant_minterReserveConsistency() public view {
         Position[] memory positions = s_env.getPositions();
         uint256 totalReserved = 0;
@@ -154,9 +154,9 @@ contract Invariants is TestHelper {
         }
     }
 
-    /// @dev verify that total dEURO supply is consistent with expected accounting
+    /// @dev verify that total JUSD supply is consistent with expected accounting
     function invariant_totalSupplyConsistency() public view {
-        DecentralizedEURO deuro = s_env.deuro();
+        JuiceDollar deuro = s_env.deuro();
         uint256 totalSupply = deuro.totalSupply();
         
         uint256 totalBalances = 0;
@@ -164,7 +164,7 @@ contract Invariants is TestHelper {
         totalBalances += deuro.balanceOf(address(s_env.savingsGateway()));
         for (uint256 i = 0; i < 5; i++) totalBalances += deuro.balanceOf(s_env.eoas(i));
         
-        assertEq(totalBalances, totalSupply, "Total dEURO balances inconsistent with total supply");
+        assertEq(totalBalances, totalSupply, "Total JUSD balances inconsistent with total supply");
     }
 
     /// @dev verify fixed annual rate is always at least the risk premium
@@ -200,7 +200,7 @@ contract Invariants is TestHelper {
 
         console.log("> USERS");
         logHorizontalDivider();
-        logRow3("User", ["# Positions", "COL balance", "dEURO balance"]);
+        logRow3("User", ["# Positions", "COL balance", "JUSD balance"]);
         logHorizontalDivider();
 
         logRow3(

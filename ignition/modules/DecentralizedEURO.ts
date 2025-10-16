@@ -1,9 +1,9 @@
 import { buildModule } from '@nomicfoundation/hardhat-ignition/modules';
 
-export default buildModule('DecentralizedEURO', (m) => {
+export default buildModule('JuiceDollar', (m) => {
   const minApplicationPeriod = m.getParameter('minApplicationPeriod');
 
-  const decentralizedEURO = m.contract('DecentralizedEURO', [minApplicationPeriod]);
+  const decentralizeJUSD = m.contract('JuiceDollar', [minApplicationPeriod]);
 
-  return { decentralizedEURO };
+  return { decentralizeJUSD };
 });

@@ -5,7 +5,7 @@ import hre from 'hardhat';
 import { vaultConfig, vaultMetadata } from '../config/savingsVaultConfig';
 
 /**
- * @description Deploys the SavingsVaultDEURO contract on the specified network.
+ * @description Deploys the SavingsVaultJUSD contract on the specified network.
  * @usage npx hardhat run scripts/deployment/deploy/deploySavingsVault.ts --network <network>
  */
 async function main() {
@@ -22,12 +22,12 @@ async function main() {
 
   console.log(`Connected to ${network.name} (chainId: ${network.chainId})`);
   console.log(`Using deployer address: ${deployer.address}`);
-  console.log(`Using dEURO address: ${networkConfig.deuro}`);
+  console.log(`Using JUSD address: ${networkConfig.deuro}`);
   console.log(`Using Savings address: ${networkConfig.savings}`);
 
-  // Deploy the SavingsVaultDEURO contract
-  console.log('Deploying SavingsVaultDEURO...');
-  const SavingsVaultFactory = await ethers.getContractFactory('SavingsVaultDEURO');
+  // Deploy the SavingsVaultJUSD contract
+  console.log('Deploying SavingsVaultJUSD...');
+  const SavingsVaultFactory = await ethers.getContractFactory('SavingsVaultJUSD');
   const vault = await SavingsVaultFactory.deploy(
     networkConfig.deuro,
     networkConfig.savings,
@@ -37,7 +37,7 @@ async function main() {
 
   await vault.waitForDeployment();
   const vaultAddress = await vault.getAddress();
-  console.log(`SavingsVaultDEURO deployed to: ${vaultAddress}`);
+  console.log(`SavingsVaultJUSD deployed to: ${vaultAddress}`);
 
   // Save deployment info
   const timestamp = Math.floor(Date.now() / 1000);

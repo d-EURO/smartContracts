@@ -4,20 +4,20 @@ pragma solidity ^0.8.0;
 import {Position} from "../MintingHubV2/Position.sol";
 import {MintingHubGateway} from "../gateway/MintingHubGateway.sol";
 import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
-import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
 import {TestToken} from "./TestToken.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 contract PositionExpirationTest {
     MintingHubGateway public hub;
     TestToken public col;
-    IDecentralizedEURO public deuro;
+    IJuiceDollar public deuro;
     bytes32 public frontendCode;
 
     constructor(address hub_) {
         hub = MintingHubGateway(hub_);
         col = new TestToken("Some Collateral", "COL", uint8(0));
-        deuro = hub.DEURO();
+        deuro = hub.JUSD();
     }
 
     function openPositionFor(address owner, bytes32 frontendCode_) public returns (address) {
@@ -58,7 +58,7 @@ contract PositionExpirationTest {
         return pos;
     }
 
-    function approveDEURO(address spender, uint256 amount) external {
+    function approveJUSD(address spender, uint256 amount) external {
         deuro.approve(spender, amount);
     }
 

@@ -270,10 +270,10 @@ export const MintingHubV2ABI = [
   },
   {
     inputs: [],
-    name: 'DEURO',
+    name: 'JUSD',
     outputs: [
       {
-        internalType: 'contract IDecentralizedEURO',
+        internalType: 'contract IJuiceDollar',
         name: '',
         type: 'address',
       },

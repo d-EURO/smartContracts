@@ -2,16 +2,16 @@ import { formatEther, ZeroAddress } from 'ethers';
 import { colors } from '../utils/table';
 import { DecentralizedEuroState, EventTrendData, HealthStatus } from './types';
 import monitorConfig from '../utils/monitorConfig';
-import { DecentralizedEURO } from '../../typechain';
+import { JuiceDollar } from '../../typechain';
 import { aggregateData, Operator, processEvents } from './utils';
 import { batchedEventQuery } from '../utils/blockchain';
 
 /**
- * Fetches the state of the DecentralizedEURO contract
- * @param deuro DecentralizedEURO contract
+ * Fetches the state of the JuiceDollar contract
+ * @param deuro JuiceDollar contract
  * @returns DecentralizedEuroState
  */
-export async function getDecentralizedEuroState(deuro: DecentralizedEURO): Promise<DecentralizedEuroState> {
+export async function getDecentralizedEuroState(deuro: JuiceDollar): Promise<DecentralizedEuroState> {
   const address = await deuro.getAddress();
   const totalSupply = await deuro.totalSupply();
   const equityAddress = await deuro.reserve();
@@ -53,8 +53,8 @@ export async function getDecentralizedEuroState(deuro: DecentralizedEURO): Promi
   };
 }
 
-// Compute the 24h volume of dEURO transfers (excluding minting and burning)
-async function getDailyVolume(deuro: DecentralizedEURO): Promise<bigint> {
+// Compute the 24h volume of JUSD transfers (excluding minting and burning)
+async function getDailyVolume(deuro: JuiceDollar): Promise<bigint> {
   const provider = deuro.runner?.provider;
   if (!provider) return 0n;
 
@@ -74,27 +74,27 @@ async function getDailyVolume(deuro: DecentralizedEURO): Promise<bigint> {
   return volume;
 }
 
-async function processLossEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
+async function processLossEvents(deuro: JuiceDollar, color?: string): Promise<EventTrendData> {
   const events = await batchedEventQuery(deuro, deuro.filters.Loss(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const lossTrend = aggregateData(processedEvents, [{ name: 'Loss (dEURO)', key: 'amount', ops: Operator.sum }]);
+  const lossTrend = aggregateData(processedEvents, [{ name: 'Loss (JUSD)', key: 'amount', ops: Operator.sum }]);
   return {
     trend: lossTrend,
     events: processedEvents,
   };
 }
 
-async function processProfitEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
+async function processProfitEvents(deuro: JuiceDollar, color?: string): Promise<EventTrendData> {
   const events = await batchedEventQuery(deuro, deuro.filters.Profit(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
-  const profitTrend = aggregateData(processedEvents, [{ name: 'Profit (dEURO)', key: 'amount', ops: Operator.sum }]);
+  const profitTrend = aggregateData(processedEvents, [{ name: 'Profit (JUSD)', key: 'amount', ops: Operator.sum }]);
   return {
     trend: profitTrend,
     events: processedEvents,
   };
 }
 
-async function processMinterAppliedEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
+async function processMinterAppliedEvents(deuro: JuiceDollar, color?: string): Promise<EventTrendData> {
   const events = await batchedEventQuery(deuro, deuro.filters.MinterApplied(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const minterAppliedTrend = aggregateData(processedEvents, [
@@ -111,7 +111,7 @@ async function processMinterAppliedEvents(deuro: DecentralizedEURO, color?: stri
   };
 }
 
-async function processMinterDeniedEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
+async function processMinterDeniedEvents(deuro: JuiceDollar, color?: string): Promise<EventTrendData> {
   const events = await batchedEventQuery(deuro, deuro.filters.MinterDenied(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const minterDeniedTrend = aggregateData(processedEvents, [
@@ -123,11 +123,11 @@ async function processMinterDeniedEvents(deuro: DecentralizedEURO, color?: strin
   };
 }
 
-async function processProfitsDistributedEvents(deuro: DecentralizedEURO, color?: string): Promise<EventTrendData> {
+async function processProfitsDistributedEvents(deuro: JuiceDollar, color?: string): Promise<EventTrendData> {
   const events = await batchedEventQuery(deuro, deuro.filters.ProfitDistributed(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const profitsDistributedTrend = aggregateData(processedEvents, [
-    { name: 'ProfitsDistributed (dEURO)', key: 'amount', ops: Operator.sum },
+    { name: 'ProfitsDistributed (JUSD)', key: 'amount', ops: Operator.sum },
   ]);
   return {
     trend: profitsDistributedTrend,

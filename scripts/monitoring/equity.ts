@@ -34,8 +34,8 @@ async function processTradeEvents(equity: Equity, color?: string): Promise<Event
   const events = await batchedEventQuery(equity, equity.filters.Trade(), monitorConfig.deploymentBlock);
   const processedEvents = (await processEvents(events, color)).sort((a, b) => b.timestamp - a.timestamp);
   const tradeTrend = aggregateData(processedEvents, [
-    { name: 'Inflow (dEURO)', key: 'totPrice', ops: Operator.sum, filter: (event) => event.data.amount > 0 },
-    { name: 'Outflow (dEURO)', key: 'totPrice', ops: Operator.sum, filter: (event) => event.data.amount < 0 },
+    { name: 'Inflow (JUSD)', key: 'totPrice', ops: Operator.sum, filter: (event) => event.data.amount > 0 },
+    { name: 'Outflow (JUSD)', key: 'totPrice', ops: Operator.sum, filter: (event) => event.data.amount < 0 },
   ]);
   return {
     trend: tradeTrend,

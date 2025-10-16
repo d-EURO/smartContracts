@@ -6,11 +6,11 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC4626, ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 
-import {ISavingsDEURO} from "./interface/ISavingsDEURO.sol";
+import {ISavingsJUSD} from "./interface/ISavingsJUSD.sol";
 
 /**
- * @title SavingsVaultDEURO
- * @notice ERC-4626-compatible vault adapter for the d-EURO Savings module.
+ * @title SavingsVaultJUSD
+ * @notice ERC-4626-compatible vault adapter for the JUSD Savings module.
  *         This vault tracks interest-bearing deposits using a custom price-based mechanism,
  *         where share value increases over time as interest accrues.
  *
@@ -21,18 +21,18 @@ import {ISavingsDEURO} from "./interface/ISavingsDEURO.sol";
  *      Interest is recognized through a manual `_accrueInterest()` call, which updates the internal
  *      price based on newly accrued interest.
  */
-contract SavingsVaultDEURO is ERC4626 {
+contract SavingsVaultJUSD is ERC4626 {
     using Math for uint256;
     using SafeCast for uint256;
 
-    ISavingsDEURO public immutable SAVINGS;
+    ISavingsJUSD public immutable SAVINGS;
     uint256 public totalClaimed;
 
     event InterestClaimed(uint256 interest, uint256 totalClaimed);
 
     constructor(
         IERC20 _coin,
-        ISavingsDEURO _savings,
+        ISavingsJUSD _savings,
         string memory _name,
         string memory _symbol
     ) ERC4626(_coin) ERC20(_name, _symbol) {
@@ -45,7 +45,7 @@ contract SavingsVaultDEURO is ERC4626 {
 
     /// @notice Returns the current savings account state for this contract
     /// @dev Uses the external `savings` contract to fetch the account details
-    function info() public view returns (ISavingsDEURO.Account memory) {
+    function info() public view returns (ISavingsJUSD.Account memory) {
         return SAVINGS.savings(address(this));
     }
 

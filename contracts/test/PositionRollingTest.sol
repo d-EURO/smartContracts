@@ -9,12 +9,12 @@ import "../MintingHubV2/MintingHub.sol";
 import "../StablecoinBridge.sol";
 import "../MintingHubV2/interface/IPosition.sol";
 import "../interface/IReserve.sol";
-import "../interface/IDecentralizedEURO.sol";
+import "../interface/IJuiceDollar.sol";
 
 contract PositionRollingTest {
     MintingHub hub;
     TestToken col;
-    IDecentralizedEURO deuro;
+    IJuiceDollar deuro;
     PositionRoller roller;
 
     IPosition public p1;
@@ -23,7 +23,7 @@ contract PositionRollingTest {
     constructor(address hub_) {
         hub = MintingHub(hub_);
         col = new TestToken("Some Collateral", "COL", uint8(0));
-        deuro = hub.DEURO();
+        deuro = hub.JUSD();
         roller = hub.ROLLER();
     }
 

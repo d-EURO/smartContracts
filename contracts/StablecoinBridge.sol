@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IDecentralizedEURO} from "./interface/IDecentralizedEURO.sol";
+import {IJuiceDollar} from "./interface/IJuiceDollar.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -14,9 +14,9 @@ contract StablecoinBridge {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable eur; // the source stablecoin
-    IDecentralizedEURO public immutable dEURO; // the dEURO
+    IJuiceDollar public immutable JUSD; // the JUSD
     uint8 private immutable eurDecimals;
-    uint8 private immutable dEURODecimals;
+    uint8 private immutable JUSDDecimals;
 
     /**
      * @notice The time horizon after which this bridge expires and needs to be replaced by a new contract.
@@ -33,11 +33,11 @@ contract StablecoinBridge {
     error Expired(uint256 time, uint256 expiration);
     error UnsupportedToken(address token);
 
-    constructor(address other, address dEUROAddress, uint256 limit_, uint256 weeks_) {
+    constructor(address other, address JUSDAddress, uint256 limit_, uint256 weeks_) {
         eur = IERC20(other);
-        dEURO = IDecentralizedEURO(dEUROAddress);
+        JUSD = IJuiceDollar(JUSDAddress);
         eurDecimals = IERC20Metadata(other).decimals();
-        dEURODecimals = IERC20Metadata(dEUROAddress).decimals();
+        JUSDDecimals = IERC20Metadata(JUSDAddress).decimals();
         horizon = block.timestamp + weeks_ * 1 weeks;
         limit = limit_;
         minted = 0;
@@ -51,42 +51,42 @@ contract StablecoinBridge {
     }
 
     /**
-     * @notice Mint the target amount of dEUROs, taking the equal amount of source coins from the sender.
+     * @notice Mint the target amount of JUSD, taking the equal amount of source coins from the sender.
      * @dev This only works if an allowance for the source coins has been set and the caller has enough of them.
      * @param amount The amount of the source stablecoin to bridge (convert).
      */
     function mintTo(address target, uint256 amount) public {
         eur.safeTransferFrom(msg.sender, address(this), amount);
         
-        uint256 targetAmount = _convertAmount(amount, eurDecimals, dEURODecimals);
+        uint256 targetAmount = _convertAmount(amount, eurDecimals, JUSDDecimals);
         _mint(target, targetAmount);
     }
 
     function _mint(address target, uint256 amount) internal {
         if (block.timestamp > horizon) revert Expired(block.timestamp, horizon);
-        dEURO.mint(target, amount);
+        JUSD.mint(target, amount);
         minted += amount;
         if (minted > limit) revert Limit(amount, limit);
     }
 
     /**
      * @notice Convenience method for burnAndSend(msg.sender, amount)
-     * @param amount The amount of dEURO to burn.
+     * @param amount The amount of JUSD to burn.
      */
     function burn(uint256 amount) external {
         _burn(msg.sender, msg.sender, amount);
     }
 
     /**
-     * @notice Burn the indicated amount of dEURO and send the same number of source coins to the caller.
+     * @notice Burn the indicated amount of JUSD and send the same number of source coins to the caller.
      */
     function burnAndSend(address target, uint256 amount) external {
         _burn(msg.sender, target, amount);
     }
 
-    function _burn(address dEUROHolder, address target, uint256 amount) internal {
-        uint256 sourceAmount = _convertAmount(amount, dEURODecimals, eurDecimals);
-        dEURO.burnFrom(dEUROHolder, amount);
+    function _burn(address JUSDHolder, address target, uint256 amount) internal {
+        uint256 sourceAmount = _convertAmount(amount, JUSDDecimals, eurDecimals);
+        JUSD.burnFrom(JUSDHolder, amount);
         eur.safeTransfer(target, sourceAmount);
         minted -= amount;
     }

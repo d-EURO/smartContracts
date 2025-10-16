@@ -26,8 +26,8 @@ export async function monitorEquityAction({ includeEventTxs }: { includeEventTxs
 
     metricsTable.setData([
       { key: 'Total Supply', value: formatCurrencyFromWei(equityState.totalSupply) + ' nDEPS' },
-      { key: 'Price', value: formatCurrencyFromWei(equityState.price, 4) + ' dEURO' },
-      { key: 'Market Cap', value: formatCurrencyFromWei(equityState.marketCap) + ' dEURO' },
+      { key: 'Price', value: formatCurrencyFromWei(equityState.price, 4) + ' JUSD' },
+      { key: 'Market Cap', value: formatCurrencyFromWei(equityState.marketCap) + ' JUSD' },
     ]);
 
     metricsTable.showHeaderSeparator(true);

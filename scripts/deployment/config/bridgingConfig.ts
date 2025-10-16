@@ -39,7 +39,7 @@ export const tokenConfig: TokenConfig = {
   deuro: {
     remote: '0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea',
     name: 'Decentralized EURO',
-    symbol: 'dEURO',
+    symbol: 'JUSD',
   },
   deps: {
     remote: '0x103747924E74708139a9400e4Ab4BEA79FFFA380',

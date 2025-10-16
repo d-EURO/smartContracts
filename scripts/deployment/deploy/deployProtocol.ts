@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { flashbotsConfig, contractsParams } from '../config/flashbotsConfig';
-import DecentralizedEUROArtifact from '../../../artifacts/contracts/DecentralizedEURO.sol/DecentralizedEURO.json';
+import JuiceDollarArtifact from '../../../artifacts/contracts/JuiceDollar.sol/JuiceDollar.json';
 import PositionFactoryArtifact from '../../../artifacts/contracts/MintingHubV2/PositionFactory.sol/PositionFactory.json';
 import PositionRollerArtifact from '../../../artifacts/contracts/MintingHubV2/PositionRoller.sol/PositionRoller.json';
 import StablecoinBridgeArtifact from '../../../artifacts/contracts/StablecoinBridge.sol/StablecoinBridge.json';
@@ -27,7 +27,7 @@ interface DeployedContract {
 }
 
 interface DeployedContracts {
-  decentralizedEURO: DeployedContract;
+  decentralizeJUSD: DeployedContract;
   equity: DeployedContract;
   positionFactory: DeployedContract;
   positionRoller: DeployedContract;
@@ -156,67 +156,67 @@ async function main() {
   // Deploy all contracts
   console.log('Setting up contract deployment transactions...');
 
-  const decentralizedEURO = await createDeployTx('DecentralizedEURO', DecentralizedEUROArtifact, [
-    contractsParams.decentralizedEURO.minApplicationPeriod,
+  const decentralizeJUSD = await createDeployTx('JuiceDollar', JuiceDollarArtifact, [
+    contractsParams.decentralizeJUSD.minApplicationPeriod,
   ]);
 
   // Calculate equity address (first contract deployed internally => nonce = 1)
   const equity = {
-    address: ethers.getCreateAddress({ from: decentralizedEURO.address, nonce: 1 }),
-    constructorArgs: [decentralizedEURO.address],
+    address: ethers.getCreateAddress({ from: decentralizeJUSD.address, nonce: 1 }),
+    constructorArgs: [decentralizeJUSD.address],
   };
   console.log('Equity address will be deployed at: ', equity.address);
 
   const positionFactory = await createDeployTx('PositionFactory', PositionFactoryArtifact);
 
-  const positionRoller = await createDeployTx('PositionRoller', PositionRollerArtifact, [decentralizedEURO.address]);
+  const positionRoller = await createDeployTx('PositionRoller', PositionRollerArtifact, [decentralizeJUSD.address]);
 
   const depsWrapper = await createDeployTx('DEPSWrapper', DEPSWrapperArtifact, [equity.address]);
 
   const bridgeEURC = await createDeployTx('StablecoinBridgeEURC', StablecoinBridgeArtifact, [
     contractsParams.bridges.eurc.other,
-    decentralizedEURO.address,
+    decentralizeJUSD.address,
     contractsParams.bridges.eurc.limit,
     contractsParams.bridges.eurc.weeks,
   ]);
 
   const bridgeEURT = await createDeployTx('StablecoinBridgeEURT', StablecoinBridgeArtifact, [
     contractsParams.bridges.eurt.other,
-    decentralizedEURO.address,
+    decentralizeJUSD.address,
     contractsParams.bridges.eurt.limit,
     contractsParams.bridges.eurt.weeks,
   ]);
 
   const bridgeVEUR = await createDeployTx('StablecoinBridgeVEUR', StablecoinBridgeArtifact, [
     contractsParams.bridges.veur.other,
-    decentralizedEURO.address,
+    decentralizeJUSD.address,
     contractsParams.bridges.veur.limit,
     contractsParams.bridges.veur.weeks,
   ]);
 
   const bridgeEURS = await createDeployTx('StablecoinBridgeEURS', StablecoinBridgeArtifact, [
     contractsParams.bridges.eurs.other,
-    decentralizedEURO.address,
+    decentralizeJUSD.address,
     contractsParams.bridges.eurs.limit,
     contractsParams.bridges.eurs.weeks,
   ]);
 
   // Deploy FrontendGateway
   const frontendGateway = await createDeployTx('FrontendGateway', FrontendGatewayArtifact, [
-    decentralizedEURO.address,
+    decentralizeJUSD.address,
     depsWrapper.address,
   ]);
 
   // Deploy SavingsGateway
   const savingsGateway = await createDeployTx('SavingsGateway', SavingsGatewayArtifact, [
-    decentralizedEURO.address,
+    decentralizeJUSD.address,
     contractsParams.savingsGateway.initialRatePPM,
     frontendGateway.address,
   ]);
 
   // Deploy MintingHubGateway
   const mintingHubGateway = await createDeployTx('MintingHubGateway', MintingHubGatewayArtifact, [
-    decentralizedEURO.address,
+    decentralizeJUSD.address,
     savingsGateway.address,
     positionRoller.address,
     positionFactory.address,
@@ -224,7 +224,7 @@ async function main() {
   ]);
 
   const deployedContracts: DeployedContracts = {
-    decentralizedEURO,
+    decentralizeJUSD,
     equity,
     positionFactory,
     positionRoller,
@@ -247,56 +247,56 @@ async function main() {
     mintingHubGateway.address,
   ]);
 
-  // Initialize minters in DecentralizedEURO
-  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+  // Initialize minters in JuiceDollar
+  createCallTx(decentralizeJUSD.address, JuiceDollarArtifact.abi, 'initialize', [
     mintingHubGateway.address,
     'MintingHubGateway',
   ]);
 
-  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+  createCallTx(decentralizeJUSD.address, JuiceDollarArtifact.abi, 'initialize', [
     positionRoller.address,
     'PositionRoller',
   ]);
 
-  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+  createCallTx(decentralizeJUSD.address, JuiceDollarArtifact.abi, 'initialize', [
     savingsGateway.address,
     'SavingsGateway',
   ]);
 
-  createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+  createCallTx(decentralizeJUSD.address, JuiceDollarArtifact.abi, 'initialize', [
     frontendGateway.address,
     'FrontendGateway',
   ]);
 
   if (bridgeEURC) {
-    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+    createCallTx(decentralizeJUSD.address, JuiceDollarArtifact.abi, 'initialize', [
       bridgeEURC.address,
       'StablecoinBridgeEURC',
     ]);
   }
 
   if (bridgeEURT) {
-    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+    createCallTx(decentralizeJUSD.address, JuiceDollarArtifact.abi, 'initialize', [
       bridgeEURT.address,
       'StablecoinBridgeEURT',
     ]);
   }
 
   if (bridgeVEUR) {
-    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+    createCallTx(decentralizeJUSD.address, JuiceDollarArtifact.abi, 'initialize', [
       bridgeVEUR.address,
       'StablecoinBridgeVEUR',
     ]);
   }
 
   if (bridgeEURS) {
-    createCallTx(decentralizedEURO.address, DecentralizedEUROArtifact.abi, 'initialize', [
+    createCallTx(decentralizeJUSD.address, JuiceDollarArtifact.abi, 'initialize', [
       bridgeEURS.address,
       'StablecoinBridgeEURS',
     ]);
   }
 
-  // Approve and mint 1000 dEURO through the EURC bridge to close initialization phase
+  // Approve and mint 1000 JUSD through the EURC bridge to close initialization phase
   const eurcAmount = ethers.parseUnits('1000', 6); // EURC has 6 decimals
   createCallTx(
     contractsParams.bridges.eurc.other,
@@ -307,13 +307,13 @@ async function main() {
 
   createCallTx(bridgeEURC.address, StablecoinBridgeArtifact.abi, 'mint', [eurcAmount]);
 
-  // Approve and invest 1000 dEURO in Equity to mint the initial 10_000_000 nDEPS
-  const deuroInvestAmount = ethers.parseUnits('1000', 18); // dEURO has 18 decimals
+  // Approve and invest 1000 JUSD in Equity to mint the initial 10_000_000 nDEPS
+  const deuroInvestAmount = ethers.parseUnits('1000', 18); // JUSD has 18 decimals
   const expectedShares = ethers.parseUnits('10000000', 18); // nDEPS has 18 decimals
   
   createCallTx(
-    decentralizedEURO.address,
-    DecentralizedEUROArtifact.abi,
+    decentralizeJUSD.address,
+    JuiceDollarArtifact.abi,
     'approve',
     [equity.address, deuroInvestAmount],
   );

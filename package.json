@@ -1,5 +1,5 @@
 {
-  "name": "@deuro/eurocoin",
+  "name": "@juicedollar/jusd",
   "version": "1.0.16",
   "description": "It shall support a wide range of collateralized minting methods that are governed by a democratic process.",
   "main": "./dist/index.js",
@@ -34,15 +34,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/d-EURO"
+    "url": "git+https://github.com/JuiceDollar"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/d-EURO/issues"
+    "url": "https://github.com/JuiceDollar/issues"
   },
-  "homepage": "https://github.com/d-EURO#readme",
+  "homepage": "https://github.com/JuiceDollar#readme",
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",

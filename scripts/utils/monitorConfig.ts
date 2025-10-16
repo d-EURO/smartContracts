@@ -10,8 +10,8 @@ export const monitorConfig = {
   blockTime: 12.1, // Average block time in seconds
   thresholds: {
     // Equity thresholds
-    equityCriticalLevel: 10000, // dEURO
-    equityWarningLevel: 100000, // dEURO
+    equityCriticalLevel: 10000, // JUSD
+    equityWarningLevel: 100000, // JUSD
 
     // Bridge thresholds
     bridgeUtilizationWarning: 60, // %

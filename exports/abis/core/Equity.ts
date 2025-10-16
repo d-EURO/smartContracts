@@ -2,8 +2,8 @@ export const EquityABI = [
   {
     inputs: [
       {
-        internalType: 'contract DecentralizedEURO',
-        name: 'dEURO_',
+        internalType: 'contract JuiceDollar',
+        name: 'JUSD_',
         type: 'address',
       },
     ],
@@ -635,10 +635,10 @@ export const EquityABI = [
   },
   {
     inputs: [],
-    name: 'dEURO',
+    name: 'JUSD',
     outputs: [
       {
-        internalType: 'contract DecentralizedEURO',
+        internalType: 'contract JuiceDollar',
         name: '',
         type: 'address',
       },

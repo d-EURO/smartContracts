@@ -2,7 +2,7 @@ export const SavingsGatewayABI = [
   {
     inputs: [
       {
-        internalType: 'contract IDecentralizedEURO',
+        internalType: 'contract IJuiceDollar',
         name: 'deuro_',
         type: 'address',
       },

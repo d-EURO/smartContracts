@@ -35,7 +35,7 @@ struct SystemState {
     uint256 ownerdEuroBalance;
     uint256 ownerCollateralBalance;
     address owner;
-    // dEURO balances
+    // JUSD balances
     uint256 dEuroBalance;
     uint256 minterReserve;
 }

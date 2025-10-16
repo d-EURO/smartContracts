@@ -21,7 +21,7 @@ export async function monitorDecentralizedEuroAction({ includeEventTxs }: { incl
         format: (row) => row.key,
       },
       {
-        header: 'Amount (dEURO)',
+        header: 'Amount (JUSD)',
         width: 20,
         align: 'right',
         format: (row) => row.value,
@@ -42,7 +42,7 @@ export async function monitorDecentralizedEuroAction({ includeEventTxs }: { incl
 
     // Event trends
     console.log();
-    const eventTrendsTable = createEventTrendsTable('DecentralizedEURO Events');
+    const eventTrendsTable = createEventTrendsTable('JuiceDollar Events');
     eventTrendsTable.setData([
       ...eventTrendDataToArray(deuroState.profitEvents.trend),
       ...eventTrendDataToArray(deuroState.profitsDistributedEvents.trend),

@@ -31,15 +31,15 @@ async function main() {
 
   // Load config file
   const mintingHubGatewayAddress = await getContractAddress('mintingHubGateway');
-  const dEuroAddress = await getContractAddress('decentralizedEURO');
-  const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
+  const dEuroAddress = await getContractAddress('decentralizeJUSD');
+  const openingFee = ethers.parseEther(config.openingFee); // JUSD has 18 decimals
   const positionsToDeploy = config.positions.filter((p) => p.deploy);
   console.log('MintingHubGateway: ', mintingHubGatewayAddress);
-  console.log('DecentralizedEURO: ', dEuroAddress);
+  console.log('JuiceDollar: ', dEuroAddress);
   console.log(`\nFound ${positionsToDeploy.length} positions to deploy.`);
 
   // Get contracts
-  const dEuro = await ethers.getContractAt('DecentralizedEURO', dEuroAddress);
+  const dEuro = await ethers.getContractAt('JuiceDollar', dEuroAddress);
   const dEuroConnected = dEuro.connect(deployer);
   const mintingHubGateway = await ethers.getContractAt('MintingHubGateway', mintingHubGatewayAddress);
   const mintingHubGatewayConnected = mintingHubGateway.connect(deployer);
@@ -68,12 +68,12 @@ async function main() {
       const minCollateral = ethers.parseUnits(position.minCollateral, collateralDecimals);
       const initialCollateral = ethers.parseUnits(position.initialCollateral, collateralDecimals);
       const liqPrice = ethers.parseUnits(position.liqPrice, 36n - collateralDecimals); // price has (36 - collateral decimals) decimals
-      const mintingMaximum = ethers.parseEther(position.mintingMaximum); // dEURO has 18 decimals
+      const mintingMaximum = ethers.parseEther(position.mintingMaximum); // JUSD has 18 decimals
       console.log(`- Collateral: ${position.collateralAddress}`);
       console.log(`- Min Collateral: ${position.minCollateral} (${minCollateral})`);
       console.log(`- Initial Collateral: ${position.initialCollateral} (${initialCollateral})`);
       console.log(`- Liq Price: ${position.liqPrice} (${liqPrice})`);
-      console.log(`- Minting Maximum: ${position.mintingMaximum} dEURO`);
+      console.log(`- Minting Maximum: ${position.mintingMaximum} JUSD`);
       console.log(`- Expiration: ${new Date(Date.now() + position.expirationSeconds * 1000).toISOString()}`);
 
       // Collateral
@@ -85,13 +85,13 @@ async function main() {
         console.log(`  ✓ Collateral approval confirmed (tx: ${collateralApproveTx.hash})`);
       }
 
-      // dEURO
+      // JUSD
       const currentDEuroAllowance = await dEuroConnected.allowance(deployer.address, mintingHubGatewayAddress);
       if (currentDEuroAllowance < openingFee) {
-        console.log(`- Approving dEURO fee payment...`);
+        console.log(`- Approving JUSD fee payment...`);
         const dEuroApproveTx = await dEuroConnected.approve(mintingHubGatewayAddress, openingFee);
         await dEuroApproveTx.wait();
-        console.log(`  ✓ dEURO approval confirmed (tx: ${dEuroApproveTx.hash})`);
+        console.log(`  ✓ JUSD approval confirmed (tx: ${dEuroApproveTx.hash})`);
       }
 
       // Open position

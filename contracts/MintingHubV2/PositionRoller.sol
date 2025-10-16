@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
@@ -17,7 +17,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * Both positions should have the same collateral. Otherwise, it does not make much sense.
  */
 contract PositionRoller {
-    IDecentralizedEURO private deuro;
+    IJuiceDollar private deuro;
 
     error NotOwner(address pos);
     error NotPosition(address pos);
@@ -26,7 +26,7 @@ contract PositionRoller {
     event Roll(address source, uint256 collWithdraw, uint256 repay, address target, uint256 collDeposit, uint256 mint);
 
     constructor(address deuro_) {
-        deuro = IDecentralizedEURO(deuro_);
+        deuro = IJuiceDollar(deuro_);
     }
 
     /**
@@ -38,7 +38,7 @@ contract PositionRoller {
      * The following is assumed:
      * - If the limit of the target position permits, the user wants to roll everything.
      * - The user does not want to add additional collateral, but excess collateral is returned.
-     * - If not enough can be minted in the new position, it is acceptable for the roller to use dEURO from the msg.sender.
+     * - If not enough can be minted in the new position, it is acceptable for the roller to use JUSD from the msg.sender.
      */
     function rollFully(IPosition source, IPosition target) external {
         rollFullyWithExpiration(source, target, target.expiration());

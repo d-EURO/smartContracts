@@ -2,11 +2,11 @@ import { mainnet, polygon } from "viem/chains";
 import { Address, zeroAddress } from "viem";
 
 export interface ChainAddress {
-  decentralizedEURO: Address;
+  decentralizeJUSD: Address;
   equity: Address;
   frontendGateway: Address;
   savingsGateway: Address;
-  savingsVaultDEURO: Address;
+  savingsVaultJUSD: Address;
   mintingHubGateway: Address;
   coinLendingGateway: Address;
   DEPSwrapper: Address;
@@ -35,11 +35,11 @@ export interface ChainAddress {
 export const ADDRESS: Record<number, ChainAddress> = {
   [mainnet.id]: {
     // native contract addresses
-    decentralizedEURO: "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+    decentralizeJUSD: "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
     equity: "0xc71104001A3CCDA1BEf1177d765831Bd1bfE8eE6",
     frontendGateway: "0x5c49C00f897bD970d964BFB8c3065ae65a180994",
     savingsGateway: "0x073493d73258C4BEb6542e8dd3e1b2891C972303",
-    savingsVaultDEURO: "0x1e9f008B1C538bE32F190516735bF1C634B4FA40",
+    savingsVaultJUSD: "0x1e9f008B1C538bE32F190516735bF1C634B4FA40",
     mintingHubGateway: "0x8B3c41c649B9c7085C171CbB82337889b3604618",
     coinLendingGateway: "0x1DA37D613FB590eeD37520b72e9c6F0F6eee89D2",
     DEPSwrapper: "0x103747924E74708139a9400e4Ab4BEA79FFFA380",

@@ -8,7 +8,7 @@ export const StablecoinBridgeABI = [
       },
       {
         internalType: 'address',
-        name: 'dEUROAddress',
+        name: 'JUSDAddress',
         type: 'address',
       },
       {
@@ -112,10 +112,10 @@ export const StablecoinBridgeABI = [
   },
   {
     inputs: [],
-    name: 'dEURO',
+    name: 'JUSD',
     outputs: [
       {
-        internalType: 'contract IDecentralizedEURO',
+        internalType: 'contract IJuiceDollar',
         name: '',
         type: 'address',
       },

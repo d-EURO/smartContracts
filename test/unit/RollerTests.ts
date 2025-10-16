@@ -3,7 +3,7 @@ import { DECIMALS, floatToDec18 } from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import {
   Equity,
-  DecentralizedEURO,
+  JuiceDollar,
   MintingHub,
   Position,
   PositionFactory,
@@ -20,7 +20,7 @@ describe("Roller Tests", () => {
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
 
-  let deuro: DecentralizedEURO;
+  let deuro: JuiceDollar;
   let equity: Equity;
   let roller: PositionRoller;
   let savings: Savings;
@@ -49,9 +49,9 @@ describe("Roller Tests", () => {
   before(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
-    const DecentralizedEUROFactory =
-      await ethers.getContractFactory("DecentralizedEURO");
-    deuro = await DecentralizedEUROFactory.deploy(5 * 86400);
+    const JuiceDollarFactory =
+      await ethers.getContractFactory("JuiceDollar");
+    deuro = await JuiceDollarFactory.deploy(5 * 86400);
 
     const equityAddr = await deuro.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
@@ -538,7 +538,7 @@ describe("Roller Tests", () => {
 
     it("rollFully from overcollaterlized source with lower target collateral price (equal target collateral required)", async () => {
       // In this unit test equal collateral to the source position is required to maintain the same principle.
-      // This is because the source position was heavily overcollateralized (it could have minted more dEURO or 
+      // This is because the source position was heavily overcollateralized (it could have minted more JUSD or 
       // done with less collateral).
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
@@ -549,25 +549,25 @@ describe("Roller Tests", () => {
 
       // decrease collateral price to balanced collateral value
       await pos2.adjustPrice(1000n * 10n ** 18n); 
-      const sourcePrice = await pos1.price();                                         // 6_000 dEURO/coin (price P1)
-      const targetPrice = await pos2.price();                                         // 1_000 dEURO/coin (price P2)
+      const sourcePrice = await pos1.price();                                         // 6_000 JUSD/coin (price P1)
+      const targetPrice = await pos2.price();                                         // 1_000 JUSD/coin (price P2)
       expect(targetPrice).to.be.lessThan(sourcePrice);
 
-      const p1 = await pos1.principal();                                              // 10_000 dEURO (principal P1)
+      const p1 = await pos1.principal();                                              // 10_000 JUSD (principal P1)
       const i1 = await pos1.getInterest();
       const collBal = await coin.balanceOf(await pos1.getAddress());                  // 10 coin (collateral P1)
-      let usableAmount = await pos1.getUsableMint(p1) + i1;                           // 9_000 dEURO (usable mint P1)
-      let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 dEURO (principal P2)
+      let usableAmount = await pos1.getUsableMint(p1) + i1;                           // 9_000 JUSD (usable mint P1)
+      let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 JUSD (principal P2)
       let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice; // 10 coin (collateral P2)
       depositAmount = depositAmount > collBal ? collBal : depositAmount;              // 10 coin (collateral P2)
-      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          // 10_000 dEURO (principal P2)
+      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          // 10_000 JUSD (principal P2)
 
-      // The principal of P1 is 10_000 dEURO (principal P1). The collateral value of P1 is 60_000 dEURO (collateral value P1).
-      // This means the position is heavily overcollateralized. The usable mint of P1 is 9_000 dEURO (usable mint P1).
-      // To obtain the same usable mint in P2, we need to mint 10_000 dEURO (principal P2) (in this example both P1 and P2
-      // have the same reserve ratio of 10%). Now at a lowered price of 1_000 dEURO/coin (price P2), we need to deposit
-      // 10 coin (collateral P2) to mint 10_000 dEURO (principal P2). This is the exact amount of collateral P1 has.
-      // This means the principal and collateral value of P2 will have the same dEURO value (not overcollateralized anymore).
+      // The principal of P1 is 10_000 JUSD (principal P1). The collateral value of P1 is 60_000 JUSD (collateral value P1).
+      // This means the position is heavily overcollateralized. The usable mint of P1 is 9_000 JUSD (usable mint P1).
+      // To obtain the same usable mint in P2, we need to mint 10_000 JUSD (principal P2) (in this example both P1 and P2
+      // have the same reserve ratio of 10%). Now at a lowered price of 1_000 JUSD/coin (price P2), we need to deposit
+      // 10 coin (collateral P2) to mint 10_000 JUSD (principal P2). This is the exact amount of collateral P1 has.
+      // This means the principal and collateral value of P2 will have the same JUSD value (not overcollateralized anymore).
 
       await coin.approve(await roller.getAddress(), p1);
       await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
@@ -618,7 +618,7 @@ describe("Roller Tests", () => {
       await pos1.mint(owner.address, floatToDec18(10_000));
       const b1 = await deuro.balanceOf(owner.address);
 
-      // decrease collateral price from 6_000 dEURO/coin to 500 dEURO/coin
+      // decrease collateral price from 6_000 JUSD/coin to 500 JUSD/coin
       await pos2.adjustPrice(500n * 10n ** 18n); 
       const sourcePrice = await pos1.price();                                         
       const targetPrice = await pos2.price();                                         
@@ -676,7 +676,7 @@ describe("Roller Tests", () => {
       // is more than the minimum collateral required for the source. If the source position is not sufficiently overcollateralized
       // this additionally required collateral will be missing. Consequently, the target collateral is capped at the source collateral
       // and the minted amount will be less than the principal of the source position. If the owner does not have sufficient funds
-      // repaying the flash loan will fail as he receives less dEURO than he has to repay (target principal < source principal).
+      // repaying the flash loan will fail as he receives less JUSD than he has to repay (target principal < source principal).
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const ownerInitBal = await deuro.balanceOf(owner.address);
@@ -684,7 +684,7 @@ describe("Roller Tests", () => {
       const b1 = await deuro.balanceOf(owner.address);
       expect(b1).to.be.equal(floatToDec18(1));
 
-      // decrease collateral price from 6_000 dEURO/coin to 500 dEURO/coin
+      // decrease collateral price from 6_000 JUSD/coin to 500 JUSD/coin
       await pos2.adjustPrice(500n * 10n ** 18n); 
       const sourcePrice = await pos1.price();                                        
       const targetPrice = await pos2.price();                                        
@@ -718,22 +718,22 @@ describe("Roller Tests", () => {
       const b1 = await deuro.balanceOf(owner.address);
       expect(b1).to.be.equal(floatToDec18(1001));
 
-      // increase collateral price from 6_000 dEURO/coin to 9_000 dEURO/coin (requires 3 day cooldown to allow cloning)
+      // increase collateral price from 6_000 JUSD/coin to 9_000 JUSD/coin (requires 3 day cooldown to allow cloning)
       await pos2.adjustPrice(9_000n * 10n ** 18n);
       await evm_increaseTime(3 * 86_400 + 300);
-      const sourcePrice = await pos1.price();                                         // 6_000 dEURO/coin (price P1)
-      const targetPrice = await pos2.price();                                         // 9_000 dEURO/coin (price P2)
+      const sourcePrice = await pos1.price();                                         // 6_000 JUSD/coin (price P1)
+      const targetPrice = await pos2.price();                                         // 9_000 JUSD/coin (price P2)
       expect(targetPrice).to.be.greaterThan(sourcePrice);
 
       const ownerColBalBefore = await coin.balanceOf(owner.address);
-      const p1 = await pos1.principal();                                              // 10_000 dEURO (principal P1)
+      const p1 = await pos1.principal();                                              // 10_000 JUSD (principal P1)
       const i1 = await pos1.getInterest();                                            // (interest P1)
       const collBal = await coin.balanceOf(await pos1.getAddress());                  // 10 coin (collateral P1)
-      let usableAmount = await pos1.getUsableMint(p1) + i1;                           // 9_000 dEURO (usable mint P1)
-      let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 dEURO (principal P2)
+      let usableAmount = await pos1.getUsableMint(p1) + i1;                           // 9_000 JUSD (usable mint P1)
+      let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 JUSD (principal P2)
       let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice; // 1.111... coin (collateral P2)
       depositAmount = depositAmount > collBal ? collBal : depositAmount;              // 1.111... coin (collateral P2)
-      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          // 10_000 dEURO (principal P2)
+      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          // 10_000 JUSD (principal P2)
 
       await coin.approve(await roller.getAddress(), p1);
       await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference

@@ -3,7 +3,7 @@ import { floatToDec18 } from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import {
   Equity,
-  DecentralizedEURO,
+  JuiceDollar,
   MintingHub,
   Position,
   PositionFactory,
@@ -19,7 +19,7 @@ describe("Savings Tests", () => {
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
 
-  let deuro: DecentralizedEURO;
+  let deuro: JuiceDollar;
   let equity: Equity;
   let roller: PositionRoller;
   let savings: Savings;
@@ -39,9 +39,9 @@ describe("Savings Tests", () => {
   beforeEach(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
-    const DecentralizedEUROFactory =
-      await ethers.getContractFactory("DecentralizedEURO");
-    deuro = await DecentralizedEUROFactory.deploy(10 * 86400);
+    const JuiceDollarFactory =
+      await ethers.getContractFactory("JuiceDollar");
+    deuro = await JuiceDollarFactory.deploy(10 * 86400);
 
     const equityAddr = await deuro.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
@@ -136,8 +136,8 @@ describe("Savings Tests", () => {
         equity addr: 0x1301d297043f564235EA41560f61681253BbD48B
 
         Error: VM Exception while processing transaction: reverted with custom error 'ERC20InsufficientAllowance("0x1301d297043f564235EA41560f61681253BbD48B", 0, 192328779807204464738)'
-        at DecentralizedEURO.permit (contracts/utils/ERC20PermitLight.sol:21)
-        at DecentralizedEURO.transferFrom (contracts/utils/ERC20.sol:123)
+        at JuiceDollar.permit (contracts/utils/ERC20PermitLight.sol:21)
+        at JuiceDollar.transferFrom (contracts/utils/ERC20.sol:123)
         at Savings.refresh (contracts/Savings.sol:68)
         at Savings.withdraw (contracts/Savings.sol:109)
 
