@@ -22,7 +22,7 @@ contract TestToken is ERC20,  EIP712, ERC3009, ERC20Burnable {
         _mint(_account, _amount);
     }
 
-    // Note: Doesn't revert on failure, instead returns false (same as EURS token).
+    // Note: Doesn't revert on failure, instead returns false (same as USDC token).
     // This behaviour is used in BasicTests.ts (SafeERC20 test).
     function transferFrom(
         address from,

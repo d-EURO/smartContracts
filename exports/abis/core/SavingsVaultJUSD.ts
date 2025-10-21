@@ -1,4 +1,4 @@
-export const SavingsVaultDEUROABI = [
+export const SavingsVaultJUSDABI = [
   {
     inputs: [
       {
@@ -7,7 +7,7 @@ export const SavingsVaultDEUROABI = [
         type: 'address',
       },
       {
-        internalType: 'contract ISavingsDEURO',
+        internalType: 'contract ISavingsJUSD',
         name: '_savings',
         type: 'address',
       },
@@ -364,7 +364,7 @@ export const SavingsVaultDEUROABI = [
     name: 'SAVINGS',
     outputs: [
       {
-        internalType: 'contract ISavingsDEURO',
+        internalType: 'contract ISavingsJUSD',
         name: '',
         type: 'address',
       },
@@ -544,7 +544,7 @@ export const SavingsVaultDEUROABI = [
             type: 'uint64',
           },
         ],
-        internalType: 'struct ISavingsDEURO.Account',
+        internalType: 'struct ISavingsJUSD.Account',
         name: '',
         type: 'tuple',
       },

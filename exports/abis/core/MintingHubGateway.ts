@@ -3,7 +3,7 @@ export const MintingHubGatewayABI = [
     inputs: [
       {
         internalType: 'address',
-        name: '_deuro',
+        name: '_jusd',
         type: 'address',
       },
       {
@@ -275,19 +275,6 @@ export const MintingHubGatewayABI = [
   },
   {
     inputs: [],
-    name: 'DEURO',
-    outputs: [
-      {
-        internalType: 'contract IDecentralizedEURO',
-        name: '',
-        type: 'address',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
     name: 'EXPIRED_PRICE_FACTOR',
     outputs: [
       {
@@ -305,6 +292,19 @@ export const MintingHubGatewayABI = [
     outputs: [
       {
         internalType: 'contract IFrontendGateway',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'JUSD',
+    outputs: [
+      {
+        internalType: 'contract IJuiceDollar',
         name: '',
         type: 'address',
       },

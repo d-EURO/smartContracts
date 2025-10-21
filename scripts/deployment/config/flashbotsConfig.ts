@@ -11,23 +11,20 @@ export interface FlashbotsConfig {
 
 export interface StablecoinBridgeParams {
   other: string;
-  limit: string; // in dEURO
+  limit: string; // in JUSD
   weeks: number;
   applicationMsg: string;
 }
 
 export interface ContractsParams {
-  decentralizedEURO: {
+  juiceDollar: {
     minApplicationPeriod: number;
   };
   savingsGateway: {
     initialRatePPM: number;
   };
   bridges: {
-    eurt: StablecoinBridgeParams;
-    eurc: StablecoinBridgeParams;
-    veur: StablecoinBridgeParams;
-    eurs: StablecoinBridgeParams;
+    startUSD: StablecoinBridgeParams;
   };
 }
 
@@ -41,36 +38,18 @@ export const flashbotsConfig: FlashbotsConfig = {
 };
 
 export const contractsParams = {
-  decentralizedEURO: {
+  juiceDollar: {
     minApplicationPeriod: 1209600,
   },
   savingsGateway: {
     initialRatePPM: 100000,
   },
   bridges: {
-    eurt: {
-      other: '0xc581b735a1688071a1746c968e0798d642ede491',
-      limit: '1000000000000000000000000',
-      weeks: 2,
-      applicationMsg: 'EURT Bridge',
-    },
-    eurc: {
-      other: '0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c',
-      limit: '1000000000000000000000000',
-      weeks: 30,
-      applicationMsg: 'EURC Bridge',
-    },
-    veur: {
-      other: '0x6ba75d640bebfe5da1197bb5a2aff3327789b5d3',
-      limit: '1000000000000000000000000',
-      weeks: 30,
-      applicationMsg: 'VEUR Bridge',
-    },
-    eurs: {
-      other: '0xdb25f211ab05b1c97d595516f45794528a807ad8',
-      limit: '1000000000000000000000000',
-      weeks: 30,
-      applicationMsg: 'EURS Bridge',
+    startUSD: {
+      other: '', // set to StartUSD address during deployment
+      limit: '10000000000000000000000', // 10,000 JUSD (18 decimals)
+      weeks: 3,
+      applicationMsg: 'StartUSD Bridge',
     },
   },
 };

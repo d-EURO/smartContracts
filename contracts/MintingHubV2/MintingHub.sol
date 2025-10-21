@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ILeadrate} from "../interface/ILeadrate.sol";
@@ -14,13 +14,13 @@ import {PositionRoller} from "./PositionRoller.sol";
 
 /**
  * @title Minting Hub
- * @notice The central hub for creating, cloning, and challenging collateralized DecentralizedEURO positions.
+ * @notice The central hub for creating, cloning, and challenging collateralized JuiceDollar positions.
  * @dev Only one instance of this contract is required, whereas every new position comes with a new position
  * contract. Pending challenges are stored as structs in an array.
  */
 contract MintingHub is IMintingHub, ERC165 {
     /**
-     * @notice Irrevocable fee in deur when proposing a new position (but not when cloning an existing one).
+     * @notice Irrevocable fee in JUSD when proposing a new position (but not when cloning an existing one).
      */
     uint256 public constant OPENING_FEE = 1000 * 10 ** 18;
 
@@ -33,7 +33,7 @@ contract MintingHub is IMintingHub, ERC165 {
 
     IPositionFactory private immutable POSITION_FACTORY; // position contract to clone
 
-    IDecentralizedEURO public immutable DEURO; // currency
+    IJuiceDollar public immutable JUSD; // currency
     PositionRoller public immutable ROLLER; // helper to roll positions
     ILeadrate public immutable RATE; // to determine the interest rate
 
@@ -77,19 +77,19 @@ contract MintingHub is IMintingHub, ERC165 {
     error InitPeriodTooShort();
 
     modifier validPos(address position) {
-        if (DEURO.getPositionParent(position) != address(this)) revert InvalidPos();
+        if (JUSD.getPositionParent(position) != address(this)) revert InvalidPos();
         _;
     }
 
-    constructor(address _deur, address _leadrate, address _roller, address _factory) {
-        DEURO = IDecentralizedEURO(_deur);
+    constructor(address _JUSD, address _leadrate, address _roller, address _factory) {
+        JUSD = IJuiceDollar(_JUSD);
         RATE = ILeadrate(_leadrate);
         POSITION_FACTORY = IPositionFactory(_factory);
         ROLLER = PositionRoller(_roller);
     }
 
     /**
-     * @notice Open a collateralized loan position. See also https://docs.dEURO.com/positions/open .
+     * @notice Open a collateralized loan position. See also https://docs.JUSD.com/positions/open .
      * @dev For a successful call, you must set an allowance for the collateral token, allowing
      * the minting hub to transfer the initial collateral amount to the newly created position and to
      * withdraw the fees.
@@ -97,7 +97,7 @@ contract MintingHub is IMintingHub, ERC165 {
      * @param _collateralAddress  address of collateral token
      * @param _minCollateral      minimum collateral required to prevent dust amounts
      * @param _initialCollateral  amount of initial collateral to be deposited
-     * @param _mintingMaximum     maximal amount of deur that can be minted by the position owner
+     * @param _mintingMaximum     maximal amount of JUSD that can be minted by the position owner
      * @param _initPeriodSeconds  initial period in seconds
      * @param _expirationSeconds  position tenor in seconds from 'now'
      * @param _challengeSeconds   challenge period. Longer for less liquid collateral.
@@ -134,13 +134,13 @@ contract MintingHub is IMintingHub, ERC165 {
                 bytes memory /*lowLevelData*/
             ) {}
             if (_initialCollateral < _minCollateral) revert InsufficientCollateral();
-            // must start with at least 5000 deur worth of collateral
+            // must start with at least 5000 JUSD worth of collateral
             if (_minCollateral * _liqPrice < 5000 ether * 10 ** 18) revert InsufficientCollateral();
         }
         IPosition pos = IPosition(
             POSITION_FACTORY.createNewPosition(
                 msg.sender,
-                address(DEURO),
+                address(JUSD),
                 _collateralAddress,
                 _minCollateral,
                 _mintingMaximum,
@@ -152,8 +152,8 @@ contract MintingHub is IMintingHub, ERC165 {
                 _reservePPM
             )
         );
-        DEURO.registerPosition(address(pos));
-        DEURO.collectProfits(msg.sender, OPENING_FEE);
+        JUSD.registerPosition(address(pos));
+        JUSD.collectProfits(msg.sender, OPENING_FEE);
         IERC20(_collateralAddress).transferFrom(msg.sender, address(pos), _initialCollateral); // TODO: Use SafeERC20
 
         emit PositionOpened(msg.sender, address(pos), address(pos), _collateralAddress);
@@ -183,7 +183,7 @@ contract MintingHub is IMintingHub, ERC165 {
         address pos = POSITION_FACTORY.clonePosition(parent);
         IPosition child = IPosition(pos);
         child.initialize(parent, expiration);
-        DEURO.registerPosition(pos);
+        JUSD.registerPosition(pos);
         IERC20 collateral = child.collateral();
         if (_initialCollateral < child.minimumCollateral()) revert InsufficientCollateral();
         collateral.transferFrom(msg.sender, pos, _initialCollateral); // collateral must still come from sender for security
@@ -220,7 +220,7 @@ contract MintingHub is IMintingHub, ERC165 {
     }
 
     /**
-     * @notice Post a bid in deur given an open challenge.
+     * @notice Post a bid in JUSD given an open challenge.
      *
      * @dev In case that the collateral cannot be transferred back to the challenger (i.e. because the collateral token
      * has a blacklist and the challenger is on it), it is possible to postpone the return of the collateral.
@@ -258,9 +258,9 @@ contract MintingHub is IMintingHub, ERC165 {
         // enforced in Position.setPrice and knowing that collateral <= col.
         uint256 offer = _calculateOffer(_challenge, collateral);
 
-        DEURO.transferFrom(msg.sender, address(this), offer); // get money from bidder 
+        JUSD.transferFrom(msg.sender, address(this), offer); // get money from bidder 
         uint256 reward = (offer * CHALLENGER_REWARD) / 1_000_000; 
-        DEURO.transfer(_challenge.challenger, reward); // pay out the challenger reward
+        JUSD.transfer(_challenge.challenger, reward); // pay out the challenger reward
         uint256 fundsAvailable = offer - reward; // funds available after reward
 
         // Example: available funds are 90, repayment is 50, reserve 20%. Then 20%*(90-50)=16 are collected as profits
@@ -274,13 +274,13 @@ contract MintingHub is IMintingHub, ERC165 {
             // for excess fund distribution, which make position owners that maxed out their positions slightly better
             // off in comparison to those who did not.
             uint256 profits = (reservePPM * (fundsAvailable - repayment - interest)) / 1_000_000;
-            DEURO.collectProfits(address(this), profits);
-            DEURO.transfer(owner, fundsAvailable - repayment - interest - profits);
+            JUSD.collectProfits(address(this), profits);
+            JUSD.transfer(owner, fundsAvailable - repayment - interest - profits);
         } else if (fundsAvailable < repayment + interest) {
-            DEURO.coverLoss(address(this), repayment + interest - fundsAvailable); // ensure we have enough to pay everything
+            JUSD.coverLoss(address(this), repayment + interest - fundsAvailable); // ensure we have enough to pay everything
         }
-        DEURO.burnWithoutReserve(repayment, reservePPM); // Repay the challenged part, example: 50 deur leading to 10 deur in implicit profits
-        DEURO.collectProfits(address(this), interest); // Collect interest as profits
+        JUSD.burnWithoutReserve(repayment, reservePPM); // Repay the challenged part, example: 50 JUSD leading to 10 JUSD in implicit profits
+        JUSD.collectProfits(address(this), interest); // Collect interest as profits
         _challenge.position.transferChallengedCollateral(msg.sender, collateral); // transfer the collateral to the bidder
         return (collateral, offer);
     }
@@ -290,7 +290,7 @@ contract MintingHub is IMintingHub, ERC165 {
         if (msg.sender == _challenge.challenger) {
             // allow challenger to cancel challenge without paying themselves
         } else {
-            DEURO.transferFrom(msg.sender, _challenge.challenger, (size * liqPrice) / (10 ** 18));
+            JUSD.transferFrom(msg.sender, _challenge.challenger, (size * liqPrice) / (10 ** 18));
         }
 
         _challenge.position.notifyChallengeAverted(size);
@@ -416,7 +416,7 @@ contract MintingHub is IMintingHub, ERC165 {
      * the applicable 'expiredPurchasePrice' at that instant.
      *
      * To prevent dust either the remaining collateral needs to be bought or collateral with a value
-     * of at least OPENING_FEE (1000 dEURO) needs to remain in the position for a different buyer
+     * of at least OPENING_FEE (1000 JUSD) needs to remain in the position for a different buyer
      */
     function buyExpiredCollateral(IPosition pos, uint256 upToAmount) external returns (uint256) {
         uint256 max = pos.collateral().balanceOf(address(pos));

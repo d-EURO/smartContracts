@@ -2,8 +2,8 @@ export const SavingsABI = [
   {
     inputs: [
       {
-        internalType: 'contract IDecentralizedEURO',
-        name: 'deuro_',
+        internalType: 'contract IJuiceDollar',
+        name: 'jusd_',
         type: 'address',
       },
       {
@@ -252,10 +252,10 @@ export const SavingsABI = [
   },
   {
     inputs: [],
-    name: 'deuro',
+    name: 'equity',
     outputs: [
       {
-        internalType: 'contract IERC20',
+        internalType: 'contract IReserve',
         name: '',
         type: 'address',
       },
@@ -265,10 +265,10 @@ export const SavingsABI = [
   },
   {
     inputs: [],
-    name: 'equity',
+    name: 'jusd',
     outputs: [
       {
-        internalType: 'contract IReserve',
+        internalType: 'contract IERC20',
         name: '',
         type: 'address',
       },

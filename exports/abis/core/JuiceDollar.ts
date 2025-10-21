@@ -1,4 +1,4 @@
-export const DecentralizedEUROABI = [
+export const JuiceDollarABI = [
   {
     inputs: [
       {

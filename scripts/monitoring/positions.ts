@@ -62,14 +62,6 @@ export async function getPositions(
         const minimumCollateral = await position.minimumCollateral();
         const liveVirtualPrice = collateralBalance > 0 ? (collateralRequirement * 10n ** 18n) / collateralBalance : price;
 
-        // WFPS & DEPS need direct market price fetching
-        if (['WFPS', 'DEPS'].includes(collateralSymbol.toUpperCase()) && !specialTokenPrice[collateralAddress]) {
-          const underlying = await collateral.underlying();
-          const native = await hre.ethers.getContractAt('Equity', underlying);
-          const nativePrice = await native.price();
-          specialTokenPrice[collateralAddress] = formatUnits(nativePrice, collateralDecimals);
-        }
-
         // Determine position state
         let state = PositionStatus.OPEN;
         if (now < Number(start)) {

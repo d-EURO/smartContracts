@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface ISavingsDEURO {
+interface ISavingsJUSD {
 	struct Account {
 		uint192 saved;
 		uint64 ticks;

@@ -5,7 +5,7 @@ import hre from 'hardhat';
 import { vaultConfig, vaultMetadata } from '../config/savingsVaultConfig';
 
 /**
- * @description Deploys the SavingsVaultDEURO contract on the specified network.
+ * @description Deploys the SavingsVaultJUSD contract on the specified network.
  * @usage npx hardhat run scripts/deployment/deploy/deploySavingsVault.ts --network <network>
  */
 async function main() {
@@ -22,14 +22,14 @@ async function main() {
 
   console.log(`Connected to ${network.name} (chainId: ${network.chainId})`);
   console.log(`Using deployer address: ${deployer.address}`);
-  console.log(`Using dEURO address: ${networkConfig.deuro}`);
+  console.log(`Using JUSD address: ${networkConfig.jusd}`);
   console.log(`Using Savings address: ${networkConfig.savings}`);
 
-  // Deploy the SavingsVaultDEURO contract
-  console.log('Deploying SavingsVaultDEURO...');
-  const SavingsVaultFactory = await ethers.getContractFactory('SavingsVaultDEURO');
+  // Deploy the SavingsVaultJUSD contract
+  console.log('Deploying SavingsVaultJUSD...');
+  const SavingsVaultFactory = await ethers.getContractFactory('SavingsVaultJUSD');
   const vault = await SavingsVaultFactory.deploy(
-    networkConfig.deuro,
+    networkConfig.jusd,
     networkConfig.savings,
     vaultMetadata.name,
     vaultMetadata.symbol,
@@ -37,7 +37,7 @@ async function main() {
 
   await vault.waitForDeployment();
   const vaultAddress = await vault.getAddress();
-  console.log(`SavingsVaultDEURO deployed to: ${vaultAddress}`);
+  console.log(`SavingsVaultJUSD deployed to: ${vaultAddress}`);
 
   // Save deployment info
   const timestamp = Math.floor(Date.now() / 1000);
@@ -46,7 +46,7 @@ async function main() {
     chainId: Number(network.chainId),
     vault: {
       address: vaultAddress,
-      deuro: networkConfig.deuro,
+      jusd: networkConfig.jusd,
       savings: networkConfig.savings,
       name: vaultMetadata.name,
       symbol: vaultMetadata.symbol,
@@ -81,7 +81,7 @@ async function main() {
       await hre.run('verify:verify', {
         address: vaultAddress,
         constructorArguments: [
-          networkConfig.deuro,
+          networkConfig.jusd,
           networkConfig.savings,
           vaultMetadata.name,
           vaultMetadata.symbol,

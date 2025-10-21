@@ -3,13 +3,13 @@ pragma solidity ^0.8.10;
 
 import {IFrontendGateway} from "./interface/IFrontendGateway.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
-import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
+import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
 import {Savings} from "../Savings.sol";
 
 contract SavingsGateway is Savings, Context {
     IFrontendGateway public immutable GATEWAY;
 
-    constructor(IDecentralizedEURO deuro_, uint24 initialRatePPM, address gateway_) Savings(deuro_, initialRatePPM) {
+    constructor(IJuiceDollar jusd_, uint24 initialRatePPM, address gateway_) Savings(jusd_, initialRatePPM) {
         GATEWAY = IFrontendGateway(gateway_);
     }
 
@@ -20,7 +20,7 @@ contract SavingsGateway is Savings, Context {
             uint192 earnedInterest = calculateInterest(account, ticks);
             if (earnedInterest > 0) {
                 // collect interest as you go and trigger accounting event
-                (IDecentralizedEURO(address(deuro))).distributeProfits(address(this), earnedInterest);
+                (IJuiceDollar(address(jusd))).distributeProfits(address(this), earnedInterest);
                 account.saved += earnedInterest;
                 GATEWAY.updateSavingRewards(accountOwner, earnedInterest);
                 emit InterestCollected(accountOwner, earnedInterest);

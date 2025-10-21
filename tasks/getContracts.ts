@@ -9,7 +9,7 @@ interface ContractData {
   hyperlink: string;
 }
 
-task('get-contracts', 'Get Decentralized EURO Protocol Contract Addresses on Ethereum Mainnet').setAction(
+task('get-contracts', 'Get JuiceDollar Protocol Contract Addresses on Ethereum Mainnet').setAction(
   async ({}) => {
     const protocolDeployment = getFullDeployment();
 

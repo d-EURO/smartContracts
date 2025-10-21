@@ -18,29 +18,17 @@ async function main() {
   }
 
   // Contract addresses for different networks
-  const addresses: Record<string, { mintingHubGateway: string; weth: string; deuro: string }> = {
-    mainnet: {
-      mintingHubGateway: "0x8B3c41c649B9c7085C171CbB82337889b3604618", // MintingHubGateway on mainnet
-      weth: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", // WETH on mainnet
-      deuro: "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea", // DecentralizedEURO on mainnet
-    },
-    sepolia: {
-      mintingHubGateway: "0x...", // TODO: Add sepolia MintingHubGateway address
-      weth: "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9", // WETH on sepolia
-      deuro: "0x...", // TODO: Add sepolia DecentralizedEURO address
-    },
-    polygon: {
-      mintingHubGateway: "0x...", // TODO: Add polygon MintingHubGateway address
-      weth: "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270", // WMATIC (native token on Polygon)
-      deuro: "0x...", // TODO: Add polygon DecentralizedEURO address
+  const addresses: Record<string, { mintingHubGateway: string; weth: string; jusd: string }> = {
+    citrea: {
+      mintingHubGateway: process.env.MINTING_HUB_GATEWAY || "0x...", // TODO: Update after deployment
+      weth: process.env.WETH_ADDRESS || "0x...", // TODO: Add wrapped BTC or native token address
+      jusd: process.env.JUSD_ADDRESS || "0x...", // TODO: Update after JuiceDollar deployment
     },
     hardhat: {
-      // For local testing or forking
-      // If forking from mainnet, use mainnet addresses
-      // Otherwise use env vars for local deployments
-      mintingHubGateway: process.env.MINTING_HUB_GATEWAY || "0x8B3c41c649B9c7085C171CbB82337889b3604618",
-      weth: process.env.WETH_ADDRESS || "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-      deuro: process.env.DEURO_ADDRESS || "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+      // For local testing
+      mintingHubGateway: process.env.MINTING_HUB_GATEWAY || "0x0000000000000000000000000000000000000000",
+      weth: process.env.WETH_ADDRESS || "0x0000000000000000000000000000000000000000",
+      jusd: process.env.JUSD_ADDRESS || "0x0000000000000000000000000000000000000000",
     },
   };
 
@@ -50,22 +38,22 @@ async function main() {
     throw new Error(`No addresses configured for network: ${networkName}`);
   }
 
-  const { mintingHubGateway, weth, deuro } = networkAddresses;
+  const { mintingHubGateway, weth, jusd } = networkAddresses;
 
   // Validate addresses
-  if (mintingHubGateway.includes("...") || deuro.includes("...")) {
+  if (mintingHubGateway.includes("...") || jusd.includes("...")) {
     console.warn("⚠️  WARNING: Using placeholder addresses. Please update with actual contract addresses!");
   }
 
   console.log("Using addresses:");
   console.log(`  MintingHubGateway: ${mintingHubGateway}`);
   console.log(`  ${networkName === 'polygon' ? 'WMATIC' : 'WETH'}: ${weth}`);
-  console.log(`  DecentralizedEURO: ${deuro}`);
+  console.log(`  JuiceDollar: ${jusd}`);
 
   try {
     // Deploy CoinLendingGateway
     const CoinLendingGateway = await ethers.getContractFactory("CoinLendingGateway");
-    const gateway = await CoinLendingGateway.deploy(mintingHubGateway, weth, deuro);
+    const gateway = await CoinLendingGateway.deploy(mintingHubGateway, weth, jusd);
 
     // Wait for deployment
     await gateway.waitForDeployment();
@@ -77,12 +65,12 @@ async function main() {
     // Quick sanity check - verify the immutable values were set
     const deployedHub = await gateway.MINTING_HUB();
     const deployedWeth = await gateway.WETH();
-    const deployedDeuro = await gateway.DEURO();
+    const deployedJUSD = await gateway.JUSD();
 
     console.log("\n📍 Deployment verification:");
     console.log(`   MINTING_HUB: ${deployedHub === mintingHubGateway ? '✅' : '❌'} ${deployedHub}`);
     console.log(`   ${networkName === 'polygon' ? 'WMATIC' : 'WETH'}:        ${deployedWeth === weth ? '✅' : '❌'} ${deployedWeth}`);
-    console.log(`   DEURO:       ${deployedDeuro === deuro ? '✅' : '❌'} ${deployedDeuro}`);
+    console.log(`   JUSD:       ${deployedJUSD === jusd ? '✅' : '❌'} ${deployedJUSD}`);
 
     // Wait for block confirmations on live networks
     if (networkName !== "hardhat" && networkName !== "localhost") {
@@ -97,7 +85,7 @@ async function main() {
       try {
         await hre.run("verify:verify", {
           address: gatewayAddress,
-          constructorArguments: [mintingHubGateway, weth, deuro],
+          constructorArguments: [mintingHubGateway, weth, jusd],
         });
         console.log("Contract verified successfully");
       } catch (error: any) {

@@ -13,7 +13,7 @@ export const CoinLendingGatewayABI = [
       },
       {
         internalType: 'address',
-        name: '_deuro',
+        name: '_jusd',
         type: 'address',
       },
     ],
@@ -210,10 +210,10 @@ export const CoinLendingGatewayABI = [
   },
   {
     inputs: [],
-    name: 'DEURO',
+    name: 'JUSD',
     outputs: [
       {
-        internalType: 'contract IDecentralizedEURO',
+        internalType: 'contract IJuiceDollar',
         name: '',
         type: 'address',
       },
