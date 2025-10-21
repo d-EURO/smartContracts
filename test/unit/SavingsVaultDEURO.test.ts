@@ -3,25 +3,25 @@ import { ethers } from "hardhat";
 import { floatToDec18 } from "../../scripts/utils/math";
 import { evm_increaseTime } from "../utils";
 import {
-  SavingsVaultJUSD,
+  SavingsVaultDEURO,
   Savings,
-  JuiceDollar,
+  DecentralizedEURO,
   Equity,
 } from "../../typechain";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
-describe("SavingsVaultJUSD Tests", () => {
+describe("SavingsVaultDEURO Tests", () => {
   let owner: HardhatEthersSigner;
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
 
-  let vault: SavingsVaultJUSD;
+  let vault: SavingsVaultDEURO;
   let savings: Savings;
-  let jusd: JuiceDollar;
+  let deuro: DecentralizedEURO;
   let equity: Equity;
 
-  const VAULT_NAME = "JUSD Savings Vault";
-  const VAULT_SYMBOL = "sJUSD";
+  const VAULT_NAME = "d-EURO Savings Vault";
+  const VAULT_SYMBOL = "sdEURO";
   const INITIAL_RATE_PPM = 20000n; // 2% annual interest
 
   const getTimeStamp = async () => {
@@ -33,35 +33,35 @@ describe("SavingsVaultJUSD Tests", () => {
   beforeEach(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
-    // Deploy JUSD
-    const JuiceDollarFactory = await ethers.getContractFactory("JuiceDollar");
-    jusd = await JuiceDollarFactory.deploy(10 * 86400);
+    // Deploy dEURO
+    const DecentralizedEUROFactory = await ethers.getContractFactory("DecentralizedEURO");
+    deuro = await DecentralizedEUROFactory.deploy(10 * 86400);
 
-    const equityAddr = await jusd.reserve();
+    const equityAddr = await deuro.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
 
     // Deploy Savings contract
     const SavingsFactory = await ethers.getContractFactory("Savings");
-    savings = await SavingsFactory.deploy(await jusd.getAddress(), INITIAL_RATE_PPM);
+    savings = await SavingsFactory.deploy(await deuro.getAddress(), INITIAL_RATE_PPM);
 
-    // Deploy SavingsVaultJUSD
-    const VaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
+    // Deploy SavingsVaultDEURO
+    const VaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
     vault = await VaultFactory.deploy(
-      await jusd.getAddress(),
+      await deuro.getAddress(),
       await savings.getAddress(),
       VAULT_NAME,
       VAULT_SYMBOL
     );
 
     // Initialize ecosystem
-    await jusd.initialize(owner.address, "owner");
-    await jusd.initialize(await savings.getAddress(), "savings");
-    await jusd.initialize(await vault.getAddress(), "vault");
+    await deuro.initialize(owner.address, "owner");
+    await deuro.initialize(await savings.getAddress(), "savings");
+    await deuro.initialize(await vault.getAddress(), "vault");
 
     // Fund accounts
-    await jusd.mint(owner.address, floatToDec18(2_000_000));
-    await jusd.transfer(alice.address, floatToDec18(100_000));
-    await jusd.transfer(bob.address, floatToDec18(100_000));
+    await deuro.mint(owner.address, floatToDec18(2_000_000));
+    await deuro.transfer(alice.address, floatToDec18(100_000));
+    await deuro.transfer(bob.address, floatToDec18(100_000));
 
     // Bootstrap equity
     await equity.invest(floatToDec18(1_000_000), 0);
@@ -77,12 +77,12 @@ describe("SavingsVaultJUSD Tests", () => {
       expect(await vault.SAVINGS()).to.equal(await savings.getAddress());
     });
 
-    it("should set correct asset (JUSD)", async () => {
-      expect(await vault.asset()).to.equal(await jusd.getAddress());
+    it("should set correct asset (dEURO)", async () => {
+      expect(await vault.asset()).to.equal(await deuro.getAddress());
     });
 
     it("should have max approval for savings contract", async () => {
-      const allowance = await jusd.allowance(
+      const allowance = await deuro.allowance(
         await vault.getAddress(),
         await savings.getAddress()
       );
@@ -101,8 +101,8 @@ describe("SavingsVaultJUSD Tests", () => {
   describe("ERC4626 Basic Functions", () => {
     beforeEach(async () => {
       // Approve vault for alice and bob
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
-      await jusd.connect(bob).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(bob).approve(await vault.getAddress(), ethers.MaxUint256);
     });
 
     it("should deposit and mint shares", async () => {
@@ -117,11 +117,11 @@ describe("SavingsVaultJUSD Tests", () => {
 
     it("should mint exact shares", async () => {
       const sharesToMint = floatToDec18(500);
-      const assetsBefore = await jusd.balanceOf(bob.address);
+      const assetsBefore = await deuro.balanceOf(bob.address);
 
       await vault.connect(bob).mint(sharesToMint, bob.address);
 
-      const assetsAfter = await jusd.balanceOf(bob.address);
+      const assetsAfter = await deuro.balanceOf(bob.address);
       const sharesBalance = await vault.balanceOf(bob.address);
 
       expect(sharesBalance).to.equal(sharesToMint);
@@ -133,12 +133,12 @@ describe("SavingsVaultJUSD Tests", () => {
       await vault.connect(alice).deposit(depositAmount, alice.address);
 
       const withdrawAmount = floatToDec18(500);
-      const assetsBefore = await jusd.balanceOf(alice.address);
+      const assetsBefore = await deuro.balanceOf(alice.address);
       const sharesBefore = await vault.balanceOf(alice.address);
 
       await vault.connect(alice).withdraw(withdrawAmount, alice.address, alice.address);
 
-      const assetsAfter = await jusd.balanceOf(alice.address);
+      const assetsAfter = await deuro.balanceOf(alice.address);
       const sharesAfter = await vault.balanceOf(alice.address);
 
       expect(assetsAfter - assetsBefore).to.be.approximately(withdrawAmount, floatToDec18(1));
@@ -150,11 +150,11 @@ describe("SavingsVaultJUSD Tests", () => {
       await vault.connect(bob).deposit(depositAmount, bob.address);
 
       const sharesToRedeem = floatToDec18(300);
-      const assetsBefore = await jusd.balanceOf(bob.address);
+      const assetsBefore = await deuro.balanceOf(bob.address);
 
       await vault.connect(bob).redeem(sharesToRedeem, bob.address, bob.address);
 
-      const assetsAfter = await jusd.balanceOf(bob.address);
+      const assetsAfter = await deuro.balanceOf(bob.address);
       expect(assetsAfter - assetsBefore).to.be.approximately(sharesToRedeem, floatToDec18(1));
     });
 
@@ -172,11 +172,11 @@ describe("SavingsVaultJUSD Tests", () => {
       await vault.connect(alice).deposit(depositAmount, alice.address);
 
       const withdrawAmount = floatToDec18(300);
-      const bobAssetsBefore = await jusd.balanceOf(bob.address);
+      const bobAssetsBefore = await deuro.balanceOf(bob.address);
 
       await vault.connect(alice).withdraw(withdrawAmount, bob.address, alice.address);
 
-      const bobAssetsAfter = await jusd.balanceOf(bob.address);
+      const bobAssetsAfter = await deuro.balanceOf(bob.address);
       expect(bobAssetsAfter - bobAssetsBefore).to.equal(withdrawAmount);
     });
 
@@ -200,7 +200,7 @@ describe("SavingsVaultJUSD Tests", () => {
 
   describe("Conversion Functions with Rounding", () => {
     beforeEach(async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
     });
 
     it("should convert assets to shares using rounding", async () => {
@@ -244,9 +244,9 @@ describe("SavingsVaultJUSD Tests", () => {
       const sharesToMint = floatToDec18(500);
       const previewedAssets = await vault.previewMint(sharesToMint);
 
-      const assetsBefore = await jusd.balanceOf(alice.address);
+      const assetsBefore = await deuro.balanceOf(alice.address);
       await vault.connect(alice).mint(sharesToMint, alice.address);
-      const assetsAfter = await jusd.balanceOf(alice.address);
+      const assetsAfter = await deuro.balanceOf(alice.address);
 
       const actualAssetsSpent = assetsBefore - assetsAfter;
       expect(actualAssetsSpent).to.be.approximately(previewedAssets, 1n);
@@ -259,9 +259,9 @@ describe("SavingsVaultJUSD Tests", () => {
       const sharesToRedeem = floatToDec18(300);
       const previewedAssets = await vault.previewRedeem(sharesToRedeem);
 
-      const assetsBefore = await jusd.balanceOf(alice.address);
+      const assetsBefore = await deuro.balanceOf(alice.address);
       await vault.connect(alice).redeem(sharesToRedeem, alice.address, alice.address);
-      const assetsAfter = await jusd.balanceOf(alice.address);
+      const assetsAfter = await deuro.balanceOf(alice.address);
 
       const actualAssetsReceived = assetsAfter - assetsBefore;
       expect(actualAssetsReceived).to.be.approximately(previewedAssets, floatToDec18(1));
@@ -270,9 +270,9 @@ describe("SavingsVaultJUSD Tests", () => {
 
   describe("Inflation Attack Protection", () => {
     it("should start with price of 1 ether when empty", async () => {
-      const emptyVaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
+      const emptyVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
       const emptyVault = await emptyVaultFactory.deploy(
-        await jusd.getAddress(),
+        await deuro.getAddress(),
         await savings.getAddress(),
         "Empty Vault",
         "EMPTY"
@@ -282,16 +282,16 @@ describe("SavingsVaultJUSD Tests", () => {
     });
 
     it("should give first depositor fair 1:1 share ratio", async () => {
-      const emptyVaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
+      const emptyVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
       const emptyVault = await emptyVaultFactory.deploy(
-        await jusd.getAddress(),
+        await deuro.getAddress(),
         await savings.getAddress(),
         "Test Vault",
         "TEST"
       );
 
       // No need to initialize - vault can work without being a minter
-      await jusd.connect(alice).approve(await emptyVault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await emptyVault.getAddress(), ethers.MaxUint256);
 
       const depositAmount = floatToDec18(1000);
       await emptyVault.connect(alice).deposit(depositAmount, alice.address);
@@ -301,16 +301,16 @@ describe("SavingsVaultJUSD Tests", () => {
     });
 
     it("should resist donation attack with reasonable initial deposit", async () => {
-      const attackVaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
+      const attackVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
       const attackVault = await attackVaultFactory.deploy(
-        await jusd.getAddress(),
+        await deuro.getAddress(),
         await savings.getAddress(),
         "Attack Vault",
         "ATK"
       );
 
-      await jusd.connect(alice).approve(await attackVault.getAddress(), ethers.MaxUint256);
-      await jusd.connect(bob).approve(await attackVault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await attackVault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(bob).approve(await attackVault.getAddress(), ethers.MaxUint256);
 
       // Attacker (alice) deposits a reasonable amount (not 1 wei)
       // With a proper initial deposit, donation attack becomes expensive
@@ -319,7 +319,7 @@ describe("SavingsVaultJUSD Tests", () => {
 
       // Attacker tries to manipulate by donating directly to vault's savings account
       const donationAmount = floatToDec18(1000);
-      await jusd.connect(alice).approve(await savings.getAddress(), donationAmount);
+      await deuro.connect(alice).approve(await savings.getAddress(), donationAmount);
       await savings.connect(alice)["save(address,uint192)"](await attackVault.getAddress(), donationAmount);
 
       // Check the vault price after donation
@@ -339,17 +339,17 @@ describe("SavingsVaultJUSD Tests", () => {
     });
 
     it("should handle large first deposit correctly", async () => {
-      const largeVaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
+      const largeVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
       const largeVault = await largeVaultFactory.deploy(
-        await jusd.getAddress(),
+        await deuro.getAddress(),
         await savings.getAddress(),
         "Large Vault",
         "LARGE"
       );
 
-      await jusd.approve(await largeVault.getAddress(), ethers.MaxUint256);
+      await deuro.approve(await largeVault.getAddress(), ethers.MaxUint256);
 
-      // Owner has ~800k JUSD available after setup (2M - 200k for alice/bob - 1M equity)
+      // Owner has ~800k dEURO available after setup (2M - 200k for alice/bob - 1M equity)
       const largeDeposit = floatToDec18(500_000);
       await largeVault.deposit(largeDeposit, owner.address);
 
@@ -360,7 +360,7 @@ describe("SavingsVaultJUSD Tests", () => {
 
   describe("SafeCast Overflow Protection", () => {
     it("should revert on deposit exceeding uint192 max", async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
 
       // uint192 max = 6.277e57, way more than our test amounts
       // We'll test with a calculation that would overflow
@@ -374,7 +374,7 @@ describe("SavingsVaultJUSD Tests", () => {
     });
 
     it("should revert on withdraw exceeding uint192 max", async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
 
       const depositAmount = floatToDec18(1000);
       await vault.connect(alice).deposit(depositAmount, alice.address);
@@ -388,7 +388,7 @@ describe("SavingsVaultJUSD Tests", () => {
     });
 
     it("should handle deposits under uint192 max correctly", async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
 
       const safeAmount = floatToDec18(100_000);
       await expect(
@@ -399,8 +399,8 @@ describe("SavingsVaultJUSD Tests", () => {
 
   describe("Interest Accrual & Share Price Appreciation", () => {
     beforeEach(async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
-      await jusd.connect(bob).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(bob).approve(await vault.getAddress(), ethers.MaxUint256);
     });
 
     it("should increase share price as interest accrues", async () => {
@@ -498,15 +498,15 @@ describe("SavingsVaultJUSD Tests", () => {
 
     it("should not emit InterestClaimed when totalSupply is 0", async () => {
       // Deploy fresh vault
-      const freshVaultFactory = await ethers.getContractFactory("SavingsVaultJUSD");
+      const freshVaultFactory = await ethers.getContractFactory("SavingsVaultDEURO");
       const freshVault = await freshVaultFactory.deploy(
-        await jusd.getAddress(),
+        await deuro.getAddress(),
         await savings.getAddress(),
         "Fresh",
         "FRESH"
       );
 
-      await jusd.connect(alice).approve(await freshVault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await freshVault.getAddress(), ethers.MaxUint256);
 
       // First deposit should not emit InterestClaimed (no shares yet)
       await expect(
@@ -517,7 +517,7 @@ describe("SavingsVaultJUSD Tests", () => {
 
   describe("Integration with Savings Contract", () => {
     beforeEach(async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
     });
 
     it("should return correct Account info", async () => {
@@ -583,8 +583,8 @@ describe("SavingsVaultJUSD Tests", () => {
 
   describe("Multi-User Scenarios", () => {
     beforeEach(async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
-      await jusd.connect(bob).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(bob).approve(await vault.getAddress(), ethers.MaxUint256);
     });
 
     it("should allocate shares fairly to multiple users", async () => {
@@ -656,7 +656,7 @@ describe("SavingsVaultJUSD Tests", () => {
 
   describe("Edge Cases & Boundary Conditions", () => {
     beforeEach(async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
     });
 
     it("should handle minimum deposit (1 wei)", async () => {
@@ -674,13 +674,13 @@ describe("SavingsVaultJUSD Tests", () => {
       const depositAmount = floatToDec18(1000);
       await vault.connect(alice).deposit(depositAmount, alice.address);
 
-      const aliceAssetsBefore = await jusd.balanceOf(alice.address);
+      const aliceAssetsBefore = await deuro.balanceOf(alice.address);
 
       // This will withdraw what's available (up to balance)
       const aliceShares = await vault.balanceOf(alice.address);
       await vault.connect(alice).redeem(aliceShares, alice.address, alice.address);
 
-      const aliceAssetsAfter = await jusd.balanceOf(alice.address);
+      const aliceAssetsAfter = await deuro.balanceOf(alice.address);
       expect(aliceAssetsAfter - aliceAssetsBefore).to.be.approximately(depositAmount, floatToDec18(1));
     });
 
@@ -713,7 +713,7 @@ describe("SavingsVaultJUSD Tests", () => {
 
   describe("View Functions", () => {
     beforeEach(async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
     });
 
     it("should calculate price correctly", async () => {
@@ -764,7 +764,7 @@ describe("SavingsVaultJUSD Tests", () => {
 
   describe("Events", () => {
     beforeEach(async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
     });
 
     it("should emit Deposit event", async () => {
@@ -809,8 +809,8 @@ describe("SavingsVaultJUSD Tests", () => {
 
   describe("Module Disabled Scenarios", () => {
     beforeEach(async () => {
-      await jusd.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
-      await jusd.connect(bob).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(bob).approve(await vault.getAddress(), ethers.MaxUint256);
     });
 
     it("should revert deposits and mints when module disabled", async () => {
@@ -877,11 +877,11 @@ describe("SavingsVaultJUSD Tests", () => {
       await savings.applyChange();
 
       const aliceShares = await vault.balanceOf(alice.address);
-      const aliceAssetsBefore = await jusd.balanceOf(alice.address);
+      const aliceAssetsBefore = await deuro.balanceOf(alice.address);
 
       await vault.connect(alice).redeem(aliceShares, alice.address, alice.address);
 
-      const aliceAssetsAfter = await jusd.balanceOf(alice.address);
+      const aliceAssetsAfter = await deuro.balanceOf(alice.address);
       const withdrawn = aliceAssetsAfter - aliceAssetsBefore;
 
       expect(withdrawn).to.be.gt(depositAmount);

@@ -3,7 +3,7 @@ export const PositionRollerABI = [
     inputs: [
       {
         internalType: 'address',
-        name: 'jusd_',
+        name: 'deuro_',
         type: 'address',
       },
     ],

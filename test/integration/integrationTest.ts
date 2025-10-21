@@ -3,7 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { HardhatEthersSigner } from '@nomicfoundation/hardhat-ethers/signers';
 import {
-  JuiceDollar,
+  DecentralizedEURO,
+  DEPSWrapper,
   Position,
   Equity,
   ERC20,
@@ -23,12 +24,12 @@ import { getContractAddress } from '../../scripts/utils/deployments'; // Flashbo
 
 /**
  ******************************************************************************
- * Integration tests for the JuiceDollar protocol
+ * Integration tests for the DecentralizedEURO protocol
  ******************************************************************************
- * The purpose of these tests is to ensure that the deployed JuiceDollar
+ * The purpose of these tests is to ensure that the deployed DecentralizedEURO
  * protocol contracts are setup correctly and interact as expected.
  *
- * This script can be applied to any network where the JuiceDollar protocol
+ * This script can be applied to any network where the DecentralizedEURO protocol
  * contracts are deployed and only requires the contract addresses to be provided.
  *
  * For the deployment through Flashbots, the contract addresses are fetched from
@@ -44,10 +45,11 @@ import { getContractAddress } from '../../scripts/utils/deployments'; // Flashbo
 // TODO: Add above documentation to a README.md file
 
 interface Contracts {
-  JUSD: JuiceDollar;
+  dEURO: DecentralizedEURO;
   equity: Equity;
   positionFactory: PositionFactory;
   positionRoller: PositionRoller;
+  depsWrapper: DEPSWrapper;
   frontendGateway: FrontendGateway;
   mintingHubGateway: MintingHubGateway;
   savingsGateway: SavingsGateway;
@@ -59,9 +61,10 @@ interface Contracts {
 }
 
 interface DeployedAddresses {
-  JUSD: string;
+  dEURO: string;
   positionFactory: string;
   positionRoller: string;
+  depsWrapper: string;
   frontendGateway: string;
   mintingHubGateway: string;
   savingsGateway: string;
@@ -75,7 +78,7 @@ interface Config {
 }
 
 async function main() {
-  console.log('Starting JuiceDollar protocol integration tests');
+  console.log('Starting DecentralizedEURO protocol integration tests');
 
   const [deployer] = await ethers.getSigners();
   console.log(`Running tests with account (signer): ${deployer.address}`);
@@ -102,12 +105,13 @@ async function main() {
     await testProtocolInitialization(contracts);
     await testContractConfigurations(contracts);
     
-    // Fund signer with collateral and JUSD for remaining tests
+    // Fund signer with collateral and dEURO for remaining tests
     await fundSigner(contracts, deployer);
     
     const position = await testPositionCreationAndMinting(contracts, deployer);
     await testSavingsInterestAccrual(contracts, deployer);
     await testStablecoinBridge(contracts, deployer);
+    await testDEPSWrapping(contracts, deployer);
     await testPositionRolling(contracts, position, deployer);
 
     console.log('\nAll integration tests completed!');
@@ -127,9 +131,10 @@ async function fetchDeployedAddresses(): Promise<DeployedAddresses | null> {
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Config;
 
     const addresses = {
-      JUSD: await getContractAddress('juiceDollar'),
+      dEURO: await getContractAddress('decentralizedEURO'),
       positionFactory: await getContractAddress('positionFactory'),
       positionRoller: await getContractAddress('positionRoller'),
+      depsWrapper: await getContractAddress('depsWrapper'),
       frontendGateway: await getContractAddress('frontendGateway'),
       mintingHubGateway: await getContractAddress('mintingHubGateway'),
       savingsGateway: await getContractAddress('savingsGateway'),
@@ -152,14 +157,16 @@ async function connectToContracts(config: DeployedAddresses, signer: HardhatEthe
 
   try {
     // Core contracts
-    const JUSD = await ethers.getContractAt('JuiceDollar', config.JUSD);
-    const JUSDConnected = JUSD.connect(signer);
-    const equity = await ethers.getContractAt('Equity', await JUSDConnected.reserve());
+    const dEURO = await ethers.getContractAt('DecentralizedEURO', config.dEURO);
+    const dEUROConnected = dEURO.connect(signer);
+    const equity = await ethers.getContractAt('Equity', await dEUROConnected.reserve());
     const equityConnected = equity.connect(signer);
     const positionFactory = await ethers.getContractAt('PositionFactory', config.positionFactory);
     const positionFactoryConnected = positionFactory.connect(signer);
     const positionRoller = await ethers.getContractAt('PositionRoller', config.positionRoller);
     const positionRollerConnected = positionRoller.connect(signer);
+    const depsWrapper = await ethers.getContractAt('DEPSWrapper', config.depsWrapper);
+    const depsWrapperConnected = depsWrapper.connect(signer);
     const frontendGateway = await ethers.getContractAt('FrontendGateway', config.frontendGateway);
     const frontendGatewayConnected = frontendGateway.connect(signer);
     const mintingHubGateway = await ethers.getContractAt('MintingHubGateway', config.mintingHubGateway);
@@ -168,7 +175,7 @@ async function connectToContracts(config: DeployedAddresses, signer: HardhatEthe
     const savingsGatewayConnected = savingsGateway.connect(signer);
     const bridge = await ethers.getContractAt('StablecoinBridge', config.bridge);
     const bridgeConnected = bridge.connect(signer);
-    const bridgeSource = await ethers.getContractAt('ERC20', await bridgeConnected.usd());
+    const bridgeSource = await ethers.getContractAt('ERC20', await bridgeConnected.eur());
     const bridgeSourceConnected = bridgeSource.connect(signer);
     const collateralToken = await ethers.getContractAt('ERC20', config.collateralToken);
     const collateralTokenConnected = collateralToken.connect(signer);
@@ -177,14 +184,15 @@ async function connectToContracts(config: DeployedAddresses, signer: HardhatEthe
     const swapRouter = new ethers.Contract(mainnet.UNISWAP_V3_ROUTER, UNISWAP_V3_ROUTER, signer);
 
     console.log('✓ Successfully connected to all contracts.');
-    console.log(`  ⋅ Using ${await bridgeSourceConnected.symbol()}-${await JUSDConnected.symbol()} bridge`);
+    console.log(`  ⋅ Using ${await bridgeSourceConnected.symbol()}-${await dEUROConnected.symbol()} bridge`);
     console.log(`  ⋅ Using ${await collateralTokenConnected.symbol()} (${await collateralTokenConnected.name()}) as collateral token`);
 
     return {
-      JUSD: JUSDConnected,
+      dEURO: dEUROConnected,
       equity: equityConnected,
       positionFactory: positionFactoryConnected,
       positionRoller: positionRollerConnected,
+      depsWrapper: depsWrapperConnected,
       frontendGateway: frontendGatewayConnected,
       mintingHubGateway: mintingHubGatewayConnected,
       savingsGateway: savingsGatewayConnected,
@@ -249,15 +257,15 @@ async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner) {
   const collateralToken = contracts.collateralToken;
   const bridgeSourceToken = contracts.bridgeSource;
 
-  // Define amounts collateral and JUSD amounts for testing (chosen somewhat arbitrarily)
+  // Define amounts collateral and dEURO amounts for testing (chosen somewhat arbitrarily)
   const collateralFundingThreshold = ethers.parseEther('0.1');
-  const JUSDFundingThreshold = ethers.parseUnits('5000');
+  const dEuroFundingThreshold = ethers.parseUnits('5000');
   const wethToCollateral = ethers.parseEther('0.1');
   const wethToBridgeSource = ethers.parseEther('10');
 
   // Check initial balances
   const collateralBalanceBefore = await collateralToken.balanceOf(signer.address);
-  const JUSDBalanceBefore = await contracts.JUSD.balanceOf(signer.address);
+  const dEuroBalanceBefore = await contracts.dEURO.balanceOf(signer.address);
 
   // Swap some WETH to collateral token
   if (collateralBalanceBefore < collateralFundingThreshold) {
@@ -269,11 +277,11 @@ async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner) {
   }
 
   // Swap some WETH to bridge source token
-  if (JUSDBalanceBefore < JUSDFundingThreshold) {
+  if (dEuroBalanceBefore < dEuroFundingThreshold) {
     await fundWETH(contracts.weth, signer, wethToBridgeSource);
     await contracts.weth.approve(mainnet.UNISWAP_V3_ROUTER, wethToBridgeSource);
     await swapExactWETHForToken(wethToBridgeSource, bridgeSourceToken, contracts.swapRouter, signer);
-    // Bridge to JUSD
+    // Bridge to dEURO
     const sourceTokenBalance = await bridgeSourceToken.balanceOf(signer.address);
     if (sourceTokenBalance > 0) {
       const amountToSwap = sourceTokenBalance / 2n;
@@ -283,11 +291,11 @@ async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner) {
   }
 
   const collateralBalanceAfter = await collateralToken.balanceOf(signer.address);
-  const JUSDBalanceAfter = await contracts.JUSD.balanceOf(signer.address);
+  const dEuroBalanceAfter = await contracts.dEURO.balanceOf(signer.address);
   // Final balances
   console.log('✓ Token balances setup for testing');
   console.log(`  ⋅ ${ethers.formatEther(collateralBalanceAfter)} ${await collateralToken.symbol()}`);
-  console.log(`  ⋅ ${ethers.formatEther(JUSDBalanceAfter)} JUSD`);
+  console.log(`  ⋅ ${ethers.formatEther(dEuroBalanceAfter)} dEURO`);
 }
 
 // Test protocol initialization
@@ -316,42 +324,42 @@ async function testProtocolInitialization(contracts: Contracts) {
     frontendGatewayOwner,
   );
 
-  // Test JuiceDollar minter initialization
-  const mintingHubGatewayIsMinter = await contracts.JUSD.isMinter(await contracts.mintingHubGateway.getAddress());
+  // Test DecentralizedEURO minter initialization
+  const mintingHubGatewayIsMinter = await contracts.dEURO.isMinter(await contracts.mintingHubGateway.getAddress());
   assertTest(mintingHubGatewayIsMinter, 'MintingHubGateway is a minter', mintingHubGatewayIsMinter);
 
-  const positionRollerIsMinter = await contracts.JUSD.isMinter(await contracts.positionRoller.getAddress());
+  const positionRollerIsMinter = await contracts.dEURO.isMinter(await contracts.positionRoller.getAddress());
   assertTest(positionRollerIsMinter, 'PositionRoller is a minter', positionRollerIsMinter);
 
-  const savingsGatewayIsMinter = await contracts.JUSD.isMinter(await contracts.savingsGateway.getAddress());
+  const savingsGatewayIsMinter = await contracts.dEURO.isMinter(await contracts.savingsGateway.getAddress());
   assertTest(savingsGatewayIsMinter, 'SavingsGateway is a minter', savingsGatewayIsMinter);
 
-  const frontendGatewayIsMinter = await contracts.JUSD.isMinter(await contracts.frontendGateway.getAddress());
+  const frontendGatewayIsMinter = await contracts.dEURO.isMinter(await contracts.frontendGateway.getAddress());
   assertTest(frontendGatewayIsMinter, 'FrontendGateway is a minter', frontendGatewayIsMinter);
 
-  const bridgeIsMinter = await contracts.JUSD.isMinter(await contracts.bridge.getAddress());
+  const bridgeIsMinter = await contracts.dEURO.isMinter(await contracts.bridge.getAddress());
   assertTest(bridgeIsMinter, 'StablecoinBridge is a minter', bridgeIsMinter);
 
-  // Verify initial JUSD and JUICE mint
+  // Verify initial dEURO and nDEPS mint
   // Refer to scripts/deployment/deploy/depoyProtocol.ts for mint amounts
-  const equityBalance = await contracts.JUSD.balanceOf(await contracts.equity.getAddress());
-  assertTest(equityBalance >= ethers.parseEther('1000'), 'Equity balance has at least 1000 JUSD', equityBalance);
+  const equityBalance = await contracts.dEURO.balanceOf(await contracts.equity.getAddress());
+  assertTest(equityBalance >= ethers.parseEther('1000'), 'Equity balance has at least 1000 dEURO', equityBalance);
 
   const equitySupply = await contracts.equity.totalSupply();
   assertTest(
     equitySupply == ethers.parseEther('10000000'),
-    'Equity has initial JUICE supply of 10,000,000',
+    'Equity has initial nDEPS supply of 10,000,000',
     equitySupply,
   );
 
-  // Test that JuiceDollar.initialize reverts
+  // Test that DecentralizedEURO.initialize reverts
   const testMinter = ethers.Wallet.createRandom().address;
   await assertRevert(
-    async () => contracts.JUSD.initialize(testMinter, 'Test Minter'),
-    'JuiceDollar.initialize reverts after deployment',
+    async () => contracts.dEURO.initialize(testMinter, 'Test Minter'),
+    'DecentralizedEURO.initialize reverts after deployment',
   );
 
-  const testMinterIsMinter = await contracts.JUSD.isMinter(testMinter);
+  const testMinterIsMinter = await contracts.dEURO.isMinter(testMinter);
   assertTest(!testMinterIsMinter, 'Test minter is not a minter', testMinterIsMinter);
 }
 
@@ -359,8 +367,15 @@ async function testProtocolInitialization(contracts: Contracts) {
 async function testContractConfigurations(contracts: Contracts) {
   console.log('\nTesting contract configurations...');
 
-  const mintingHubJUSD = await contracts.mintingHubGateway.JUSD();
-  assertTest(mintingHubJUSD === (await contracts.JUSD.getAddress()), 'MintingHub-JUSD connection', mintingHubJUSD);
+  const mintingHubDEURO = await contracts.mintingHubGateway.DEURO();
+  assertTest(mintingHubDEURO === (await contracts.dEURO.getAddress()), 'MintingHub-dEURO connection', mintingHubDEURO);
+
+  const depsWrapperUnderlying = await contracts.depsWrapper.underlying();
+  assertTest(
+    depsWrapperUnderlying === (await contracts.equity.getAddress()),
+    'DEPSWrapper underlying is nDEPS',
+    depsWrapperUnderlying,
+  );
 
   const mintingHubGatewayHub = await contracts.mintingHubGateway.GATEWAY();
   assertTest(
@@ -393,13 +408,13 @@ async function testPositionCreationAndMinting(contracts: Contracts, signer: Hard
   const expiration = 30 * 86400; // 30 days
   const challengePeriod = 1 * 86400; // 1 day
   const riskPremium = 10000; // 1%
-  const liqPrice = (ethers.parseEther('5500') * ethers.parseEther('1')) / minCollateral; // Requirement: Min. collateral value >= 5000 JUSD
+  const liqPrice = (ethers.parseEther('5500') * ethers.parseEther('1')) / minCollateral; // Requirement: Min. collateral value >= 5000 dEURO
   const reservePPM = 200000; // 20%
   const frontendCode = ethers.ZeroHash; // empty frontend code
 
-  const JUSDBalanceBefore = await contracts.JUSD.balanceOf(signer.address);
+  const dEuroBalanceBefore = await contracts.dEURO.balanceOf(signer.address);
   await collateralToken.approve(contracts.mintingHubGateway.getAddress(), collateralAmount);
-  await contracts.JUSD.approve(contracts.mintingHubGateway.getAddress(), ethers.parseEther('1000'));
+  await contracts.dEURO.approve(contracts.mintingHubGateway.getAddress(), ethers.parseEther('1000'));
   const tx = await contracts.mintingHubGateway[
     'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
   ](
@@ -430,15 +445,15 @@ async function testPositionCreationAndMinting(contracts: Contracts, signer: Hard
   const position = await ethers.getContractAt('Position', positionAddress);
   const positionConnected = position.connect(signer);
 
-  // Pass approval and mint JUSD
+  // Pass approval and mint dEURO
   await ethers.provider.send('evm_increaseTime', [initPeriod]);
   await ethers.provider.send('evm_mine', []);
   await positionConnected.mint(signer.address, ethers.parseEther('5000'));
 
-  // Check JUSD balance after minting
-  const JUSDBalanceAfter = await contracts.JUSD.balanceOf(signer.address);
-  const JUSDBalanceDiff = JUSDBalanceAfter - JUSDBalanceBefore;
-  assertTest(JUSDBalanceDiff > 0, 'Position minting', JUSDBalanceDiff);
+  // Check dEURO balance after minting
+  const dEuroBalanceAfter = await contracts.dEURO.balanceOf(signer.address);
+  const dEuroBalanceDiff = dEuroBalanceAfter - dEuroBalanceBefore;
+  assertTest(dEuroBalanceDiff > 0, 'Position minting', dEuroBalanceDiff);
 
   return position; // Return position for use in rolling test
 }
@@ -448,15 +463,15 @@ async function testSavingsInterestAccrual(contracts: Contracts, signer: HardhatE
   console.log('\nTesting savings interest accrual...');
 
   const saveAmount = ethers.parseEther('100');
-  const JUSDBalance = await contracts.JUSD.balanceOf(signer.address);
+  const dEUROBalance = await contracts.dEURO.balanceOf(signer.address);
 
-  // Ensure we have enough JUSD for savings
-  if (JUSDBalance < saveAmount) {
-    throw new Error('Not enough JUSD for savings test');
+  // Ensure we have enough dEURO for savings
+  if (dEUROBalance < saveAmount) {
+    throw new Error('Not enough dEURO for savings test');
   }
 
-  // Approve and save JUSD
-  await contracts.JUSD.approve(contracts.savingsGateway.getAddress(), saveAmount);
+  // Approve and save dEURO
+  await contracts.dEURO.approve(contracts.savingsGateway.getAddress(), saveAmount);
   await contracts.savingsGateway['save(uint192)'](saveAmount);
 
   const initialSavings = await contracts.savingsGateway.savings(signer.address);
@@ -485,7 +500,7 @@ async function testStablecoinBridge(contracts: Contracts, signer: HardhatEthersS
 
   try {
     const bridgeSourceTokenBalanceBefore = await bridgeSourceToken.balanceOf(signer.address);
-    const JUSDBalanceBefore = await contracts.JUSD.balanceOf(signer.address);
+    const dEuroBalanceBefore = await contracts.dEURO.balanceOf(signer.address);
     const swapAmount = ethers.parseUnits('10', await bridgeSourceToken.decimals());
 
     // Ensure we have enough source tokens for bridging
@@ -500,10 +515,10 @@ async function testStablecoinBridge(contracts: Contracts, signer: HardhatEthersS
     await bridgeSourceToken.approve(bridge.getAddress(), swapAmount);
     await bridge.mint(swapAmount);
 
-    const finalJUSDBalance = await contracts.JUSD.balanceOf(signer.address);
+    const finalDEUROBalance = await contracts.dEURO.balanceOf(signer.address);
     const finalSourceBalance = await bridgeSourceToken.balanceOf(signer.address);
 
-    assertTest(finalJUSDBalance > JUSDBalanceBefore, 'Bridge mint increases JUSD balance', finalJUSDBalance);
+    assertTest(finalDEUROBalance > dEuroBalanceBefore, 'Bridge mint increases dEURO balance', finalDEUROBalance);
     assertTest(
       finalSourceBalance < bridgeSourceTokenBalanceBefore,
       'Bridge mint decreases source token balance',
@@ -512,6 +527,38 @@ async function testStablecoinBridge(contracts: Contracts, signer: HardhatEthersS
   } catch (error) {
     console.log(`  ✗ Bridge test failed: ${error}`);
   }
+}
+
+// Test DEPS wrapping and unwrapping
+async function testDEPSWrapping(contracts: Contracts, signer: HardhatEthersSigner) {
+  console.log('\nTesting DEPS wrapping and unwrapping...');
+
+  // First invest some dEURO to get nDEPS
+  const investAmount = ethers.parseEther('100');
+  const dEUROBalance = await contracts.dEURO.balanceOf(signer.address);
+
+  if (dEUROBalance < investAmount) {
+    throw new Error('Not enough dEURO for DEPS wrapping test');
+  }
+
+  // Invest to get nDEPS
+  await contracts.dEURO.approve(contracts.equity.getAddress(), investAmount);
+  await contracts.equity.invest(investAmount, 0);
+  const nDEPSBalance = await contracts.equity.balanceOf(signer.address);
+  assertTest(nDEPSBalance > 0, 'nDEPS balance after investment', nDEPSBalance);
+
+  // Wrap half
+  const wrapAmount = nDEPSBalance / 2n;
+  await contracts.equity.approve(contracts.depsWrapper.getAddress(), wrapAmount);
+  await contracts.depsWrapper.wrap(wrapAmount);
+  const depsBalance = await contracts.depsWrapper.balanceOf(signer.address);
+  assertTest(depsBalance >= wrapAmount, 'DEPS balance after wrapping', depsBalance);
+
+  // Unwrap half
+  const unwrapAmount = depsBalance / 2n;
+  await contracts.depsWrapper.unwrap(unwrapAmount);
+  const finalNDEPSBalance = await contracts.equity.balanceOf(signer.address);
+  assertTest(finalNDEPSBalance > nDEPSBalance - wrapAmount, 'nDEPS balance after unwrapping', finalNDEPSBalance);
 }
 
 // Test position rolling
@@ -531,12 +578,12 @@ async function testPositionRolling(contracts: Contracts, sourcePosition: Positio
   const expiration = 60 * 86400; // 60 days (LONGER expiration)
   const challengePeriod = 1 * 86400; // 1 day
   const riskPremium = 10000; // 1%
-  const liqPrice = (ethers.parseEther('5500') * ethers.parseEther('1')) / minCollateral; // Requirement: Min. collateral value >= 5000 JUSD
+  const liqPrice = (ethers.parseEther('5500') * ethers.parseEther('1')) / minCollateral; // Requirement: Min. collateral value >= 5000 dEURO
   const reservePPM = 200000; // 20%
   const frontendCode = ethers.ZeroHash; // empty frontend code
 
   await collateralToken.approve(contracts.mintingHubGateway.getAddress(), collateralAmount);
-  await contracts.JUSD.approve(contracts.mintingHubGateway.getAddress(), ethers.parseEther('1000'));
+  await contracts.dEURO.approve(contracts.mintingHubGateway.getAddress(), ethers.parseEther('1000'));
   const tx = await contracts.mintingHubGateway[
     'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
   ](
@@ -576,12 +623,12 @@ async function testPositionRolling(contracts: Contracts, sourcePosition: Positio
   const targetDebtBefore = await targetPosition.getDebt();
   assertTest(targetDebtBefore === 0n, 'Target position has no debt', targetDebtBefore);
 
-  // Approve PositionRoller to spend the collateral (withdrawn via owner) and JUSD for repayment
+  // Approve PositionRoller to spend the collateral (withdrawn via owner) and dEURO for repayment
   await collateralToken.approve(
     contracts.positionRoller.getAddress(),
     await collateralToken.balanceOf(sourcePosition.getAddress()),
   );
-  await contracts.JUSD.approve(
+  await contracts.dEURO.approve(
     contracts.positionRoller.getAddress(),
     (await sourcePosition.getDebt()) + ethers.parseEther('10'),
   );

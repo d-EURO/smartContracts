@@ -17,24 +17,24 @@ import './tasks/getContracts';
 import { task } from 'hardhat/config';
 
 // Define monitoring tasks with lazy loading
-task('monitor-positions', 'Monitor positions in the JUSD Protocol')
+task('monitor-positions', 'Monitor positions in the dEuro Protocol')
   .addOptionalParam('sort', 'Column to sort by')
   .setAction(async (args, hre) => {
     const { monitorPositionsAction } = await import('./tasks/monitorPositions');
     return monitorPositionsAction(args, hre);
   });
 
-task('monitor-bridges', 'Monitor bridges in the JUSD Protocol')
+task('monitor-bridges', 'Monitor bridges in the dEuro Protocol')
   .setAction(async (args, hre) => {
     const { monitorBridgesAction } = await import('./tasks/monitorBridges');
     return monitorBridgesAction(args, hre);
   });
 
-task('monitor-jusd', 'Monitor the JUSD token')
+task('monitor-deuro', 'Monitor the dEuro token')
   .addFlag('includeEventTxs', 'Include detailed transaction events')
   .setAction(async (args, hre) => {
-    const { monitorJuiceDollarAction } = await import('./tasks/monitorJuiceDollar');
-    return monitorJuiceDollarAction(args, hre);
+    const { monitorDecentralizedEuroAction } = await import('./tasks/monitorDecentralizedEuro');
+    return monitorDecentralizedEuroAction(args, hre);
   });
 
 task('monitor-equity', 'Monitor the Equity contract')
@@ -44,6 +44,13 @@ task('monitor-equity', 'Monitor the Equity contract')
     return monitorEquityAction(args, hre);
   });
 
+task('monitor-deps', 'Monitor the DEPS Wrapper')
+  .addFlag('includeEventTxs', 'Include detailed transaction events')
+  .setAction(async (args, hre) => {
+    const { monitorDEPSWrapperAction } = await import('./tasks/monitorDEPSWrapper');
+    return monitorDEPSWrapperAction(args, hre);
+  });
+
 task('monitor-savings', 'Monitor the Savings Gateway')
   .addFlag('includeEventTxs', 'Include detailed transaction events')
   .setAction(async (args, hre) => {
@@ -51,7 +58,7 @@ task('monitor-savings', 'Monitor the Savings Gateway')
     return monitorSavingsGatewayAction(args, hre);
   });
 
-task('monitor-all', 'Monitor all JUSD Protocol contracts')
+task('monitor-all', 'Monitor all dEuro Protocol contracts')
   .setAction(async (args, hre) => {
     const { monitorAllAction } = await import('./tasks/monitorAll');
     return monitorAllAction(args, hre);
@@ -118,12 +125,6 @@ const config: HardhatUserConfig = {
     base: {
       url: `https://base-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
       chainId: 8453,
-      accounts: [deployerPk],
-      timeout: 50_000,
-    },
-    citrea: {
-      url: 'https://rpc.testnet.citrea.xyz',
-      chainId: 5115,
       accounts: [deployerPk],
       timeout: 50_000,
     },

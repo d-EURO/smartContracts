@@ -1,0 +1,97 @@
+{
+  "network": "mainnet",
+  "blockNumber": 22088283,
+  "deployer": "0x01AE4C18c2677f97BaB536C48d6C36858f5c86D7",
+  "contracts": {
+    "decentralizedEURO": {
+      "address": "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+      "constructorArgs": [
+        1209600
+      ]
+    },
+    "equity": {
+      "address": "0xc71104001A3CCDA1BEf1177d765831Bd1bfE8eE6",
+      "constructorArgs": [
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea"
+      ]
+    },
+    "positionFactory": {
+      "address": "0x167144d66AC1D02EAAFCa3649ef3305ea31Ee5A8",
+      "constructorArgs": []
+    },
+    "positionRoller": {
+      "address": "0x4CE0AB2FC21Bd27a47A64F594Fdf7654Ea57Dc79",
+      "constructorArgs": [
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea"
+      ]
+    },
+    "bridgeEURC": {
+      "address": "0xD03cD3ea55e67bC61b78a0d70eE93018e2182Dbe",
+      "constructorArgs": [
+        "0x1aBaEA1f7C830bD89Acc67eC4af516284b1bC33c",
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+        "1000000000000000000000000",
+        30
+      ]
+    },
+    "bridgeEURT": {
+      "address": "0x2353D16869F717BFCD22DaBc0ADbf4Dca62C609f",
+      "constructorArgs": [
+        "0xc581b735a1688071a1746c968e0798d642ede491",
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+        "1000000000000000000000000",
+        2
+      ]
+    },
+    "bridgeVEUR": {
+      "address": "0x3Ed40fA0E5C803e807eBD51355E388006f9E1fEE",
+      "constructorArgs": [
+        "0x6ba75d640bebfe5da1197bb5a2aff3327789b5d3",
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+        "1000000000000000000000000",
+        30
+      ]
+    },
+    "bridgeEURS": {
+      "address": "0x0423F419De1c44151B6b000e2dAA51859C1D5d2A",
+      "constructorArgs": [
+        "0xdb25f211ab05b1c97d595516f45794528a807ad8",
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+        "1000000000000000000000000",
+        30
+      ]
+    },
+    "depsWrapper": {
+      "address": "0x103747924E74708139a9400e4Ab4BEA79FFFA380",
+      "constructorArgs": [
+        "0xc71104001A3CCDA1BEf1177d765831Bd1bfE8eE6"
+      ]
+    },
+    "frontendGateway": {
+      "address": "0x5c49C00f897bD970d964BFB8c3065ae65a180994",
+      "constructorArgs": [
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+        "0x103747924E74708139a9400e4Ab4BEA79FFFA380"
+      ]
+    },
+    "savingsGateway": {
+      "address": "0x073493d73258C4BEb6542e8dd3e1b2891C972303",
+      "constructorArgs": [
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+        100000,
+        "0x5c49C00f897bD970d964BFB8c3065ae65a180994"
+      ]
+    },
+    "mintingHubGateway": {
+      "address": "0x8B3c41c649B9c7085C171CbB82337889b3604618",
+      "constructorArgs": [
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+        "0x073493d73258C4BEb6542e8dd3e1b2891C972303",
+        "0x4CE0AB2FC21Bd27a47A64F594Fdf7654Ea57Dc79",
+        "0x167144d66AC1D02EAAFCa3649ef3305ea31Ee5A8",
+        "0x5c49C00f897bD970d964BFB8c3065ae65a180994"
+      ]
+    }
+  },
+  "timestamp": 1742476228
+}

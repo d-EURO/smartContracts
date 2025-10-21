@@ -2,10 +2,11 @@
 pragma solidity ^0.8.10;
 
 import {Position} from "../../contracts/MintingHubV2/Position.sol";
-import {JuiceDollar} from "../../contracts/JuiceDollar.sol";
+import {DecentralizedEURO} from "../../contracts/DecentralizedEURO.sol";
 import {TestToken} from "../../contracts/test/TestToken.sol";
 import {PositionFactory} from "../../contracts/MintingHubV2/PositionFactory.sol";
 import {SavingsGateway} from "../../contracts/gateway/SavingsGateway.sol";
+import {DEPSWrapper} from "../../contracts/utils/DEPSWrapper.sol";
 import {FrontendGateway} from "../../contracts/gateway/FrontendGateway.sol";
 import {MintingHubGateway} from "../../contracts/gateway/MintingHubGateway.sol";
 import {PositionRoller} from "../../contracts/MintingHubV2/PositionRoller.sol";
@@ -15,12 +16,12 @@ import {MintingHub} from "../../contracts/MintingHubV2/MintingHub.sol";
 import {IPosition} from "../../contracts/MintingHubV2/interface/IPosition.sol";
 
 contract Environment is TestHelper {
-    JuiceDollar internal s_JUSD;
+    DecentralizedEURO internal s_deuro;
     TestToken internal s_collateralToken;
     MintingHubGateway internal s_mintingHubGateway;
     PositionRoller internal s_positionRoller;
     PositionFactory internal s_positionFactory;
-    Equity internal s_equity;
+    DEPSWrapper internal s_depsWrapper;
     FrontendGateway internal s_frontendGateway;
     SavingsGateway internal s_savingsGateway;
     Position[] internal s_positions;
@@ -28,15 +29,15 @@ contract Environment is TestHelper {
     address internal s_deployer;
 
     constructor() {
-        s_JUSD = new JuiceDollar(3 days);
+        s_deuro = new DecentralizedEURO(3 days);
         s_collateralToken = new TestToken("Collateral", "COL", 18);
-        s_positionRoller = new PositionRoller(address(s_JUSD));
+        s_positionRoller = new PositionRoller(address(s_deuro));
         s_positionFactory = new PositionFactory();
-        s_equity = Equity(address(s_JUSD.reserve()));
-        s_frontendGateway = new FrontendGateway(address(s_JUSD));
-        s_savingsGateway = new SavingsGateway(s_JUSD, 5, address(s_frontendGateway));
+        s_depsWrapper = new DEPSWrapper(Equity(address(s_deuro.reserve())));
+        s_frontendGateway = new FrontendGateway(address(s_deuro), address(s_depsWrapper));
+        s_savingsGateway = new SavingsGateway(s_deuro, 5, address(s_frontendGateway));
         s_mintingHubGateway = new MintingHubGateway(
-            address(s_JUSD),
+            address(s_deuro),
             address(s_savingsGateway),
             address(s_positionRoller),
             address(s_positionFactory),
@@ -47,8 +48,8 @@ contract Environment is TestHelper {
         s_deployer = msg.sender;
         vm.label(s_deployer, "Deployer");
         s_frontendGateway.init(address(s_savingsGateway), address(s_mintingHubGateway));
-        s_JUSD.initialize(address(s_mintingHubGateway), "Make MintingHubGateway minter");
-        s_JUSD.initialize(s_deployer, "Make Invariants contract minter");
+        s_deuro.initialize(address(s_mintingHubGateway), "Make MintingHubGateway minter");
+        s_deuro.initialize(s_deployer, "Make Invariants contract minter");
         increaseBlocks(1);
 
         // create EOAs
@@ -85,10 +86,10 @@ contract Environment is TestHelper {
         // Mint opening fee and collateral
         uint256 openingFee = s_mintingHubGateway.OPENING_FEE();
         mintCOL(owner, initialCollateral);
-        mintJUSD(owner, openingFee);
+        mintDEURO(owner, openingFee);
 
         vm.startPrank(owner);
-        s_JUSD.approve(address(s_mintingHubGateway), openingFee); // approve open fee
+        s_deuro.approve(address(s_mintingHubGateway), openingFee); // approve open fee
         s_collateralToken.approve(address(s_mintingHubGateway), initialCollateral); // approve collateral
         address position = s_mintingHubGateway.openPosition( // open position
                 collateral,
@@ -108,8 +109,8 @@ contract Environment is TestHelper {
     }
 
     /// Getters
-    function jusd() public view returns (JuiceDollar) {
-        return s_JUSD;
+    function deuro() public view returns (DecentralizedEURO) {
+        return s_deuro;
     }
 
     function collateralToken() public view returns (TestToken) {
@@ -126,6 +127,10 @@ contract Environment is TestHelper {
 
     function positionFactory() public view returns (PositionFactory) {
         return s_positionFactory;
+    }
+
+    function depsWrapper() public view returns (DEPSWrapper) {
+        return s_depsWrapper;
     }
 
     function frontendGateway() public view returns (FrontendGateway) {
@@ -172,11 +177,11 @@ contract Environment is TestHelper {
 
     /// Helpers
 
-    function mintJUSD(address to, uint256 amount) public {
-        uint256 toBalance = s_JUSD.balanceOf(to);
+    function mintDEURO(address to, uint256 amount) public {
+        uint256 toBalance = s_deuro.balanceOf(to);
         if (toBalance < amount) {
             vm.startPrank(s_deployer);
-            s_JUSD.mint(to, amount - toBalance);
+            s_deuro.mint(to, amount - toBalance);
             vm.stopPrank();
         }
     }

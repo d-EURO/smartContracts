@@ -2,8 +2,8 @@ export const SavingsGatewayABI = [
   {
     inputs: [
       {
-        internalType: 'contract IJuiceDollar',
-        name: 'jusd_',
+        internalType: 'contract IDecentralizedEURO',
+        name: 'deuro_',
         type: 'address',
       },
       {
@@ -288,10 +288,10 @@ export const SavingsGatewayABI = [
   },
   {
     inputs: [],
-    name: 'equity',
+    name: 'deuro',
     outputs: [
       {
-        internalType: 'contract IReserve',
+        internalType: 'contract IERC20',
         name: '',
         type: 'address',
       },
@@ -301,10 +301,10 @@ export const SavingsGatewayABI = [
   },
   {
     inputs: [],
-    name: 'jusd',
+    name: 'equity',
     outputs: [
       {
-        internalType: 'contract IERC20',
+        internalType: 'contract IReserve',
         name: '',
         type: 'address',
       },

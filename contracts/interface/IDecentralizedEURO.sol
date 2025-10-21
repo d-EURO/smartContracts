@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {IReserve} from "./IReserve.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IJuiceDollar is IERC20 {
+interface IDecentralizedEURO is IERC20 {
     function suggestMinter(
         address _minter,
         uint256 _applicationPeriod,

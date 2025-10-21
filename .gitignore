@@ -19,7 +19,6 @@ scripts/deployment/deployments/localhost
 scripts/deployment/deployments/hardhat
 scripts/deployments/deployPositions-*.json
 scripts/deployments/bridge-*.json
-scripts/deployments/deployProtocol-*.json
 scripts/test.ts
 scripts/test-*.ts
 .VSCodeCounter/

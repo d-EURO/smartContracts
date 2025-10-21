@@ -16,6 +16,7 @@ interface IFrontendGateway {
     
     event InvestRewardAdded(bytes32 frontendCode, address user, uint256 amount, uint256 reward);
     event RedeemRewardAdded(bytes32 frontendCode, address user, uint256 amount, uint256 reward);
+    event UnwrapAndSellRewardAdded(bytes32 frontendCode, address user, uint256 amount, uint256 reward);
     event SavingsRewardAdded(bytes32 frontendCode, address saver, uint256 interest, uint256 reward);
     event PositionRewardAdded(bytes32 frontendCode, address position, uint256 amount, uint256 reward);
 
@@ -29,6 +30,7 @@ interface IFrontendGateway {
 
     function invest(uint256 amount, uint256 expectedShares, bytes32 frontendCode) external returns (uint256);
     function redeem(address target, uint256 shares, uint256 expectedProceeds, bytes32 frontendCode) external returns (uint256);
+    function unwrapAndSell(uint256 amount, bytes32 frontendCode) external returns (uint256);
 
     function updateSavingCode(address savingsOwner, bytes32 frontendCode) external;
     function updateSavingRewards(address saver, uint256 interest) external;

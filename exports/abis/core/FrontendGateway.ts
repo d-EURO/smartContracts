@@ -3,7 +3,12 @@ export const FrontendGatewayABI = [
     inputs: [
       {
         internalType: 'address',
-        name: 'jusd_',
+        name: 'deuro_',
+        type: 'address',
+      },
+      {
+        internalType: 'address',
+        name: 'deps_',
         type: 'address',
       },
     ],
@@ -373,11 +378,42 @@ export const FrontendGatewayABI = [
     type: 'event',
   },
   {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
+      },
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'user',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'reward',
+        type: 'uint256',
+      },
+    ],
+    name: 'UnwrapAndSellRewardAdded',
+    type: 'event',
+  },
+  {
     inputs: [],
-    name: 'EQUITY',
+    name: 'DEPS',
     outputs: [
       {
-        internalType: 'contract Equity',
+        internalType: 'contract DEPSWrapper',
         name: '',
         type: 'address',
       },
@@ -387,10 +423,23 @@ export const FrontendGatewayABI = [
   },
   {
     inputs: [],
-    name: 'JUSD',
+    name: 'DEURO',
     outputs: [
       {
         internalType: 'contract IERC20',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'EQUITY',
+    outputs: [
+      {
+        internalType: 'contract Equity',
         name: '',
         type: 'address',
       },
@@ -803,6 +852,30 @@ export const FrontendGatewayABI = [
     ],
     name: 'transferOwnership',
     outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+      {
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
+      },
+    ],
+    name: 'unwrapAndSell',
+    outputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+    ],
     stateMutability: 'nonpayable',
     type: 'function',
   },

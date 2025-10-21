@@ -1,13 +1,13 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import JuiceDollarModule from "./JuiceDollar";
+import DecentralizedEUROModule from "./DecentralizedEURO";
 import FrontendGatewayModule from "./FrontendGateway";
 
 export default buildModule("SavingsGateway", (m) => {
-  const { juiceDollar } = m.useModule(JuiceDollarModule);
+  const { decentralizedEURO } = m.useModule(DecentralizedEUROModule);
   const { frontendGateway } = m.useModule(FrontendGatewayModule);
   const initialRatePPM = m.getParameter("initialRatePPM"); 
 
-  const savingsGateway = m.contract("SavingsGateway", [juiceDollar, initialRatePPM, frontendGateway]);
+  const savingsGateway = m.contract("SavingsGateway", [decentralizedEURO, initialRatePPM, frontendGateway]);
 
   return { savingsGateway };
 });

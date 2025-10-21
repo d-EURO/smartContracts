@@ -42,7 +42,7 @@ export async function monitorBridgesAction(_: any, hre: HardhatRuntimeEnvironmen
       format: (row) => {
         return formatMultiLine(
           {
-            primary: formatHash(row.usd, true),
+            primary: formatHash(row.eur, true),
             secondary: row.symbol,
           },
           15,

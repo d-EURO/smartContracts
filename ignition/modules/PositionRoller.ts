@@ -1,10 +1,10 @@
 import { buildModule } from '@nomicfoundation/hardhat-ignition/modules';
-import JuiceDollarModule from './JuiceDollar';
+import DecentralizedEUROModule from './DecentralizedEURO';
 
 export default buildModule('PositionRoller', (m) => {
-  const { juiceDollar } = m.useModule(JuiceDollarModule);
+  const { decentralizedEURO } = m.useModule(DecentralizedEUROModule);
 
-  const positionRoller = m.contract('PositionRoller', [juiceDollar]);
+  const positionRoller = m.contract('PositionRoller', [decentralizedEURO]);
 
   return { positionRoller };
 });

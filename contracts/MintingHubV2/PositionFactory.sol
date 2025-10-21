@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Position} from "./Position.sol";
-import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
+import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 
 contract PositionFactory {
     /**
@@ -11,7 +11,7 @@ contract PositionFactory {
      */
     function createNewPosition(
         address _owner,
-        address _jusd,
+        address _deuro,
         address _collateral,
         uint256 _minCollateral,
         uint256 _initialLimit,
@@ -27,7 +27,7 @@ contract PositionFactory {
                 new Position(
                     _owner,
                     msg.sender,
-                    _jusd,
+                    _deuro,
                     _collateral,
                     _minCollateral,
                     _initialLimit,

@@ -43,14 +43,14 @@ async function main() {
   console.log(`Found ${config.positions.length} position(s) to deploy`);
 
   // Get contracts
-  const JUSD = await ethers.getContractAt('JuiceDollar', getDeployedAddress('JuiceDollar'));
-  const JUSDConnected = JUSD.connect(deployer);
+  const dEuro = await ethers.getContractAt('DecentralizedEURO', getDeployedAddress('DecentralizedEURO'));
+  const dEuroConnected = dEuro.connect(deployer);
   const mintingHubGateway = await ethers.getContractAt(
     'MintingHubGateway',
     getDeployedAddress('MintingHubGateway'),
   );
   const mintingHubGatewayConnected = mintingHubGateway.connect(deployer);
-  const openingFee = ethers.parseEther(config.openingFee); // JUSD has 18 decimals
+  const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
 
   // Before proceding, check MintingHubGateway is deployed (sanity check)
   if ((await ethers.provider.getCode(getDeployedAddress('MintingHubGateway'))) === '0x') {
@@ -64,20 +64,20 @@ async function main() {
     // Position parameters
     const minCollateral = ethers.parseUnits(position.minCollateral, position.decimals);
     const initialCollateral = ethers.parseUnits(position.initialCollateral, position.decimals);
-    const liqPrice = ethers.parseEther(position.liqPrice); // JUSD has 18 decimals
-    const mintingMaximum = ethers.parseEther(position.mintingMaximum); // JUSD has 18 decimals
+    const liqPrice = ethers.parseEther(position.liqPrice); // dEURO has 18 decimals
+    const mintingMaximum = ethers.parseEther(position.mintingMaximum); // dEURO has 18 decimals
     const expirationTime = Math.floor(Date.now() / 1000) + position.expirationSeconds;
     console.log(`- Collateral: ${position.collateralAddress}`);
     console.log(`- Min Collateral: ${position.minCollateral} (${minCollateral})`);
     console.log(`- Initial Collateral: ${position.initialCollateral} (${initialCollateral})`);
     console.log(`- Liq Price: ${position.liqPrice} (${liqPrice})`);
-    console.log(`- Minting Maximum: ${position.mintingMaximum} JUSD`);
+    console.log(`- Minting Maximum: ${position.mintingMaximum} dEURO`);
     console.log(`- Expiration: ${new Date(expirationTime * 1000).toISOString()}`);
 
     try {
       const collateralToken = await ethers.getContractAt(ERC20_ABI, position.collateralAddress);
       await collateralToken.approve(getDeployedAddress('MintingHubGateway'), initialCollateral);
-      await JUSDConnected.approve(getDeployedAddress('MintingHubGateway'), openingFee);
+      await dEuroConnected.approve(getDeployedAddress('MintingHubGateway'), openingFee);
 
       // Open position
       const tx = await mintingHubGateway[

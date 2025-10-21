@@ -18,9 +18,9 @@ export async function getBridgeState(
   provider: HardhatEthersProvider,
 ): Promise<BridgeState> {
   const address = await bridge.getAddress();
-  const usd = await bridge.usd();
-  const usdContract = new ethers.Contract(usd, ['function symbol() view returns (string)'], provider);
-  const usdSymbol = await usdContract.symbol();
+  const eur = await bridge.eur();
+  const eurContract = new ethers.Contract(eur, ['function symbol() view returns (string)'], provider);
+  const eurSymbol = await eurContract.symbol();
   const limit = await bridge.limit();
   const minted = await bridge.minted();
   const horizon = await bridge.horizon();
@@ -49,8 +49,8 @@ export async function getBridgeState(
   return {
     name,
     address,
-    usd,
-    symbol: usdSymbol,
+    eur,
+    symbol: eurSymbol,
     limit,
     minted,
     utilization: utilizationPercentage,

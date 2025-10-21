@@ -6,7 +6,7 @@ import { floatToDec18 } from '../../scripts/utils/math';
 import { evm_increaseTime } from '../utils';
 import {
   CoinLendingGateway,
-  JuiceDollar,
+  DecentralizedEURO,
   MintingHubGateway,
   Position,
   TestWETH,
@@ -24,7 +24,7 @@ describe('CoinLendingGateway Tests', () => {
   let bob: HardhatEthersSigner;
 
   let coinLendingGateway: CoinLendingGateway;
-  let JUSD: JuiceDollar;
+  let dEURO: DecentralizedEURO;
   let mintingHub: MintingHubGateway;
   let testWETH: TestWETH;
   let gateway: FrontendGateway;
@@ -32,7 +32,7 @@ describe('CoinLendingGateway Tests', () => {
   let roller: PositionRoller;
   let positionFactory: PositionFactory;
   let bridge: StablecoinBridge;
-  let mockXUSD: TestToken;
+  let mockXEUR: TestToken;
 
   let parentPosition: string;
   let parentPositionContract: Position;
@@ -40,7 +40,7 @@ describe('CoinLendingGateway Tests', () => {
   const frontendCode = ethers.randomBytes(32);
   const initialLimit = floatToDec18(1_000_000);
   const minCollateral = floatToDec18(3);
-  const liqPrice = floatToDec18(2000); // 1 ETH = 2000 JUSD
+  const liqPrice = floatToDec18(2000); // 1 ETH = 2000 dEURO
   const reservePPM = 100_000; // 10%
   const riskPremiumPPM = 10_000; // 1%
   const duration = 365n * 86_400n; // 1 year
@@ -57,9 +57,9 @@ describe('CoinLendingGateway Tests', () => {
   before(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
-    // Deploy JUSD
-    const JuiceDollarFactory = await ethers.getContractFactory('JuiceDollar');
-    JUSD = await JuiceDollarFactory.deploy(10 * 86400);
+    // Deploy dEURO
+    const DecentralizedEUROFactory = await ethers.getContractFactory('DecentralizedEURO');
+    dEURO = await DecentralizedEUROFactory.deploy(10 * 86400);
 
     // Deploy TestWETH
     const TestWETHFactory = await ethers.getContractFactory('TestWETH');
@@ -67,7 +67,7 @@ describe('CoinLendingGateway Tests', () => {
 
     // Deploy FrontendGateway
     const GatewayFactory = await ethers.getContractFactory('FrontendGateway');
-    gateway = await GatewayFactory.deploy(JUSD.getAddress());
+    gateway = await GatewayFactory.deploy(dEURO.getAddress(), '0x0000000000000000000000000000000000000000');
 
     // Deploy PositionFactory
     const PositionFactoryFactory = await ethers.getContractFactory('PositionFactory');
@@ -75,16 +75,16 @@ describe('CoinLendingGateway Tests', () => {
 
     // Deploy Savings
     const SavingsFactory = await ethers.getContractFactory('Savings');
-    savings = await SavingsFactory.deploy(JUSD.getAddress(), 0n);
+    savings = await SavingsFactory.deploy(dEURO.getAddress(), 0n);
 
     // Deploy PositionRoller
     const RollerFactory = await ethers.getContractFactory('PositionRoller');
-    roller = await RollerFactory.deploy(JUSD.getAddress());
+    roller = await RollerFactory.deploy(dEURO.getAddress());
 
     // Deploy MintingHubGateway
     const MintingHubFactory = await ethers.getContractFactory('MintingHubGateway');
     mintingHub = await MintingHubFactory.deploy(
-      JUSD.getAddress(),
+      dEURO.getAddress(),
       savings.getAddress(),
       roller.getAddress(),
       positionFactory.getAddress(),
@@ -94,26 +94,26 @@ describe('CoinLendingGateway Tests', () => {
     // Initialize gateway
     await gateway.init('0x0000000000000000000000000000000000000000', mintingHub.getAddress());
 
-    // Create mockXUSD and bridge to bootstrap JUSD
+    // Create mockXEUR and bridge to bootstrap dEURO
     const TestTokenFactory = await ethers.getContractFactory('TestToken');
-    mockXUSD = await TestTokenFactory.deploy('CryptoFranc', 'XUSD', 18);
+    mockXEUR = await TestTokenFactory.deploy('CryptoFranc', 'XEUR', 18);
 
     const bridgeLimit = floatToDec18(1_000_000);
     const BridgeFactory = await ethers.getContractFactory('StablecoinBridge');
-    bridge = await BridgeFactory.deploy(mockXUSD.getAddress(), JUSD.getAddress(), bridgeLimit, 30);
+    bridge = await BridgeFactory.deploy(mockXEUR.getAddress(), dEURO.getAddress(), bridgeLimit, 30);
 
-    // Initialize JUSD
-    await JUSD.initialize(bridge.getAddress(), 'XUSD Bridge');
-    await JUSD.initialize(mintingHub.getAddress(), 'Minting Hub');
-    await JUSD.initialize(savings.getAddress(), 'Savings');
-    await JUSD.initialize(roller.getAddress(), 'Roller');
+    // Initialize dEURO
+    await dEURO.initialize(bridge.getAddress(), 'XEUR Bridge');
+    await dEURO.initialize(mintingHub.getAddress(), 'Minting Hub');
+    await dEURO.initialize(savings.getAddress(), 'Savings');
+    await dEURO.initialize(roller.getAddress(), 'Roller');
 
     // Wait for initialization
     await evm_increaseTime(60);
 
-    // Bootstrap JUSD by minting through bridge
-    await mockXUSD.mint(owner.address, floatToDec18(100_000));
-    await mockXUSD.approve(bridge.getAddress(), floatToDec18(100_000));
+    // Bootstrap dEURO by minting through bridge
+    await mockXEUR.mint(owner.address, floatToDec18(100_000));
+    await mockXEUR.approve(bridge.getAddress(), floatToDec18(100_000));
     await bridge.mint(floatToDec18(50_000));
 
     // Deploy CoinLendingGateway
@@ -121,13 +121,13 @@ describe('CoinLendingGateway Tests', () => {
     coinLendingGateway = await CoinLendingGatewayFactory.deploy(
       mintingHub.getAddress(),
       testWETH.getAddress(),
-      JUSD.getAddress(),
+      dEURO.getAddress(),
     );
 
     // Create a parent position for cloning
     await testWETH.deposit({ value: floatToDec18(100) });
     await testWETH.approve(mintingHub.getAddress(), floatToDec18(100));
-    await JUSD.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
+    await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
 
     const tx = await mintingHub[
       'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
@@ -161,8 +161,8 @@ describe('CoinLendingGateway Tests', () => {
 
       const gatewayETHBefore = await ethers.provider.getBalance(coinLendingGateway.getAddress());
       const gatewayWETHBefore = await testWETH.balanceOf(coinLendingGateway.getAddress());
-      const gatewayJUSDBefore = await JUSD.balanceOf(coinLendingGateway.getAddress());
-      const aliceJUSDBefore = await JUSD.balanceOf(alice.address);
+      const gatewayDEUROBefore = await dEURO.balanceOf(coinLendingGateway.getAddress());
+      const aliceDEUROBefore = await dEURO.balanceOf(alice.address);
 
       // Execute lendWithCoin
       const tx = await coinLendingGateway.connect(alice).lendWithCoin(
@@ -179,17 +179,17 @@ describe('CoinLendingGateway Tests', () => {
 
       expect(await position.owner()).to.equal(alice.address);
 
-      const aliceJUSDAfter = await JUSD.balanceOf(alice.address);
+      const aliceDEUROAfter = await dEURO.balanceOf(alice.address);
       const expectedAmount = (mintAmount * 900_000n) / 1_000_000n;
-      expect(aliceJUSDAfter - aliceJUSDBefore).to.equal(expectedAmount);
+      expect(aliceDEUROAfter - aliceDEUROBefore).to.equal(expectedAmount);
 
       const gatewayETHAfter = await ethers.provider.getBalance(coinLendingGateway.getAddress());
       const gatewayWETHAfter = await testWETH.balanceOf(coinLendingGateway.getAddress());
-      const gatewayJUSDAfter = await JUSD.balanceOf(coinLendingGateway.getAddress());
+      const gatewayDEUROAfter = await dEURO.balanceOf(coinLendingGateway.getAddress());
 
       expect(gatewayETHAfter).to.equal(gatewayETHBefore);
       expect(gatewayWETHAfter).to.equal(gatewayWETHBefore);
-      expect(gatewayJUSDAfter).to.equal(gatewayJUSDBefore);
+      expect(gatewayDEUROAfter).to.equal(gatewayDEUROBefore);
 
       expect(await position.price()).to.equal(liquidationPrice);
 
@@ -202,7 +202,7 @@ describe('CoinLendingGateway Tests', () => {
       const mintAmount = floatToDec18(2000);
       const expiration = (await parentPositionContract.expiration()) - 86400n;
 
-      const bobJUSDBefore = await JUSD.balanceOf(bob.address);
+      const bobDEUROBefore = await dEURO.balanceOf(bob.address);
 
       const tx = await coinLendingGateway.connect(alice).lendWithCoinFor(
         bob.address,
@@ -219,13 +219,13 @@ describe('CoinLendingGateway Tests', () => {
 
       expect(await position.owner()).to.equal(bob.address);
 
-      const bobJUSDAfter = await JUSD.balanceOf(bob.address);
+      const bobDEUROAfter = await dEURO.balanceOf(bob.address);
       const expectedAmount = (mintAmount * 900_000n) / 1_000_000n;
-      expect(bobJUSDAfter - bobJUSDBefore).to.equal(expectedAmount);
+      expect(bobDEUROAfter - bobDEUROBefore).to.equal(expectedAmount);
 
       expect(await ethers.provider.getBalance(coinLendingGateway.getAddress())).to.equal(0);
       expect(await testWETH.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
-      expect(await JUSD.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
+      expect(await dEURO.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
     });
 
     it('handle liquidationPrice = 0', async () => {
@@ -520,7 +520,7 @@ describe('CoinLendingGateway Tests', () => {
 
       expect(await ethers.provider.getBalance(coinLendingGateway.getAddress())).to.equal(0);
       expect(await testWETH.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
-      expect(await JUSD.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
+      expect(await dEURO.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
     });
 
     it('multiple sequential transactions leave no funds', async () => {
@@ -539,15 +539,15 @@ describe('CoinLendingGateway Tests', () => {
 
         expect(await ethers.provider.getBalance(coinLendingGateway.getAddress())).to.equal(0);
         expect(await testWETH.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
-        expect(await JUSD.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
+        expect(await dEURO.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
         expect(await testWETH.allowance(coinLendingGateway.getAddress(), mintingHub.getAddress())).to.equal(0);
       }
     });
 
-    it('handle donated JUSD', async () => {
-      await JUSD.transfer(coinLendingGateway.getAddress(), floatToDec18(1000));
+    it('handle donated dEURO', async () => {
+      await dEURO.transfer(coinLendingGateway.getAddress(), floatToDec18(1000));
 
-      const bobJUSDBefore = await JUSD.balanceOf(bob.address);
+      const bobDEUROBefore = await dEURO.balanceOf(bob.address);
 
       await coinLendingGateway.connect(alice).lendWithCoinFor(
         bob.address,
@@ -559,11 +559,11 @@ describe('CoinLendingGateway Tests', () => {
         { value: floatToDec18(3) }
       );
 
-      const bobJUSDAfter = await JUSD.balanceOf(bob.address);
+      const bobDEUROAfter = await dEURO.balanceOf(bob.address);
       const expectedMinted = (floatToDec18(500) * 900_000n) / 1_000_000n;
-      expect(bobJUSDAfter - bobJUSDBefore).to.equal(expectedMinted + floatToDec18(1000));
+      expect(bobDEUROAfter - bobDEUROBefore).to.equal(expectedMinted + floatToDec18(1000));
 
-      expect(await JUSD.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
+      expect(await dEURO.balanceOf(coinLendingGateway.getAddress())).to.equal(0);
     });
   });
 

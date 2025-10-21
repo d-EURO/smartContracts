@@ -3,7 +3,7 @@ import { DECIMALS, floatToDec18 } from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import {
   Equity,
-  JuiceDollar,
+  DecentralizedEURO,
   MintingHub,
   Position,
   PositionFactory,
@@ -20,7 +20,7 @@ describe("Roller Tests", () => {
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
 
-  let jusd: JuiceDollar;
+  let deuro: DecentralizedEURO;
   let equity: Equity;
   let roller: PositionRoller;
   let savings: Savings;
@@ -49,11 +49,11 @@ describe("Roller Tests", () => {
   before(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
-    const JuiceDollarFactory =
-      await ethers.getContractFactory("JuiceDollar");
-    jusd = await JuiceDollarFactory.deploy(5 * 86400);
+    const DecentralizedEUROFactory =
+      await ethers.getContractFactory("DecentralizedEURO");
+    deuro = await DecentralizedEUROFactory.deploy(5 * 86400);
 
-    const equityAddr = await jusd.reserve();
+    const equityAddr = await deuro.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
 
     const positionFactoryFactory =
@@ -61,14 +61,14 @@ describe("Roller Tests", () => {
     positionFactory = await positionFactoryFactory.deploy();
 
     const savingsFactory = await ethers.getContractFactory("Savings");
-    savings = await savingsFactory.deploy(jusd.getAddress(), 20000n);
+    savings = await savingsFactory.deploy(deuro.getAddress(), 20000n);
 
     const rollerFactory = await ethers.getContractFactory("PositionRoller");
-    roller = await rollerFactory.deploy(jusd.getAddress());
+    roller = await rollerFactory.deploy(deuro.getAddress());
 
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
-      await jusd.getAddress(),
+      await deuro.getAddress(),
       await savings.getAddress(),
       await roller.getAddress(),
       await positionFactory.getAddress(),
@@ -79,20 +79,20 @@ describe("Roller Tests", () => {
     coin = await coinFactory.deploy("Supercoin", "XCOIN", 18);
 
     // jump start ecosystem
-    await jusd.initialize(owner.address, "owner");
-    await jusd.initialize(await mintingHub.getAddress(), "mintingHub");
-    await jusd.initialize(await savings.getAddress(), "savings");
-    await jusd.initialize(await roller.getAddress(), "roller");
+    await deuro.initialize(owner.address, "owner");
+    await deuro.initialize(await mintingHub.getAddress(), "mintingHub");
+    await deuro.initialize(await savings.getAddress(), "savings");
+    await deuro.initialize(await roller.getAddress(), "roller");
 
-    await jusd.mint(owner.address, floatToDec18(2_000_000));
-    await jusd.transfer(alice.address, floatToDec18(200_000));
-    await jusd.transfer(bob.address, floatToDec18(200_000));
+    await deuro.mint(owner.address, floatToDec18(2_000_000));
+    await deuro.transfer(alice.address, floatToDec18(200_000));
+    await deuro.transfer(bob.address, floatToDec18(200_000));
 
     // jump start fps
     await equity.invest(floatToDec18(1000), 0);
-    await jusd.connect(alice).approve(equity.getAddress(), floatToDec18(10_000));
+    await deuro.connect(alice).approve(equity.getAddress(), floatToDec18(10_000));
     await equity.connect(alice).invest(floatToDec18(10_000), 0);
-    await jusd.connect(bob).approve(equity.getAddress(), floatToDec18(10_000));
+    await deuro.connect(bob).approve(equity.getAddress(), floatToDec18(10_000));
     await equity.connect(bob).invest(floatToDec18(10_000), 0);
     await equity.invest(floatToDec18(1_000_000), 0);
 
@@ -233,10 +233,10 @@ describe("Roller Tests", () => {
 
     it("create mint and merge partially into existing position", async () => {
       await evm_increaseTime(3 * 86_400 + 300);
-      const bJUSD1 = await jusd.balanceOf(owner.address);
+      const bdeuro1 = await deuro.balanceOf(owner.address);
       await pos1.mint(owner.address, floatToDec18(10_000));
-      const bJUSD2 = await jusd.balanceOf(owner.address);
-      expect(bJUSD2).to.be.greaterThan(bJUSD1);
+      const bdeuro2 = await deuro.balanceOf(owner.address);
+      expect(bdeuro2).to.be.greaterThan(bdeuro1);
       expect(await pos1.getDebt()).to.be.greaterThan(0n);
       expect(await pos2.getDebt()).to.be.equal(0n);
       await coin.approve(await roller.getAddress(), floatToDec18(1));
@@ -379,7 +379,7 @@ describe("Roller Tests", () => {
       await coin
         .connect(alice)
         .approve(await mintingHub.getAddress(), floatToDec18(10));
-      await jusd.connect(alice).approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
+      await deuro.connect(alice).approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const txPos2 = await (
         await mintingHub.connect(alice).openPosition(
           await coin.getAddress(),
@@ -418,7 +418,7 @@ describe("Roller Tests", () => {
       );
       await roller.rollFully(await pos1.getAddress(), await pos2.getAddress());
       const m2 = await pos1.getDebt();
-      const b2 = await jusd.balanceOf(owner.address);
+      const b2 = await deuro.balanceOf(owner.address);
 
       expect(m1).to.be.greaterThan(
         0,
@@ -459,22 +459,22 @@ describe("Roller Tests", () => {
 
       await evm_increaseTime(5 * 86_400); // 5 days to accrue some interest
 
-      const ownerInitBal = await jusd.balanceOf(owner.address);
-      await jusd.transfer(bob.address, ownerInitBal); // remove all jusd from owner
-      const b1 = await jusd.balanceOf(owner.address);
+      const ownerInitBal = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, ownerInitBal); // remove all deuro from owner
+      const b1 = await deuro.balanceOf(owner.address);
       expect(b1).to.be.equal(0);
 
       const debt = await pos1.getDebt();
       const collBal = await coin.balanceOf(await pos1.getAddress());
       await coin.approve(await roller.getAddress(), collBal);
-      await jusd.approve(await roller.getAddress(), debt + floatToDec18(1)); // add 1 to cover timestamp difference
+      await deuro.approve(await roller.getAddress(), debt + floatToDec18(1)); // add 1 to cover timestamp difference
       const tx = roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
       );
       expect(tx).to.be.revertedWithoutReason;
 
-      await jusd.connect(bob).transfer(owner.address, ownerInitBal); // refund jusd for testing
+      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
     });
 
     it("rollFully check interests and rolled amount", async () => {
@@ -485,13 +485,13 @@ describe("Roller Tests", () => {
 
       const p1 = await pos1.principal();
       const i1 = await pos1.getInterest();
-      const ownerInitBal = await jusd.balanceOf(owner.address);
-      await jusd.transfer(bob.address, ownerInitBal - (i1 + floatToDec18(1))); // remove all jusd for testing, except to cover interest
-      const b1 = await jusd.balanceOf(owner.address);
+      const ownerInitBal = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, ownerInitBal - (i1 + floatToDec18(1))); // remove all deuro for testing, except to cover interest
+      const b1 = await deuro.balanceOf(owner.address);
 
       const collBal = await coin.balanceOf(await pos1.getAddress());
       await coin.approve(await roller.getAddress(), collBal);
-      await jusd.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
+      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
       const tx = await roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
@@ -509,7 +509,7 @@ describe("Roller Tests", () => {
       clone1 = await ethers.getContractAt("Position", cloneAddr);
 
       const p2 = await clone1.principal();
-      const b2 = await jusd.balanceOf(owner.address);
+      const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
       const i1After = await pos1.getInterest();
       const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
@@ -533,44 +533,44 @@ describe("Roller Tests", () => {
       expect(i1After).to.be.equal(0);
       expect(await pos1.isClosed()).to.be.equal(true);
 
-      await jusd.connect(bob).transfer(owner.address, ownerInitBal); // refund jusd for testing
+      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
     });
 
     it("rollFully from overcollaterlized source with lower target collateral price (equal target collateral required)", async () => {
       // In this unit test equal collateral to the source position is required to maintain the same principle.
-      // This is because the source position was heavily overcollateralized (it could have minted more JUSD or 
+      // This is because the source position was heavily overcollateralized (it could have minted more dEURO or 
       // done with less collateral).
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
-      const ownerInitBal = await jusd.balanceOf(owner.address);
-      await jusd.transfer(bob.address, ownerInitBal - floatToDec18(1)); // remove some jusd for testing, add 1 to cover interest
-      const b1 = await jusd.balanceOf(owner.address);
+      const ownerInitBal = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, ownerInitBal - floatToDec18(1)); // remove some deuro for testing, add 1 to cover interest
+      const b1 = await deuro.balanceOf(owner.address);
       expect(b1).to.be.equal(floatToDec18(1));
 
       // decrease collateral price to balanced collateral value
       await pos2.adjustPrice(1000n * 10n ** 18n); 
-      const sourcePrice = await pos1.price();                                         // 6_000 JUSD/coin (price P1)
-      const targetPrice = await pos2.price();                                         // 1_000 JUSD/coin (price P2)
+      const sourcePrice = await pos1.price();                                         // 6_000 dEURO/coin (price P1)
+      const targetPrice = await pos2.price();                                         // 1_000 dEURO/coin (price P2)
       expect(targetPrice).to.be.lessThan(sourcePrice);
 
-      const p1 = await pos1.principal();                                              // 10_000 JUSD (principal P1)
+      const p1 = await pos1.principal();                                              // 10_000 dEURO (principal P1)
       const i1 = await pos1.getInterest();
       const collBal = await coin.balanceOf(await pos1.getAddress());                  // 10 coin (collateral P1)
-      let usableAmount = await pos1.getUsableMint(p1) + i1;                           // 9_000 JUSD (usable mint P1)
-      let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 JUSD (principal P2)
+      let usableAmount = await pos1.getUsableMint(p1) + i1;                           // 9_000 dEURO (usable mint P1)
+      let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 dEURO (principal P2)
       let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice; // 10 coin (collateral P2)
       depositAmount = depositAmount > collBal ? collBal : depositAmount;              // 10 coin (collateral P2)
-      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          // 10_000 JUSD (principal P2)
+      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          // 10_000 dEURO (principal P2)
 
-      // The principal of P1 is 10_000 JUSD (principal P1). The collateral value of P1 is 60_000 JUSD (collateral value P1).
-      // This means the position is heavily overcollateralized. The usable mint of P1 is 9_000 JUSD (usable mint P1).
-      // To obtain the same usable mint in P2, we need to mint 10_000 JUSD (principal P2) (in this example both P1 and P2
-      // have the same reserve ratio of 10%). Now at a lowered price of 1_000 JUSD/coin (price P2), we need to deposit
-      // 10 coin (collateral P2) to mint 10_000 JUSD (principal P2). This is the exact amount of collateral P1 has.
-      // This means the principal and collateral value of P2 will have the same JUSD value (not overcollateralized anymore).
+      // The principal of P1 is 10_000 dEURO (principal P1). The collateral value of P1 is 60_000 dEURO (collateral value P1).
+      // This means the position is heavily overcollateralized. The usable mint of P1 is 9_000 dEURO (usable mint P1).
+      // To obtain the same usable mint in P2, we need to mint 10_000 dEURO (principal P2) (in this example both P1 and P2
+      // have the same reserve ratio of 10%). Now at a lowered price of 1_000 dEURO/coin (price P2), we need to deposit
+      // 10 coin (collateral P2) to mint 10_000 dEURO (principal P2). This is the exact amount of collateral P1 has.
+      // This means the principal and collateral value of P2 will have the same dEURO value (not overcollateralized anymore).
 
       await coin.approve(await roller.getAddress(), p1);
-      await jusd.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
+      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
       const tx = await roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
@@ -586,7 +586,7 @@ describe("Roller Tests", () => {
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr);
       const p2 = await clone1.principal();
-      const b2 = await jusd.balanceOf(owner.address);
+      const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
       const i1After = await pos1.getInterest();
       const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
@@ -605,7 +605,7 @@ describe("Roller Tests", () => {
       expect(i1After).to.be.equal(0);
       expect(await pos1.isClosed()).to.be.equal(true);
 
-      await jusd.connect(bob).transfer(owner.address, ownerInitBal); // refund jusd for testing
+      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
     });
 
     it("rollFully with lower target collateral price (capped target principal)", async () => {
@@ -616,9 +616,9 @@ describe("Roller Tests", () => {
       // insufficient as target principal < source principal ~ flash loan.
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
-      const b1 = await jusd.balanceOf(owner.address);
+      const b1 = await deuro.balanceOf(owner.address);
 
-      // decrease collateral price from 6_000 JUSD/coin to 500 JUSD/coin
+      // decrease collateral price from 6_000 dEURO/coin to 500 dEURO/coin
       await pos2.adjustPrice(500n * 10n ** 18n); 
       const sourcePrice = await pos1.price();                                         
       const targetPrice = await pos2.price();                                         
@@ -634,7 +634,7 @@ describe("Roller Tests", () => {
       mintAmount = depositAmount * targetPrice / 10n ** 18n;                          
 
       await coin.approve(await roller.getAddress(), p1);
-      await jusd.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
+      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
       const tx = await roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
@@ -650,7 +650,7 @@ describe("Roller Tests", () => {
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr);
       const p2 = await clone1.principal();
-      const b2 = await jusd.balanceOf(owner.address);
+      const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
       const i1After = await pos1.getInterest();
       const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
@@ -676,15 +676,15 @@ describe("Roller Tests", () => {
       // is more than the minimum collateral required for the source. If the source position is not sufficiently overcollateralized
       // this additionally required collateral will be missing. Consequently, the target collateral is capped at the source collateral
       // and the minted amount will be less than the principal of the source position. If the owner does not have sufficient funds
-      // repaying the flash loan will fail as he receives less JUSD than he has to repay (target principal < source principal).
+      // repaying the flash loan will fail as he receives less dEURO than he has to repay (target principal < source principal).
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
-      const ownerInitBal = await jusd.balanceOf(owner.address);
-      await jusd.transfer(bob.address, ownerInitBal - floatToDec18(1)); // remove some jusd for testing, add 1 to cover interest
-      const b1 = await jusd.balanceOf(owner.address);
+      const ownerInitBal = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, ownerInitBal - floatToDec18(1)); // remove some deuro for testing, add 1 to cover interest
+      const b1 = await deuro.balanceOf(owner.address);
       expect(b1).to.be.equal(floatToDec18(1));
 
-      // decrease collateral price from 6_000 JUSD/coin to 500 JUSD/coin
+      // decrease collateral price from 6_000 dEURO/coin to 500 dEURO/coin
       await pos2.adjustPrice(500n * 10n ** 18n); 
       const sourcePrice = await pos1.price();                                        
       const targetPrice = await pos2.price();                                        
@@ -700,43 +700,43 @@ describe("Roller Tests", () => {
       mintAmount = depositAmount * targetPrice / 10n ** 18n;                         
 
       await coin.approve(await roller.getAddress(), p1);
-      await jusd.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
+      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
       const tx = roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
       );
       expect(tx).to.be.revertedWithoutReason;
 
-      await jusd.connect(bob).transfer(owner.address, ownerInitBal); // refund jusd for testing
+      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
     });
 
     it("rollFully with higher target collateral price (less collateral required for target)", async () => {
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
-      const ownerInitBal = await jusd.balanceOf(owner.address);
-      await jusd.transfer(bob.address, ownerInitBal - floatToDec18(1_001)); // remove some jusd for testing, add 1 to cover interest
-      const b1 = await jusd.balanceOf(owner.address);
+      const ownerInitBal = await deuro.balanceOf(owner.address);
+      await deuro.transfer(bob.address, ownerInitBal - floatToDec18(1_001)); // remove some deuro for testing, add 1 to cover interest
+      const b1 = await deuro.balanceOf(owner.address);
       expect(b1).to.be.equal(floatToDec18(1001));
 
-      // increase collateral price from 6_000 JUSD/coin to 9_000 JUSD/coin (requires 3 day cooldown to allow cloning)
+      // increase collateral price from 6_000 dEURO/coin to 9_000 dEURO/coin (requires 3 day cooldown to allow cloning)
       await pos2.adjustPrice(9_000n * 10n ** 18n);
       await evm_increaseTime(3 * 86_400 + 300);
-      const sourcePrice = await pos1.price();                                         // 6_000 JUSD/coin (price P1)
-      const targetPrice = await pos2.price();                                         // 9_000 JUSD/coin (price P2)
+      const sourcePrice = await pos1.price();                                         // 6_000 dEURO/coin (price P1)
+      const targetPrice = await pos2.price();                                         // 9_000 dEURO/coin (price P2)
       expect(targetPrice).to.be.greaterThan(sourcePrice);
 
       const ownerColBalBefore = await coin.balanceOf(owner.address);
-      const p1 = await pos1.principal();                                              // 10_000 JUSD (principal P1)
+      const p1 = await pos1.principal();                                              // 10_000 dEURO (principal P1)
       const i1 = await pos1.getInterest();                                            // (interest P1)
       const collBal = await coin.balanceOf(await pos1.getAddress());                  // 10 coin (collateral P1)
-      let usableAmount = await pos1.getUsableMint(p1) + i1;                           // 9_000 JUSD (usable mint P1)
-      let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 JUSD (principal P2)
+      let usableAmount = await pos1.getUsableMint(p1) + i1;                           // 9_000 dEURO (usable mint P1)
+      let mintAmount = await pos2.getMintAmount(usableAmount);                        // 10_000 dEURO (principal P2)
       let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice; // 1.111... coin (collateral P2)
       depositAmount = depositAmount > collBal ? collBal : depositAmount;              // 1.111... coin (collateral P2)
-      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          // 10_000 JUSD (principal P2)
+      mintAmount = depositAmount * targetPrice / 10n ** 18n;                          // 10_000 dEURO (principal P2)
 
       await coin.approve(await roller.getAddress(), p1);
-      await jusd.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
+      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
       const tx = await roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
@@ -752,7 +752,7 @@ describe("Roller Tests", () => {
       const cloneAddr = await getPositionAddress((await tx.wait())!);
       clone1 = await ethers.getContractAt("Position", cloneAddr);
       const p2 = await clone1.getDebt();
-      const b2 = await jusd.balanceOf(owner.address);
+      const b2 = await deuro.balanceOf(owner.address);
       const p1After = await pos1.principal();
       const i1After = await pos1.getInterest();
       const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
@@ -775,7 +775,7 @@ describe("Roller Tests", () => {
       expect(i1After).to.be.equal(0);
       expect(await pos1.isClosed()).to.be.equal(true);
 
-      await jusd.connect(bob).transfer(owner.address, ownerInitBal); // refund jusd for testing
+      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
     });
   });
 
@@ -814,7 +814,7 @@ describe("Roller Tests", () => {
       // ---------------------------------------------------------------------------
       // give ALICE a position
       await coin.connect(alice).approve(await mintingHub.getAddress(), floatToDec18(10));
-      await jusd.connect(alice).approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
+      await deuro.connect(alice).approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
       const txPos2 = await (
         await mintingHub.connect(alice).openPosition(
           await coin.getAddress(),
@@ -850,7 +850,7 @@ describe("Roller Tests", () => {
       await pos1.mint(owner.address, floatToDec18(10_000));
 
       await coin.approve(roller.getAddress(), floatToDec18(10_000));
-      await jusd.approve(roller.getAddress(), floatToDec18(20_000));
+      await deuro.approve(roller.getAddress(), floatToDec18(20_000));
       const rollerTx = await roller.rollFully(pos1.getAddress(), pos2.getAddress());
       const rolledPosAddr = await getPositionAddress((await rollerTx.wait())!);
       const rolledPosition = await ethers.getContractAt("Position", rolledPosAddr);

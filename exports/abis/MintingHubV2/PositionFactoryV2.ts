@@ -27,7 +27,7 @@ export const PositionFactoryV2ABI = [
       },
       {
         internalType: 'address',
-        name: '_jusd',
+        name: '_deuro',
         type: 'address',
       },
       {

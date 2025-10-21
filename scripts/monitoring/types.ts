@@ -1,5 +1,6 @@
 import {
-  JuiceDollar,
+  DecentralizedEURO,
+  DEPSWrapper,
   Equity,
   MintingHubGateway,
   SavingsGateway,
@@ -7,23 +8,41 @@ import {
 } from '../../typechain';
 import { MetricResult } from './utils';
 
-export type BridgeType = 'bridgeStartUSD';
+export interface DEPSWrapperState {
+  address: string;
+  totalSupply: bigint;
+  underlyingAddress: string;
+  underlyingSymbol: string; // nDEPS
+  transferEvents: EventTrendData;
+  wrapEvents: EventTrendData;
+  unwrapEvents: EventTrendData;
+}
+
+export type BridgeType = 'bridgeEURC' | 'bridgeEURT' | 'bridgeVEUR' | 'bridgeEURS';
 
 export interface DeploymentAddresses {
   deployer: string;
-  juiceDollar: string;
+  decentralizedEURO: string;
   equity: string;
   mintingHubGateway: string;
   savingsGateway: string;
-  bridgeStartUSD: BridgeType;
+  depsWrapper: string;
+  bridgeEURC: BridgeType;
+  bridgeEURT: BridgeType;
+  bridgeVEUR: BridgeType;
+  bridgeEURS: BridgeType;
 }
 
 export interface DeploymentContracts {
-  juiceDollar: JuiceDollar;
+  decentralizedEURO: DecentralizedEURO;
   equity: Equity;
   mintingHubGateway: MintingHubGateway;
   savingsGateway: SavingsGateway;
-  bridgeStartUSD: StablecoinBridge;
+  depsWrapper: DEPSWrapper;
+  bridgeEURC: StablecoinBridge;
+  bridgeEURT: StablecoinBridge;
+  bridgeVEUR: StablecoinBridge;
+  bridgeEURS: StablecoinBridge;
 }
 
 export interface EventTrendData {
@@ -31,7 +50,7 @@ export interface EventTrendData {
   events: EventData[];
 }
 
-export interface JuiceDollarState {
+export interface DecentralizedEuroState {
   address: string;
   totalSupply: bigint;
   reserveBalance: bigint;
@@ -61,7 +80,7 @@ export interface EquityState {
 export interface BridgeState {
   name: string;
   address: string;
-  usd: string;
+  eur: string;
   symbol: string;
   limit: bigint;
   minted: bigint;

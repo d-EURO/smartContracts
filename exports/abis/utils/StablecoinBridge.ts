@@ -8,7 +8,7 @@ export const StablecoinBridgeABI = [
       },
       {
         internalType: 'address',
-        name: 'JUSDAddress',
+        name: 'dEUROAddress',
         type: 'address',
       },
       {
@@ -80,19 +80,6 @@ export const StablecoinBridgeABI = [
     type: 'error',
   },
   {
-    inputs: [],
-    name: 'JUSD',
-    outputs: [
-      {
-        internalType: 'contract IJuiceDollar',
-        name: '',
-        type: 'address',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
     inputs: [
       {
         internalType: 'uint256',
@@ -121,6 +108,32 @@ export const StablecoinBridgeABI = [
     name: 'burnAndSend',
     outputs: [],
     stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'dEURO',
+    outputs: [
+      {
+        internalType: 'contract IDecentralizedEURO',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'eur',
+    outputs: [
+      {
+        internalType: 'contract IERC20',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
     type: 'function',
   },
   {
@@ -188,19 +201,6 @@ export const StablecoinBridgeABI = [
         internalType: 'uint256',
         name: '',
         type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
-    name: 'usd',
-    outputs: [
-      {
-        internalType: 'contract IERC20',
-        name: '',
-        type: 'address',
       },
     ],
     stateMutability: 'view',

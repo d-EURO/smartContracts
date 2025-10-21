@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
-import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
+import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 import {IReserve} from "../interface/IReserve.sol";
 import {MathUtil} from "../utils/MathUtil.sol";
 import {IMintingHub} from "./interface/IMintingHub.sol";
@@ -22,7 +22,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
 
     /**
-     * @notice The jusd price per unit of the collateral below which challenges succeed, (36 - collateral.decimals) decimals
+     * @notice The deuro price per unit of the collateral below which challenges succeed, (36 - collateral.decimals) decimals
      */
     uint256 public price;
 
@@ -78,9 +78,9 @@ contract Position is Ownable, IPosition, MathUtil {
     address public immutable hub;
 
     /**
-     * @notice The JuiceDollar contract.
+     * @notice The Eurocoin contract.
      */
-    IJuiceDollar public immutable jusd;
+    IDecentralizedEURO public immutable deuro;
 
     /**
      * @notice The collateral token.
@@ -93,7 +93,7 @@ contract Position is Ownable, IPosition, MathUtil {
     uint256 public immutable override minimumCollateral;
 
     /**
-     * @notice The interest in parts per million per year that is deducted when minting JUSD.
+     * @notice The interest in parts per million per year that is deducted when minting dEURO.
      */
     uint24 public immutable riskPremiumPPM;
 
@@ -185,7 +185,7 @@ contract Position is Ownable, IPosition, MathUtil {
     constructor(
         address _owner,
         address _hub,
-        address _jusd,
+        address _deuro,
         address _collateral,
         uint256 _minCollateral,
         uint256 _initialLimit,
@@ -198,7 +198,7 @@ contract Position is Ownable, IPosition, MathUtil {
     ) Ownable(_owner) {
         original = address(this);
         hub = _hub;
-        jusd = IJuiceDollar(_jusd);
+        deuro = IDecentralizedEURO(_deuro);
         collateral = IERC20(_collateral);
         riskPremiumPPM = _riskPremiumPPM;
         reserveContribution = _reservePPM;
@@ -234,12 +234,12 @@ contract Position is Ownable, IPosition, MathUtil {
      * Notify the original that some amount has been minted.
      */
     function notifyMint(uint256 mint_) external {
-        if (jusd.getPositionParent(msg.sender) != hub) revert NotHub();
+        if (deuro.getPositionParent(msg.sender) != hub) revert NotHub();
         totalMinted += mint_;
     }
 
     function notifyRepaid(uint256 repaid_) external {
-        if (jusd.getPositionParent(msg.sender) != hub) revert NotHub();
+        if (deuro.getPositionParent(msg.sender) != hub) revert NotHub();
         totalMinted -= repaid_;
     }
 
@@ -276,7 +276,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function deny(address[] calldata helpers, string calldata message) external {
         if (block.timestamp >= start) revert TooLate();
-        IReserve(jusd.reserve()).checkQualified(msg.sender, helpers);
+        IReserve(deuro.reserve()).checkQualified(msg.sender, helpers);
         _close();
         emit PositionDenied(msg.sender, message);
     }
@@ -294,7 +294,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice This is how much the minter can actually use when minting jusd, with the rest being assigned
+     * @notice This is how much the minter can actually use when minting deuro, with the rest being assigned
      * to the minter reserve.
      */
     function getUsableMint(uint256 mintAmount) public view returns (uint256) {
@@ -370,7 +370,7 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice Mint jusd as long as there is no open challenge, the position is not subject to a cooldown,
+     * @notice Mint deuro as long as there is no open challenge, the position is not subject to a cooldown,
      * and there is sufficient collateral.
      */
     function mint(address target, uint256 amount) public ownerOrRoller {
@@ -380,18 +380,18 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice Returns the virtual price of the collateral in JUSD.
+     * @notice Returns the virtual price of the collateral in dEURO.
      */
     function virtualPrice() public view returns (uint256) {
         return _virtualPrice(_collateralBalance(), price);
     }
 
     /**
-     * @notice Computes the virtual price of the collateral in JUSD, which is the minimum collateral
+     * @notice Computes the virtual price of the collateral in dEURO, which is the minimum collateral
      * price required to cover the entire debt with interest overcollateralization, lower bounded by the floor price. 
      * Returns the challenged price if a challenge is active.
      * @param colBalance The collateral balance of the position.
-     * @param floorPrice The minimum price of the collateral in JUSD.
+     * @param floorPrice The minimum price of the collateral in dEURO.
      */
     function _virtualPrice(uint256 colBalance, uint256 floorPrice) internal view returns (uint256) {
         if (challengedAmount > 0) return challengedPrice;
@@ -488,7 +488,7 @@ contract Position is Ownable, IPosition, MathUtil {
         _fixRateToLeadrate(riskPremiumPPM); // sync interest rate with leadrate
 
         Position(original).notifyMint(amount);
-        jusd.mintWithReserve(target, amount, reserveContribution);
+        deuro.mintWithReserve(target, amount, reserveContribution);
 
         principal += amount;
         _checkCollateral(collateral_, price);
@@ -517,11 +517,11 @@ contract Position is Ownable, IPosition, MathUtil {
      *      `debt = principal + interest`. Under normal conditions, this simplifies to:
      *      `amount = (principal * (1000000 - reservePPM)) / 1000000 + interest`.
      *
-     *      For example, if `principal` is 40, `interest` is 10, and `reservePPM` is 200000, repaying 42 JUSD
+     *      For example, if `principal` is 40, `interest` is 10, and `reservePPM` is 200000, repaying 42 dEURO
      *      is required to fully close the position.
      *
-     * @param amount The maximum amount of JUSD that `msg.sender` is willing to repay.
-     * @return used  The actual amount of JUSD used for interest and principal repayment.
+     * @param amount The maximum amount of dEURO that `msg.sender` is willing to repay.
+     * @return used  The actual amount of dEURO used for interest and principal repayment.
      *
      * Emits a {MintingUpdate} event.
      */
@@ -569,9 +569,9 @@ contract Position is Ownable, IPosition, MathUtil {
      * Do not allow a forced sale as long as there is an open challenge. Otherwise, a forced sale by the owner
      * himself could remove any incentive to launch challenges shortly before the expiration. (CS-ZCHF2-001)
      *
-     * @param buyer         The address buying the collateral. This address provides `proceeds` in JUSD to repay the outstanding debt.
+     * @param buyer         The address buying the collateral. This address provides `proceeds` in dEURO to repay the outstanding debt.
      * @param colAmount     The amount of collateral to be forcibly sold and transferred to the `buyer`.
-     * @param proceeds      The amount of JUSD proceeds provided by the `buyer` to repay the outstanding debt.
+     * @param proceeds      The amount of dEURO proceeds provided by the `buyer` to repay the outstanding debt.
      *
      * Emits a {MintingUpdate} event indicating the updated collateral balance, price, and debt after the forced sale.
      */
@@ -582,7 +582,7 @@ contract Position is Ownable, IPosition, MathUtil {
         // No debt, everything goes to owner if proceeds > 0
         if (debt == 0) {
             if (proceeds > 0) {
-                jusd.transferFrom(buyer, owner(), proceeds);
+                deuro.transferFrom(buyer, owner(), proceeds);
             }
             emit MintingUpdate(_collateralBalance(), price, principal);
             return;
@@ -595,16 +595,16 @@ contract Position is Ownable, IPosition, MathUtil {
         // If remaining collateral is 0 and `principal + interest` > 0, cover the shortfall with the system.
         if (remainingCollateral == 0 && principal + interest > 0) {
             assert(proceeds == 0);
-            jusd.coverLoss(address(this), principal + interest);
+            deuro.coverLoss(address(this), principal + interest);
             if (interest > 0) {
-                jusd.collectProfits(address(this), interest);
+                deuro.collectProfits(address(this), interest);
                 _notifyInterestPaid(interest);
             }
-            jusd.burnWithoutReserve(principal, reserveContribution);
+            deuro.burnWithoutReserve(principal, reserveContribution);
             _notifyRepaid(principal);
         } else if (proceeds > 0) {
             // All debt paid, leftover proceeds is profit for owner
-            jusd.transferFrom(buyer, owner(), proceeds);
+            deuro.transferFrom(buyer, owner(), proceeds);
         }
 
         emit MintingUpdate(_collateralBalance(), price, principal);
@@ -677,7 +677,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Repays a specified amount of debt from `msg.sender`, prioritizing accrued interest first and then principal.
-     * @return The actual amount of JUSD used for interest and principal repayment.
+     * @return The actual amount of dEURO used for interest and principal repayment.
      */
     function _payDownDebt(uint256 amount) internal returns (uint256) {
         _accrueInterest();
@@ -698,7 +698,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function _repayInterest(address payer, uint256 amount) internal returns (uint256) {
         uint256 repayment = (interest > amount) ? amount : interest;
         if (repayment > 0) {
-            jusd.collectProfits(payer, repayment);
+            deuro.collectProfits(payer, repayment);
             _notifyInterestPaid(repayment);
             return amount - repayment;
         }
@@ -714,7 +714,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function _repayPrincipal(address payer, uint256 amount) internal returns (uint256) {
         uint256 repayment = (principal > amount) ? amount : principal;
         if (repayment > 0) {
-            uint256 returnedReserve = jusd.burnFromWithReserve(payer, repayment, reserveContribution);
+            uint256 returnedReserve = deuro.burnFromWithReserve(payer, repayment, reserveContribution);
             _notifyRepaid(repayment);
             return amount - (repayment - returnedReserve);
         }
@@ -730,12 +730,12 @@ contract Position is Ownable, IPosition, MathUtil {
      * @return amount remaining after principal repayment.
      */
     function _repayPrincipalNet(address payer, uint256 amount) internal returns (uint256) {
-        uint256 availableReserve = jusd.calculateAssignedReserve(principal, reserveContribution);
+        uint256 availableReserve = deuro.calculateAssignedReserve(principal, reserveContribution);
         uint256 maxRepayment = principal - availableReserve;
         uint256 repayment = amount > maxRepayment ? maxRepayment : amount;
         if (repayment > 0) {
-            uint256 freedAmount = jusd.calculateFreedAmount(repayment, reserveContribution);
-            uint256 returnedReserve = jusd.burnFromWithReserve(payer, freedAmount, reserveContribution);
+            uint256 freedAmount = deuro.calculateFreedAmount(repayment, reserveContribution);
+            uint256 returnedReserve = deuro.burnFromWithReserve(payer, freedAmount, reserveContribution);
             assert(returnedReserve == freedAmount - repayment);
             _notifyRepaid(freedAmount);
             return amount - repayment;
@@ -777,7 +777,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * Everything else is assumed to be handled by the hub.
      *
      * @param _size amount of the collateral bid for
-     * @return (position owner, effective challenge size in jusd, amount of principal to repay, amount of interest to pay, reserve ppm)
+     * @return (position owner, effective challenge size in deuro, amount of principal to repay, amount of interest to pay, reserve ppm)
      */
     function notifyChallengeSucceeded(
         uint256 _size

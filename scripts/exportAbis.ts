@@ -6,9 +6,9 @@ const ABIS_EXPORT_PATH = path.join(process.cwd(), 'exports/abis');
 
 const contractABI = [
   {
-    from: `${ARTIFACTS_PATH}/JuiceDollar.sol/JuiceDollar.json`,
-    to: `${ABIS_EXPORT_PATH}/core/JuiceDollar.ts`,
-    exportName: 'JuiceDollarABI',
+    from: `${ARTIFACTS_PATH}/DecentralizedEURO.sol/DecentralizedEURO.json`,
+    to: `${ABIS_EXPORT_PATH}/core/DecentralizedEURO.ts`,
+    exportName: 'DecentralizedEUROABI',
   },
 
   {
@@ -36,9 +36,9 @@ const contractABI = [
   },
 
   {
-    from: `${ARTIFACTS_PATH}/SavingsVaultJUSD.sol/SavingsVaultJUSD.json`,
-    to: `${ABIS_EXPORT_PATH}/core/SavingsVaultJUSD.ts`,
-    exportName: 'SavingsVaultJUSDABI',
+    from: `${ARTIFACTS_PATH}/SavingsVaultDEURO.sol/SavingsVaultDEURO.json`,
+    to: `${ABIS_EXPORT_PATH}/core/SavingsVaultDEURO.ts`,
+    exportName: 'SavingsVaultDEUROABI',
   },
 
   {
@@ -69,6 +69,13 @@ const contractABI = [
     to: `${ABIS_EXPORT_PATH}/utils/StablecoinBridge.ts`,
     exportName: 'StablecoinBridgeABI',
   },
+
+  {
+    from: `${ARTIFACTS_PATH}/utils/DEPSWrapper.sol/DEPSWrapper.json`,
+    to: `${ABIS_EXPORT_PATH}/utils/DEPSWrapper.ts`,
+    exportName: 'DEPSWrapperABI',
+  },
+
   {
     from: `${ARTIFACTS_PATH}/MintingHubV2/MintingHub.sol/MintingHub.json`,
     to: `${ABIS_EXPORT_PATH}/utils/MintingHubV2.ts`,

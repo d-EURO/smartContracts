@@ -1,69 +1,83 @@
-# JUSD
+# dEURO
 
-This repository is a fork of dEURO (Decentralized EURO), containing the smart contracts for the oracle-free, collateralized stablecoin JUSD (JuiceDollar).
+This repository is a friendly fork of Frankencoin-ZCHF.
 
-## Source Code
+This is the source code repository for the smart contracts of the oracle-free, collateralized stablecoin dEURO.
+
+There also is a [public frontend](https://app.dEURO.com) and a [documentation page](https://docs.dEURO.com).
+
+### Source Code
 
 The source code can be found in the [contracts](contracts) folder. The following are the most important contracts.
 
 | Contract              | Description                                                                       |
 |-----------------------|-----------------------------------------------------------------------------------|
-| JuiceDollar.sol | The JuiceDollar (JUSD) ERC20 token                                         |
-| Equity.sol            | The Juice Protocol (JUICE) ERC20 token                  |
+| DecentralizedEURO.sol | The DecentralizedEURO (dEURO) ERC20 token                                         |
+| Equity.sol            | The Native Decentralized Euro Protocol Share (nDEPS) ERC20 token                  |
 | MintingHub.sol        | Plugin for oracle-free collateralized minting                                     |
 | Position.sol          | A borrowed minting position holding collateral                                    |
 | PositionRoller.sol    | A module to roll positions into new ones                                          |
-| StablecoinBridge.sol  | Plugin for 1:1 swaps with other USD stablecoins                                   |
-| Savings.sol           | A module to pay out interest to JUSD holders                                      |
+| StablecoinBridge.sol  | Plugin for 1:1 swaps with other EUR stablecoins                                   |
+| BridgedToken.sol      | Generic bridged token contract for L2 deployments, e.g. dEURO on [Optimism](https://optimistic.etherscan.io/address/0x1B5F7fA46ED0F487F049C42f374cA4827d65A264) & [Base](https://basescan.org/address/0x1B5F7fA46ED0F487F049C42f374cA4827d65A264), DEPS on [Base](https://basescan.org/address/0x5F674bF6d559229bDd29D642d2e0978f1E282722) |
+| Savings.sol           | A module to pay out interest to ZCHF holders                                      |
 | Leadrate.sol          | A module that can provide a leading interest rate for the system                  |
 | PositionFactory.sol   | Create a completely new position in a newly deployed contract                     |
-| FrontendGateway.sol    | A module that rewards frontend providers for referrals into the JUSD Ecosystem   |
+| DEPSWrapper.sol       | Enables nDEPS to be wrapped in DEPS                                               |
+| FrontendGateway.sol    | A module that rewards frontend providers for referrals into the dEURO Ecosystem   |
 | MintingHubGateway.sol  | Plugin for oracle-free collateralized minting with rewards for frontend providers |
-| SavingsGateway.sol     | A module to pay out interest to JUSD holders and reward frontend providers        |
+| SavingsGateway.sol     | A module to pay out interest to ZCHF holders and reward frontend providers        |
 | CoinLendingGateway.sol | Gateway for native coin (ETH/MATIC) lending with custom liquidation prices        |
 
-# Code basis and changes
+# Code basis and changes after the fork
 
-JuiceDollar is a fork of dEURO (Decentralized EURO), which itself was derived from the Frankencoin protocol. This section documents the changes made when creating JuiceDollar from dEURO:
+The last status adopted by Frankencoin was Commit [a2ce625c554bbd3465a31e7d8b7360a054339dd2](https://github.com/Frankencoin-ZCHF/FrankenCoin/commit/a2ce625c554bbd3465a31e7d8b7360a054339dd2) on December 2, 2024. The following things were built on it as a fork.
 
-## JuiceDollar Core module
-Changes from dEURO to JuiceDollar:
-1. dEURO (stablecoin) was renamed to JUSD
-2. nDEPS (native pool shares) was renamed to JUICE
-3. Currency denomination changed from EUR to USD
-4. EUR-based stablecoin bridges replaced with StartUSD genesis token
-5. DEPSWrapper contract removed (no longer needed with JUICE as native token)
-6. Target deployment changed from Ethereum mainnet to Citrea testnet
+## DecentralizedEURO Core module
+1. ZCHF was renamed to dEURO  
+2. Frankencoin was renamed to DecentralizedEURO  
+3. FPS was renamed to nDEPS (native Decentralized Protocol Share)  
+4. nDEPS now cost 10_000 times less than the FPS for Frankencoin
+5. In the Equity SmartContract, the valuation factor was adjusted from 3 to 5. 
+6. ERC20 token has been completely converted to standard Open Zeppelin V5  
+7. ERC165 token standard has been added  
+8. ERC3009 added  
+9. SmartContract internal exchange fee (can also be called issuance fee) increased from 0.3% to 2%
+10. Minters are no longer authorized to execute SendFrom and BurnFrom from any address. https://github.com/d-EURO/smartContracts/pull/108
 
-Note: The underlying technical architecture was inherited from dEURO, which included: OpenZeppelin V5 ERC20, ERC165, ERC3009, 2% issuance fee, valuation factor of 5, restricted minter permissions, and savings module without lock-up period.
+## Savings
+The lock-up of 3 days has been removed without replacement. 
 
-## Stablecoin Bridges
-The dEURO protocol supported bridges to EUR-based stablecoins (EURT, EURC, VEUR, EURS). For JuiceDollar, these have been replaced with the StartUSD genesis token for protocol bootstrapping.
+## DEPS Wrapper
+1. FPS has been renamed to nDEPS  
+2. WFPS has been renamed DEPS  
+(so “w” is no longer used for “wrapped” but the non-wrapped version is now called “native”)  
 
-**Current bridge:**
-- StartUSD (SUSD) - Genesis bootstrap token with 10,000 supply
+## Bridges
+Frankencoin had a single bridge to XCHF from Bitcoin Suisse  
+dEURO has 4 bridges to   
+1. Tether EUR  
+2. Circle EUR  
+3. VNX EUR  
+4. Stasis EUR  
+The new tokens in the bridges have different decimal places. 
 
-Additional USD stablecoin bridges can be added by following the StartUSD configuration in `scripts/deployment/config/flashbotsConfig.ts`. 
+
+## Minting module v1
+In contrast to Frankencoin, dEURO does not use the minting module v1 at all  
+
+## Minting module v2
+
+Interest is no longer paid when a position is opened but is credited as a debt on an ongoing basis and only has to be paid when a position is closed or modified. 
 
 ## Front-end gateway
-The frontend gateway system allows smart contract interactions through referral gateways, rewarding frontend providers with commissions paid by JUICE holders. This functionality was inherited from dEURO. 
+It is possible to use the SmartContracts through a gateway and thus obtain a refferal commission. This module is completely new. 
 
-# Audit Reports (Historical)
-
-## Frankencoin Protocol Audits
-These audits were conducted on the Frankencoin protocol, which served as the foundation for dEURO:
-
-- 2023-02-10 [Blockbite](https://github.com/Frankencoin-ZCHF/FrankenCoin/blob/main/audits/blockbite-audit.pdf)
-- 2023-06-09 [code4rena](https://code4rena.com/reports/2023-04-frankencoin)
-- 2023-10-30 [ChainSecurity Report 1](https://github.com/Frankencoin-ZCHF/FrankenCoin/blob/main/audits/V1/blockbite-audit.pdf)
-- 2024-09-25 [Decurity](https://github.com/Decurity/audits/blob/master/Frankencoin/frankencoin-audit-report-2024-1.1.pdf)
-- 2024-11-28 [ChainSecurity Report 2](https://cdn.prod.website-files.com/65d35b01a4034b72499019e8/674873bff5163fea0b1d9faa_ChainSecurity_Frankencoin_Frankencoin_v2024_audit.pdf)
-
-## dEURO Protocol Audits
-These audits were conducted on dEURO (Decentralized EURO), the direct predecessor of JuiceDollar:
-
-- 2025-01-13 [dEURO Audit Report](https://github.com/d-EURO/landingPage/blob/develop/audits/deuro_audit_report.pdf)
-- 2025-04-03 [ChainSecurity dEURO Audit](https://cdn.prod.website-files.com/65d35b01a4034b72499019e8/67f3ce31887302b3716a56a9_ChainSecurity_dEURO_dEURO_audit.pdf)  
+# Audit Reports
+2023-02-10 [Blockbite](https://github.com/Frankencoin-ZCHF/FrankenCoin/blob/main/audits/blockbite-audit.pdf)  
+2023-06-09 [code4rena](https://code4rena.com/reports/2023-04-frankencoin)  
+2023-10-30 [chainsecurity Report 1](https://github.com/Frankencoin-ZCHF/FrankenCoin/blob/main/audits/V1/blockbite-audit.pdf)  
+2024-09-25 [Decurity](https://github.com/Decurity/audits/blob/master/Frankencoin/frankencoin-audit-report-2024-1.1.pdf)  
+2024-11-28 [ChainSecurity Report 2](https://cdn.prod.website-files.com/65d35b01a4034b72499019e8/674873bff5163fea0b1d9faa_ChainSecurity_Frankencoin_Frankencoin_v2024_audit.pdf)  
 
 # Development
 
@@ -137,11 +151,11 @@ Then run a deployment script with tags and network params (e.g., `sepolia` that 
 
 ```shell
 hh deploy --network sepolia --tags MockTokens
-hh deploy --network sepolia --tags JuiceDollar
+hh deploy --network sepolia --tags DecentralizedEURO
 hh deploy --network sepolia --tags PositionFactory
 hh deploy --network sepolia --tags MintingHub
-hh deploy --network sepolia --tags MockUSDToken
-hh deploy --network sepolia --tags XUSDBridge
+hh deploy --network sepolia --tags MockEURToken
+hh deploy --network sepolia --tags XEURBridge
 hh deploy --network sepolia --tags positions
 ```
 
@@ -152,19 +166,17 @@ hh deploy --network sepolia --tags positions
 
 #### Deploy Stablecoin Bridges
 
-Deploy bridges for USD stablecoins using the dedicated deployment script:
+Deploy bridges for EUR stablecoins using the dedicated deployment script:
 
 ```shell
-# Deploy bridge for specific stablecoin, e.g. StartUSD
-BRIDGE_KEY=StartUSD npx hardhat run scripts/deployment/deploy/deployBridge.ts --network citrea
+# Deploy bridge for specific stablecoin, e.g. EUROP
+BRIDGE_KEY=EUROP npx hardhat run scripts/deployment/deploy/deployBridge.ts --network mainnet
 
-# Test on local hardhat network
-npm run deploy
+# Test on forked mainnet
+USE_FORK=true BRIDGE_KEY=EUROP npx hardhat run scripts/deployment/deploy/deployBridge.ts --network hardhat
 ```
 
-Bridge keys and configurations are defined in `scripts/deployment/config/flashbotsConfig.ts`
-
-**Note:** Currently only StartUSD is configured as the genesis bootstrap token. To add additional USD stablecoin bridges (e.g., USDC, USDT, USDS, etc.), create new entries in `flashbotsConfig.ts` following the StartUSD template, then deploy using the same script with the appropriate BRIDGE_KEY.
+Bridge keys and configurations are defined in `scripts/deployment/config/stablecoinBridgeConfig.ts`
 
 ### 5. Write Deployment Scripts (via ignition deploy and verify)
 
@@ -320,8 +332,8 @@ TSUP bundles TypeScript code into optimized JavaScript packages. This package us
 ```
 file: /package.json
 
-"name": "@juicedollar/jusd",
-"version": "1.0.16", <-- HERE
+"name": "@frankencoin/zchf",
+"version": "0.2.16", <-- HERE
 ```
 
 Login to your NPM account
@@ -354,15 +366,15 @@ module.exports = nextConfig;
 
 # 8. Updates (January 2025)
 
-### JuiceDollar.sol
+### DecentralizedEURO.sol
 
-- `allowance`: Added `address(reserve))` to the spender addresses with unlimited JUSD allowance.
+- `allowance`: Added `address(reserve))` to the spender addresses with unlimited dEURO allowance.
 - `burnWithReserve`: Removed unused function.
 - `burnFromWithReserve`: Use `_spendAllowance` to control spending power of `minters` based on `allowance`.
 - `burnFromWithReserveNet`: Renamed from `burnWithReserve`.
 - `distributeProfits`: New function to distinguish between reserve withdrawals due to losses vs interest payouts (e.g. to savings) -> `Loss` vs `ProfitDistributed` event.
 - `_withdrawFromReserve`: New helper function used by `coverLoss` and `distributeProfits`.
-- `supportsInterface`: Added `IJuiceDollar` support.
+- `supportsInterface`: Added `IDecentralizedEURO` support.
 
 ### Equity.sol
 
@@ -370,7 +382,7 @@ module.exports = nextConfig;
 
 ### MintingHub.sol
 
-- `_finishChallenge`: The `Position.notifyChallengeSucceeded` call now returns both the required prinicipal `repayment` amount and `interest` payment amount necessry to liquidate the challenged collateral. In `_finishChallenge`, the `interest` amount is then added separately to the funds taken from the `msg.sender` (liquidator/bidder): `JUSD.transferFrom(msg.sender, address(this), offer + interest);`. Both the challenger reward payout and subsequent principal repayment is done using the `repayment` funds. Even in the case of insufficient funds and a system loss, the `interest` funds remain untouched, as they are dedicated solely to the required interest payment which is done at the very end: `JUSD.collectProfits(address(this), interest);`.
+- `_finishChallenge`: The `Position.notifyChallengeSucceeded` call now returns both the required prinicipal `repayment` amount and `interest` payment amount necessry to liquidate the challenged collateral. In `_finishChallenge`, the `interest` amount is then added separately to the funds taken from the `msg.sender` (liquidator/bidder): `DEURO.transferFrom(msg.sender, address(this), offer + interest);`. Both the challenger reward payout and subsequent principal repayment is done using the `repayment` funds. Even in the case of insufficient funds and a system loss, the `interest` funds remain untouched, as they are dedicated solely to the required interest payment which is done at the very end: `DEURO.collectProfits(address(this), interest);`.
 Also note that an additionl `maxInterest` function parameter was added to `_finishChallenge`. This sets a limit on the `interest` amount that can be charged, resulting in a `revert` if exceeded.
 The updates to this function cleanly separate principal and interest logic. For more details on the required `repayment` and `interest` amounts, refer to `Position.notifyChallengeSucceeded` below.
 - `_calculateOffer`: New helper function used by `_finishChallenge` (basic code refactoring).
@@ -379,7 +391,7 @@ The updates to this function cleanly separate principal and interest logic. For 
 ### Position.sol
 
 - `fixedAnnualRatePPM`: The interest rate for a position is synced with the lead rate (`Leadrate.currentRatePPM`) at creation time (in the `constructor` or, in the case of cloning, in the `initialize` function) using the `_fixRateToLeadrate` function. From this point onwards, the interest rate for a particular position instance is fixed unless new tokens are minted (the loan is increased), at which point it is re-synced with the lead rate. It is expected that in the case of lowered interest rates, position owners will roll their current positions into new ones (for free) to benefit from it.
-- `availableForClones`: This function now only considers the `principal` amount in its calculations. This is because the (accrued) `interest` does not belong to the minted JUSD tokens of a position and therefore do not belong in this calculation.
+- `availableForClones`: This function now only considers the `principal` amount in its calculations. This is because the (accrued) `interest` does not belong to the minted dEURO tokens of a position and therefore do not belong in this calculation.
 - `adjust`: The `newDebt` parameter was changed to `newPrincipal`. Consequently, owners are able to control their `principal` amount without having the outstanding interest amount tied to it. Naturally, if they wish to reduce their principal, they must first pay any outstanding interest. This is handled automatically by the `adjust` function.
 - `MintingUpdate`: The last paramter of this `event` now only reports the new `principal` amount and not the entire `debt` amount which would include the outstanding `interest`. This is more in line with the overall purpose of this event.
 - `_adjustPrice`: The accrued `interest` is removed from the `bounds` paramter passed to `_setPrice`. This is because the `interest` does not belong in the collateral "sanity check" logic.
@@ -396,18 +408,18 @@ Finally, in the case that no collateral remains, any remainining `principal` is 
 - `_payDownDebt`: Refactored
 - `_repayInterest`: New helper function to pay off outstanding interest by some `amount`. Returns the remainder in the case that `amount` exceeds the outstanding `interest`.
 - `_repayPrincipal`: New helper function to repay principal by some _exact_ `amount` using `burnFromWithReserve`. Returns the remaining funds.
-- `_repayPrincipalNet`: New function to repay principal by some `amount`, where `amount` specifies the amount to be burned from the `payer`. This is done using the `JuiceDollar.burnFromWithReserveNet` function. As `_repayPrincipalNet` is used by the `forceSale` function, `repayPrincipalNet(buyer, proceeds);`, where `proceeds` may exceed `getUsableMint(principal)` amount (the maximum amount claimable by a particular position) we cap `repayWithReserve` at said maximal claimable amount. If funds remain thereafter, they are burned directly in order to pay of any remaining principal. The final remainder is returned.
+- `_repayPrincipalNet`: New function to repay principal by some `amount`, where `amount` specifies the amount to be burned from the `payer`. This is done using the `DecentralizedEURO.burnFromWithReserveNet` function. As `_repayPrincipalNet` is used by the `forceSale` function, `repayPrincipalNet(buyer, proceeds);`, where `proceeds` may exceed `getUsableMint(principal)` amount (the maximum amount claimable by a particular position) we cap `repayWithReserve` at said maximal claimable amount. If funds remain thereafter, they are burned directly in order to pay of any remaining principal. The final remainder is returned.
 - `notifyChallengeSucceeded`: Now computes and returns the proportional amount of interest that must be paid in order to successfully challenge a position.
 
 ### PositionRoller.sol
 
 - `rollFullyWithExpiration`: Fix logic to compute the amount to mint in the target Position.
-- `roll`: Refactor and send any remaining flash loan from the debt repayment (reserve portion returned by `source.repay(totRepayment)` > `Position._repayPrincipal > JuiceDollar.burnFromWithReserve`) to `msg.sender` for the flash loan repayment.
+- `roll`: Refactor and send any remaining flash loan from the debt repayment (reserve portion returned by `source.repay(totRepayment)` > `Position._repayPrincipal > DecentralizedEURO.burnFromWithReserve`) to `msg.sender` for the flash loan repayment.
 - `_cloneTargetPosition`: New helper function used to clone the target position. Used only by `PositionRoller.roll`.
 
 ### Savings.sol
 
-- `refresh`: Replace the use of `JuiceDollar.coverLoss` with `JuiceDollar.distributeProfits`. This replaces the `Loss` event with the `ProfitDistributed` event.
+- `refresh`: Replace the use of `DecentralizedEURO.coverLoss` with `DecentralizedEURO.distributeProfits`. This replaces the `Loss` event with the `ProfitDistributed` event.
 
 ### StablecoinBridge.sol
 
@@ -415,7 +427,7 @@ Finally, in the case that no collateral remains, any remainining `principal` is 
 
 ### Gateway Contracts
 
-The gateway contracts (FrontendGateway.sol, SavingsGateway.sol, MintingHubGateway.sol) provide a way to reward frontend providers or referrers, paid for by JUICE holders. This functionality was developed for dEURO and maintained in JuiceDollar. 
+The gateway contracts (FrontendGateway.sol, SavingsGateway.sol, MintingHubGateway.sol) provide a way to generously reward frontend providers or referrer, paid for by DEPS Holder. These Contracts are not present in the Frankencoin Ecosystem. 
 
 
 # Invariant/Stateful Fuzzing Tests with Foundry:

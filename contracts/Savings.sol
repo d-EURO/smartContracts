@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IJuiceDollar} from "./interface/IJuiceDollar.sol";
+import {IDecentralizedEURO} from "./interface/IDecentralizedEURO.sol";
 import {IReserve} from "./interface/IReserve.sol";
 import {Leadrate} from "./Leadrate.sol";
 
@@ -16,7 +16,7 @@ import {Leadrate} from "./Leadrate.sol";
  * due for the individual accounts.
  */
 contract Savings is Leadrate {
-    IERC20 public immutable jusd;
+    IERC20 public immutable deuro;
 
     mapping(address => Account) public savings;
 
@@ -32,8 +32,8 @@ contract Savings is Leadrate {
     // The module is considered disabled if the interest is zero or about to become zero within three days.
     error ModuleDisabled();
 
-    constructor(IJuiceDollar jusd_, uint24 initialRatePPM) Leadrate(IReserve(jusd_.reserve()), initialRatePPM) {
-        jusd = IERC20(jusd_);
+    constructor(IDecentralizedEURO deuro_, uint24 initialRatePPM) Leadrate(IReserve(deuro_.reserve()), initialRatePPM) {
+        deuro = IERC20(deuro_);
     }
 
     /**
@@ -60,7 +60,7 @@ contract Savings is Leadrate {
             uint192 earnedInterest = calculateInterest(account, ticks);
             if (earnedInterest > 0) {
                 // collect interest as you go and trigger accounting event
-                (IJuiceDollar(address(jusd))).distributeProfits(address(this), earnedInterest);
+                (IDecentralizedEURO(address(deuro))).distributeProfits(address(this), earnedInterest);
                 account.saved += earnedInterest;
                 emit InterestCollected(accountOwner, earnedInterest);
             }
@@ -83,7 +83,7 @@ contract Savings is Leadrate {
             return 0;
         } else {
             uint192 earnedInterest = uint192((uint256(ticks - account.ticks) * account.saved) / 1_000_000 / 365 days);
-            uint256 equity = IJuiceDollar(address(jusd)).equity();
+            uint256 equity = IDecentralizedEURO(address(deuro)).equity();
             if (earnedInterest > equity) {
                 return uint192(equity); // safe conversion as equity is smaller than uint192 earnedInterest
             } else {
@@ -115,7 +115,7 @@ contract Savings is Leadrate {
         if (currentRatePPM == 0) revert ModuleDisabled();
         if (nextRatePPM == 0 && (nextChange <= block.timestamp)) revert ModuleDisabled();
         Account storage balance = refresh(owner);
-        jusd.transferFrom(msg.sender, address(this), amount);
+        deuro.transferFrom(msg.sender, address(this), amount);
         assert(balance.ticks >= currentTicks()); // @dev: should not differ, since there is no shift of interests
         balance.saved += amount;
         emit Saved(owner, amount);
@@ -134,7 +134,7 @@ contract Savings is Leadrate {
         } else {
             account.saved -= amount;
         }
-        jusd.transfer(target, amount);
+        deuro.transfer(target, amount);
         emit Withdrawn(msg.sender, amount);
         return amount;
     }

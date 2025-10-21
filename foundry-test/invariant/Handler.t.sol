@@ -24,9 +24,9 @@ struct Snapshot {
     bool isExpired;
     // Position owner
     address owner;
-    uint256 ownerBalanceJUSD;
+    uint256 ownerBalanceDEURO;
     uint256 ownerBalanceCOL;
-    // JUSD
+    // dEURO
     uint256 minterReserve;
     // MintingHub
     uint256 mintingHubBalanceCOL;
@@ -88,8 +88,8 @@ contract Handler is StatsCollector {
             // post conditions
             assertEq(post.principal, pre.principal + amount, "mintTo: incorrect principal");
             assertEq(
-                post.ownerBalanceJUSD,
-                pre.ownerBalanceJUSD + position.getUsableMint(amount),
+                post.ownerBalanceDEURO,
+                pre.ownerBalanceDEURO + position.getUsableMint(amount),
                 "mintTo: incorrect owner balance"
             );
         } catch {
@@ -108,7 +108,7 @@ contract Handler is StatsCollector {
         amount = bound(amount, lb, ub);
 
         recordAction("repay");
-        s_env.mintJUSD(position.owner(), amount);
+        s_env.mintDEURO(position.owner(), amount);
         Snapshot memory pre = snapshot(position);
         uint256 remaining = amount;
         uint256 expInterestRepayment = pre.interest > remaining ? remaining : pre.interest;
@@ -116,9 +116,9 @@ contract Handler is StatsCollector {
         uint256 expPrincipalRepayment = pre.principal > remaining ? remaining : pre.principal;
         // There may be discrepancies in the currentReserve commputed here and during the actual TX,
         // therefore we cannot rely on expReserveContribution for the post conditions.
-        // uint256 expReserveContribution = s_env.jusd().calculateAssignedReserve(expPrincipalRepayment, position.reserveContribution());
+        // uint256 expReserveContribution = s_env.deuro().calculateAssignedReserve(expPrincipalRepayment, position.reserveContribution());
         vm.startPrank(position.owner());
-        s_env.jusd().approve(address(position), amount);
+        s_env.deuro().approve(address(position), amount);
         try position.repay(amount) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("repay", amount, post);
@@ -127,7 +127,7 @@ contract Handler is StatsCollector {
             assertEq(pre.principal - post.principal, expPrincipalRepayment, "repay: incorrect principal");
             assertEq(pre.interest - post.interest, expInterestRepayment, "repay: incorrect interest");
             assertLe(
-                pre.ownerBalanceJUSD - post.ownerBalanceJUSD,
+                pre.ownerBalanceDEURO - post.ownerBalanceDEURO,
                 min(amount, pre.debt),
                 "repay: used amount exceeds repay amount"
             );
@@ -288,11 +288,11 @@ contract Handler is StatsCollector {
         // Capture state before bid
         recordAction("bidChallenge");
 
-        uint256 requiredJUSD = (bidSize * liqPrice) / 1e18;
-        s_env.mintJUSD(s_bidder, requiredJUSD);
+        uint256 requiredDEURO = (bidSize * liqPrice) / 1e18;
+        s_env.mintDEURO(s_bidder, requiredDEURO);
         Snapshot memory pre = snapshot(position);
         vm.startPrank(s_bidder);
-        s_env.jusd().approve(address(s_env.mintingHubGateway()), requiredJUSD);
+        s_env.deuro().approve(address(s_env.mintingHubGateway()), requiredDEURO);
         try s_env.mintingHubGateway().bid(uint32(validIndex), bidSize, postpone) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("bidChallenge", bidSize, post);
@@ -359,12 +359,12 @@ contract Handler is StatsCollector {
         upToAmount = upToAmount < posBalanceCOL && posBalanceCOL - upToAmount < dustAmount ? posBalanceCOL : upToAmount;
 
         recordAction("buyExpiredCollateral");
-        uint256 requiredJUSD = (upToAmount * forceSalePrice) / 1e18;
-        s_env.mintJUSD(s_bidder, requiredJUSD);
+        uint256 requiredDEURO = (upToAmount * forceSalePrice) / 1e18;
+        s_env.mintDEURO(s_bidder, requiredDEURO);
         Snapshot memory pre = snapshot(position);
         vm.startPrank(s_bidder);
         // We must approve the Position contract, not the MintingHubGateway
-        s_env.jusd().approve(address(position), requiredJUSD);
+        s_env.deuro().approve(address(position), requiredDEURO);
         try s_env.mintingHubGateway().buyExpiredCollateral(position, upToAmount) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("buyExpiredCollateral", upToAmount, post);
@@ -453,10 +453,10 @@ contract Handler is StatsCollector {
                 isExpired: block.timestamp >= position.expiration(),
                 // Position owner
                 owner: owner,
-                ownerBalanceJUSD: s_env.jusd().balanceOf(owner),
+                ownerBalanceDEURO: s_env.deuro().balanceOf(owner),
                 ownerBalanceCOL: position.collateral().balanceOf(owner),
-                // JUSD
-                minterReserve: s_env.jusd().minterReserve(),
+                // dEURO
+                minterReserve: s_env.deuro().minterReserve(),
                 // MintingHub
                 mintingHubBalanceCOL: s_env.collateralToken().balanceOf(address(s_env.mintingHubGateway())),
                 challengerBalanceCOL: s_env.collateralToken().balanceOf(s_challenger),
@@ -478,7 +478,7 @@ contract Handler is StatsCollector {
         console.log("  inCooldown:", snap.inCooldown);
         console.log("  isExpired:", snap.isExpired);
         console.log("  owner:", snap.owner);
-        console.log("  ownerBalanceJUSD:", snap.ownerBalanceJUSD);
+        console.log("  ownerBalanceDEURO:", snap.ownerBalanceDEURO);
         console.log("  ownerBalanceCOL:", snap.ownerBalanceCOL);
         console.log("  minterReserve:", snap.minterReserve);
         console.log("  mintingHubBalanceCOL:", snap.mintingHubBalanceCOL);

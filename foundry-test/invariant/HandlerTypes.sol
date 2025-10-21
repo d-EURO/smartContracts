@@ -32,11 +32,11 @@ struct SystemState {
     uint256 availableForMinting;
     uint256 challengedAmount;
     // Owner balances
-    uint256 ownerJUSDBalance;
+    uint256 ownerdEuroBalance;
     uint256 ownerCollateralBalance;
     address owner;
-    // JUSD balances
-    uint256 JUSDBalance;
+    // dEURO balances
+    uint256 dEuroBalance;
     uint256 minterReserve;
 }
 

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Equity} from "./Equity.sol";
-import {IJuiceDollar} from "./interface/IJuiceDollar.sol";
+import {IDecentralizedEURO} from "./interface/IDecentralizedEURO.sol";
 import {IReserve} from "./interface/IReserve.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -11,12 +11,12 @@ import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC3009} from "./impl/ERC3009.sol";
 
 /**
- * @title JuiceDollar
- * @notice The JuiceDollar (JUSD) is an ERC-20 token that is designed to track the value of the Dollar.
+ * @title DecentralizedEURO
+ * @notice The DecentralizedEURO (dEURO) is an ERC-20 token that is designed to track the value of the Euro.
  * It is not upgradable, but open to arbitrary minting plugins. These are automatically accepted if none of the
  * qualified pool shareholders casts a veto, leading to a flexible but conservative governance.
  */
-contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
+contract DecentralizedEURO is ERC20Permit, ERC3009, IDecentralizedEURO, ERC165 {
     /**
      * @notice Minimal fee and application period when suggesting a new minter.
      */
@@ -37,7 +37,7 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
 
     /**
      * @notice Map of minters to approval time stamps. If the time stamp is in the past, the minter contract is allowed
-     * to mint JuiceDollars.
+     * to mint DecentralizedEUROs.
      */
     mapping(address minter => uint256 validityStart) public minters;
 
@@ -64,10 +64,10 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
     }
 
     /**
-     * @notice Initiates the JuiceDollar with the provided minimum application period for new plugins
+     * @notice Initiates the DecentralizedEURO with the provided minimum application period for new plugins
      * in seconds, for example 10 days, i.e. 3600*24*10 = 864000
      */
-    constructor(uint256 _minApplicationPeriod) ERC20Permit("JuiceDollar") ERC20("JuiceDollar", "JUSD") {
+    constructor(uint256 _minApplicationPeriod) ERC20Permit("DecentralizedEURO") ERC20("DecentralizedEURO", "dEURO") {
         MIN_APPLICATION_PERIOD = _minApplicationPeriod;
         reserve = new Equity(this);
     }
@@ -79,15 +79,15 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
     }
 
     /**
-     * @notice Publicly accessible method to suggest a new way of minting JuiceDollar.
+     * @notice Publicly accessible method to suggest a new way of minting DecentralizedEURO.
      * @dev The caller has to pay an application fee that is irrevocably lost even if the new minter is vetoed.
      * The caller must assume that someone will veto the new minter unless there is broad consensus that the new minter
-     * adds value to the JuiceDollar system. Complex proposals should have application periods and applications fees
+     * adds value to the DecentralizedEURO system. Complex proposals should have application periods and applications fees
      * above the minimum. It is assumed that over time, informal ways to coordinate on new minters will emerge. The message
      * parameter might be useful for initiating further communication. Maybe it contains a link to a website describing
      * the proposed minter.
      *
-     * @param _minter              An address that is given the permission to mint JuiceDollars
+     * @param _minter              An address that is given the permission to mint DecentralizedEUROs
      * @param _applicationPeriod   The time others have to veto the suggestion, at least MIN_APPLICATION_PERIOD
      * @param _applicationFee      The fee paid by the caller, at least MIN_FEE
      * @param _message             An optional human readable message to everyone watching this contract
@@ -140,7 +140,7 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
     }
 
     /**
-     * @notice Allows minters to register collateralized debt positions, thereby giving them the ability to mint JuiceDollars.
+     * @notice Allows minters to register collateralized debt positions, thereby giving them the ability to mint DecentralizedEUROs.
      * @dev It is assumed that the responsible minter that registers the position ensures that the position can be trusted.
      */
     function registerPosition(address _position) external override {
@@ -149,7 +149,7 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
     }
 
     /**
-     * @notice The amount of equity of the JuiceDollar system in JUSD, owned by the holders of Juice Protocol tokens.
+     * @notice The amount of equity of the DecentralizedEURO system in dEURO, owned by the holders of Native Decentralized Euro Protocol Shares.
      * @dev Note that the equity contract technically holds both the minter reserve as well as the equity, so the minter
      * reserve must be subtracted. All fees and other kinds of income are added to the Equity contract and essentially
      * constitute profits attributable to the pool shareholders.
@@ -176,7 +176,7 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
     }
 
     /**
-     * @notice Mints the provided amount of JUSD to the target address, automatically forwarding
+     * @notice Mints the provided amount of dEURO to the target address, automatically forwarding
      * the minting fee and the reserve to the right place.
      */
     function mintWithReserve(address _target, uint256 _amount, uint32 _reservePPM) external override minterOnly {
@@ -191,14 +191,14 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
     }
 
     /**
-     * Anyone is allowed to burn their JUSD.
+     * Anyone is allowed to burn their dEURO.
      */
     function burn(uint256 _amount) external {
         _burn(msg.sender, _amount);
     }
 
     /**
-     * @notice Burn someone else's JUSD.
+     * @notice Burn someone else's dEURO.
      */
     function burnFrom(address _owner, uint256 _amount) external override minterOnly {
         _spendAllowance(_owner, msg.sender, _amount);
@@ -213,9 +213,9 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
      * Design rule: Minters calling this method are only allowed to do so for token amounts they previously minted with
      * the same _reservePPM amount.
      *
-     * For example, if someone minted 50 JUSD earlier with a 20% reserve requirement (200000 ppm), they got 40 JUSD
-     * and paid 10 JUSD into the reserve. Now they want to repay the debt by burning 50 JUSD. When doing so using this
-     * method, 50 JUSD get burned and on top of that, 10 JUSD previously assigned to the minter's reserve are
+     * For example, if someone minted 50 dEURO earlier with a 20% reserve requirement (200000 ppm), they got 40 dEURO
+     * and paid 10 dEURO into the reserve. Now they want to repay the debt by burning 50 dEURO. When doing so using this
+     * method, 50 dEURO get burned and on top of that, 10 dEURO previously assigned to the minter's reserve are
      * reassigned to the pool shareholders.
      */
     function burnWithoutReserve(uint256 amount, uint32 reservePPM) public override minterOnly {
@@ -235,9 +235,9 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
      * @notice Burns the target amount taking the tokens to be burned from the payer and the payer's reserve.
      * Only use this method for tokens also minted by the caller with the same reservePPM.
      *
-     * Example: the calling contract has previously minted 100 JUSD with a reserve ratio of 20% (i.e. 200000 ppm).
-     * To burn half of that again, the minter calls burnFromWithReserve with a target amount of 50 JUSD. Assuming that reserves
-     * are only 90% covered, this call will deduct 41 JUSD from the payer's balance and 9 from the reserve, while
+     * Example: the calling contract has previously minted 100 dEURO with a reserve ratio of 20% (i.e. 200000 ppm).
+     * To burn half of that again, the minter calls burnFromWithReserve with a target amount of 50 dEURO. Assuming that reserves
+     * are only 90% covered, this call will deduct 41 dEURO from the payer's balance and 9 from the reserve, while
      * reducing the minter reserve by 10.
      */
     function burnFromWithReserve(
@@ -286,11 +286,11 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
     }
 
     /**
-     * @notice Notify the JuiceDollar that a minter lost economic access to some coins. This does not mean that the coins are
-     * literally lost. It just means that some JUSD will likely never be repaid and that in order to bring the system
-     * back into balance, the lost amount of JUSD must be removed from the reserve instead.
+     * @notice Notify the DecentralizedEURO that a minter lost economic access to some coins. This does not mean that the coins are
+     * literally lost. It just means that some dEURO will likely never be repaid and that in order to bring the system
+     * back into balance, the lost amount of dEURO must be removed from the reserve instead.
      *
-     * For example, if a minter printed 1 million JUSD for a mortgage and the mortgage turned out to be unsound with
+     * For example, if a minter printed 1 million dEURO for a mortgage and the mortgage turned out to be unsound with
      * the house only yielding 800,000 in the subsequent auction, there is a loss of 200,000 that needs to be covered
      * by the reserve.
      */
@@ -303,7 +303,7 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
      * @notice Distribute profits (e.g., savings interest) from the reserve to recipients.
      *
      * @param recipient The address receiving the payout.
-     * @param amount The amount of JUSD to distribute.
+     * @param amount The amount of dEURO to distribute.
      */
     function distributeProfits(address recipient, uint256 amount) external override minterOnly {
         _withdrawFromReserve(recipient, amount);
@@ -357,7 +357,7 @@ contract JuiceDollar is ERC20Permit, ERC3009, IJuiceDollar, ERC165 {
             interfaceId == type(IERC20).interfaceId ||
             interfaceId == type(ERC20Permit).interfaceId ||
             interfaceId == type(ERC3009).interfaceId ||
-            interfaceId == type(IJuiceDollar).interfaceId ||
+            interfaceId == type(IDecentralizedEURO).interfaceId ||
             super.supportsInterface(interfaceId);
     }
 }

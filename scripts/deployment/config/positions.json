@@ -1,10 +1,9 @@
 {
-  "_comment": "Example position configuration - update collateralAddress for Citrea deployment",
   "openingFee": "1000",
   "positions": [
     {
-      "name": "Example-Position",
-      "collateralAddress": "0x0000000000000000000000000000000000000000",
+      "name": "WETH-Position",
+      "collateralAddress": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
       "decimals": 18,
       "minCollateral": "5",
       "initialCollateral": "10",
