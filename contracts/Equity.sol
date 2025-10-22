@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import {DecentralizedEURO} from "./DecentralizedEURO.sol";
+import {JuiceDollar} from "./JuiceDollar.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -13,11 +13,11 @@ import {MathUtil} from "./utils/MathUtil.sol";
 
 /**
  * @title Equity
- * @notice If the DecentralizedEURO system was a bank, this contract would represent the equity on its balance sheet.
+ * @notice If the JuiceDollar system was a bank, this contract would represent the equity on its balance sheet.
  * Like a corporation, the owners of the equity capital are the shareholders, or in this case the holders
- * of Native Decentralized Euro Protocol Share (nDEPS) tokens. Anyone can mint additional nDEPS tokens by adding DecentralizedEUROs to the
- * reserve pool. Also, nDEPS tokens can be redeemed for DecentralizedEUROs again after a minimum holding period.
- * Furthermore, the nDEPS shares come with some voting power. Anyone that held at least 2% of the holding-period-
+ * of Juice Protocol (JUICE) tokens. Anyone can mint additional JUICE tokens by adding JuiceDollars to the
+ * reserve pool. Also, JUICE tokens can be redeemed for JuiceDollars again after a minimum holding period.
+ * Furthermore, the JUICE shares come with some voting power. Anyone that held at least 2% of the holding-period-
  * weighted reserve pool shares gains veto power and can veto new proposals.
  */
 contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
@@ -25,7 +25,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * The VALUATION_FACTOR determines the market cap of the reserve pool shares relative to the equity reserves.
      * The following always holds: Market Cap = Valuation Factor * Equity Reserve = Price * Supply
      *
-     * In the absence of fees, profits and losses, the variables grow as follows when nDEPS tokens are minted:
+     * In the absence of fees, profits and losses, the variables grow as follows when JUICE tokens are minted:
      *
      * |        Reserve     |      Market Cap    |     Price    |       Supply    |
      * |              1_000 |              5_000 |       0.0005 |      10_000_000 |
@@ -34,8 +34,8 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      *
      * i.e., the supply is proportional to the fifth root of the reserve and the price is proportional to the
      * squared cubic root. When profits accumulate or losses materialize, the reserve, the market cap,
-     * and the price are adjusted proportionally. In the absence of extreme inflation of the Euro, it is unlikely
-     * that there will ever be more than ten million nDEPS.
+     * and the price are adjusted proportionally. In the absence of extreme inflation of the US Dollar, it is unlikely
+     * that there will ever be more than ten million JUICE.
      */
     uint32 public constant VALUATION_FACTOR = 5; // Changed from 3 to 5 as requested
 
@@ -59,7 +59,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      */
     uint256 public constant MIN_HOLDING_DURATION = 90 days << TIME_RESOLUTION_BITS; // Set to 5 for local testing
 
-    DecentralizedEURO public immutable dEURO;
+    JuiceDollar public immutable JUSD;
 
     /**
      * @dev To track the total number of votes we need to know the number of votes at the anchor time and when the
@@ -99,23 +99,23 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     error TotalSupplyExceeded();
 
     constructor(
-        DecentralizedEURO dEURO_
+        JuiceDollar JUSD_
     )
-        ERC20Permit("Native Decentralized Euro Protocol Share")
-        ERC20("Native Decentralized Euro Protocol Share", "nDEPS")
+        ERC20Permit("Juice Protocol")
+        ERC20("Juice Protocol", "JUICE")
     {
-        dEURO = dEURO_;
+        JUSD = JUSD_;
     }
 
     /**
-     * @notice Returns the price of one nDEPS in dEURO with 18 decimals precision.
+     * @notice Returns the price of one JUICE in JUSD with 18 decimals precision.
      */
     function price() public view returns (uint256) {
-        uint256 equity = dEURO.equity();
+        uint256 equity = JUSD.equity();
         if (equity == 0 || totalSupply() == 0) {
             return 10 ** 14; 
         } else {
-            return (VALUATION_FACTOR * dEURO.equity() * ONE_DEC18) / totalSupply();
+            return (VALUATION_FACTOR * JUSD.equity() * ONE_DEC18) / totalSupply();
         }
     }
 
@@ -132,7 +132,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice Returns whether the given address is allowed to redeem nDEPS, which is the
+     * @notice Returns whether the given address is allowed to redeem JUICE, which is the
      * case after their average holding duration is larger than the required minimum.
      */
     function canRedeem(address owner) public view returns (bool) {
@@ -194,7 +194,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice How long the holder already held onto their average nDEPS in seconds.
+     * @notice How long the holder already held onto their average JUICE in seconds.
      */
     function holdingDuration(address holder) public view returns (uint256) {
         return (_anchorTime() - voteAnchor[holder]) >> TIME_RESOLUTION_BITS;
@@ -306,13 +306,13 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice Call this method to obtain newly minted pool shares in exchange for DecentralizedEUROs.
-     * No allowance required (i.e., it is hard-coded in the DecentralizedEURO token contract).
+     * @notice Call this method to obtain newly minted pool shares in exchange for JuiceDollars.
+     * No allowance required (i.e., it is hard-coded in the JuiceDollar token contract).
      * Make sure to invest at least 10e-12 * market cap to avoid rounding losses.
      *
-     * @dev If equity is close to zero or negative, you need to send enough dEURO to bring equity back to 1_000 dEURO.
+     * @dev If equity is close to zero or negative, you need to send enough JUSD to bring equity back to 1_000 JUSD.
      *
-     * @param amount            DecentralizedEUROs to invest
+     * @param amount            JuiceDollars to invest
      * @param expectedShares    Minimum amount of expected shares for front running protection
      */
     function invest(uint256 amount, uint256 expectedShares) external returns (uint256) {
@@ -320,14 +320,14 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     function investFor(address investor, uint256 amount, uint256 expectedShares) external returns (uint256) {
-        if (!dEURO.isMinter(_msgSender())) revert NotMinter();
+        if (!JUSD.isMinter(_msgSender())) revert NotMinter();
         return _invest(investor, amount, expectedShares);
     }
 
     function _invest(address investor, uint256 amount, uint256 expectedShares) internal returns (uint256) {
-        dEURO.transferFrom(investor, address(this), amount);
-        uint256 equity = dEURO.equity();
-        if (equity < MINIMUM_EQUITY) revert InsufficientEquity(); // ensures that the initial deposit is at least 1_000 dEURO
+        JUSD.transferFrom(investor, address(this), amount);
+        uint256 equity = JUSD.equity();
+        if (equity < MINIMUM_EQUITY) revert InsufficientEquity(); // ensures that the initial deposit is at least 1_000 JUSD
 
         uint256 shares = _calculateShares(equity <= amount ? 0 : equity - amount, amount);
         require(shares >= expectedShares);
@@ -340,18 +340,18 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice Calculate shares received when investing DecentralizedEUROs
-     * @param investment    dEURO to be invested
+     * @notice Calculate shares received when investing JuiceDollars
+     * @param investment    JUSD to be invested
      * @return shares to be received in return
      */
     function calculateShares(uint256 investment) external view returns (uint256) {
-        return _calculateShares(dEURO.equity(), investment);
+        return _calculateShares(JUSD.equity(), investment);
     }
 
     function _calculateShares(uint256 capitalBefore, uint256 investment) internal view returns (uint256) {
         uint256 totalShares = totalSupply();
         uint256 investmentExFees = (investment * 980) / 1_000; // remove 2% fee
-        // Assign 10_000_000 nDEPS for the initial deposit, calculate the amount otherwise
+        // Assign 10_000_000 JUICE for the initial deposit, calculate the amount otherwise
         uint256 newTotalShares = (capitalBefore < MINIMUM_EQUITY || totalShares == 0)
             ? totalShares + 10_000_000 * ONE_DEC18
             : _mulD18(totalShares, _fifthRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
@@ -360,7 +360,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
 
     /**
      * @notice Redeem the given amount of shares owned by the sender and transfer the proceeds to the target.
-     * @return The amount of dEURO transferred to the target
+     * @return The amount of JUSD transferred to the target
      */
     function redeem(address target, uint256 shares) external returns (uint256) {
         return _redeemFrom(msg.sender, target, shares);
@@ -377,7 +377,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     /**
-     * @notice Redeem nDEPS based on an allowance from the owner to the caller.
+     * @notice Redeem JUICE based on an allowance from the owner to the caller.
      * See also redeemExpected(...).
      */
     function redeemFrom(
@@ -396,41 +396,41 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         if(!canRedeem(owner)) revert BelowMinimumHoldingPeriod();
         uint256 proceeds = calculateProceeds(shares);
         _burn(owner, shares);
-        dEURO.transfer(target, proceeds);
+        JUSD.transfer(target, proceeds);
         emit Trade(owner, -int(shares), proceeds, price());
         return proceeds;
     }
 
     /**
-     * @notice Calculate dEURO received when depositing shares
-     * @param shares number of shares we want to exchange for dEURO,
+     * @notice Calculate JUSD received when depositing shares
+     * @param shares number of shares we want to exchange for JUSD,
      *               in dec18 format
-     * @return amount of dEURO received for the shares
+     * @return amount of JUSD received for the shares
      */
     function calculateProceeds(uint256 shares) public view returns (uint256) {
         uint256 totalShares = totalSupply();
         if (shares + ONE_DEC18 >= totalShares) revert TooManyShares(); // make sure there is always at least one share
-        uint256 capital = dEURO.equity();
+        uint256 capital = JUSD.equity();
         uint256 reductionAfterFees = (shares * 980) / 1_000; // remove 2% fee
         uint256 newCapital = _mulD18(capital, _power5(_divD18(totalShares - reductionAfterFees, totalShares)));
         return capital - newCapital;
     }
 
     /**
-     * @notice If there is less than 1_000 dEURO in equity left (maybe even negative), the system is at risk
-     * and we should allow qualified nDEPS holders to restructure the system.
+     * @notice If there is less than 1_000 JUSD in equity left (maybe even negative), the system is at risk
+     * and we should allow qualified JUICE holders to restructure the system.
      *
      * Example: there was a devastating loss and equity stands at -1'000'000. Most shareholders have lost hope in the
-     * DecentralizedEURO system except for a group of small nDEPS holders who still believe in it and are willing to provide
-     * 2'000'000 dEURO to save it. These brave souls are essentially donating 1'000'000 to the minter reserve and it
-     * would be wrong to force them to share the other million with the passive nDEPS holders. Instead, they will get
-     * the possibility to bootstrap the system again owning 100% of all nDEPS shares.
+     * JuiceDollar system except for a group of small JUICE holders who still believe in it and are willing to provide
+     * 2'000'000 JUSD to save it. These brave souls are essentially donating 1'000'000 to the minter reserve and it
+     * would be wrong to force them to share the other million with the passive JUICE holders. Instead, they will get
+     * the possibility to bootstrap the system again owning 100% of all JUICE shares.
      *
      * @param helpers          A list of addresses that delegate to the caller in incremental order
-     * @param addressesToWipe  A list of addresses whose nDEPS will be burned to zero
+     * @param addressesToWipe  A list of addresses whose JUICE will be burned to zero
      */
     function restructureCapTable(address[] calldata helpers, address[] calldata addressesToWipe) external {
-        require(dEURO.equity() < MINIMUM_EQUITY);
+        require(JUSD.equity() < MINIMUM_EQUITY);
         checkQualified(msg.sender, helpers);
         for (uint256 i = 0; i < addressesToWipe.length; i++) {
             address current = addressesToWipe[i];

@@ -11,7 +11,7 @@ interface ICoinLendingGateway {
      * @param owner The owner of the newly created position
      * @param position The address of the newly created position
      * @param coinAmount The amount of native coin used as collateral
-     * @param mintAmount The amount of dEURO minted
+     * @param mintAmount The amount of JUSD minted
      * @param liquidationPrice The liquidation price set for the position
      */
     event PositionCreatedWithCoin(
@@ -25,7 +25,7 @@ interface ICoinLendingGateway {
     /**
      * @notice Creates a lending position using native coins in a single transaction
      * @param parent The parent position to clone from
-     * @param initialMint The amount of dEURO to mint
+     * @param initialMint The amount of JUSD to mint
      * @param expiration The expiration timestamp for the position
      * @param frontendCode The frontend referral code
      * @param liquidationPrice The desired liquidation price (0 to skip adjustment)
@@ -43,7 +43,7 @@ interface ICoinLendingGateway {
      * @notice Creates a lending position for another owner using native coins
      * @param owner The address that will own the position
      * @param parent The parent position to clone from
-     * @param initialMint The amount of dEURO to mint
+     * @param initialMint The amount of JUSD to mint
      * @param expiration The expiration timestamp for the position
      * @param frontendCode The frontend referral code
      * @param liquidationPrice The desired liquidation price (0 to skip adjustment)

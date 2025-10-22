@@ -3,7 +3,7 @@ import { floatToDec18 } from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import {
   Equity,
-  DecentralizedEURO,
+  JuiceDollar,
   MintingHub,
   Position,
   PositionFactory,
@@ -30,7 +30,7 @@ describe("ForceSale Tests", () => {
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
 
-  let dEURO: DecentralizedEURO;
+  let JUSD: JuiceDollar;
   let equity: Equity;
   let roller: PositionRoller;
   let savings: Savings;
@@ -50,11 +50,11 @@ describe("ForceSale Tests", () => {
   beforeEach(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
-    const DecentralizedEUROFactory =
-      await ethers.getContractFactory("DecentralizedEURO");
-    dEURO = await DecentralizedEUROFactory.deploy(5 * 86400);
+    const JuiceDollarFactory =
+      await ethers.getContractFactory("JuiceDollar");
+    JUSD = await JuiceDollarFactory.deploy(5 * 86400);
 
-    const equityAddr = await dEURO.reserve();
+    const equityAddr = await JUSD.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
 
     const positionFactoryFactory =
@@ -62,14 +62,14 @@ describe("ForceSale Tests", () => {
     positionFactory = await positionFactoryFactory.deploy();
 
     const savingsFactory = await ethers.getContractFactory("Savings");
-    savings = await savingsFactory.deploy(dEURO.getAddress(), 20000n);
+    savings = await savingsFactory.deploy(JUSD.getAddress(), 20000n);
 
     const rollerFactory = await ethers.getContractFactory("PositionRoller");
-    roller = await rollerFactory.deploy(dEURO.getAddress());
+    roller = await rollerFactory.deploy(JUSD.getAddress());
 
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
-      await dEURO.getAddress(),
+      await JUSD.getAddress(),
       await savings.getAddress(),
       await roller.getAddress(),
       await positionFactory.getAddress(),
@@ -80,18 +80,18 @@ describe("ForceSale Tests", () => {
     coin = await coinFactory.deploy("Supercoin", "XCOIN", 18);
 
     // jump start ecosystem
-    await dEURO.initialize(owner.address, "owner");
-    await dEURO.initialize(await mintingHub.getAddress(), "mintingHub");
+    await JUSD.initialize(owner.address, "owner");
+    await JUSD.initialize(await mintingHub.getAddress(), "mintingHub");
 
-    await dEURO.mint(owner.address, floatToDec18(2_000_000));
-    await dEURO.transfer(alice.address, floatToDec18(100_000));
-    await dEURO.transfer(bob.address, floatToDec18(100_000));
+    await JUSD.mint(owner.address, floatToDec18(2_000_000));
+    await JUSD.transfer(alice.address, floatToDec18(100_000));
+    await JUSD.transfer(bob.address, floatToDec18(100_000));
 
     // jump start fps
     await equity.invest(floatToDec18(1000), 0);
-    await dEURO.connect(alice).approve(equity, floatToDec18(10_000));
+    await JUSD.connect(alice).approve(equity, floatToDec18(10_000));
     await equity.connect(alice).invest(floatToDec18(10_000), 0);
-    await dEURO.connect(bob).approve(equity, floatToDec18(10_000));
+    await JUSD.connect(bob).approve(equity, floatToDec18(10_000));
     await equity.connect(bob).invest(floatToDec18(10_000), 0);
     await equity.invest(floatToDec18(1_000_000), 0);
 
@@ -205,12 +205,12 @@ describe("ForceSale Tests", () => {
       const expP = await mintingHub
         .connect(alice)
         .expiredPurchasePrice(position);
-      const bdEURO0 = await dEURO.balanceOf(alice.address);
+      const bJUSD0 = await JUSD.balanceOf(alice.address);
       const bCoin0 = await coin.balanceOf(alice.address);
       // const size = await coin.balanceOf(await position.getAddress());
       const size = floatToDec18(1);
       const expectedCost = (size * expP) / 10n ** 18n;
-      await dEURO.connect(alice).approve(position, expectedCost);
+      await JUSD.connect(alice).approve(position, expectedCost);
       const tx = await mintingHub
         .connect(alice)
         .buyExpiredCollateral(position, size);
@@ -220,10 +220,10 @@ describe("ForceSale Tests", () => {
         -1,
       );
       //console.log(events[0]);
-      const bdEURO1 = await dEURO.balanceOf(alice.address);
+      const bJUSD1 = await JUSD.balanceOf(alice.address);
       const bCoin1 = await coin.balanceOf(alice.address);
       expect(bCoin0 + size).to.be.equal(bCoin1);
-      const actualCost = bdEURO0 - bdEURO1;
+      const actualCost = bJUSD0 - bJUSD1;
       expect(actualCost).to.be.approximately(expectedCost, 15n ** 18n); // slight deviation as one block passed
     });
 
@@ -233,18 +233,18 @@ describe("ForceSale Tests", () => {
       const expP = await mintingHub
         .connect(alice)
         .expiredPurchasePrice(position);
-      const bdEURO0 = await dEURO.balanceOf(alice.address);
+      const bJUSD0 = await JUSD.balanceOf(alice.address);
       const bCoin0 = await coin.balanceOf(alice.address);
       const size = await coin.balanceOf(await position.getAddress());
-      await dEURO.connect(alice).approve(position, (size * expP) / 10n ** 18n);
+      await JUSD.connect(alice).approve(position, (size * expP) / 10n ** 18n);
       const tx = await mintingHub
         .connect(alice)
         .buyExpiredCollateral(position, size);
-      const bdEURO1 = await dEURO.balanceOf(alice.address);
+      const bJUSD1 = await JUSD.balanceOf(alice.address);
       const bCoin1 = await coin.balanceOf(alice.address);
       expect(bCoin0 + size).to.be.equal(bCoin1);
-      expect(bdEURO1 + (expP * size) / floatToDec18(1)).to.be.approximately(
-        bdEURO0,
+      expect(bJUSD1 + (expP * size) / floatToDec18(1)).to.be.approximately(
+        bJUSD0,
         15n ** 18n,
       );
     });
@@ -266,8 +266,8 @@ describe("ForceSale Tests", () => {
       const expCost = (col * expP) / 10n ** 18n;
       expect(expCost).to.be.lessThan(await position.getDebt());
       const deficit = await position.getDebt() - expCost;
-      const reserveBalanceBefore = await dEURO.balanceOf(await dEURO.reserve());
-      const ownerBalanceBefore = await dEURO.balanceOf(owner.address);
+      const reserveBalanceBefore = await JUSD.balanceOf(await JUSD.reserve());
+      const ownerBalanceBefore = await JUSD.balanceOf(owner.address);
       let tx = await mintingHub.buyExpiredCollateral(position, col * 10n); // try buying way too much
       expect(tx).to.emit(position, "ForcedSale").withArgs(
         await position.getAddress(),
@@ -275,8 +275,8 @@ describe("ForceSale Tests", () => {
         expP,
         interest,
       );
-      const reserveBalanceAfter = await dEURO.balanceOf(await dEURO.reserve());
-      const ownerBalanceAfter = await dEURO.balanceOf(owner.address);
+      const reserveBalanceAfter = await JUSD.balanceOf(await JUSD.reserve());
+      const ownerBalanceAfter = await JUSD.balanceOf(owner.address);
       expect(await position.getDebt()).to.be.eq(0);
       expect(reserveBalanceBefore + interest - deficit).to.be.approximately(reserveBalanceAfter, floatToDec18(1));
       expect(ownerBalanceBefore - ownerBalanceAfter).to.be.approximately(expCost, floatToDec18(1));
@@ -299,15 +299,15 @@ describe("ForceSale Tests", () => {
       const expPropInterest = (expTotInterest * size) / totCollateral;
       const expCostWithInterest = expCost + expPropInterest;
 
-      const balanceBeforeAlice = await dEURO.balanceOf(alice.address);
+      const balanceBeforeAlice = await JUSD.balanceOf(alice.address);
       const colBalanceBeforeAlice = await coin.balanceOf(alice.address);
-      const balanceBeforeEquity = await dEURO.equity();
-      await dEURO.connect(alice).approve(position, expCostWithInterest);
+      const balanceBeforeEquity = await JUSD.equity();
+      await JUSD.connect(alice).approve(position, expCostWithInterest);
       const tx = await mintingHub.connect(alice).buyExpiredCollateral(position, size);
       const receipt = await tx.wait();
-      const balanceAfterAlice = await dEURO.balanceOf(alice.address);
+      const balanceAfterAlice = await JUSD.balanceOf(alice.address);
       const colBalanceAfterAlice = await coin.balanceOf(alice.address);
-      const balanceAfterEquity = await dEURO.equity();
+      const balanceAfterEquity = await JUSD.equity();
 
       const forcedSaleEvent = receipt?.logs.find(
         (log: any) => log.fragment?.name === "ForcedSale"
@@ -332,17 +332,17 @@ describe("ForceSale Tests", () => {
     //   const expPropInterest = expTotInterest;
     //   const expCostWithInterest = expCost + expPropInterest;
 
-    //   await dEURO.mint(alice.address, expCostWithInterest);
-    //   const balanceBeforeAlice = await dEURO.balanceOf(alice.address);
+    //   await JUSD.mint(alice.address, expCostWithInterest);
+    //   const balanceBeforeAlice = await JUSD.balanceOf(alice.address);
     //   const colBalanceBeforeAlice = await coin.balanceOf(alice.address);
     //   console.log("totCollateral", totCollateral);
     //   console.log("balanceBeforeAlice", balanceBeforeAlice);
     //   console.log("expertedCost", expCostWithInterest);
 
-    //   await dEURO.connect(alice).approve(position, expCostWithInterest); 
+    //   await JUSD.connect(alice).approve(position, expCostWithInterest); 
     //   const tx = await mintingHub.connect(alice).buyExpiredCollateral(position, totCollateral);
     //   const receipt = await tx.wait();
-    //   const balanceAfterAlice = await dEURO.balanceOf(alice.address);
+    //   const balanceAfterAlice = await JUSD.balanceOf(alice.address);
     //   const colBalanceAfterAlice = await coin.balanceOf(alice.address);
 
     //   const forcedSaleEvent = receipt?.logs.find(
@@ -418,13 +418,13 @@ describe("ForceSale Tests", () => {
       expect(positionContract.mint(owner.address, 1n)).to.revertedWithCustomError(positionContract, "Expired");
       
       // Remove half of the reserve to simulate bad debt
-      const reserveBalanceBefore = await dEURO.balanceOf(await dEURO.reserve());
+      const reserveBalanceBefore = await JUSD.balanceOf(await JUSD.reserve());
       const targetReserve = floatToDec18(100); // 50% bad debt
-      await dEURO.coverLoss(positionContract, reserveBalanceBefore - targetReserve);
-      const reserveBalanceAfter = await dEURO.balanceOf(await dEURO.reserve());
+      await JUSD.coverLoss(positionContract, reserveBalanceBefore - targetReserve);
+      const reserveBalanceAfter = await JUSD.balanceOf(await JUSD.reserve());
       expect(reserveBalanceAfter).to.be.equal(targetReserve);
 
-      await dEURO.approve(positionContract.getAddress(), floatToDec18(1_000_000));
+      await JUSD.approve(positionContract.getAddress(), floatToDec18(1_000_000));
       await mintingHub.buyExpiredCollateral(positionContract, fInitialCollateral);
       expect(await position.getDebt()).to.be.equal(0n);
     });

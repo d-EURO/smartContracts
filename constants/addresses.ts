@@ -1,6 +1,7 @@
-// Ethereum Mainnet addresses
-export const mainnet = {
-  WETH9: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-  UNISWAP_V3_ROUTER: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
-  UNISWAP_V3_FACTORY: '0x1F98431c8aD98523631AE4a59f267346ea31F984',
+// Citrea Mainnet addresses
+// TODO: Update with actual Citrea addresses once deployed
+export const citrea = {
+  WcBTC: '', // Wrapped cBTC (ERC20) - TODO: Add actual address
+  JUICESWAP_ROUTER: '', // JuiceSwap router - TODO: Add actual address
+  JUICESWAP_FACTORY: '', // JuiceSwap factory - TODO: Add actual address
 };

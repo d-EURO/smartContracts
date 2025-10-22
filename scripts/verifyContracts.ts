@@ -5,12 +5,12 @@ dotenv.config();
 
 
 async function main() {
-  if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
-    console.error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
+  if (!process.env.DEPLOYMENT_FILE_PATH) {
+    console.error('DEPLOYMENT_FILE_PATH environment variable not set');
     process.exit(1);
   }
 
-  const deployment = await loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
+  const deployment = await loadFileJSON(process.env.DEPLOYMENT_FILE_PATH);
   for (const [contractName, contractData] of Object.entries(deployment.contracts)) {
     const { address, constructorArgs } = contractData as { address: string; constructorArgs: any[] };
 

@@ -3,7 +3,7 @@ export const MintingHubV2ABI = [
     inputs: [
       {
         internalType: 'address',
-        name: '_deur',
+        name: '_jusd',
         type: 'address',
       },
       {
@@ -270,12 +270,12 @@ export const MintingHubV2ABI = [
   },
   {
     inputs: [],
-    name: 'DEURO',
+    name: 'EXPIRED_PRICE_FACTOR',
     outputs: [
       {
-        internalType: 'contract IDecentralizedEURO',
+        internalType: 'uint256',
         name: '',
-        type: 'address',
+        type: 'uint256',
       },
     ],
     stateMutability: 'view',
@@ -283,12 +283,12 @@ export const MintingHubV2ABI = [
   },
   {
     inputs: [],
-    name: 'EXPIRED_PRICE_FACTOR',
+    name: 'JUSD',
     outputs: [
       {
-        internalType: 'uint256',
+        internalType: 'contract IJuiceDollar',
         name: '',
-        type: 'uint256',
+        type: 'address',
       },
     ],
     stateMutability: 'view',

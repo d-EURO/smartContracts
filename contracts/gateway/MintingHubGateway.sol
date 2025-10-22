@@ -9,12 +9,12 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
     IFrontendGateway public immutable GATEWAY;
 
     constructor(
-        address _deuro,
+        address _jusd,
         address _leadrate,
         address _roller,
         address _factory,
         address _gateway
-    ) MintingHub(_deuro, _leadrate, _roller, _factory) {
+    ) MintingHub(_jusd, _leadrate, _roller, _factory) {
         GATEWAY = IFrontendGateway(_gateway);
     }
 

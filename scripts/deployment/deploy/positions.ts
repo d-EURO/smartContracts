@@ -1,9 +1,7 @@
 import { ethers } from 'hardhat';
 import * as fs from 'fs';
 import * as path from 'path';
-import { mainnet } from '../../../constants/addresses';
 import ERC20_ABI from '../../../abi/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json';
-import WETH9_ABI from '../../../constants/abi/Weth9.json';
 import { getDeployedAddress } from '../../../ignition/utils/addresses';
 
 interface Config {
@@ -29,12 +27,8 @@ async function main() {
   const [deployer] = await ethers.getSigners();
   console.log('Deploying positions with account:', deployer.address);
 
-  // Get some WETH
-  const wethAddress = mainnet.WETH9;
-  const weth = new ethers.Contract(wethAddress, WETH9_ABI, deployer);
-  await weth.deposit({ value: ethers.parseEther('10') });
-  const wethBalance = await weth.balanceOf(deployer.address);
-  console.log('WETH balance:', ethers.formatEther(wethBalance));
+  // NOTE: For Citrea deployment, ensure you have sufficient cBTC and WcBTC tokens
+  // For local testing with forked networks, you may need to mint/obtain test tokens first
 
   // Load config file
   const configPath = path.join(__dirname, '../config/positions.json');
@@ -43,14 +37,14 @@ async function main() {
   console.log(`Found ${config.positions.length} position(s) to deploy`);
 
   // Get contracts
-  const dEuro = await ethers.getContractAt('DecentralizedEURO', getDeployedAddress('DecentralizedEURO'));
-  const dEuroConnected = dEuro.connect(deployer);
+  const jusd = await ethers.getContractAt('JuiceDollar', getDeployedAddress('JuiceDollar'));
+  const jusdConnected = jusd.connect(deployer);
   const mintingHubGateway = await ethers.getContractAt(
     'MintingHubGateway',
     getDeployedAddress('MintingHubGateway'),
   );
   const mintingHubGatewayConnected = mintingHubGateway.connect(deployer);
-  const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
+  const openingFee = ethers.parseEther(config.openingFee); // JUSD has 18 decimals
 
   // Before proceding, check MintingHubGateway is deployed (sanity check)
   if ((await ethers.provider.getCode(getDeployedAddress('MintingHubGateway'))) === '0x') {
@@ -64,20 +58,20 @@ async function main() {
     // Position parameters
     const minCollateral = ethers.parseUnits(position.minCollateral, position.decimals);
     const initialCollateral = ethers.parseUnits(position.initialCollateral, position.decimals);
-    const liqPrice = ethers.parseEther(position.liqPrice); // dEURO has 18 decimals
-    const mintingMaximum = ethers.parseEther(position.mintingMaximum); // dEURO has 18 decimals
+    const liqPrice = ethers.parseEther(position.liqPrice); // JUSD has 18 decimals
+    const mintingMaximum = ethers.parseEther(position.mintingMaximum); // JUSD has 18 decimals
     const expirationTime = Math.floor(Date.now() / 1000) + position.expirationSeconds;
     console.log(`- Collateral: ${position.collateralAddress}`);
     console.log(`- Min Collateral: ${position.minCollateral} (${minCollateral})`);
     console.log(`- Initial Collateral: ${position.initialCollateral} (${initialCollateral})`);
     console.log(`- Liq Price: ${position.liqPrice} (${liqPrice})`);
-    console.log(`- Minting Maximum: ${position.mintingMaximum} dEURO`);
+    console.log(`- Minting Maximum: ${position.mintingMaximum} JUSD`);
     console.log(`- Expiration: ${new Date(expirationTime * 1000).toISOString()}`);
 
     try {
       const collateralToken = await ethers.getContractAt(ERC20_ABI, position.collateralAddress);
       await collateralToken.approve(getDeployedAddress('MintingHubGateway'), initialCollateral);
-      await dEuroConnected.approve(getDeployedAddress('MintingHubGateway'), openingFee);
+      await jusdConnected.approve(getDeployedAddress('MintingHubGateway'), openingFee);
 
       // Open position
       const tx = await mintingHubGateway[
@@ -119,13 +113,17 @@ async function main() {
 }
 
 /**
- * @notice Deploys positions based on a config file. When testing locally,
- * make sure USE_FORK=true is set in the .env file to use the forked mainnet network.
- * Then run the following commands:
- * > npx hardhat node --no-deploy
- * > npm run deploy -- --network localhost
- * > npx hardhat run scripts/deployment/deploy/deployPositions.ts --network localhost
- * You may need to delete the ignition deployment artifacts to avoid errors.
+ * @notice Deploys positions based on a config file.
+ *
+ * For Citrea deployment:
+ * > npx hardhat run scripts/deployment/deploy/positions.ts --network citrea
+ * > npx hardhat run scripts/deployment/deploy/positions.ts --network citreaTestnet
+ *
+ * For local testing:
+ * > npx hardhat node
+ * > npx hardhat run scripts/deployment/deploy/positions.ts --network localhost
+ *
+ * Make sure you have sufficient collateral tokens before running this script.
  */
 main().catch((error) => {
   console.error(error);

@@ -3,7 +3,7 @@ import { floatToDec18 } from "../../scripts/utils/math";
 import { ethers } from "hardhat";
 import {
   Equity,
-  DecentralizedEURO,
+  JuiceDollar,
   MintingHub,
   Position,
   PositionFactory,
@@ -19,7 +19,7 @@ describe("Savings Tests", () => {
   let alice: HardhatEthersSigner;
   let bob: HardhatEthersSigner;
 
-  let deuro: DecentralizedEURO;
+  let jusd: JuiceDollar;
   let equity: Equity;
   let roller: PositionRoller;
   let savings: Savings;
@@ -39,11 +39,11 @@ describe("Savings Tests", () => {
   beforeEach(async () => {
     [owner, alice, bob] = await ethers.getSigners();
 
-    const DecentralizedEUROFactory =
-      await ethers.getContractFactory("DecentralizedEURO");
-    deuro = await DecentralizedEUROFactory.deploy(10 * 86400);
+    const JuiceDollarFactory =
+      await ethers.getContractFactory("JuiceDollar");
+    jusd = await JuiceDollarFactory.deploy(10 * 86400);
 
-    const equityAddr = await deuro.reserve();
+    const equityAddr = await jusd.reserve();
     equity = await ethers.getContractAt("Equity", equityAddr);
 
     const positionFactoryFactory =
@@ -51,33 +51,33 @@ describe("Savings Tests", () => {
     positionFactory = await positionFactoryFactory.deploy();
 
     const savingsFactory = await ethers.getContractFactory("Savings");
-    savings = await savingsFactory.deploy(deuro.getAddress(), 20000n);
+    savings = await savingsFactory.deploy(jusd.getAddress(), 20000n);
 
     const rollerFactory = await ethers.getContractFactory("PositionRoller");
-    roller = await rollerFactory.deploy(deuro.getAddress());
+    roller = await rollerFactory.deploy(jusd.getAddress());
 
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
-      await deuro.getAddress(),
+      await jusd.getAddress(),
       await savings.getAddress(),
       await roller.getAddress(),
       await positionFactory.getAddress(),
     );
 
     // jump start ecosystem
-    await deuro.initialize(owner.address, "owner");
-    await deuro.initialize(await mintingHub.getAddress(), "mintingHub");
-    await deuro.initialize(await savings.getAddress(), "savings");
+    await jusd.initialize(owner.address, "owner");
+    await jusd.initialize(await mintingHub.getAddress(), "mintingHub");
+    await jusd.initialize(await savings.getAddress(), "savings");
 
-    await deuro.mint(owner.address, floatToDec18(2_000_000));
-    await deuro.transfer(alice.address, floatToDec18(100_000));
-    await deuro.transfer(bob.address, floatToDec18(100_000));
+    await jusd.mint(owner.address, floatToDec18(2_000_000));
+    await jusd.transfer(alice.address, floatToDec18(100_000));
+    await jusd.transfer(bob.address, floatToDec18(100_000));
 
     // jump start fps
     await equity.invest(floatToDec18(1000), 0);
-    await deuro.connect(alice).approve(await equity.getAddress(), floatToDec18(10_000));
+    await jusd.connect(alice).approve(await equity.getAddress(), floatToDec18(10_000));
     await equity.connect(alice).invest(floatToDec18(10_000), 0);
-    await deuro.connect(bob).approve(await equity.getAddress(), floatToDec18(10_000));
+    await jusd.connect(bob).approve(await equity.getAddress(), floatToDec18(10_000));
     await equity.connect(bob).invest(floatToDec18(10_000), 0);
     await equity.invest(floatToDec18(1_000_000), 0);
 
@@ -88,14 +88,14 @@ describe("Savings Tests", () => {
 
   const amount = floatToDec18(1000);
 
-  describe("Save some deuro", () => {
+  describe("Save some jusd", () => {
     it("no approval needed, minters power", async () => {
       const amount = floatToDec18(1000);
       await savings["save(uint192)"](amount);
     });
 
     it("simple save", async () => {
-      await deuro.approve(savings.getAddress(), amount); // not needed if registered as minter
+      await jusd.approve(savings.getAddress(), amount); // not needed if registered as minter
       await savings["save(uint192)"](amount);
       const r = await savings.savings(owner.address);
       expect(r.saved).to.be.approximately(amount, 10**12);
@@ -118,15 +118,15 @@ describe("Savings Tests", () => {
     });
 
     it("should not pay any interest, if nothing is saved", async () => {
-      const b0 = await deuro.balanceOf(owner.address);
+      const b0 = await jusd.balanceOf(owner.address);
       const w = await savings.withdraw(owner.address, 2n * amount);
       const r = await savings.savings(owner.address);
-      const b1 = await deuro.balanceOf(owner.address);
+      const b1 = await jusd.balanceOf(owner.address);
       expect(b1).to.be.eq(b0);
     });
 
     it("any interests after 365days", async () => {
-      const i0 = await deuro.balanceOf(owner.address);
+      const i0 = await jusd.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
       await savings["save(uint192)"](amount);
       await evm_increaseTime(365 * 86_400);
@@ -136,20 +136,20 @@ describe("Savings Tests", () => {
         equity addr: 0x1301d297043f564235EA41560f61681253BbD48B
 
         Error: VM Exception while processing transaction: reverted with custom error 'ERC20InsufficientAllowance("0x1301d297043f564235EA41560f61681253BbD48B", 0, 192328779807204464738)'
-        at DecentralizedEURO.permit (contracts/utils/ERC20PermitLight.sol:21)
-        at DecentralizedEURO.transferFrom (contracts/utils/ERC20.sol:123)
+        at JuiceDollar.permit (contracts/utils/ERC20PermitLight.sol:21)
+        at JuiceDollar.transferFrom (contracts/utils/ERC20.sol:123)
         at Savings.refresh (contracts/Savings.sol:68)
         at Savings.withdraw (contracts/Savings.sol:109)
 
-        The SC "Savings" is not a "minter" aka "no minter superpower". So it CAN NOT withdraw any deuro without approval, 
+        The SC "Savings" is not a "minter" aka "no minter superpower". So it CAN NOT withdraw any jusd without approval, 
         this will cause an error while trying to "transferFrom" the equity some interests.
       */
-      const i1 = await deuro.balanceOf(owner.address);
+      const i1 = await jusd.balanceOf(owner.address);
       expect(i1).to.be.greaterThan(i0);
     });
 
     it("correct interest after 365days", async () => {
-      const i0 = await deuro.balanceOf(owner.address);
+      const i0 = await jusd.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
@@ -158,7 +158,7 @@ describe("Savings Tests", () => {
 
       await savings.withdraw(owner.address, 2n * amount);
       const t1 = await getTimeStamp();
-      const i1 = await deuro.balanceOf(owner.address);
+      const i1 = await jusd.balanceOf(owner.address);
       const iDiff = i1 - i0;
       const tDiff = t1! - t0!;
       const toCheck =
@@ -168,9 +168,9 @@ describe("Savings Tests", () => {
     });
 
     it("correct interest after 1000days", async () => {
-      const b0 = await deuro.balanceOf(owner.address);
+      const b0 = await jusd.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
-      await deuro.approve(savings.getAddress(), amount);
+      await jusd.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
 
@@ -178,7 +178,7 @@ describe("Savings Tests", () => {
 
       await savings.withdraw(owner.address, 2n * amount);
       const t1 = await getTimeStamp();
-      const b1 = await deuro.balanceOf(owner.address);
+      const b1 = await jusd.balanceOf(owner.address);
       const bDiff = b1 - b0;
       const tDiff = t1! - t0!;
       const toCheck =
@@ -188,9 +188,9 @@ describe("Savings Tests", () => {
     });
 
     it("approx. interest after 2x saves", async () => {
-      const b0 = await deuro.balanceOf(owner.address);
+      const b0 = await jusd.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
-      await deuro.approve(savings.getAddress(), 2n * amount);
+      await jusd.approve(savings.getAddress(), 2n * amount);
 
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
@@ -202,7 +202,7 @@ describe("Savings Tests", () => {
 
       await savings.withdraw(owner.address, 10n * amount);
       const t2 = await getTimeStamp();
-      const b1 = await deuro.balanceOf(owner.address);
+      const b1 = await jusd.balanceOf(owner.address);
       const bDiff = b1 - b0;
       const tDiff0 = t1! - t0!;
       const tDiff1 = t2! - t1!;
@@ -225,7 +225,7 @@ describe("Savings Tests", () => {
 
     it("refresh my balance", async () => {
       const amount = floatToDec18(10_000);
-      await deuro.approve(savings.getAddress(), amount);
+      await jusd.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
 
@@ -244,7 +244,7 @@ describe("Savings Tests", () => {
 
     it("refresh balance", async () => {
       const amount = floatToDec18(10_000);
-      await deuro.approve(savings.getAddress(), amount);
+      await jusd.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
 
@@ -281,7 +281,7 @@ describe("Savings Tests", () => {
 
     it("withdraw partial", async () => {
       const amount = floatToDec18(10_000);
-      await deuro.approve(savings.getAddress(), amount);
+      await jusd.approve(savings.getAddress(), amount);
       await savings["save(uint192)"](amount);
       const t0 = await getTimeStamp();
 
@@ -309,12 +309,12 @@ describe("Savings Tests", () => {
       await savings.refreshBalance(owner.address);
       await evm_increaseTime(1234);
       const oldBalance = (await savings.savings(owner.address)).saved;
-      const oldReserve = await deuro.balanceOf(await deuro.reserve());
+      const oldReserve = await jusd.balanceOf(await jusd.reserve());
       const oldUserTicks = (await savings.savings(owner.address)).ticks;
       const oldSystemTicks = await savings.currentTicks();
       await savings.refreshBalance(owner.address);
       const newBalance = (await savings.savings(owner.address)).saved;
-      const newReserve = await deuro.balanceOf(await deuro.reserve());
+      const newReserve = await jusd.balanceOf(await jusd.reserve());
       const newUserTicks = (await savings.savings(owner.address)).ticks;
       const newSystemTicks = await savings.currentTicks();
       expect(newUserTicks).to.be.eq(newSystemTicks);
@@ -345,7 +345,7 @@ describe("Savings Tests", () => {
 
       it("should return some interest after time passes (without collecting)", async () => {
         const amount = floatToDec18(10_000);
-        await deuro.approve(await savings.getAddress(), amount);
+        await jusd.approve(await savings.getAddress(), amount);
         await savings["save(uint192)"](amount);
         await evm_increaseTime(90 * 86400);
 
@@ -358,7 +358,7 @@ describe("Savings Tests", () => {
 
       it("should reset to zero after interest is collected", async () => {
         const amount = floatToDec18(10_000);
-        await deuro.approve(await savings.getAddress(), amount);
+        await jusd.approve(await savings.getAddress(), amount);
         await savings["save(uint192)"](amount);
         await evm_increaseTime(100 * 86400);
 
@@ -386,13 +386,13 @@ describe("Savings Tests", () => {
       });
 
       it("should cap at system's equity if interest exceeds it", async () => {
-        let balanceEquity = await deuro.balanceOf(await deuro.reserve());           // 500_000_000000000000000000
-        await deuro.burnFrom(await deuro.reserve(), (balanceEquity * 99n) / 100n);  // reduce equity by 99%
-        balanceEquity = await deuro.balanceOf(await deuro.reserve());               // 5_000_000000000000000000
+        let balanceEquity = await jusd.balanceOf(await jusd.reserve());           // 500_000_000000000000000000
+        await jusd.burnFrom(await jusd.reserve(), (balanceEquity * 99n) / 100n);  // reduce equity by 99%
+        balanceEquity = await jusd.balanceOf(await jusd.reserve());               // 5_000_000000000000000000
 
         const amount = floatToDec18(500_000);
-        await deuro.mint(owner.address, amount);
-        await deuro.approve(await savings.getAddress(), amount);
+        await jusd.mint(owner.address, amount);
+        await jusd.approve(await savings.getAddress(), amount);
         await savings["save(uint192)"](amount);
         await evm_increaseTime(3 * 365 * 86400); // 3 years accrual time
 

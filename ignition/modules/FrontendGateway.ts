@@ -1,12 +1,10 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import DecentralizedEUROModule from "./DecentralizedEURO";
-import DEPSWrapperModule from "./DEPSWrapper";
+import JuiceDollarModule from "./JuiceDollar";
 
 export default buildModule("FrontendGateway", (m) => {
-  const { decentralizedEURO } = m.useModule(DecentralizedEUROModule);
-  const { depsWrapper } = m.useModule(DEPSWrapperModule);
+  const { juiceDollar } = m.useModule(JuiceDollarModule);
 
-  const frontendGateway = m.contract("FrontendGateway", [decentralizedEURO, depsWrapper]);
-  
+  const frontendGateway = m.contract("FrontendGateway", [juiceDollar]);
+
   return { frontendGateway };
 });

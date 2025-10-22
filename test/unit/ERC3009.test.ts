@@ -20,7 +20,7 @@ describe("ERC3009 Tests", () => {
     [owner, alice] = await ethers.getSigners();
 
     const TokenFactory = await ethers.getContractFactory("TestToken");
-    testToken = await TokenFactory.deploy("CryptoEuro", "XEUR", 18);
+    testToken = await TokenFactory.deploy("CryptoEuro", "XUSD", 18);
     ts = getFutureTimeStamp(6);
   });
 

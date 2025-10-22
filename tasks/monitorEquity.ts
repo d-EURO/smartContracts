@@ -3,7 +3,7 @@ import { formatCurrencyFromWei, createTable } from '../scripts/utils/table';
 import { getMonitoringModule } from '../scripts/monitoring';
 import { createEventTrendsTable, eventTrendDataToArray } from '../scripts/monitoring/utils';
 
-// npx hardhat monitor-equity --network mainnet
+// npx hardhat monitor-equity --network citrea
 export async function monitorEquityAction({ includeEventTxs }: { includeEventTxs?: boolean }, hre: HardhatRuntimeEnvironment) {
     const monitoringModule = await getMonitoringModule(hre);
     const equityState = await monitoringModule.getEquityState();
@@ -25,9 +25,9 @@ export async function monitorEquityAction({ includeEventTxs }: { includeEventTxs
     ]);
 
     metricsTable.setData([
-      { key: 'Total Supply', value: formatCurrencyFromWei(equityState.totalSupply) + ' nDEPS' },
-      { key: 'Price', value: formatCurrencyFromWei(equityState.price, 4) + ' dEURO' },
-      { key: 'Market Cap', value: formatCurrencyFromWei(equityState.marketCap) + ' dEURO' },
+      { key: 'Total Supply', value: formatCurrencyFromWei(equityState.totalSupply) + ' JUICE' },
+      { key: 'Price', value: formatCurrencyFromWei(equityState.price, 4) + ' JUSD' },
+      { key: 'Market Cap', value: formatCurrencyFromWei(equityState.marketCap) + ' JUSD' },
     ]);
 
     metricsTable.showHeaderSeparator(true);
