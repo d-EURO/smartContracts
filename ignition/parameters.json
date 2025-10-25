@@ -19,14 +19,20 @@
   },
   "StablecoinBridgeVEUR": {
     "other": "0x6ba75d640bebfe5da1197bb5a2aff3327789b5d3",
-    "limit": "50000000000000000000000000",
+    "limit": "100000000000000000000000",
     "weeks": 30,
     "applicationMsg": "VEUR Bridge"
   },
   "StablecoinBridgeEURS": {
     "other": "0xdb25f211ab05b1c97d595516f45794528a807ad8",
-    "limit": "50000000000000000000000000",
+    "limit": "100000000000000000000000",
     "weeks": 30,
     "applicationMsg": "EURS Bridge"
+  },
+  "StablecoinBridgeEURE": {
+    "other": "0x3231Cb76718CDeF2155FC47b5286d82e6eDA273f",
+    "limit": "100000000000000000000000",
+    "weeks": 30,
+    "applicationMsg": "EURe Bridge"
   }
 }
