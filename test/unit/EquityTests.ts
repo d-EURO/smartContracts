@@ -220,17 +220,7 @@ describe("Equity Tests", () => {
       await equity.invest(floatToDec18(7000 / 0.997), expected);
     });
 
-    it("should refuse redemption before time passed", async () => {
-      expect(await equity.canRedeem(owner.address)).to.be.false;
-      await expect(
-        equity.redeem(owner.address, floatToDec18(0.1)),
-      ).to.be.revertedWithCustomError(equity, "BelowMinimumHoldingPeriod")
-    });
-
-    it("should allow redemption after time passed", async () => {
-      await evm_increaseTime(90 * 86_400 + 60);
-      expect(await equity.canRedeem(owner.address)).to.be.true;
-      expect(await equity.holdingDuration(owner.address)).to.be.approximately(90 * 86_400 + 60, 60);
+    it("should allow redemption immediately", async () => {
 
       await expect(
         equity.calculateProceeds((await equity.totalSupply()) * 2n),
@@ -248,9 +238,6 @@ describe("Equity Tests", () => {
     });
 
     it("should be able to redeem more than expected amounts", async () => {
-      await evm_increaseTime(90 * 86_400 + 60);
-      expect(await equity.canRedeem(owner.address)).to.be.true;
-
       const redemptionAmount =
         (await equity.balanceOf(owner.address)) - floatToDec18(1000.0);
       const proceeds = await equity.calculateProceeds(redemptionAmount);
@@ -267,8 +254,6 @@ describe("Equity Tests", () => {
     });
 
     it("should be able to redeem allowed shares for share holder", async () => {
-      await evm_increaseTime(90 * 86_400 + 60);
-
       const redemptionAmount =
         (await equity.balanceOf(owner.address)) - floatToDec18(1000.0);
       await equity.approve(alice.address, redemptionAmount);

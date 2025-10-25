@@ -16,7 +16,7 @@ import {MathUtil} from "./utils/MathUtil.sol";
  * @notice If the JuiceDollar system was a bank, this contract would represent the equity on its balance sheet.
  * Like a corporation, the owners of the equity capital are the shareholders, or in this case the holders
  * of Juice Protocol (JUICE) tokens. Anyone can mint additional JUICE tokens by adding JuiceDollars to the
- * reserve pool. Also, JUICE tokens can be redeemed for JuiceDollars again after a minimum holding period.
+ * reserve pool. Also, JUICE tokens can be redeemed for JuiceDollars again.
  * Furthermore, the JUICE shares come with some voting power. Anyone that held at least 2% of the holding-period-
  * weighted reserve pool shares gains veto power and can veto new proposals.
  */
@@ -51,13 +51,6 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      */
     uint8 private constant TIME_RESOLUTION_BITS = 20;
 
-    /**
-     * @notice The minimum holding duration. You are not allowed to redeem your pool shares if you held them
-     * for less than the minimum holding duration at average. For example, if you have two pool shares at your
-     * address, one acquired 5 days ago and one acquired 105 days ago, you cannot redeem them as the average
-     * holding duration of your shares is only 55 days < 90 days.
-     */
-    uint256 public constant MIN_HOLDING_DURATION = 90 days << TIME_RESOLUTION_BITS; // Set to 5 for local testing
 
     JuiceDollar public immutable JUSD;
 
@@ -91,7 +84,6 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     event Delegation(address indexed from, address indexed to); // indicates a delegation
     event Trade(address who, int256 amount, uint256 totPrice, uint256 newprice); // amount pos or neg for mint or redemption
 
-    error BelowMinimumHoldingPeriod();
     error NotQualified();
     error NotMinter();
     error InsufficientEquity();
@@ -129,14 +121,6 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
             _adjustTotalVotes(from, value, roundingLoss);
         }
         super._update(from, to, value);
-    }
-
-    /**
-     * @notice Returns whether the given address is allowed to redeem JUICE, which is the
-     * case after their average holding duration is larger than the required minimum.
-     */
-    function canRedeem(address owner) public view returns (bool) {
-        return _anchorTime() - voteAnchor[owner] >= MIN_HOLDING_DURATION;
     }
 
     /**
@@ -393,7 +377,6 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     function _redeemFrom(address owner, address target, uint256 shares) internal returns (uint256) {
-        if(!canRedeem(owner)) revert BelowMinimumHoldingPeriod();
         uint256 proceeds = calculateProceeds(shares);
         _burn(owner, shares);
         JUSD.transfer(target, proceeds);

@@ -12,11 +12,6 @@ export const EquityABI = [
   },
   {
     inputs: [],
-    name: 'BelowMinimumHoldingPeriod',
-    type: 'error',
-  },
-  {
-    inputs: [],
     name: 'ECDSAInvalidSignature',
     type: 'error',
   },
@@ -397,19 +392,6 @@ export const EquityABI = [
   },
   {
     inputs: [],
-    name: 'MIN_HOLDING_DURATION',
-    outputs: [
-      {
-        internalType: 'uint256',
-        name: '',
-        type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [],
     name: 'RECEIVE_WITH_AUTHORIZATION_TYPEHASH',
     outputs: [
       {
@@ -571,25 +553,6 @@ export const EquityABI = [
         internalType: 'uint256',
         name: '',
         type: 'uint256',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'address',
-        name: 'owner',
-        type: 'address',
-      },
-    ],
-    name: 'canRedeem',
-    outputs: [
-      {
-        internalType: 'bool',
-        name: '',
-        type: 'bool',
       },
     ],
     stateMutability: 'view',
