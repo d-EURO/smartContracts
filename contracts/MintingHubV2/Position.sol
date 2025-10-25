@@ -426,7 +426,8 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice Computes the total outstanding interest, including newly accrued interest.
      * @dev This function calculates interest accumulated since the last accrual based on
-     * the principal amount, the annual interest rate, and the elapsed time.
+     * the usable principal (principal minus reserve), the annual interest rate, and the elapsed time.
+     * Interest is only charged on the amount the user actually received (usable mint).
      * The newly accrued interest is added to the current outstanding interest.
      * @return newInterest The total outstanding interest, including newly accrued interest.
      */
@@ -436,7 +437,9 @@ contract Position is Ownable, IPosition, MathUtil {
 
         if (timestamp > lastAccrual && principal > 0) {
             uint256 delta = timestamp - lastAccrual;
-            newInterest += (principal * fixedAnnualRatePPM * delta) / (365 days * 1_000_000);
+            // Interest is calculated only on the usable principal (what user actually received)
+            uint256 usablePrincipal = (principal * (1_000_000 - reserveContribution)) / 1_000_000;
+            newInterest += (usablePrincipal * fixedAnnualRatePPM * delta) / (365 days * 1_000_000);
         }
 
         return newInterest;

@@ -1916,8 +1916,10 @@ describe("Position Tests", () => {
 
       await evm_increaseTime(timePassed);
       const debtAfter = await positionContract.getDebt();
+      // Interest is calculated on usable principal (principal - reserve)
+      const usablePrincipal = (initialMintAmount * (1000000n - fReserve)) / 1000000n;
       const expectedInterest =
-        (initialMintAmount * expectedAnnualRate * (2n * timePassed)) /
+        (usablePrincipal * expectedAnnualRate * (2n * timePassed)) /
         (1000000n * 365n * 86400n);
       expect(debtAfter - initialMintAmount).to.be.approximately(
         expectedInterest,
@@ -1941,8 +1943,10 @@ describe("Position Tests", () => {
       await evm_increaseTime(timeAtNewLeadrateBeforeMint);
       const totalLoanTime =
         timeAtInitialLeadrate + proposalDuration + timeAtNewLeadrateBeforeMint;
+      // Interest is calculated on usable principal (principal - reserve)
+      const usablePrincipal = (initialMintAmount * (1000000n - fReserve)) / 1000000n;
       const expectedInterestBeforeMint =
-        (initialMintAmount *
+        (usablePrincipal *
           (initialLeadratePPM + riskPremium) *
           totalLoanTime) /
         (1000000n * 365n * 86400n);
@@ -1958,10 +1962,12 @@ describe("Position Tests", () => {
       const timeAtNewLeadrateAfterMint = BigInt(8 * 86_400);
       await evm_increaseTime(timeAtNewLeadrateAfterMint);
 
+      // Interest on the new mint is calculated on usable principal
+      const usableNewMint = (newMintAmount * (1000000n - fReserve)) / 1000000n;
       const expectedDebt =
         principalAfterMint +
         expectedInterestBeforeMint +
-        (newMintAmount *
+        (usableNewMint *
           (newLeadratePPM + riskPremium) *
           timeAtNewLeadrateAfterMint) /
           (1000000n * 365n * 86400n);
@@ -2038,8 +2044,10 @@ describe("Position Tests", () => {
       await evm_increaseTime(timeUnderNewRate);
       const newPosDebt = await targetPositionContract.getDebt();
       const mintedInNewPos = await targetPositionContract.principal();
+      // Interest is calculated on usable principal (principal - reserve)
+      const usableMintedInNewPos = (mintedInNewPos * (1000000n - fReserve)) / 1000000n;
       const expectedInterestNewPos =
-        (mintedInNewPos * newFixedRate * timeUnderNewRate) /
+        (usableMintedInNewPos * newFixedRate * timeUnderNewRate) /
         (1000000n * 365n * 86400n);
       expect(newPosDebt - mintedInNewPos).to.be.approximately(
         expectedInterestNewPos,
