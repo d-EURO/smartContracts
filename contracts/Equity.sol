@@ -28,16 +28,16 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * In the absence of fees, profits and losses, the variables grow as follows when JUICE tokens are minted:
      *
      * |        Reserve     |      Market Cap    |     Price    |       Supply    |
-     * |              1_000 |              5_000 |       0.0005 |      10_000_000 |
-     * |        100_000_000 |        500_000_000 |       5      |     100_000_000 |
-     * | 10_000_000_000_000 | 50_000_000_000_000 |  50_000      |   1_000_000_000 |
+     * |              1_000 |             10_000 |       0.001  |      10_000_000 |
+     * |        100_000_000 |      1_000_000_000 |      31.62   |      31_622_777 |
+     * | 10_000_000_000_000 |100_000_000_000_000 | 1_000_000    |     100_000_000 |
      *
-     * i.e., the supply is proportional to the fifth root of the reserve and the price is proportional to the
-     * squared cubic root. When profits accumulate or losses materialize, the reserve, the market cap,
+     * i.e., the supply is proportional to the tenth root of the reserve and the price is proportional to the
+     * ninth root. When profits accumulate or losses materialize, the reserve, the market cap,
      * and the price are adjusted proportionally. In the absence of extreme inflation of the US Dollar, it is unlikely
      * that there will ever be more than ten million JUICE.
      */
-    uint32 public constant VALUATION_FACTOR = 5; // Changed from 3 to 5 as requested
+    uint32 public constant VALUATION_FACTOR = 10;
 
     uint256 private constant MINIMUM_EQUITY = 1_000 * ONE_DEC18;
 
@@ -354,7 +354,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         // Assign 10_000_000 JUICE for the initial deposit, calculate the amount otherwise
         uint256 newTotalShares = (capitalBefore < MINIMUM_EQUITY || totalShares == 0)
             ? totalShares + 10_000_000 * ONE_DEC18
-            : _mulD18(totalShares, _fifthRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
+            : _mulD18(totalShares, _tenthRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
         return newTotalShares - totalShares;
     }
 
@@ -412,7 +412,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         if (shares + ONE_DEC18 >= totalShares) revert TooManyShares(); // make sure there is always at least one share
         uint256 capital = JUSD.equity();
         uint256 reductionAfterFees = (shares * 980) / 1_000; // remove 2% fee
-        uint256 newCapital = _mulD18(capital, _power5(_divD18(totalShares - reductionAfterFees, totalShares)));
+        uint256 newCapital = _mulD18(capital, _power10(_divD18(totalShares - reductionAfterFees, totalShares)));
         return capital - newCapital;
     }
 

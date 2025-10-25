@@ -42,22 +42,21 @@ describe("Math Tests", () => {
       expectResult(result, fResult);
     });
 
-    it("pow5", async () => {
+    it("pow10", async () => {
       const a = 1.5;
-      const result = a ** 5;
+      const result = a ** 10;
       const fA = floatToDec18(a);
-      const fResult = await MathContract.power5(fA);
+      const fResult = await MathContract.power10(fA);
       expectResult(result, fResult);
     });
 
-    it("cubic root", async () => {
-      // let numbers = [0.01, 0.9, 1, 1.5, 2, 10];
+    it("tenth root", async () => {
       const numbers = [1000000000000, 1, 1.01, 1.0002, 1.000003, 1.00000005];
       for (let k = 0; k < numbers.length; k++) {
         const number = numbers[k];
-        const result = number ** (1 / 5);
+        const result = number ** (1 / 10);
         const fNumber = floatToDec18(number);
-        const tx = await MathContract.cubicRoot(fNumber, true);
+        const tx = await MathContract.tenthRoot(fNumber, true);
         await expect(tx).to.not.be.reverted;
         const fResult = await MathContract.result();
         expectResult(result, fResult);

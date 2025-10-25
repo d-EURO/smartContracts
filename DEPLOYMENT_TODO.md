@@ -441,7 +441,7 @@ citrea: {
 - [ ] Set initial parameters:
   - [ ] Interest rates (Leadrate)
   - [ ] Reserve ratio
-  - [ ] Equity valuation factor (currently 5, see Equity.sol)
+  - [ ] Equity valuation factor (currently 10, see Equity.sol)
   - [ ] Minimum application period (MIN_APPLICATION_PERIOD)
   - [ ] Minimum fee (MIN_FEE = 1000 JUSD)
 - [ ] Plan governance transition (if moving from deployer to DAO)
