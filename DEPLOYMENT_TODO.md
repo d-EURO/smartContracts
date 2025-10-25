@@ -160,46 +160,7 @@ export const networkConfig: Record<number, SavingsVaultConfig> = {
 
 ---
 
-### 5. Configure StablecoinBridge for USDT
-
-**File:** `scripts/deployment/config/stablecoinBridgeConfig.ts`
-**Status:** ⚠️ **Partially Complete - Awaiting USDT Address**
-
-**Decision:** ✅ **YES - USDT Bridge will be deployed**
-
-**Rationale:**
-- Easy onboarding (users can swap USDT → JUSD)
-- Provides initial liquidity for the protocol
-- USDT widely available on Citrea (bridged from Ethereum)
-
-**Current Configuration:**
-```typescript
-// stablecoinBridgeConfig.ts
-USDT: {
-  sourceToken: "0x0000000000000000000000000000000000000000", // ⚠️ TODO
-  limitAmount: "1000000000000000000000000", // 1M JUSD
-  durationWeeks: 52, // 1 year
-}
-```
-
-**Action Required:**
-- [ ] **Get official USDT contract address on Citrea** (from Citrea team/block explorer)
-- [ ] Verify USDT decimals on Citrea (likely 6 decimals like Ethereum)
-- [ ] Update `stablecoinBridgeConfig.ts` line 12 with USDT address
-- [ ] Update `ignition/parameters.json` line 9 with same USDT address
-- [ ] Test bridge on Citrea testnet before mainnet
-- [ ] Verify 1:1 swap ratio works correctly (USDT 6 decimals → JUSD 18 decimals)
-
-**Deployment Order:**
-1. Deploy JuiceDollar
-2. Deploy StablecoinBridgeUSDT (with USDT address)
-3. Initialize bridge as minter in JuiceDollar
-4. Test: Approve USDT → mint JUSD
-5. Test: Burn JUSD → redeem USDT
-
----
-
-### 6. ~~Review Flashbots Configuration~~ ✅ COMPLETED
+### 5. ~~Review Flashbots Configuration~~ ✅ COMPLETED
 
 **File:** ~~`scripts/deployment/config/flashbotsConfig.ts`~~ → **`deploymentConfig.ts`**
 **Status:** ✅ **COMPLETED**
@@ -232,7 +193,7 @@ The config file was never actually using Flashbots - just legacy naming from Eth
 
 ## 🔄 Post-Deployment - Complete After Contracts Are Deployed
 
-### 7. Update Deployed Contract Addresses
+### 6. Update Deployed Contract Addresses
 
 **File:** `exports/address.config.ts`
 **Lines:** 20-47
@@ -254,8 +215,7 @@ After deploying each contract, update the following addresses:
   savingsVaultJUSD: '0x...', // Deploy after SavingsGateway
   mintingHubGateway: '0x...', // Deploy after core contracts
   coinLendingGateway: '0x...', // Deploy after MintingHubGateway
-  bridgeUSDT: '0x...', // Deploy after JuiceDollar
-  usdt: '0x...', // External contract (research required)
+  bridgeStartUSD: '0x...', // Bootstrap bridge (deployed in deployProtocol.ts)
   roller: '0x...', // Deploy after MintingHub
   positionFactoryV2: '0x...', // Deploy with MintingHub
 }
@@ -266,7 +226,7 @@ After deploying each contract, update the following addresses:
 
 ---
 
-### 8. Export Updated ABIs
+### 7. Export Updated ABIs
 
 **Status:** ⏳ After Deployment
 
@@ -280,7 +240,7 @@ This will regenerate TypeScript ABI exports in `exports/abis/`.
 
 ---
 
-### 9. Update NPM Package
+### 8. Update NPM Package
 
 **File:** `package.json`
 **Current Version:** `1.0.16`
@@ -303,27 +263,25 @@ This will regenerate TypeScript ABI exports in `exports/abis/`.
 
 ## 🧪 Testing - Complete Before Mainnet Deployment
 
-### 10. Testnet Deployment & Testing
+### 9. Testnet Deployment & Testing
 
 **Network:** Citrea Testnet (Chain ID: 5115)
 **Status:** ❌ Not Started
 
 **Test Sequence:**
-1. [ ] Deploy core contracts (JuiceDollar, Equity) on testnet
+1. [ ] Deploy protocol using `deployProtocol.ts` on testnet (includes StartUSD bootstrap)
 2. [ ] Deploy MintingHub and PositionFactory on testnet
-3. [ ] Deploy at least 2 test positions (USDT, cBTC)
+3. [ ] Deploy at least 2 test positions (cBTC, test collateral)
 4. [ ] Deploy Gateway contracts (Frontend, Savings, MintingHub)
-5. [ ] Deploy StablecoinBridge (USDT)
-6. [ ] Test complete user flow:
-   - [ ] Mint JUSD using USDT collateral
+5. [ ] Test complete user flow:
+   - [ ] Verify bootstrap: 1000 SUSD → 1000 JUSD minted
    - [ ] Challenge and liquidate a position
    - [ ] Deposit JUSD in savings vault
    - [ ] Withdraw from savings vault
-   - [ ] Bridge USDT ↔ JUSD
    - [ ] Frontend gateway referral rewards
-7. [ ] Monitor gas costs on Citrea (vs Ethereum)
-8. [ ] Verify all contracts on Citrea block explorer
-9. [ ] Test PositionRoller (roll positions to new interest rate)
+6. [ ] Monitor gas costs on Citrea (vs Ethereum)
+7. [ ] Verify all contracts on Citrea block explorer
+8. [ ] Test PositionRoller (roll positions to new interest rate)
 10. [ ] Integration test: Run full test suite against testnet
 
 **Test Script:**
@@ -423,7 +381,6 @@ citrea: {
 
 **Action Required:**
 - [ ] Determine initial JUSD supply to mint
-- [ ] Plan JUSD/USDT liquidity pool on JuiceSwap
 - [ ] Plan JUSD/cBTC liquidity pool on JuiceSwap
 - [ ] Calculate liquidity incentives (if any)
 - [ ] Identify liquidity providers / initial market makers
@@ -504,7 +461,7 @@ citrea: {
 8. ❌ Deploy SavingsVaultJUSD
 9. ❌ Deploy MintingHubGateway
 10. ❌ Deploy CoinLendingGateway (native cBTC lending)
-11. ⚠️ OPTIONAL: Deploy StablecoinBridge (USDT) - if needed
+11. ✅ Deploy StartUSD Bootstrap Bridge (handled by deployProtocol.ts)
 
 **Phase 3: Testing (Testnet)**
 12. ❌ Complete full integration testing (item 10)
@@ -527,7 +484,7 @@ citrea: {
 - ✅ Single collateral type (WcBTC) instead of 11 tokens
 - ✅ No Ethereum/Base/Optimism complexity
 - ✅ Simplified testing matrix
-- ⚠️ USDT bridge is now optional (decision pending)
+- ✅ StartUSD (SUSD) bootstrap bridge for initialization
 
 ---
 
@@ -549,7 +506,7 @@ citrea: {
 - [ ] **Item 2:** JuiceSwap Router/Factory addresses added
 - [ ] **Item 3:** CoinLendingGateway WcBTC config updated
 - [ ] **Item 4:** SavingsVault config updated (post-deployment)
-- [x] **Item 5:** USDT bridge decision: YES - Get USDT address on Citrea ✅
+- [x] **Item 5:** StartUSD (SUSD) bootstrap bridge configured ✅
 - [x] **Item 6:** Flashbots config removed for Citrea ✅
 - [ ] **Item 11:** Security checks completed
 - [ ] **Item 13:** Network RPC endpoints verified
@@ -575,13 +532,12 @@ citrea: {
 - ✅ Simplified collateral strategy (WcBTC only)
 - ✅ Cleaned up legacy code (Base/Optimism/EUR tokens)
 - ✅ Removed Flashbots integration (not compatible with Citrea)
-- ✅ USDT bridge decision: YES (awaiting Citrea USDT address)
+- ✅ StartUSD (SUSD) bootstrap bridge configured
 
-**Critical Remaining:** 4 items ❌
+**Critical Remaining:** 3 items ❌
 - ❌ WcBTC address (Item 1)
 - ❌ JuiceSwap addresses (Item 2)
 - ❌ CoinLendingGateway config (Item 3)
-- ❌ USDT address on Citrea (Item 5 - partial)
 - ❌ Security audit (Item 11)
 - ❌ Testnet testing (Item 10)
 

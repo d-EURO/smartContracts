@@ -5,13 +5,13 @@ import MintingHubGatewayModule from './MintingHubGateway';
 import PositionFactoryModule from './PositionFactory';
 import PositionRollerModule from './PositionRoller';
 import SavingsGatewayModule from './SavingsGateway';
-import StablecoinBridgeUSDT from './StablecoinBridgeUSDT';
+import StablecoinBridgeStartUSD from './StablecoinBridgeStartUSD';
 
 export default buildModule('FullDeployment', (m) => {
   const { juiceDollar } = m.useModule(JuiceDollarModule);
   const { positionFactory } = m.useModule(PositionFactoryModule);
   const { positionRoller } = m.useModule(PositionRollerModule);
-  const { stablecoinBridgeUSDT } = m.useModule(StablecoinBridgeUSDT);
+  const { stablecoinBridgeStartUSD } = m.useModule(StablecoinBridgeStartUSD);
   const { frontendGateway } = m.useModule(FrontendGatewayModule);
   const { savingsGateway } = m.useModule(SavingsGatewayModule);
   const { mintingHubGateway } = m.useModule(MintingHubGatewayModule);
@@ -32,17 +32,18 @@ export default buildModule('FullDeployment', (m) => {
   m.call(juiceDollar, 'initialize', [frontendGateway, 'FrontendGateway'], {
     id: 'JuiceDollar_initialize_FrontendGateway',
   });
-  m.call(juiceDollar, 'initialize', [stablecoinBridgeUSDT, 'StablecoinBridgeUSDT'], {
-    id: 'JuiceDollar_initialize_StablecoinBridgeUSDT',
+  m.call(juiceDollar, 'initialize', [stablecoinBridgeStartUSD, 'StablecoinBridgeStartUSD'], {
+    id: 'JuiceDollar_initialize_StablecoinBridgeStartUSD',
   });
 
-  // TODO: Mint some JUSD to close initialisation phase (IMPORTANT!)
+  // NOTE: JUSD minting to close initialization is handled in scripts/deployment/deployProtocol.ts
+  // That script deploys StartUSD, bridges 1000 SUSD → JUSD, and creates initial JUICE tokens
 
   return {
     juiceDollar,
     positionFactory,
     positionRoller,
-    stablecoinBridgeUSDT,
+    stablecoinBridgeStartUSD,
     frontendGateway,
     savingsGateway,
     mintingHubGateway,

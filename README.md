@@ -53,7 +53,7 @@ All source code is located in the [contracts](contracts) folder.
 |----------|-------------|
 | **Savings.sol** | Interest distribution to JUSD holders |
 | **SavingsVaultJUSD.sol** | ERC4626 vault for JUSD savings |
-| **StablecoinBridge.sol** | 1:1 swaps with USDT |
+| **StablecoinBridge.sol** | 1:1 swaps with external stablecoins (StartUSD for bootstrap) |
 
 ### Gateway Contracts (Frontend Rewards)
 
@@ -190,8 +190,6 @@ hh deploy --network citreaTestnet --tags MockTokens
 hh deploy --network citreaTestnet --tags JuiceDollar
 hh deploy --network citreaTestnet --tags PositionFactory
 hh deploy --network citreaTestnet --tags MintingHub
-hh deploy --network citreaTestnet --tags MockUSDToken
-hh deploy --network citreaTestnet --tags XUSDTBridge
 hh deploy --network citreaTestnet --tags positions
 ```
 
@@ -203,12 +201,16 @@ npx hardhat node
 
 ### Deploy Stablecoin Bridges
 
+**NOTE:** The bootstrap bridge (StartUSD → JUSD) is deployed automatically via `deployProtocol.ts`
+
+For additional bridges:
 ```bash
-# Deploy specific bridge (e.g., USDT)
-BRIDGE_KEY=USDT npx hardhat run scripts/deployment/deploy/deployBridge.ts --network citrea
+# 1. Add bridge config to scripts/deployment/config/stablecoinBridgeConfig.ts
+# 2. Deploy using BRIDGE_KEY environment variable:
+BRIDGE_KEY=<KEY> npx hardhat run scripts/deployment/deploy/deployBridge.ts --network citrea
 
 # Test on forked network
-USE_FORK=true BRIDGE_KEY=USDT npx hardhat run scripts/deployment/deploy/deployBridge.ts --network hardhat
+USE_FORK=true BRIDGE_KEY=<KEY> npx hardhat run scripts/deployment/deploy/deployBridge.ts --network hardhat
 ```
 
 Bridge configurations: `scripts/deployment/config/stablecoinBridgeConfig.ts`

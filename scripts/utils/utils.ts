@@ -10,7 +10,7 @@ const KNOWN_ADDRESSES: Record<string, string> = {
   // '0x...': 'FrontendGateway',
   // '0x...': 'SavingsGateway',
   // '0x...': 'MintingHubGateway',
-  // USDT Bridge will be added after deployment
+  // StartUSD Bootstrap Bridge deployed by deployProtocol.ts
 };
 
 export function formatHash(

@@ -8,8 +8,8 @@ export interface ChainAddress {
   savingsVaultJUSD: Address;
   mintingHubGateway: Address;
   coinLendingGateway: Address;
-  bridgeUSDT: Address;
-  usdt: Address;
+  bridgeStartUSD: Address;
+  startUSD: Address;
   roller: Address;
   positionFactoryV2: Address;
 }
@@ -26,8 +26,8 @@ export const ADDRESS: Record<number, ChainAddress> = {
     savingsVaultJUSD: zeroAddress,
     mintingHubGateway: zeroAddress,
     coinLendingGateway: zeroAddress,
-    bridgeUSDT: zeroAddress,
-    usdt: zeroAddress,
+    bridgeStartUSD: zeroAddress,
+    startUSD: zeroAddress,
     roller: zeroAddress,
     positionFactoryV2: zeroAddress,
   },
@@ -40,8 +40,8 @@ export const ADDRESS: Record<number, ChainAddress> = {
     savingsVaultJUSD: zeroAddress,
     mintingHubGateway: zeroAddress,
     coinLendingGateway: zeroAddress,
-    bridgeUSDT: zeroAddress,
-    usdt: zeroAddress,
+    bridgeStartUSD: zeroAddress,
+    startUSD: zeroAddress,
     roller: zeroAddress,
     positionFactoryV2: zeroAddress,
   },

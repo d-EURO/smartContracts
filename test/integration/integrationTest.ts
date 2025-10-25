@@ -76,16 +76,6 @@ interface Config {
 async function main() {
   console.log('Starting JuiceDollar protocol integration tests');
 
-  // Validate that Citrea addresses are configured
-  if (!citrea.WcBTC || !citrea.JUICESWAP_ROUTER || !citrea.JUICESWAP_FACTORY) {
-    console.log('\n⚠️  Citrea addresses not configured yet - skipping integration tests');
-    console.log('Please update constants/addresses.ts with deployed Citrea contract addresses:');
-    console.log('  - WcBTC (Wrapped cBTC)');
-    console.log('  - JUICESWAP_ROUTER');
-    console.log('  - JUICESWAP_FACTORY');
-    process.exit(0);
-  }
-
   const [deployer] = await ethers.getSigners();
   console.log(`Running tests with account (signer): ${deployer.address}`);
 
@@ -646,8 +636,22 @@ async function assertRevert(func: () => Promise<any>, testName: string, expected
   }
 }
 
-// Run integration tests
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
+// Mocha test suite wrapper
+describe('Integration Tests', function() {
+  before(function() {
+    // Skip if Citrea addresses not configured
+    if (!citrea.WcBTC || !citrea.JUICESWAP_ROUTER || !citrea.JUICESWAP_FACTORY) {
+      console.log('\n⚠️  Citrea addresses not configured - skipping integration tests');
+      console.log('Please update constants/addresses.ts with deployed Citrea contract addresses:');
+      console.log('  - WcBTC (Wrapped cBTC)');
+      console.log('  - JUICESWAP_ROUTER');
+      console.log('  - JUICESWAP_FACTORY');
+      this.skip(); // Gracefully skip instead of process.exit(0)
+    }
+  });
+
+  it('should run all integration tests', async function() {
+    this.timeout(300000); // 5 minute timeout for integration tests
+    await main();
+  });
 });
