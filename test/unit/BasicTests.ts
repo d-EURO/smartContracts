@@ -250,16 +250,6 @@ describe("Basic Tests", () => {
         expect(isPoolShareAmountCorrect).to.be.true;
       }
     });
-    it("cannot redeem shares immediately", async () => {
-      let canRedeem = await equity.canRedeem(owner.address);
-      expect(canRedeem).to.be.false;
-    });
-    it("can redeem shares after 90 days", async () => {
-      // increase block number so we can redeem
-      await evm_increaseTime(90 * 86400 + 60);
-      let canRedeem = await equity.canRedeem(owner.address);
-      expect(canRedeem).to.be.true;
-    });
     it("redeem 1 share", async () => {
       let amountShares = 1n;
       let fAmountShares = floatToDec18(amountShares);

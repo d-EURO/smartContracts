@@ -16,9 +16,11 @@ import {MathUtil} from "./utils/MathUtil.sol";
  * @notice If the JuiceDollar system was a bank, this contract would represent the equity on its balance sheet.
  * Like a corporation, the owners of the equity capital are the shareholders, or in this case the holders
  * of Juice Protocol (JUICE) tokens. Anyone can mint additional JUICE tokens by adding JuiceDollars to the
- * reserve pool. Also, JUICE tokens can be redeemed for JuiceDollars again after a minimum holding period.
- * Furthermore, the JUICE shares come with some voting power. Anyone that held at least 2% of the holding-period-
- * weighted reserve pool shares gains veto power and can veto new proposals.
+ * reserve pool. Also, JUICE tokens can be redeemed for JuiceDollars again, with only a one-block delay to
+ * prevent flash loan attacks.
+ *
+ * Furthermore, the JUICE shares come with voting power based on holding duration. Anyone that held at least
+ * 2% of the holding-period-weighted reserve pool shares gains veto power and can veto new proposals.
  */
 contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     /**
@@ -51,13 +53,6 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      */
     uint8 private constant TIME_RESOLUTION_BITS = 20;
 
-    /**
-     * @notice The minimum holding duration. You are not allowed to redeem your pool shares if you held them
-     * for less than the minimum holding duration at average. For example, if you have two pool shares at your
-     * address, one acquired 5 days ago and one acquired 105 days ago, you cannot redeem them as the average
-     * holding duration of your shares is only 55 days < 90 days.
-     */
-    uint256 public constant MIN_HOLDING_DURATION = 90 days << TIME_RESOLUTION_BITS; // Set to 5 for local testing
 
     JuiceDollar public immutable JUSD;
 
@@ -88,15 +83,21 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      */
     mapping(address owner => uint64 timestamp) private voteAnchor; // 44 bits for time stamp, 20 sub-second resolution
 
+    /**
+     * @notice Block number when an address last received JUICE shares (via mint, transfer, or any inbound path).
+     * Used to prevent same-block redemptions and flash loan attacks.
+     */
+    mapping(address owner => uint256 blockNumber) public lastInboundBlock;
+
     event Delegation(address indexed from, address indexed to); // indicates a delegation
     event Trade(address who, int256 amount, uint256 totPrice, uint256 newprice); // amount pos or neg for mint or redemption
 
-    error BelowMinimumHoldingPeriod();
     error NotQualified();
     error NotMinter();
     error InsufficientEquity();
     error TooManyShares();
     error TotalSupplyExceeded();
+    error SameBlockRedemption();
 
     constructor(
         JuiceDollar JUSD_
@@ -105,6 +106,15 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         ERC20("Juice Protocol", "JUICE")
     {
         JUSD = JUSD_;
+    }
+
+    /**
+     * @notice Prevents same-block redemptions to protect against flash loan and atomic MEV attacks.
+     * @param owner The address whose shares are being redeemed
+     */
+    modifier notSameBlock(address owner) {
+        if (block.number <= lastInboundBlock[owner]) revert SameBlockRedemption();
+        _;
     }
 
     /**
@@ -127,16 +137,14 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
             uint256 roundingLoss = _adjustRecipientVoteAnchor(to, value);
             // The total also must be adjusted and kept accurate by taking into account the rounding error.
             _adjustTotalVotes(from, value, roundingLoss);
+
+            // Flash loan protection: Track when shares are received to prevent same-block redemptions.
+            // This covers mints (from == address(0)), transfers, and ERC3009 transferWithAuthorization.
+            if (to != address(0)) {
+                lastInboundBlock[to] = block.number;
+            }
         }
         super._update(from, to, value);
-    }
-
-    /**
-     * @notice Returns whether the given address is allowed to redeem JUICE, which is the
-     * case after their average holding duration is larger than the required minimum.
-     */
-    function canRedeem(address owner) public view returns (bool) {
-        return _anchorTime() - voteAnchor[owner] >= MIN_HOLDING_DURATION;
     }
 
     /**
@@ -362,7 +370,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * @notice Redeem the given amount of shares owned by the sender and transfer the proceeds to the target.
      * @return The amount of JUSD transferred to the target
      */
-    function redeem(address target, uint256 shares) external returns (uint256) {
+    function redeem(address target, uint256 shares) external notSameBlock(msg.sender) returns (uint256) {
         return _redeemFrom(msg.sender, target, shares);
     }
 
@@ -370,7 +378,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * @notice Like redeem(...), but with an extra parameter to protect against front running.
      * @param expectedProceeds  The minimum acceptable redemption proceeds.
      */
-    function redeemExpected(address target, uint256 shares, uint256 expectedProceeds) external returns (uint256) {
+    function redeemExpected(address target, uint256 shares, uint256 expectedProceeds) external notSameBlock(msg.sender) returns (uint256) {
         uint256 proceeds = _redeemFrom(msg.sender, target, shares);
         require(proceeds >= expectedProceeds);
         return proceeds;
@@ -385,7 +393,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
         address target,
         uint256 shares,
         uint256 expectedProceeds
-    ) external returns (uint256) {
+    ) external notSameBlock(owner) returns (uint256) {
         _spendAllowance(owner, msg.sender, shares);
         uint256 proceeds = _redeemFrom(owner, target, shares);
         require(proceeds >= expectedProceeds);
@@ -393,7 +401,6 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     }
 
     function _redeemFrom(address owner, address target, uint256 shares) internal returns (uint256) {
-        if(!canRedeem(owner)) revert BelowMinimumHoldingPeriod();
         uint256 proceeds = calculateProceeds(shares);
         _burn(owner, shares);
         JUSD.transfer(target, proceeds);

@@ -108,8 +108,6 @@ describe('FrontendGateway Tests', () => {
   });
 
   describe('Redeeming Tests', () => {
-    const MIN_HOLDING_DURATION = 90 * 86400; // 90 days
-
     let frontendCode: Uint8Array;
     let investAmount: bigint;
     let expectedShares: bigint;
@@ -133,56 +131,24 @@ describe('FrontendGateway Tests', () => {
       expect(frontendCodeStruct.owner).to.be.equal(owner.address);
     });
 
-    it('Should fail to redeem if not enough time has passed', async () => {
-      // This test requires a large block time increase, breaking other unit tests.
-      // Therefore, we snapshot the state of the blockchain before running the test
-      // and revert to that state after the test is done.
-      const snapshotId = await ethers.provider.send('evm_snapshot', []);
-
-      try {
-        await evm_increaseTime(MIN_HOLDING_DURATION - 86400); // 89 days
-
-        await expect(frontendGateway.redeem(owner.getAddress(), expectedShares, 0, frontendCode)).to.be.reverted;
-
-        await evm_increaseTime(86400); // 1 additional day for 90 days total
-
-        await equity.approve(frontendGateway.getAddress(), expectedShares);
-        await expect(frontendGateway.redeem(owner.getAddress(), expectedShares, 0, frontendCode)).to.emit(
-          equity,
-          'Trade',
-        );
-      } finally {
-        // Revert to the original blockchain state
-        await ethers.provider.send('evm_revert', [snapshotId]);
-      }
-    });
-
     it('Should successfully redeem', async () => {
-      const snapshotId = await ethers.provider.send('evm_snapshot', []);
+      const redeemAmount = expectedShares / 2n;
+      const expectedRedeemAmount = await equity.calculateProceeds(redeemAmount);
+      const balanceBeforeAlice = await JUSD.balanceOf(alice.getAddress());
+      const JUICEbalanceBeforeOwner = await equity.balanceOf(owner.getAddress());
+      await equity.approve(frontendGateway.getAddress(), redeemAmount);
+      const tx = frontendGateway.redeem(alice.getAddress(), redeemAmount, expectedRedeemAmount, frontendCode);
+      const expPrice =
+        ((await equity.VALUATION_FACTOR()) * (await JUSD.equity()) * floatToDec18(1)) / (await equity.totalSupply());
+      expect(await equity.price()).to.be.eq(expPrice);
+      await expect(tx)
+        .to.emit(equity, 'Trade')
+        .withArgs(owner.getAddress(), -redeemAmount, expectedRedeemAmount, expPrice);
+      const balanceAfterAlice = await JUSD.balanceOf(alice.getAddress());
+      const JUICEbalanceAfterOwner = await equity.balanceOf(owner.getAddress());
 
-      try {
-        await evm_increaseTime(MIN_HOLDING_DURATION);
-        const redeemAmount = expectedShares / 2n;
-        const expectedRedeemAmount = await equity.calculateProceeds(redeemAmount);
-        const balanceBeforeAlice = await JUSD.balanceOf(alice.getAddress());
-        const JUICEbalanceBeforeOwner = await equity.balanceOf(owner.getAddress());
-        await equity.approve(frontendGateway.getAddress(), redeemAmount);
-        const tx = frontendGateway.redeem(alice.getAddress(), redeemAmount, expectedRedeemAmount, frontendCode);
-        const expPrice =
-          ((await equity.VALUATION_FACTOR()) * (await JUSD.equity()) * floatToDec18(1)) / (await equity.totalSupply());
-        expect(await equity.price()).to.be.eq(expPrice);
-        await expect(tx)
-          .to.emit(equity, 'Trade')
-          .withArgs(owner.getAddress(), -redeemAmount, expectedRedeemAmount, expPrice);
-        const balanceAfterAlice = await JUSD.balanceOf(alice.getAddress());
-        const JUICEbalanceAfterOwner = await equity.balanceOf(owner.getAddress());
-
-        expect(balanceAfterAlice - balanceBeforeAlice).to.be.equal(expectedRedeemAmount);
-        expect(JUICEbalanceBeforeOwner - JUICEbalanceAfterOwner).to.be.equal(redeemAmount);
-      } finally {
-        // Revert to the original blockchain state
-        await ethers.provider.send('evm_revert', [snapshotId]);
-      }
+      expect(balanceAfterAlice - balanceBeforeAlice).to.be.equal(expectedRedeemAmount);
+      expect(JUICEbalanceBeforeOwner - JUICEbalanceAfterOwner).to.be.equal(redeemAmount);
     });
 
     it('Should fail to withdraw rewards to if non-owner', async () => {
@@ -203,6 +169,28 @@ describe('FrontendGateway Tests', () => {
 
       expect(balanceAfterAlice - balanceBeforeAlice).to.be.equal(frontendCodeBalance);
       expect(balanceBeforeEquity - balanceAfterEquity).to.be.equal(frontendCodeBalance);
+    });
+
+    it('Should prevent same-block invest and redeem via FrontendGateway', async () => {
+      // Deploy test contract that attempts atomic invest+redeem via gateway
+      const TestFlashLoanGatewayFactory = await ethers.getContractFactory('TestFlashLoanGateway');
+      const testContract = await TestFlashLoanGatewayFactory.deploy(
+        await JUSD.getAddress(),
+        await equity.getAddress(),
+        await frontendGateway.getAddress(),
+      );
+
+      // Fund the test contract with JUSD
+      await JUSD.transfer(await testContract.getAddress(), floatToDec18(2000));
+
+      // Create a frontend code for this test
+      const testFrontendCode = ethers.randomBytes(32);
+      await frontendGateway.registerFrontendCode(testFrontendCode);
+
+      // Attempt atomic invest+redeem via gateway should fail
+      await expect(
+        testContract.attemptInvestAndRedeemViaGateway(floatToDec18(1000), testFrontendCode),
+      ).to.be.revertedWithCustomError(equity, 'SameBlockRedemption');
     });
   });
 
