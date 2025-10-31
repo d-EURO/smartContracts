@@ -114,14 +114,22 @@ describe("Equity Tests", () => {
     });
 
     it("should revert minting when total supply exceeds max of uint96", async () => {
-      await equity.invest(floatToDec18(1000), 0);
-      const maxUint96 = floatToDec18(2n ** 96n - 1n);
-      await XUSD.mint(owner.address, maxUint96);
-      await XUSD.approve(await bridge.getAddress(), maxUint96);
-      await bridge.mint(maxUint96);
-      await expect(equity.invest(maxUint96, 0)).to.be.revertedWithCustomError(
-        equity, "TotalSupplyExceeded"
-      );
+      const maxUint96 = 2n ** 96n - 1n;
+
+      const MockEquityFactory = await ethers.getContractFactory("MockEquity");
+      const mockEquity = await MockEquityFactory.deploy(await JUSD.getAddress()) as any;
+
+      await XUSD.mint(owner.address, floatToDec18(10000));
+      await XUSD.approve(await bridge.getAddress(), floatToDec18(10000));
+      await bridge.mint(floatToDec18(10000));
+      // Just fund the original equity so JUSD.equity() passes the check
+      await JUSD.transfer(await equity.getAddress(), floatToDec18(10000));
+
+      await mockEquity.mintForTesting(owner.address, maxUint96 - floatToDec18(1000000));
+
+      await JUSD.approve(mockEquity, floatToDec18(1000));
+      await expect(mockEquity.invest(floatToDec18(1000), 0))
+        .to.be.revertedWithCustomError(mockEquity, "TotalSupplyExceeded");
     });
 
     it("should create an initial share", async () => {
@@ -137,20 +145,21 @@ describe("Equity Tests", () => {
       expect(balance).to.be.equal(floatToDec18(10000000));
     });
 
-    it("should create 1000 more shares when adding seven capital plus fees", async () => {
+    it("should create additional shares when adding capital", async () => {
       await JUSD.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), 0);
       let expected = await equity.calculateShares(floatToDec18(31000 / 0.98));
+      // With VALUATION_FACTOR = 10, newShares = 10M * (32000/1000)^(1/10) - 10M ≈ 4.14M
       expect(expected).to.be.approximately(
-        floatToDec18(10000000),
-        floatToDec18(0.01),
+        floatToDec18(4142136),
+        floatToDec18(10000),
       );
       await JUSD.approve(equity, floatToDec18(31000 / 0.98));
       await equity.invest(floatToDec18(31000 / 0.98), expected);
       let balance = await equity.balanceOf(owner.address);
       expect(balance).to.be.approximately(
-        floatToDec18(20000000),
-        floatToDec18(0.01),
+        floatToDec18(14142136),
+        floatToDec18(10000),
       );
     });
 

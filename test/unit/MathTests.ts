@@ -42,25 +42,55 @@ describe("Math Tests", () => {
       expectResult(result, fResult);
     });
 
-    it("pow5", async () => {
-      const a = 1.5;
-      const result = a ** 5;
-      const fA = floatToDec18(a);
-      const fResult = await MathContract.power5(fA);
-      expectResult(result, fResult);
+    it("pow10", async () => {
+      const testCases = [0.5, 0.9, 1.0, 1.5, 2.0, 5.0, 10.0];
+      for (const a of testCases) {
+        const result = a ** 10;
+        const fA = floatToDec18(a);
+        const fResult = await MathContract.power10(fA);
+        expectResult(result, fResult);
+      }
     });
 
-    it("cubic root", async () => {
-      // let numbers = [0.01, 0.9, 1, 1.5, 2, 10];
-      const numbers = [1000000000000, 1, 1.01, 1.0002, 1.000003, 1.00000005];
-      for (let k = 0; k < numbers.length; k++) {
-        const number = numbers[k];
-        const result = number ** (1 / 5);
+    it("tenth root", async () => {
+      const numbers = [
+        0.01, 0.1, 0.5, 0.9,
+        1, 1.00000005, 1.000003, 1.0002, 1.01,
+        1000000000000
+      ];
+      for (const number of numbers) {
+        const result = number ** (1 / 10);
         const fNumber = floatToDec18(number);
-        const tx = await MathContract.cubicRoot(fNumber, true);
+        const tx = await MathContract.tenthRoot(fNumber, true);
         await expect(tx).to.not.be.reverted;
         const fResult = await MathContract.result();
         expectResult(result, fResult);
+      }
+    });
+
+    it("tenth root powers of 2", async () => {
+      const testCases = [
+        { input: 2, expected: 2 ** 0.1 },
+        { input: 32, expected: Math.sqrt(2) },
+        { input: 1024, expected: 2 },
+      ];
+      for (const test of testCases) {
+        const fNumber = floatToDec18(test.input);
+        const tx = await MathContract.tenthRoot(fNumber, true);
+        await expect(tx).to.not.be.reverted;
+        const fResult = await MathContract.result();
+        expectResult(test.expected, fResult);
+      }
+    });
+
+    it("round-trip power10 and tenth root", async () => {
+      const testCases = [0.5, 1.5, 2.0, 10.0];
+      for (const x of testCases) {
+        const fX = floatToDec18(x);
+        const fPow10 = await MathContract.power10(fX);
+        await MathContract.tenthRoot(fPow10, true);
+        const fRoundTrip = await MathContract.result();
+        expectResult(x, fRoundTrip);
       }
     });
 

@@ -10,20 +10,12 @@ contract TestMathUtil is MathUtil {
         result = 1;
     }
 
-    // make it a transaction so we can measure gas costs in our tests
-    function cubicRoot(uint256 a, bool recordResult) external {
-        uint256 r = _fifthRoot(a);
-        if (recordResult) {
-            result = r;
-        }
-    }
-
     function calculateShares(
         uint256 totalShares,
         uint256 capitalBefore,
         uint256 investment
     ) external pure returns (uint256) {
-        uint256 newTotalShares = _mulD18(totalShares, _fifthRoot(_divD18(capitalBefore + investment, capitalBefore)));
+        uint256 newTotalShares = _mulD18(totalShares, _tenthRoot(_divD18(capitalBefore + investment, capitalBefore)));
         return newTotalShares - totalShares;
     }
 
@@ -35,7 +27,14 @@ contract TestMathUtil is MathUtil {
         return _divD18(_a, _b);
     }
 
-    function power5(uint256 _x) external pure returns (uint256) {
-        return _power5(_x);
+    function power10(uint256 _x) external pure returns (uint256) {
+        return _power10(_x);
+    }
+
+    function tenthRoot(uint256 a, bool recordResult) external {
+        uint256 r = _tenthRoot(a);
+        if (recordResult) {
+            result = r;
+        }
     }
 }

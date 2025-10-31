@@ -12,18 +12,18 @@ contract MathUtil {
     uint256 internal constant THRESH_DEC18 = 10 ** 6;
 
     /**
-     * @notice Fifth root with Halley approximation
+     * @notice Tenth root with Halley approximation
      *         Number 1e18 decimal
-     * @param _v     number for which we calculate x**(1/5)
-     * @return returns _v**(1/5)
+     * @param _v     number for which we calculate x**(1/10)
+     * @return returns _v**(1/10)
      */
-    function _fifthRoot(uint256 _v) internal pure returns (uint256) {
+    function _tenthRoot(uint256 _v) internal pure returns (uint256) {
         // Good first guess for _v slightly above 1.0, which is often the case in the JUSD system
-        uint256 x = _v > ONE_DEC18 && _v < 10 ** 19 ? (_v - ONE_DEC18) / 5 + ONE_DEC18 : ONE_DEC18;
+        uint256 x = _v > ONE_DEC18 && _v < 10 ** 19 ? (_v - ONE_DEC18) / 10 + ONE_DEC18 : ONE_DEC18;
         uint256 diff;
         do {
-            uint256 powX5 = _power5(x);
-            uint256 xnew = (x * (2 * powX5 + 3 * _v)) / (3 * powX5 + 2 * _v);
+            uint256 powX10 = _power10(x);
+            uint256 xnew = _mulD18(x, _divD18(11 * _v + 9 * powX10, 9 * _v + 11 * powX10));
             diff = xnew > x ? xnew - x : x - xnew;
             x = xnew;
         } while (diff > THRESH_DEC18);
@@ -38,8 +38,11 @@ contract MathUtil {
         return (_a * ONE_DEC18) / _b;
     }
 
-    function _power5(uint256 _x) internal pure returns (uint256) {
-        return _mulD18(_mulD18(_mulD18(_mulD18(_x, _x), _x), _x), _x);
+    function _power10(uint256 _x) internal pure returns (uint256) {
+        uint256 x2 = _mulD18(_x, _x);
+        uint256 x4 = _mulD18(x2, x2);
+        uint256 x5 = _mulD18(x4, _x);
+        return _mulD18(x5, x5);
     }
 
     function _min(uint256 a, uint256 b) internal pure returns (uint256) {
