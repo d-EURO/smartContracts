@@ -334,7 +334,7 @@ contract MintingHub is IMintingHub, ERC165 {
             return 0;
         } else {
             uint256 timeLeft = phase2 - (timeNow - start);
-            return (liqPrice / phase2) * timeLeft;
+            return (liqPrice * timeLeft) / phase2;
         }
     }
 
