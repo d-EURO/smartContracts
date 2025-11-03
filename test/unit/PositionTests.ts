@@ -146,7 +146,7 @@ describe("Position Tests", () => {
       collateral = await mockVOL.getAddress();
     });
 
-    it("should revert position opening when initial period is less than 3 days", async () => {
+    it("should revert position opening when initial period is less than 6 hours", async () => {
       await mockVOL
         .connect(owner)
         .approve(await mintingHub.getAddress(), fInitialCollateral);
@@ -156,7 +156,7 @@ describe("Position Tests", () => {
           minCollateral,
           fInitialCollateral,
           initialLimit,
-          86400 * 2,
+          3600 * 5, // 5 hours - less than 6 hours
           duration,
           challengePeriod,
           fFees,
