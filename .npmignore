@@ -4,7 +4,7 @@ audits
 abi/
 
 cache
-contracts
+# contracts (now included via "files" field in package.json for Hardhat dependencies)
 coverage
 coverage.json
 
