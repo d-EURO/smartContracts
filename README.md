@@ -139,13 +139,12 @@ yarn install
 Create a `.env` file (see `.env.example`):
 
 ```bash
-ALCHEMY_RPC_KEY=your_alchemy_key
-DEPLOYER_SEED="test test test test test test test test test test test junk"
-DEPLOYER_SEED_INDEX=1              # optional: select deployer index
-DEPLOYER_PRIVATE_KEY=0x...         # optional: replaces deployer seed
-ETHERSCAN_API_KEY=your_etherscan_key
-USE_FORK=false
-CONFIRM_DEPLOYMENT=false
+# Required: Use EITHER private key OR seed phrase
+DEPLOYER_PRIVATE_KEY=your_private_key_here
+# DEPLOYER_ACCOUNT_SEED="twelve word seed phrase goes here"
+
+# Optional: For contract verification on Citrea explorer
+# CITREA_EXPLORER_API_KEY=your_api_key_here
 ```
 
 ### 3. Compile Contracts

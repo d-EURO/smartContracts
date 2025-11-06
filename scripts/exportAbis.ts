@@ -65,6 +65,11 @@ const contractABI = [
     exportName: 'PositionV2ABI',
   },
   {
+    from: `${ARTIFACTS_PATH}/StartUSD.sol/StartUSD.json`,
+    to: `${ABIS_EXPORT_PATH}/utils/StartUSD.ts`,
+    exportName: 'StartUSDABI',
+  },
+  {
     from: `${ARTIFACTS_PATH}/StablecoinBridge.sol/StablecoinBridge.json`,
     to: `${ABIS_EXPORT_PATH}/utils/StablecoinBridge.ts`,
     exportName: 'StablecoinBridgeABI',

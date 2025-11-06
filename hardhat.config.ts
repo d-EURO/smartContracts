@@ -60,12 +60,15 @@ task('monitor-all', 'Monitor all JuiceDollar Protocol contracts')
 import dotenv from 'dotenv';
 dotenv.config();
 
-const seed = process.env.DEPLOYER_ACCOUNT_SEED;
-if (!seed) throw new Error('Failed to import the seed string from .env');
-const w0 = getChildFromSeed(seed, 0); // deployer
-const deployerPk = process.env.DEPLOYER_PRIVATE_KEY ?? w0.privateKey;
-const alchemyApiKey = process.env.ALCHEMY_API_KEY;
-if (alchemyApiKey?.length == 0 || !alchemyApiKey) console.log('WARN: No Alchemy Key found in .env');
+// Get deployer credentials - use private key if provided, otherwise derive from seed
+const deployerPk = process.env.DEPLOYER_PRIVATE_KEY
+  ?? (process.env.DEPLOYER_ACCOUNT_SEED
+    ? getChildFromSeed(process.env.DEPLOYER_ACCOUNT_SEED, 0).privateKey
+    : undefined);
+
+if (!deployerPk) {
+  throw new Error('DEPLOYER_PRIVATE_KEY or DEPLOYER_ACCOUNT_SEED must be provided in .env');
+}
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -107,7 +110,7 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY || '',
+    apiKey: process.env.CITREA_EXPLORER_API_KEY || '',
   },
   sourcify: {
     enabled: true,
