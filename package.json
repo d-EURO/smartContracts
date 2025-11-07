@@ -22,7 +22,7 @@
     "wallet": "npx ts-node helper/wallet.info.ts",
     "coverage": "npx hardhat coverage",
     "deploy": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts",
-    "deploy:network": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network",
+    "deploy:testnet": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network citreaTestnet",
     "verify": "npx hardhat run scripts/verifyContracts.ts --network citrea",
     "build": "tsup",
     "ts:export:abis": "npx ts-node ./scripts/exportAbis.ts && prettier --write \"exports/abis/**/*.ts\"",
