@@ -283,30 +283,43 @@ async function main(hre: HardhatRuntimeEnvironment) {
     process.exit(1);
   }
 
-  // Save deployment metadata to file
+  // Save deployment metadata to file using standard schema
   console.log('Saving deployment metadata to file...');
+
+  // Determine network folder name
+  const networkFolder = hre.network.name === 'hardhat' ? 'localhost' : hre.network.name;
+
   const deploymentInfo = {
-    network: hre.network.name,
-    chainId: Number(chainId),
-    blockNumber: targetBlock,
-    deployer: deployer.address,
+    schemaVersion: '1.0',
+    network: {
+      name: hre.network.name,
+      chainId: Number(chainId)
+    },
+    deployment: {
+      deployedAt: new Date().toISOString(),
+      deployedBy: deployer.address,
+      blockNumber: targetBlock
+    },
     contracts: deployedContracts,
-    timestamp: Date.now(),
-    deploymentMethod: 'rapid-sequential',
+    metadata: {
+      deployer: 'JuiceDollar/smartContracts',
+      deploymentMethod: 'rapid-sequential',
+      scriptVersion: '1.0.0'
+    }
   };
 
-  const deploymentDir = path.join(__dirname, '../../deployments');
+  const deploymentDir = path.join(__dirname, '../../../deployments', networkFolder);
   if (!fs.existsSync(deploymentDir)) {
     fs.mkdirSync(deploymentDir, { recursive: true });
   }
 
-  const filename = `deployProtocol-${hre.network.name}-${Date.now()}.json`;
+  const filename = 'protocol.json';
   fs.writeFileSync(
     path.join(deploymentDir, filename),
     JSON.stringify(deploymentInfo, null, 2),
   );
 
-  console.log(`\n✅ Deployment metadata saved to: deployments/${filename}`);
+  console.log(`\n✅ Deployment metadata saved to: deployments/${networkFolder}/${filename}`);
   console.log('\n📋 Deployed Contracts:');
   console.log(JSON.stringify(deployedContracts, null, 2));
 }

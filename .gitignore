@@ -15,18 +15,16 @@ coverage.json
 /dist
 .env
 launch.json
-scripts/deployment/deployments/localhost
-scripts/deployment/deployments/hardhat
-scripts/deployments/deployPositions-*.json
-scripts/deployments/bridge-*.json
-scripts/deployments/deployProtocol-*.json
+
+# Standardized deployment structure
+deployments/localhost/
+deployments/hardhat/
 scripts/test.ts
 scripts/test-*.ts
 .VSCodeCounter/
 .vscode/settings.json
 tst.ts
 package-lock.json
-.DS_Store
 /abi
 /out
 /lib

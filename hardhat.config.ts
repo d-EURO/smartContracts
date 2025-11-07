@@ -57,6 +57,28 @@ task('monitor-all', 'Monitor all JuiceDollar Protocol contracts')
     return monitorAllAction(args, hre);
   });
 
+// Pre-compile hook to ensure ABI directories exist
+// This prevents hardhat-abi-exporter from failing on fresh clones where abi/ is gitignored
+import fs from 'fs';
+import path from 'path';
+
+task('compile').setAction(async (args, hre, runSuper) => {
+  // Ensure ABI base directories exist before compilation
+  const abiPaths = [
+    path.join(__dirname, 'abi'),
+    path.join(__dirname, 'abi', 'signature')
+  ];
+
+  for (const dir of abiPaths) {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  }
+
+  // Run the original compile task
+  return runSuper();
+});
+
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -121,7 +143,7 @@ const config: HardhatUserConfig = {
     cache: './cache',
     artifacts: './artifacts',
     deploy: './scripts/deployment/deploy',
-    deployments: './scripts/deployment/deployments',
+    deployments: './deployments',
   },
   contractSizer: {
     alphaSort: false,
