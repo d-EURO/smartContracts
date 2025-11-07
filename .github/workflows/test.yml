@@ -14,11 +14,12 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '22.x'
+          cache: 'yarn'
       - name: Install packages
-        run: npm i
+        run: yarn install --frozen-lockfile
       - name: Create dummy .env from .env.example
         run: mv .env.example .env
       - name: Compile contracts
-        run: npm run compile
+        run: yarn compile
       - name: Run Tests
-        run: CI=true npm test
+        run: CI=true yarn test
