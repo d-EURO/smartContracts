@@ -1,9 +1,9 @@
-import { TransactionRequest, TransactionResponse } from 'ethers';
+import { TransactionRequest, TransactionResponse, TransactionReceipt } from 'ethers';
 import { HardhatRuntimeEnvironment } from 'hardhat/types';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
-import { deploymentConfig, contractsParams } from '../config/deploymentConfig';
+import { getGasConfig, deploymentConstants, contractsParams } from '../config/deploymentConfig';
 import StartUSDArtifact from '../../../artifacts/contracts/StartUSD.sol/StartUSD.json';
 import JuiceDollarArtifact from '../../../artifacts/contracts/JuiceDollar.sol/JuiceDollar.json';
 import PositionFactoryArtifact from '../../../artifacts/contracts/MintingHubV2/PositionFactory.sol/PositionFactory.json';
@@ -33,11 +33,70 @@ interface DeployedContracts {
   mintingHubGateway: DeployedContract;
 }
 
+/**
+ * Waits for a transaction with retry logic to handle RPC timeouts. Uses exponential backoff 
+ * and falls back to manual receipt query if .wait() times out. This handles Citrea testnet 
+ * RPC reliability issues.
+ *
+ * @param txResponse - The transaction response to wait for
+ * @param confirmations - Number of confirmations to wait for (default: 1)
+ * @param maxRetries - Maximum number of retry attempts (default: 5)
+ * @param baseDelayMs - Base delay in ms for exponential backoff (default: 2000)
+ * @returns Transaction receipt if confirmed
+ * @throws Error if transaction fails after all retries and fallback
+ */
+async function waitForTransactionWithRetry(
+  txResponse: TransactionResponse,
+  confirmations: number = 1,
+  maxRetries: number = 5,
+  baseDelayMs: number = 2000
+): Promise<TransactionReceipt | null> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const receipt = await txResponse.wait(confirmations);
+      return receipt;
+    } catch (error: any) {
+      lastError = error;
+
+      const nonRetryableErrors = ['CALL_EXCEPTION', 'INSUFFICIENT_FUNDS', 'NONCE_EXPIRED', 'TRANSACTION_REPLACED'];
+      if (error.code && nonRetryableErrors.includes(error.code)) {
+        throw error;
+      }
+
+      if (attempt < maxRetries - 1) {
+        const delayMs = baseDelayMs * Math.pow(2, attempt);
+        console.warn(`Retry ${attempt + 1}/${maxRetries} for ${txResponse.hash} after ${delayMs}ms (${error.message})`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        continue;
+      }
+    }
+  }
+
+  console.warn(`.wait() failed after ${maxRetries} attempts, querying receipt manually...`);
+  try {
+    const receipt = await txResponse.provider.getTransactionReceipt(txResponse.hash);
+    if (receipt && (await receipt.confirmations()) >= confirmations) {
+      console.log(`Transaction confirmed despite .wait() error: ${txResponse.hash}`);
+      return receipt;
+    } else {
+      console.error(`Transaction not found or insufficient confirmations: ${txResponse.hash}`);
+    }
+  } catch (receiptError: any) {
+    console.error(`Could not get receipt for ${txResponse.hash}: ${receiptError.message}`);
+  }
+
+  throw lastError || new Error(`Failed to get receipt for ${txResponse.hash} after ${maxRetries} retries`);
+}
+
 async function main(hre: HardhatRuntimeEnvironment) {
   const { ethers } = hre;
   const provider = ethers.provider;
   const network = await provider.getNetwork();
   const chainId = network.chainId;
+  const isLocal = hre.network.name === 'localhost' || hre.network.name === 'hardhat';
+  const gasConfig = getGasConfig(hre.network.name);
 
   console.log(`Deploying on ${hre.network.name} (chainId: ${chainId})`);
   if ('url' in hre.network.config) console.log(`RPC URL: ${hre.network.config.url}`);
@@ -47,10 +106,21 @@ async function main(hre: HardhatRuntimeEnvironment) {
   console.log(`Using deployer address: ${deployer.address}`);
 
   const blockNumber = await provider.getBlockNumber();
-  const targetBlock = blockNumber + deploymentConfig.targetBlockOffset;
+  const targetBlock = blockNumber + deploymentConstants.targetBlockOffset;
   let nonce = await provider.getTransactionCount(deployer.address);
   console.log(`Starting deployment targeting block ${targetBlock}`);
   console.log(`Current nonce: ${nonce}`);
+
+  // Verify gas price configuration
+  const feeData = await provider.getFeeData();
+  const configMaxFee = ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei');
+
+  console.log(`Network max fee: ${feeData.maxFeePerGas ? ethers.formatUnits(feeData.maxFeePerGas, 'gwei') : 'N/A'} gwei`);
+  console.log(`Configured max fee: ${gasConfig.maxFeePerGas} gwei\n`);
+
+  if (feeData.maxFeePerGas && feeData.maxFeePerGas > configMaxFee) {
+    console.error('WARNING: Configured gas price may be too low for current network conditions\n');
+  }
 
   const transactionBundle: TransactionRequest[] = [];
 
@@ -63,11 +133,11 @@ async function main(hre: HardhatRuntimeEnvironment) {
       to: null,
       data: txRequest.data,
       value: txRequest.value || 0,
-      gasLimit: ethers.parseUnits(deploymentConfig.contractDeploymentGasLimit, 'wei'),
+      gasLimit: ethers.parseUnits(deploymentConstants.contractDeploymentGasLimit, 'wei'),
       chainId: chainId,
       type: 2, // EIP-1559
-      maxFeePerGas: ethers.parseUnits(deploymentConfig.maxFeePerGas, 'gwei'),
-      maxPriorityFeePerGas: ethers.parseUnits(deploymentConfig.maxPriorityFeePerGas, 'gwei'),
+      maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+      maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
       nonce: nonce++,
     };
 
@@ -95,11 +165,11 @@ async function main(hre: HardhatRuntimeEnvironment) {
       to: contractAddress,
       data,
       value: 0,
-      gasLimit: ethers.parseUnits(deploymentConfig.contractCallGasLimit, 'wei'),
+      gasLimit: ethers.parseUnits(deploymentConstants.contractCallGasLimit, 'wei'),
       chainId: chainId,
       type: 2, // EIP-1559
-      maxFeePerGas: ethers.parseUnits(deploymentConfig.maxFeePerGas, 'gwei'),
-      maxPriorityFeePerGas: ethers.parseUnits(deploymentConfig.maxPriorityFeePerGas, 'gwei'),
+      maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+      maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
       nonce: nonce++,
     };
 
@@ -248,27 +318,36 @@ async function main(hre: HardhatRuntimeEnvironment) {
       console.log(`[${i + 1}/${transactionBundle.length}] TX submitted: ${txResponse.hash} (${elapsed}s elapsed)`);
     }
 
-    console.log(`\n✅ All ${transactionBundle.length} transactions submitted in ${((Date.now() - startTime) / 1000).toFixed(2)} seconds`);
-    console.log('Waiting for transaction confirmations...\n');
+    console.log(`\nAll ${transactionBundle.length} transactions submitted in ${((Date.now() - startTime) / 1000).toFixed(2)} seconds`);
+    console.log('Waiting for transaction confirmations sequentially with retry logic...\n');
 
-    // Wait for all transactions to be mined
-    const receipts = await Promise.all(
-      txResponses.map((txResponse, idx) => {
-        return txResponse.wait(1).then((receipt) => {
-          if (receipt) {
-            console.log(`[${idx + 1}/${txResponses.length}] TX confirmed: ${txResponse.hash} (block ${receipt.blockNumber})`);
-          }
-          return receipt;
-        });
-      })
-    );
+    // Wait for transactions sequentially with retry logic to handle RPC timeouts
+    const receipts = [];
+    const confirmations = isLocal ? 1 : 6;
+    for (let i = 0; i < txResponses.length; i++) {
+      try {
+        const receipt = await waitForTransactionWithRetry(txResponses[i], confirmations, 5, 2000);
+        if (receipt) {
+          console.log(`[${i + 1}/${txResponses.length}] TX confirmed: ${txResponses[i].hash} (block ${receipt.blockNumber})`);
+          receipts.push(receipt);
+        } else {
+          console.error(`[${i + 1}/${txResponses.length}] TX failed to confirm: ${txResponses[i].hash}`);
+          receipts.push(null);
+        }
+      } catch (error: any) {
+        console.error(`[${i + 1}/${txResponses.length}] TX confirmation error: ${txResponses[i].hash} - ${error.message}`);
+        receipts.push(null);
+      }
+    }
 
+    const nullReceipts = receipts.filter((receipt) => receipt === null);
     const failedTxs = receipts.filter((receipt) => receipt && receipt.status === 0);
-    if (failedTxs.length > 0) {
-      console.error(`\n${failedTxs.length} transactions failed!`);
-      failedTxs.forEach((receipt, idx) => {
-        console.error(`Failed TX ${idx + 1}: ${receipt?.hash}`);
-      });
+
+    if (nullReceipts.length > 0) {
+      console.error(`\n${nullReceipts.length} transaction(s) failed to confirm`);
+      deploymentSuccessful = false;
+    } else if (failedTxs.length > 0) {
+      console.error(`\n${failedTxs.length} transaction(s) reverted`);
       deploymentSuccessful = false;
     } else {
       console.log('\nAll transactions confirmed successfully!');
@@ -283,10 +362,6 @@ async function main(hre: HardhatRuntimeEnvironment) {
     process.exit(1);
   }
 
-  // Save deployment metadata to file using standard schema
-  console.log('Saving deployment metadata to file...');
-
-  // Determine network folder name
   const networkFolder = hre.network.name === 'hardhat' ? 'localhost' : hre.network.name;
 
   const deploymentInfo = {
@@ -318,9 +393,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
     path.join(deploymentDir, filename),
     JSON.stringify(deploymentInfo, null, 2),
   );
+  console.log(`\nDeployment metadata saved to: deployments/${networkFolder}/${filename}`);
 
-  console.log(`\n✅ Deployment metadata saved to: deployments/${networkFolder}/${filename}`);
-  console.log('\n📋 Deployed Contracts:');
+  console.log('\nDeployed Contracts:');
   console.log(JSON.stringify(deployedContracts, null, 2));
 }
 

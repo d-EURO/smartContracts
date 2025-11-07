@@ -108,7 +108,13 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
-    hardhat: {},
+    hardhat: {
+      chainId: 31337,
+    },
+    localhost: {
+      url: "http://127.0.0.1:8545",
+      chainId: 1337,
+    },
     citrea: {
       url: 'https://rpc.juiceswap.com',
       chainId: 62831,
@@ -123,7 +129,7 @@ const config: HardhatUserConfig = {
       gas: 'auto',
       gasPrice: 'auto',
       accounts: [deployerPk],
-      timeout: 50_000,
+      timeout: 300_000,
     },
   },
   namedAccounts: {
@@ -132,7 +138,19 @@ const config: HardhatUserConfig = {
     },
   },
   etherscan: {
-    apiKey: process.env.CITREA_EXPLORER_API_KEY || '',
+    apiKey: {
+      citreaTestnet: 'no-api-key-needed',
+    },
+    customChains: [
+      {
+        network: "citreaTestnet",
+        chainId: 5115,
+        urls: {
+          apiURL: "https://explorer.testnet.citrea.xyz/api",
+          browserURL: "https://explorer.testnet.citrea.xyz"
+        }
+      }
+    ]
   },
   sourcify: {
     enabled: true,

@@ -1,12 +1,40 @@
-export interface DeploymentConfig {
-  maxFeePerGas: string; // in gwei
-  maxPriorityFeePerGas: string; // in gwei
-  contractDeploymentGasLimit: string;
-  contractCallGasLimit: string;
-  targetBlockOffset: number;
-  maxRetries?: number;
-  retryDelayMs?: number;
+export interface GasConfig {
+  maxFeePerGas: string;
+  maxPriorityFeePerGas: string;
 }
+
+/** Returns network-specific gas configuration (values in gwei). */
+export function getGasConfig(networkName: string): GasConfig {
+  const configs: Record<string, GasConfig> = {
+    hardhat: {
+      maxFeePerGas: '10',
+      maxPriorityFeePerGas: '1',
+    },
+    localhost: {
+      maxFeePerGas: '10',
+      maxPriorityFeePerGas: '1',
+    },
+    citrea: {
+      maxFeePerGas: '0.01',
+      maxPriorityFeePerGas: '0.001',
+    },
+    citreaTestnet: {
+      maxFeePerGas: '0.01',
+      maxPriorityFeePerGas: '0.001',
+    },
+  }
+
+  if (!configs[networkName]) {
+    console.warn(`Unknown network "${networkName}", falling back to citreaTestnet gas config`);
+  }
+  return configs[networkName] || configs.citreaTestnet;
+}
+
+export const deploymentConstants = {
+  contractDeploymentGasLimit: '8000000',
+  contractCallGasLimit: '500000',
+  targetBlockOffset: 1,
+};
 
 export interface StablecoinBridgeParams {
   other: string;
@@ -26,14 +54,6 @@ export interface ContractsParams {
     startUSD: StablecoinBridgeParams;
   };
 }
-
-export const deploymentConfig: DeploymentConfig = {
-  maxFeePerGas: '30',
-  maxPriorityFeePerGas: '5',
-  contractDeploymentGasLimit: '8000000',
-  contractCallGasLimit: '500000',
-  targetBlockOffset: 1,
-};
 
 export const contractsParams = {
   juiceDollar: {
