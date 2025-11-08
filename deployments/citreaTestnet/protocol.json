@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.0",
+  "network": {
+    "name": "citreaTestnet",
+    "chainId": 5115
+  },
+  "deployment": {
+    "deployedAt": "2025-11-07T11:23:00.000Z",
+    "deployedBy": "0xE399782Fe2B0aBb138926b14261F49473b4881A3",
+    "blockNumber": 17856693
+  },
+  "contracts": {
+    "startUSD": {
+      "address": "0xf0229A29172E3541F5578dFC02aa024b3Bdb96A1",
+      "constructorArgs": []
+    },
+    "juiceDollar": {
+      "address": "0x1Dd3057888944ff1f914626aB4BD47Dc8b6285Fe",
+      "constructorArgs": [
+        1209600
+      ]
+    },
+    "equity": {
+      "address": "0xD82010E94737A4E4C3fc26314326Ff606E2Dcdf4",
+      "constructorArgs": [
+        "0x1Dd3057888944ff1f914626aB4BD47Dc8b6285Fe"
+      ]
+    },
+    "positionFactory": {
+      "address": "0x4cc067EfcD6E6386BA8D6fd31c907Cad6C005318",
+      "constructorArgs": []
+    },
+    "positionRoller": {
+      "address": "0x851FF9f1F5fb7eEf75257aAa0adD2121D6b1Bd49",
+      "constructorArgs": [
+        "0x1Dd3057888944ff1f914626aB4BD47Dc8b6285Fe"
+      ]
+    },
+    "bridgeStartUSD": {
+      "address": "0xFf862f932eB215A9C4aC8F3d20dd6dAe69DeC6D8",
+      "constructorArgs": [
+        "0xf0229A29172E3541F5578dFC02aa024b3Bdb96A1",
+        "0x1Dd3057888944ff1f914626aB4BD47Dc8b6285Fe",
+        "10000000000000000000000",
+        3
+      ]
+    },
+    "frontendGateway": {
+      "address": "0xe8757e121593bBD9f784F196026259085461aB17",
+      "constructorArgs": [
+        "0x1Dd3057888944ff1f914626aB4BD47Dc8b6285Fe"
+      ]
+    },
+    "savingsGateway": {
+      "address": "0x13531a4E00B36Fdb5f9f9A7c8C85cBc08Fd8EbDb",
+      "constructorArgs": [
+        "0x1Dd3057888944ff1f914626aB4BD47Dc8b6285Fe",
+        100000,
+        "0xe8757e121593bBD9f784F196026259085461aB17"
+      ]
+    },
+    "mintingHubGateway": {
+      "address": "0xFfcD888Eb52F0FdD894fef580370A2FF48d82279",
+      "constructorArgs": [
+        "0x1Dd3057888944ff1f914626aB4BD47Dc8b6285Fe",
+        "0x13531a4E00B36Fdb5f9f9A7c8C85cBc08Fd8EbDb",
+        "0x851FF9f1F5fb7eEf75257aAa0adD2121D6b1Bd49",
+        "0x4cc067EfcD6E6386BA8D6fd31c907Cad6C005318",
+        "0xe8757e121593bBD9f784F196026259085461aB17"
+      ]
+    }
+  },
+  "metadata": {
+    "deployer": "JuiceDollar/smartContracts",
+    "deploymentMethod": "rapid-sequential",
+    "scriptVersion": "1.0.0"
+  }
+}
