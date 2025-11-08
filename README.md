@@ -247,26 +247,39 @@ npx hardhat ignition verify $DEPLOYMENT --include-unrelated-contracts
 ### Package Info
 
 - **Name**: `@juicedollar/jusd`
-- **Version**: `1.0.16` (see `package.json`)
+- **Version**: `1.0.0` (see `package.json`)
 - **Registry**: https://registry.npmjs.org
 
-### Build & Publish
+### First-Time Publish
 
 ```bash
-# 1. Update version in package.json
-# "version": "1.0.17"
-
-# 2. Build TypeScript package
-yarn run build
-
-# 3. Login to NPM
+# 1. Login to NPM
 npm login
 
-# 4. Publish package
+# 2. Publish (build happens automatically via prepublishOnly)
 yarn run publish
 ```
 
-**Note:** The publish command may execute twice; the second will fail with a version conflict (expected behavior).
+### Publishing Updates
+
+```bash
+# 1. Update contracts (if changed)
+# Edit contracts, then export ABIs:
+yarn run ts:export:abis
+
+# 2. Update version in package.json (semantic versioning)
+# Patch: 1.0.0 → 1.0.1 (bug fixes)
+# Minor: 1.0.0 → 1.1.0 (new features)
+# Major: 1.0.0 → 2.0.0 (breaking changes)
+
+# 3. Commit changes
+git add . && git commit -m "Release v1.0.1: Description"
+
+# 4. Publish (build happens automatically)
+yarn run publish
+```
+
+**Note:** The `prepublishOnly` script automatically runs `yarn run build` before publishing.
 
 ### Package Exports
 
