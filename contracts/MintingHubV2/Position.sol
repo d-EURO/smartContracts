@@ -216,7 +216,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * Initialization method for clones.
      * Can only be called once. Should be called immediately after creating the clone.
      */
-    function initialize(address parent, uint40 _expiration) external onlyHub {
+    function initialize(address parent, uint40 _expiration) external virtual onlyHub {
         if (expiration != 0) revert AlreadyInitialized();
         if (_expiration < block.timestamp || _expiration > Position(original).expiration()) revert InvalidExpiration(); // expiration must not be later than original
         expiration = _expiration;
@@ -373,7 +373,7 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice Mint JUSD as long as there is no open challenge, the position is not subject to a cooldown,
      * and there is sufficient collateral.
      */
-    function mint(address target, uint256 amount) public ownerOrRoller {
+    function mint(address target, uint256 amount) public virtual ownerOrRoller {
         uint256 collateralBalance = _collateralBalance();
         _mint(target, amount, collateralBalance);
         emit MintingUpdate(collateralBalance, price, principal);
