@@ -76,9 +76,9 @@ describe("Equity Tests", () => {
       expect(symbol).to.be.equal("Juice Protocol");
     });
 
-    it("should have initial price 0.001 JUSD / JUICE", async () => {
+    it("should have initial price 0.00001 JUSD / JUICE", async () => {
       let price = await equity.price();
-      expect(price).to.be.equal(BigInt(1e14));
+      expect(price).to.be.equal(BigInt(1e13));
     });
 
     it("should have some coins", async () => {
@@ -109,7 +109,7 @@ describe("Equity Tests", () => {
     it("should revert minting when minted less than expected", async () => {
       await JUSD.approve(equity, floatToDec18(1000));
       await expect(
-        equity.invest(floatToDec18(1000), floatToDec18(99999999)),
+        equity.invest(floatToDec18(1000), floatToDec18(999999999)),
       ).to.be.revertedWithoutReason();
     });
 
@@ -136,30 +136,30 @@ describe("Equity Tests", () => {
       const expected = await equity.calculateShares(floatToDec18(1000));
       await JUSD.transfer(await equity.getAddress(), 1);
       const price = await equity.price();
-      expect(price).to.be.equal(floatToDec(1, 14));
+      expect(price).to.be.equal(floatToDec(1, 13));
       await equity.calculateShares(floatToDec18(1000));
 
       await JUSD.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), expected);
       let balance = await equity.balanceOf(owner.address);
-      expect(balance).to.be.equal(floatToDec18(10000000));
+      expect(balance).to.be.equal(floatToDec18(100000000));
     });
 
     it("should create additional shares when adding capital", async () => {
       await JUSD.approve(equity, floatToDec18(1000));
       await equity.invest(floatToDec18(1000), 0);
       let expected = await equity.calculateShares(floatToDec18(31000 / 0.98));
-      // With VALUATION_FACTOR = 10, newShares = 10M * (32000/1000)^(1/10) - 10M ≈ 4.14M
+      // With VALUATION_FACTOR = 10, newShares = 100M * (32000/1000)^(1/10) - 100M ≈ 41.4M
       expect(expected).to.be.approximately(
-        floatToDec18(4142136),
-        floatToDec18(10000),
+        floatToDec18(41421356),
+        floatToDec18(100000),
       );
       await JUSD.approve(equity, floatToDec18(31000 / 0.98));
       await equity.invest(floatToDec18(31000 / 0.98), expected);
       let balance = await equity.balanceOf(owner.address);
       expect(balance).to.be.approximately(
-        floatToDec18(14142136),
-        floatToDec18(10000),
+        floatToDec18(141421356),
+        floatToDec18(100000),
       );
     });
 
@@ -236,7 +236,7 @@ describe("Equity Tests", () => {
       ).to.be.revertedWithCustomError(equity, "TooManyShares");
 
       const redemptionAmount =
-        (await equity.balanceOf(owner.address)) - floatToDec18(10000000.0);
+        (await equity.balanceOf(owner.address)) - floatToDec18(100000000.0);
       const equityCapital = await JUSD.balanceOf(await equity.getAddress());
       const proceeds = await equity.calculateProceeds(redemptionAmount);
       expect(proceeds).to.be.approximately(

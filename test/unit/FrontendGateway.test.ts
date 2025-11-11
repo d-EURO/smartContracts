@@ -56,7 +56,7 @@ describe('FrontendGateway Tests', () => {
     await frontendGateway.invest(floatToDec18(1000), expected, frontendCode);
 
     let balance = await equity.balanceOf(owner.address);
-    expect(balance).to.be.equal(floatToDec18(10000000));
+    expect(balance).to.be.equal(floatToDec18(100000000));
     let claimableBalance = (await frontendGateway.frontendCodes(frontendCode)).balance;
     expect(claimableBalance).to.be.equal(floatToDec18(10));
 

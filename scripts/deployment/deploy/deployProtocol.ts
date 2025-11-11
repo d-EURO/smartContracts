@@ -285,9 +285,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
 
   createCallTx(bridgeStartUSD.address, StablecoinBridgeArtifact.abi, 'mint', [startUSDAmount]);
 
-  // Approve and invest 1000 JUSD in Equity to mint the initial 10,000,000 JUICE
+  // Approve and invest 1000 JUSD in Equity to mint the initial 100,000,000 JUICE
   const jusdInvestAmount = ethers.parseUnits('1000', 18);
-  const expectedShares = ethers.parseUnits('10000000', 18);
+  const expectedShares = ethers.parseUnits('100000000', 18);
 
   createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'approve', [equity.address, jusdInvestAmount]);
 

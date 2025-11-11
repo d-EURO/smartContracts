@@ -338,8 +338,8 @@ async function testProtocolInitialization(contracts: Contracts) {
 
   const equitySupply = await contracts.equity.totalSupply();
   assertTest(
-    equitySupply == ethers.parseEther('10000000'),
-    'Equity has initial JUICE supply of 10,000,000',
+    equitySupply == ethers.parseEther('100000000'),
+    'Equity has initial JUICE supply of 100,000,000',
     equitySupply,
   );
 

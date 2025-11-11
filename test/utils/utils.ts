@@ -4,7 +4,7 @@ export function capitalToShares(
   dCapital: bigint
 ): bigint {
   if (totalShares == 0n) {
-    return 10000000n;
+    return 100000000n;
   } else {
     return (
       totalShares *
