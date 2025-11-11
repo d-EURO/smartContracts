@@ -3,7 +3,7 @@ import { ethers } from "hardhat";
 /**
  * Simulates the batch investment process:
  * 1. Initial investment: 1,000 JUSD -> 10,000,000 JUICE
- * 2. 20 batch investments: 50,000 JUSD each
+ * 2. 40 batch investments: 50,000 JUSD each
  *
  * Calculates the final JUICE price after all investments.
  */
@@ -65,18 +65,19 @@ async function main() {
   console.log("  Price:", ethers.formatEther(calculatePrice(currentEquity, currentSupply)), "JUSD per JUICE");
   console.log();
 
-  // Simulate 20 batch investments
-  const batchCount = 20;
+  // Simulate 40 batch investments
+  const batchCount = 40;
   const batchAmount = ethers.parseEther("50000"); // 50,000 JUSD
 
   console.log(`SIMULATING ${batchCount} INVESTMENTS OF ${ethers.formatEther(batchAmount)} JUSD EACH:\n`);
 
   for (let i = 1; i <= batchCount; i++) {
     const sharesReceived = calculateShares(currentEquity, batchAmount, currentSupply);
-    const investmentExFees = (batchAmount * FEE_RATE) / 1000n;
 
+    // The FULL investment amount goes into equity reserve
+    // The 2% fee only affects share calculation, not the reserve
     currentSupply += sharesReceived;
-    currentEquity += investmentExFees;
+    currentEquity += batchAmount;
 
     const newPrice = calculatePrice(currentEquity, currentSupply);
 
@@ -95,11 +96,13 @@ async function main() {
 
   console.log("=== FINAL STATE ===");
   console.log("Total SUSD minted:", ethers.formatEther(ethers.parseEther("2001000")), "SUSD");
-  console.log("Total JUSD invested:", ethers.formatEther(currentEquity), "JUSD");
+  console.log("Total JUSD invested:", ethers.formatEther(ethers.parseEther("1000") + (BigInt(batchCount) * ethers.parseEther("50000"))), "JUSD");
+  console.log("Equity Reserve (all JUSD goes in):", ethers.formatEther(currentEquity), "JUSD");
   console.log("Total JUICE Supply:", ethers.formatEther(currentSupply), "JUICE");
   console.log("Final JUICE Price:", ethers.formatEther(finalPrice), "JUSD per JUICE");
   console.log("Market Cap:", ethers.formatEther(finalMarketCap), "JUSD");
   console.log();
+  console.log("Note: 2% fee affects share calculation only, not equity reserve");
   console.log("Price increase from start: " +
     ((Number(finalPrice) / Number(ethers.parseEther("0.001"))).toFixed(2)) + "x");
 }

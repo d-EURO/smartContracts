@@ -80,7 +80,7 @@ export const contractsParams = {
   initialInvestment: {
     firstInvestment: '1000000000000000000000', // 1,000 JUSD (18 decimals)
     batchInvestments: {
-      count: 20,
+      count: 40,
       amountPerBatch: '50000000000000000000000', // 50,000 JUSD (18 decimals)
     },
   },
