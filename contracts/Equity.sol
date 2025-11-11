@@ -30,9 +30,9 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
      * In the absence of fees, profits and losses, the variables grow as follows when JUICE tokens are minted:
      *
      * |        Reserve     |      Market Cap    |     Price    |       Supply    |
-     * |              1_000 |             10_000 |       0.001  |      10_000_000 |
-     * |        100_000_000 |      1_000_000_000 |      31.62   |      31_622_777 |
-     * | 10_000_000_000_000 |100_000_000_000_000 | 1_000_000    |     100_000_000 |
+     * |              1_000 |             10_000 |      0.0001  |     100_000_000 |
+     * |        100_000_000 |      1_000_000_000 |       3.162  |     316_227_766 |
+     * | 10_000_000_000_000 |100_000_000_000_000 |   100_000    |   1_000_000_000 |
      *
      * i.e., the supply is proportional to the tenth root of the reserve and the price is proportional to
      * the ninth power of the tenth root (or Reserve^0.9). When profits accumulate or losses materialize,
@@ -122,7 +122,7 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     function price() public view returns (uint256) {
         uint256 equity = JUSD.equity();
         if (equity == 0 || totalSupply() == 0) {
-            return 10 ** 14; 
+            return 10 ** 13;
         } else {
             return (VALUATION_FACTOR * JUSD.equity() * ONE_DEC18) / totalSupply();
         }
@@ -358,9 +358,9 @@ contract Equity is ERC20Permit, ERC3009, MathUtil, IReserve, ERC165 {
     function _calculateShares(uint256 capitalBefore, uint256 investment) internal view returns (uint256) {
         uint256 totalShares = totalSupply();
         uint256 investmentExFees = (investment * 980) / 1_000; // remove 2% fee
-        // Assign 10_000_000 JUICE for the initial deposit, calculate the amount otherwise
+        // Assign 100_000_000 JUICE for the initial deposit, calculate the amount otherwise
         uint256 newTotalShares = (capitalBefore < MINIMUM_EQUITY || totalShares == 0)
-            ? totalShares + 10_000_000 * ONE_DEC18
+            ? totalShares + 100_000_000 * ONE_DEC18
             : _mulD18(totalShares, _tenthRoot(_divD18(capitalBefore + investmentExFees, capitalBefore)));
         return newTotalShares - totalShares;
     }
