@@ -274,29 +274,46 @@ async function main(hre: HardhatRuntimeEnvironment) {
     'StablecoinBridgeStartUSD',
   ]);
 
-  // Approve and mint 1000 JUSD through the StartUSD bridge to close initialization phase
-  const startUSDAmount = ethers.parseUnits('1000', 18);
+  // Mint 2,001,000 SUSD through the StartUSD bridge
+  const totalStartUSDAmount = ethers.parseUnits('2001000', 18);
   createCallTx(
     startUSD.address,
     StartUSDArtifact.abi,
     'approve',
-    [bridgeStartUSD.address, startUSDAmount],
+    [bridgeStartUSD.address, totalStartUSDAmount],
   );
 
-  createCallTx(bridgeStartUSD.address, StablecoinBridgeArtifact.abi, 'mint', [startUSDAmount]);
+  createCallTx(bridgeStartUSD.address, StablecoinBridgeArtifact.abi, 'mint', [totalStartUSDAmount]);
 
-  // Approve and invest 1000 JUSD in Equity to mint the initial 10,000,000 JUICE
-  const jusdInvestAmount = ethers.parseUnits('1000', 18);
+  // First investment: 1,000 JUSD in Equity to mint the initial 10,000,000 JUICE
+  const firstInvestAmount = ethers.parseUnits('1000', 18);
   const expectedShares = ethers.parseUnits('10000000', 18);
 
-  createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'approve', [equity.address, jusdInvestAmount]);
+  createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'approve', [equity.address, firstInvestAmount]);
 
   createCallTx(
     equity.address,
     EquityArtifact.abi,
     'invest',
-    [jusdInvestAmount, expectedShares],
+    [firstInvestAmount, expectedShares],
   );
+
+  // Batch investments: 20 times 50,000 JUSD each
+  const batchCount = contractsParams.initialInvestment.batchInvestments.count;
+  const batchAmount = contractsParams.initialInvestment.batchInvestments.amountPerBatch;
+
+  for (let i = 0; i < batchCount; i++) {
+    // Approve JUSD for each batch
+    createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'approve', [equity.address, batchAmount]);
+
+    // Invest with expectedShares = 0 (no slippage protection, accept any amount)
+    createCallTx(
+      equity.address,
+      EquityArtifact.abi,
+      'invest',
+      [batchAmount, 0],
+    );
+  }
 
   // Rapid sequential deployment
   console.log(`\nSubmitting ${transactionBundle.length} transactions rapidly in sequence...`);

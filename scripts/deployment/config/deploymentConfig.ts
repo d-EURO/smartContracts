@@ -53,6 +53,13 @@ export interface ContractsParams {
   bridges: {
     startUSD: StablecoinBridgeParams;
   };
+  initialInvestment: {
+    firstInvestment: string;
+    batchInvestments: {
+      count: number;
+      amountPerBatch: string;
+    };
+  };
 }
 
 export const contractsParams = {
@@ -65,9 +72,16 @@ export const contractsParams = {
   bridges: {
     startUSD: {
       other: '', // set to StartUSD address during deployment
-      limit: '10000000000000000000000', // 10,000 JUSD (18 decimals)
+      limit: '100000000000000000000000000', // 100,000,000 JUSD (18 decimals)
       weeks: 3,
       applicationMsg: 'StartUSD Bridge',
+    },
+  },
+  initialInvestment: {
+    firstInvestment: '1000000000000000000000', // 1,000 JUSD (18 decimals)
+    batchInvestments: {
+      count: 20,
+      amountPerBatch: '50000000000000000000000', // 50,000 JUSD (18 decimals)
     },
   },
 };
