@@ -7,7 +7,6 @@ import 'hardhat-deploy';
 import 'hardhat-abi-exporter';
 import 'hardhat-contract-sizer';
 import { HardhatUserConfig } from 'hardhat/config';
-import { getChildFromSeed } from './helper/wallet';
 
 // Import tasks
 import './tasks/getContracts';
@@ -82,15 +81,9 @@ task('compile').setAction(async (args, hre, runSuper) => {
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Get deployer credentials - use private key if provided, otherwise derive from seed
-const deployerPk = process.env.DEPLOYER_PRIVATE_KEY
-  ?? (process.env.DEPLOYER_ACCOUNT_SEED
-    ? getChildFromSeed(process.env.DEPLOYER_ACCOUNT_SEED, 0).privateKey
-    : undefined);
-
-if (!deployerPk) {
-  throw new Error('DEPLOYER_PRIVATE_KEY or DEPLOYER_ACCOUNT_SEED must be provided in .env');
-}
+// Get deployer private key (optional - only required when deploying)
+// Allows compilation without deployment credentials
+const deployerPk = process.env.DEPLOYER_PRIVATE_KEY || '0x0000000000000000000000000000000000000000000000000000000000000001';
 
 const config: HardhatUserConfig = {
   solidity: {

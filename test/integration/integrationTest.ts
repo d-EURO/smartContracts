@@ -14,9 +14,9 @@ import {
   SavingsGateway,
   StablecoinBridge,
 } from '../../typechain';
-import { citrea } from '../../constants/addresses';
-import JUICESWAP_V3_ROUTER from '../../constants/abi/UniswapV3Router.json'; // Using UniswapV3-compatible ABI for JuiceSwap
-import JUICESWAP_V3_FACTORY from '../../constants/abi/UniswapV3Factory.json'; // Using UniswapV3-compatible ABI for JuiceSwap
+import { ADDRESSES } from '../../constants/addresses';
+import JUICESWAP_V3_ROUTER_ABI from '../../constants/abi/UniswapV3Router.json'; // Using UniswapV3-compatible ABI for JuiceSwap
+import JUICESWAP_V3_FACTORY_ABI from '../../constants/abi/UniswapV3Factory.json'; // Using UniswapV3-compatible ABI for JuiceSwap
 import { getContractAddress } from '../../scripts/utils/deployments'; // Deployment tracking
 // import { getDeployedAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
 // TODO: Dynamically handle the deployment method or remove unused imports
@@ -77,7 +77,9 @@ async function main() {
   console.log('Starting JuiceDollar protocol integration tests');
 
   const [deployer] = await ethers.getSigners();
-  console.log(`Running tests with account (signer): ${deployer.address}`);
+  const chain = await ethers.provider.getNetwork();
+  const chainId = Number(chain.chainId);
+  console.log(`Running tests with account (signer): ${deployer.address} on network: ${chain.name} (${chainId})`);
 
   // Fetch deployed contract addresses
   const contractAddresses = await fetchDeployedAddresses();
@@ -88,7 +90,7 @@ async function main() {
   }
 
   // Connect to contracts
-  const contracts = await connectToContracts(contractAddresses, deployer);
+  const contracts = await connectToContracts(contractAddresses, deployer, chainId);
   if (!contracts) {
     console.error('Failed to connect to contracts');
     process.exitCode = 1;
@@ -102,7 +104,7 @@ async function main() {
     await testContractConfigurations(contracts);
     
     // Fund signer with collateral and JUSD for remaining tests
-    await fundSigner(contracts, deployer);
+    await fundSigner(contracts, deployer, chainId);
     
     const position = await testPositionCreationAndMinting(contracts, deployer);
     await testSavingsInterestAccrual(contracts, deployer);
@@ -146,8 +148,14 @@ async function fetchDeployedAddresses(): Promise<DeployedAddresses | null> {
 }
 
 // Connect to all contracts in the ecosystem
-async function connectToContracts(config: DeployedAddresses, signer: HardhatEthersSigner): Promise<Contracts | null> {
+async function connectToContracts(config: DeployedAddresses, signer: HardhatEthersSigner, chainId: number): Promise<Contracts | null> {
   console.log('\nConnecting to deployed contracts...');
+
+  // Extract network addresses once
+  const addresses = ADDRESSES[chainId];
+  if (!addresses) {
+    throw new Error(`Network addresses not configured for chainId ${chainId}`);
+  }
 
   try {
     // Core contracts
@@ -171,9 +179,9 @@ async function connectToContracts(config: DeployedAddresses, signer: HardhatEthe
     const bridgeSourceConnected = bridgeSource.connect(signer);
     const collateralToken = await ethers.getContractAt('ERC20', config.collateralToken);
     const collateralTokenConnected = collateralToken.connect(signer);
-    const wcbtc = await ethers.getContractAt('ERC20', citrea.WcBTC);
+    const wcbtc = await ethers.getContractAt('ERC20', addresses.WCBTC);
     const wcbtcConnected = wcbtc.connect(signer);
-    const swapRouter = new ethers.Contract(citrea.JUICESWAP_ROUTER, JUICESWAP_V3_ROUTER, signer);
+    const swapRouter = new ethers.Contract(addresses.JUICESWAP_ROUTER, JUICESWAP_V3_ROUTER_ABI, signer);
 
     console.log('✓ Successfully connected to all contracts.');
     console.log(`  ⋅ Using ${await bridgeSourceConnected.symbol()}-${await jusdConnected.symbol()} bridge`);
@@ -210,11 +218,17 @@ async function fundWcBTC(wcbtcContract: ERC20, signer: HardhatEthersSigner, amou
   }
 }
 
-async function swapExactWcBTCForToken(amountIn: bigint, tokenOut: ERC20, swapRouter: any, signer: HardhatEthersSigner) {
+async function swapExactWcBTCForToken(amountIn: bigint, tokenOut: ERC20, swapRouter: any, signer: HardhatEthersSigner, chainId: number) {
+  // Extract network addresses once
+  const addresses = ADDRESSES[chainId];
+  if (!addresses) {
+    throw new Error(`Network addresses not configured for chainId ${chainId}`);
+  }
+
   const tokenOutAddress = await tokenOut.getAddress();
   const deadline = Math.floor(Date.now() / 1000) + 20 * 60; // 20 minutes
   const params = {
-    tokenIn: citrea.WcBTC,
+    tokenIn: addresses.WCBTC,
     tokenOut: tokenOutAddress,
     fee: 3000, // 0.3% fee tier
     recipient: signer.address,
@@ -225,8 +239,8 @@ async function swapExactWcBTCForToken(amountIn: bigint, tokenOut: ERC20, swapRou
   };
 
   // Check if pool exists
-  const factoryContract = new ethers.Contract(citrea.JUICESWAP_FACTORY, JUICESWAP_V3_FACTORY, signer);
-  const poolAddress = await factoryContract.getPool(citrea.WcBTC, tokenOutAddress, 3000);
+  const factoryContract = new ethers.Contract(addresses.JUICESWAP_FACTORY, JUICESWAP_V3_FACTORY_ABI, signer);
+  const poolAddress = await factoryContract.getPool(addresses.WCBTC, tokenOutAddress, 3000);
   if (poolAddress === ethers.ZeroAddress) {
     throw new Error(`Swap pool WcBTC-${await tokenOut.symbol()} does not exist`);
   } else {
@@ -242,8 +256,14 @@ async function swapExactWcBTCForToken(amountIn: bigint, tokenOut: ERC20, swapRou
   );
 }
 
-async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner) {
+async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner, chainId: number) {
   console.log("\nSetting up signer's token balances for testing...");
+
+  // Extract network addresses once
+  const addresses = ADDRESSES[chainId];
+  if (!addresses) {
+    throw new Error(`Network addresses not configured for chainId ${chainId}`);
+  }
 
   const collateralToken = contracts.collateralToken;
   const bridgeSourceToken = contracts.bridgeSource;
@@ -261,17 +281,17 @@ async function fundSigner(contracts: Contracts, signer: HardhatEthersSigner) {
   // Swap some WcBTC to collateral token
   if (collateralBalanceBefore < collateralFundingThreshold) {
     await fundWcBTC(contracts.wcbtc, signer, wcbtcToCollateral);
-    if ((await collateralToken.getAddress()) !== citrea.WcBTC) {
-      await contracts.wcbtc.approve(citrea.JUICESWAP_ROUTER, wcbtcToCollateral);
-      await swapExactWcBTCForToken(wcbtcToCollateral, collateralToken, contracts.swapRouter, signer);
+    if ((await collateralToken.getAddress()) !== addresses.WCBTC) {
+      await contracts.wcbtc.approve(addresses.JUICESWAP_ROUTER, wcbtcToCollateral);
+      await swapExactWcBTCForToken(wcbtcToCollateral, collateralToken, contracts.swapRouter, signer, chainId);
     }
   }
 
   // Swap some WcBTC to bridge source token
   if (jusdBalanceBefore < jusdFundingThreshold) {
     await fundWcBTC(contracts.wcbtc, signer, wcbtcToBridgeSource);
-    await contracts.wcbtc.approve(citrea.JUICESWAP_ROUTER, wcbtcToBridgeSource);
-    await swapExactWcBTCForToken(wcbtcToBridgeSource, bridgeSourceToken, contracts.swapRouter, signer);
+    await contracts.wcbtc.approve(addresses.JUICESWAP_ROUTER, wcbtcToBridgeSource);
+    await swapExactWcBTCForToken(wcbtcToBridgeSource, bridgeSourceToken, contracts.swapRouter, signer, chainId);
     // Bridge to JUSD
     const sourceTokenBalance = await bridgeSourceToken.balanceOf(signer.address);
     if (sourceTokenBalance > 0) {
@@ -638,10 +658,14 @@ async function assertRevert(func: () => Promise<any>, testName: string, expected
 
 // Mocha test suite wrapper
 describe('Integration Tests', function() {
-  before(function() {
+  before(async function() {
     // Skip if Citrea addresses not configured
-    if (!citrea.WcBTC || !citrea.JUICESWAP_ROUTER || !citrea.JUICESWAP_FACTORY) {
+    const chainId = Number((await ethers.provider.getNetwork()).chainId);
+    const addresses = ADDRESSES[chainId];
+
+    if (!addresses || !addresses.WCBTC || !addresses.JUICESWAP_ROUTER || !addresses.JUICESWAP_FACTORY) {
       console.log('\n⚠️  Citrea addresses not configured - skipping integration tests');
+      console.log(`   ChainId: ${chainId}`);
       console.log('Please update constants/addresses.ts with deployed Citrea contract addresses:');
       console.log('  - WcBTC (Wrapped cBTC)');
       console.log('  - JUICESWAP_ROUTER');

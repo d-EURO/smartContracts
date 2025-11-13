@@ -12,7 +12,10 @@ import StablecoinBridgeArtifact from '../../../artifacts/contracts/StablecoinBri
 import FrontendGatewayArtifact from '../../../artifacts/contracts/gateway/FrontendGateway.sol/FrontendGateway.json';
 import SavingsGatewayArtifact from '../../../artifacts/contracts/gateway/SavingsGateway.sol/SavingsGateway.json';
 import MintingHubGatewayArtifact from '../../../artifacts/contracts/gateway/MintingHubGateway.sol/MintingHubGateway.json';
+import SavingsVaultJUSDArtifact from '../../../artifacts/contracts/SavingsVaultJUSD.sol/SavingsVaultJUSD.json';
+import CoinLendingGatewayArtifact from '../../../artifacts/contracts/gateway/CoinLendingGateway.sol/CoinLendingGateway.json';
 import EquityArtifact from '../../../artifacts/contracts/Equity.sol/Equity.json';
+import { ADDRESSES } from '../../../constants/addresses';
 
 dotenv.config();
 
@@ -31,6 +34,8 @@ interface DeployedContracts {
   frontendGateway: DeployedContract;
   savingsGateway: DeployedContract;
   mintingHubGateway: DeployedContract;
+  savingsVaultJUSD: DeployedContract;
+  coinLendingGateway: DeployedContract;
 }
 
 /**
@@ -91,12 +96,39 @@ async function waitForTransactionWithRetry(
 }
 
 async function main(hre: HardhatRuntimeEnvironment) {
+  // Validate deployment credentials are provided
+  if (!process.env.DEPLOYER_PRIVATE_KEY) {
+    throw new Error('DEPLOYER_PRIVATE_KEY must be set in .env for deployment');
+  }
+
   const { ethers } = hre;
   const provider = ethers.provider;
   const network = await provider.getNetwork();
   const chainId = network.chainId;
   const isLocal = hre.network.name === 'localhost' || hre.network.name === 'hardhat';
   const gasConfig = getGasConfig(hre.network.name);
+
+  // For local testing, accept WCBTC address from environment variable
+  let wcbtcAddress: string;
+  if (isLocal && process.env.WCBTC_ADDRESS) {
+    try {
+      wcbtcAddress = ethers.getAddress(process.env.WCBTC_ADDRESS);
+      console.log(`Using WCBTC address from environment for local testing: ${wcbtcAddress}`);
+    } catch (error) {
+      throw new Error(`Invalid WCBTC_ADDRESS environment variable: ${process.env.WCBTC_ADDRESS}. Must be a valid Ethereum address.`);
+    }
+  } else {
+    const addressConfig = ADDRESSES[Number(chainId)];
+    if (!addressConfig) {
+      throw new Error(`No address configuration found for chainId ${chainId}. Add it to constants/addresses.ts`);
+    }
+    wcbtcAddress = addressConfig.WCBTC;
+    if (!wcbtcAddress) {
+      throw new Error(`WCBTC address not configured for chainId ${chainId} in ADDRESSES. ${isLocal ? 'For local testing, set WCBTC_ADDRESS environment variable.' : ''}`);
+    }
+  }
+
+  console.log('Starting protocol deployment with the following configuration:');
 
   console.log(`Deploying on ${hre.network.name} (chainId: ${chainId})`);
   if ('url' in hre.network.config) console.log(`RPC URL: ${hre.network.config.url}`);
@@ -227,6 +259,21 @@ async function main(hre: HardhatRuntimeEnvironment) {
     frontendGateway.address,
   ]);
 
+  // Deploy SavingsVaultJUSD
+  const savingsVaultJUSD = await createDeployTx('SavingsVaultJUSD', SavingsVaultJUSDArtifact, [
+    juiceDollar.address,
+    savingsGateway.address,
+    'Savings Vault JUSD', // name
+    'svJUSD', // symbol
+  ]);
+
+  // Deploy CoinLendingGateway
+  const coinLendingGateway = await createDeployTx('CoinLendingGateway', CoinLendingGatewayArtifact, [
+    mintingHubGateway.address,
+    wcbtcAddress,
+    juiceDollar.address,
+  ]);
+
   const deployedContracts: DeployedContracts = {
     startUSD,
     juiceDollar,
@@ -237,6 +284,8 @@ async function main(hre: HardhatRuntimeEnvironment) {
     frontendGateway,
     savingsGateway,
     mintingHubGateway,
+    savingsVaultJUSD,
+    coinLendingGateway,
   };
 
   // Setup initialization transactions

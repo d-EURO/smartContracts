@@ -17,12 +17,11 @@ async function main() {
       jusd: "0x...", // TODO: Add JuiceDollar address on Citrea
     },
     citreaTestnet: {
-      mintingHubGateway: "0x...", // TODO: Add citrea testnet MintingHubGateway address
-      wcbtc: "0x...", // TODO: Add Wrapped cBTC (WcBTC) address on Citrea Testnet
-      jusd: "0x...", // TODO: Add JuiceDollar address on Citrea Testnet
+      mintingHubGateway: "0xFfcD888Eb52F0FdD894fef580370A2FF48d82279",
+      wcbtc: "0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93",
+      jusd: "0x1Dd3057888944ff1f914626aB4BD47Dc8b6285Fe",
     },
     hardhat: {
-      // For local testing
       mintingHubGateway: process.env.MINTING_HUB_GATEWAY || "0x...",
       wcbtc: process.env.WCBTC_ADDRESS || "0x...",
       jusd: process.env.JUSD_ADDRESS || "0x...",

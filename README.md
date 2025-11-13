@@ -139,9 +139,8 @@ yarn install
 Create a `.env` file (see `.env.example`):
 
 ```bash
-# Required: Use EITHER private key OR seed phrase
+# Required: Deployer wallet private key
 DEPLOYER_PRIVATE_KEY=your_private_key_here
-# DEPLOYER_ACCOUNT_SEED="twelve word seed phrase goes here"
 
 # Optional: For contract verification on Citrea explorer
 # CITREA_EXPLORER_API_KEY=your_api_key_here
