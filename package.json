@@ -19,7 +19,7 @@
     "lint:sol:fix": "prettier --write \"contracts/**/*.sol\"",
     "lint:test:fix": "prettier --write \"test/**/**.test.ts\"",
     "compile": "npx hardhat compile",
-    "postinstall": "npx hardhat compile",
+    "prepare": "hardhat compile",
     "wallet": "npx ts-node helper/wallet.info.ts",
     "coverage": "npx hardhat coverage",
     "deploy": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts",

@@ -19,7 +19,7 @@ jobs:
         run: yarn install --frozen-lockfile
       - name: Create dummy .env from .env.example
         run: mv .env.example .env
-      - name: Clean and compile contracts
-        run: npx hardhat clean && yarn compile
+      - name: Compile contracts
+        run: yarn compile
       - name: Run Tests
         run: CI=true yarn test
