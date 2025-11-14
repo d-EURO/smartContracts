@@ -3,6 +3,8 @@ import { Address, zeroAddress } from "viem";
 export interface ChainAddress {
   juiceDollar: Address;
   equity: Address;
+  leadrate: Address;
+  mintingHub: Address;
   frontendGateway: Address;
   savingsGateway: Address;
   savingsVaultJUSD: Address;
@@ -21,6 +23,8 @@ export const ADDRESS: Record<number, ChainAddress> = {
     // Citrea Mainnet - TODO: Add deployed contract addresses
     juiceDollar: zeroAddress,
     equity: zeroAddress,
+    leadrate: zeroAddress,
+    mintingHub: zeroAddress,
     frontendGateway: zeroAddress,
     savingsGateway: zeroAddress,
     savingsVaultJUSD: zeroAddress,
@@ -34,6 +38,8 @@ export const ADDRESS: Record<number, ChainAddress> = {
   5115: {
     juiceDollar: "0x1Dd3057888944ff1f914626aB4BD47Dc8b6285Fe",
     equity: "0xD82010E94737A4E4C3fc26314326Ff606E2Dcdf4",
+    leadrate: "0x13531a4E00B36Fdb5f9f9A7c8C85cBc08Fd8EbDb",
+    mintingHub: "0xFfcD888Eb52F0FdD894fef580370A2FF48d82279",
     frontendGateway: "0xe8757e121593bBD9f784F196026259085461aB17",
     savingsGateway: "0x13531a4E00B36Fdb5f9f9A7c8C85cBc08Fd8EbDb",
     savingsVaultJUSD: "0x59b670e9fA9D0A427751Af201D676719a970857b",
