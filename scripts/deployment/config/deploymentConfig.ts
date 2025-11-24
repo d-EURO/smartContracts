@@ -66,7 +66,7 @@ export const contractsParams = {
     startUSD: {
       other: '', // set to StartUSD address during deployment
       limit: '10000000000000000000000', // 10,000 JUSD (18 decimals)
-      weeks: 3,
+      weeks: 6,
       applicationMsg: 'StartUSD Bridge',
     },
   },
