@@ -213,7 +213,7 @@ describe("Position Tests", () => {
         ),
       ).to.be.revertedWithCustomError(mintingHub, "InsufficientCollateral");
     });
-    it("should revert creating position when minimal collateral is not worth of at least 5k JUSD", async () => {
+    it("should revert creating position when minimal collateral is not worth of at least 100 JUSD", async () => {
       await expect(
         mintingHub.openPosition(
           collateral,
@@ -224,7 +224,7 @@ describe("Position Tests", () => {
           duration,
           challengePeriod,
           fFees,
-          floatToDec18(4000),
+          floatToDec18(99),
           fReserve,
         ),
       ).to.be.revertedWithCustomError(mintingHub, "InsufficientCollateral");
