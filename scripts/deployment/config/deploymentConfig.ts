@@ -32,7 +32,8 @@ export function getGasConfig(networkName: string): GasConfig {
 
 export const deploymentConstants = {
   contractDeploymentGasLimit: '8000000',
-  contractCallGasLimit: '500000',
+  contractCallGasLimit: '300000',        // Standard contract calls (transfer, approve, etc.)
+  investCallGasLimit: '500000',          // Investment operations with complex math (cubic root)
   targetBlockOffset: 1,
 };
 
@@ -53,6 +54,13 @@ export interface ContractsParams {
   bridges: {
     startUSD: StablecoinBridgeParams;
   };
+  initialInvestment: {
+    firstInvestment: string;
+    batchInvestments: {
+      count: number;
+      amountPerBatch: string;
+    };
+  };
 }
 
 export const contractsParams = {
@@ -65,9 +73,16 @@ export const contractsParams = {
   bridges: {
     startUSD: {
       other: '', // set to StartUSD address during deployment
-      limit: '10000000000000000000000', // 10,000 JUSD (18 decimals)
+      limit: '100000000000000000000000000', // 100,000,000 JUSD (18 decimals)
       weeks: 6,
       applicationMsg: 'StartUSD Bridge',
+    },
+  },
+  initialInvestment: {
+    firstInvestment: '1000000000000000000000', // 1,000 JUSD (18 decimals)
+    batchInvestments: {
+      count: 40,
+      amountPerBatch: '50000000000000000000000', // 50,000 JUSD (18 decimals)
     },
   },
 };

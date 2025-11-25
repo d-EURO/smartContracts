@@ -97,8 +97,8 @@ async function waitForTransactionWithRetry(
 
 async function main(hre: HardhatRuntimeEnvironment) {
   // Validate deployment credentials are provided
-  if (!process.env.DEPLOYER_PRIVATE_KEY) {
-    throw new Error('DEPLOYER_PRIVATE_KEY must be set in .env for deployment');
+  if (!process.env.DEPLOYER_MNEMONIC) {
+    throw new Error('DEPLOYER_MNEMONIC must be set in .env for deployment (12 or 24 word phrase)');
   }
 
   const { ethers } = hre;
@@ -106,7 +106,24 @@ async function main(hre: HardhatRuntimeEnvironment) {
   const network = await provider.getNetwork();
   const chainId = network.chainId;
   const isLocal = hre.network.name === 'localhost' || hre.network.name === 'hardhat';
-  const gasConfig = getGasConfig(hre.network.name);
+  // Fork should use Citrea gas prices, not hardhat's high test prices
+  const gasConfig = process.env.FORK_ENABLED === 'true'
+    ? getGasConfig('citreaTestnet')
+    : getGasConfig(hre.network.name);
+
+  // Derive deployer wallet from mnemonic using standard BIP44 path
+  // Get root node (at path "m") to derive all addresses from absolute BIP44 paths
+  const mnemonic = ethers.Mnemonic.fromPhrase(process.env.DEPLOYER_MNEMONIC!);
+  const rootNode = ethers.HDNodeWallet.fromMnemonic(mnemonic, "m");
+  const deployerPath = "m/44'/60'/0'/0/0";
+  const deployerNode = rootNode.derivePath(deployerPath);
+  const deployer = new ethers.Wallet(deployerNode.privateKey, provider);
+
+  console.log('Starting protocol deployment with the following configuration:');
+  console.log(`Deploying on ${hre.network.name} (chainId: ${chainId})`);
+  if ('url' in hre.network.config) console.log(`RPC URL: ${hre.network.config.url}`);
+  console.log(`Deployment method: Rapid sequential (atomic-style)`);
+  console.log(`Deployer address: ${deployer.address} (derived from mnemonic at ${deployerPath})`);
 
   // For local testing, accept WCBTC address from environment variable
   let wcbtcAddress: string;
@@ -128,15 +145,6 @@ async function main(hre: HardhatRuntimeEnvironment) {
     }
   }
 
-  console.log('Starting protocol deployment with the following configuration:');
-
-  console.log(`Deploying on ${hre.network.name} (chainId: ${chainId})`);
-  if ('url' in hre.network.config) console.log(`RPC URL: ${hre.network.config.url}`);
-  console.log(`Deployment method: Rapid sequential (atomic-style)`);
-
-  const [deployer] = await ethers.getSigners();
-  console.log(`Using deployer address: ${deployer.address}`);
-
   const blockNumber = await provider.getBlockNumber();
   const targetBlock = blockNumber + deploymentConstants.targetBlockOffset;
   let nonce = await provider.getTransactionCount(deployer.address);
@@ -154,7 +162,25 @@ async function main(hre: HardhatRuntimeEnvironment) {
     console.error('WARNING: Configured gas price may be too low for current network conditions\n');
   }
 
+  // Check deployer has sufficient balance for deployment
+  const deployerBalance = await provider.getBalance(deployer.address);
+  console.log(`Deployer balance: ${ethers.formatEther(deployerBalance)} cBTC`);
+
+  if (deployerBalance === 0n) {
+    throw new Error(`Deployer has zero balance. Please fund ${deployer.address} with cBTC before deployment.`);
+  }
+
+  // Rough estimate: 40M gas for main deployment + batch investor funding
+  const estimatedGasNeeded = 40_000_000n;
+  const estimatedCost = estimatedGasNeeded * configMaxFee;
+  console.log(`Estimated deployment cost: ~${ethers.formatEther(estimatedCost)} cBTC (conservative estimate)\n`);
+
+  if (deployerBalance < estimatedCost) {
+    console.warn(`WARNING: Balance may be insufficient. Have: ${ethers.formatEther(deployerBalance)} cBTC, Estimated need: ~${ethers.formatEther(estimatedCost)} cBTC\n`);
+  }
+
   const transactionBundle: TransactionRequest[] = [];
+  const transactionSigners: Array<typeof deployer> = []; // Track which signer should sign each transaction
 
   // Track contract deployment metadata
   async function createDeployTx(contractName: string, artifact: any, constructorArgs: any[] = []) {
@@ -174,6 +200,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
     };
 
     transactionBundle.push(deployTx);
+    transactionSigners.push(deployer);
 
     // Calculate deployed contract address
     const address = ethers.getCreateAddress({
@@ -206,6 +233,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
     };
 
     transactionBundle.push(callTx);
+    transactionSigners.push(deployer);
     return callTx;
   }
 
@@ -323,87 +351,444 @@ async function main(hre: HardhatRuntimeEnvironment) {
     'StablecoinBridgeStartUSD',
   ]);
 
-  // Approve and mint 1000 JUSD through the StartUSD bridge to close initialization phase
-  const startUSDAmount = ethers.parseUnits('1000', 18);
+  // Mint 2,001,000 SUSD through the StartUSD bridge
+  const totalStartUSDAmount = ethers.parseUnits('2001000', 18);
   createCallTx(
     startUSD.address,
     StartUSDArtifact.abi,
     'approve',
-    [bridgeStartUSD.address, startUSDAmount],
+    [bridgeStartUSD.address, totalStartUSDAmount],
   );
 
-  createCallTx(bridgeStartUSD.address, StablecoinBridgeArtifact.abi, 'mint', [startUSDAmount]);
+  createCallTx(bridgeStartUSD.address, StablecoinBridgeArtifact.abi, 'mint', [totalStartUSDAmount]);
 
   // Approve and invest 1000 JUSD in Equity to mint the initial 100,000,000 JUICE
-  const jusdInvestAmount = ethers.parseUnits('1000', 18);
+  const firstInvestAmount = ethers.parseUnits('1000', 18);
   const expectedShares = ethers.parseUnits('100000000', 18);
 
-  createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'approve', [equity.address, jusdInvestAmount]);
+  createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'approve', [equity.address, firstInvestAmount]);
 
   createCallTx(
     equity.address,
     EquityArtifact.abi,
     'invest',
-    [jusdInvestAmount, expectedShares],
+    [firstInvestAmount, expectedShares],
   );
 
-  // Rapid sequential deployment
-  console.log(`\nSubmitting ${transactionBundle.length} transactions rapidly in sequence...`);
-  console.log('NOTE: Transactions will be sent sequentially to Citrea sequencer.');
-  console.log('SECURITY: Use a fresh, unknown deployer address to minimize front-running risk.\n');
+  // ============================================================================
+  // EXECUTE MAIN DEPLOYMENT TRANSACTIONS
+  // ============================================================================
+  console.log('\n' + '═'.repeat(80));
+  console.log('MAIN DEPLOYMENT EXECUTION');
+  console.log('═'.repeat(80));
+  console.log(`Executing ${transactionBundle.length} transactions for protocol deployment...`);
+  console.log('This includes: contract deployments, initializations, and initial 1000 JUSD investment\n');
 
-  let deploymentSuccessful = false;
+  const confirmations = isLocal ? 1 : 6;
+  const mainDeploymentResponses: TransactionResponse[] = [];
+  const deploymentStartTime = Date.now();
 
-  try {
+  // Execute main deployment transactions sequentially
+  for (let i = 0; i < transactionBundle.length; i++) {
+    const tx = transactionBundle[i];
+    const signer = transactionSigners[i];
+
+    try {
+      const txResponse = await signer.sendTransaction(tx);
+      mainDeploymentResponses.push(txResponse);
+      console.log(`[${i + 1}/${transactionBundle.length}] ✓ TX sent: ${txResponse.hash}`);
+    } catch (error: any) {
+      console.error(`[${i + 1}/${transactionBundle.length}] ✗ Failed to send transaction: ${error.message}`);
+      throw error;
+    }
+  }
+
+  console.log(`\nAll ${transactionBundle.length} transactions sent in ${((Date.now() - deploymentStartTime) / 1000).toFixed(2)}s`);
+  console.log('Waiting for confirmations...\n');
+
+  // Wait for all confirmations
+  for (let i = 0; i < mainDeploymentResponses.length; i++) {
+    try {
+      const receipt = await waitForTransactionWithRetry(mainDeploymentResponses[i], confirmations, 5, 2000);
+      if (!receipt || receipt.status !== 1) {
+        throw new Error(`Transaction ${mainDeploymentResponses[i].hash} failed or reverted`);
+      }
+      console.log(`[${i + 1}/${mainDeploymentResponses.length}] ✓ Confirmed: ${mainDeploymentResponses[i].hash} (block ${receipt.blockNumber})`);
+    } catch (error: any) {
+      console.error(`[${i + 1}/${mainDeploymentResponses.length}] ✗ Confirmation failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  console.log('\n✓ Main deployment completed successfully!\n');
+
+  // Verify equity address matches prediction
+  console.log('Verifying equity address...');
+  const juiceDollarContract = new ethers.Contract(juiceDollar.address, JuiceDollarArtifact.abi, provider);
+  const actualEquityAddress = await juiceDollarContract.reserve();
+
+  if (actualEquityAddress.toLowerCase() !== equity.address.toLowerCase()) {
+    throw new Error(
+      `Equity address verification failed!\n` +
+      `  Predicted: ${equity.address}\n` +
+      `  Actual:    ${actualEquityAddress}\n` +
+      `  This indicates JuiceDollar's internal nonce changed.`
+    );
+  }
+
+  console.log(`✓ Equity address verified: ${actualEquityAddress}`);
+
+  // ============================================================================
+  // POST-DEPLOYMENT VERIFICATION
+  // ============================================================================
+  console.log('\n' + '═'.repeat(80));
+  console.log('POST-DEPLOYMENT VERIFICATION');
+  console.log('═'.repeat(80));
+
+  // Verify JuiceDollar minters are registered
+  const isMinterHubMinter = await juiceDollarContract.isMinter(mintingHubGateway.address);
+  const isRollerMinter = await juiceDollarContract.isMinter(positionRoller.address);
+  const isSavingsMinter = await juiceDollarContract.isMinter(savingsGateway.address);
+  const isFrontendMinter = await juiceDollarContract.isMinter(frontendGateway.address);
+  const isBridgeMinter = await juiceDollarContract.isMinter(bridgeStartUSD.address);
+
+  console.log(`MintingHubGateway minter: ${isMinterHubMinter ? '✓' : '✗'}`);
+  console.log(`PositionRoller minter: ${isRollerMinter ? '✓' : '✗'}`);
+  console.log(`SavingsGateway minter: ${isSavingsMinter ? '✓' : '✗'}`);
+  console.log(`FrontendGateway minter: ${isFrontendMinter ? '✓' : '✗'}`);
+  console.log(`StablecoinBridge minter: ${isBridgeMinter ? '✓' : '✗'}`);
+
+  if (!isMinterHubMinter || !isRollerMinter || !isSavingsMinter || !isFrontendMinter || !isBridgeMinter) {
+    throw new Error('One or more minters not properly registered in JuiceDollar');
+  }
+
+  // Verify JUSD total supply
+  const jusdSupply = await juiceDollarContract.totalSupply();
+  const expectedSupply = ethers.parseUnits('2001000', 18); // 2,001,000 JUSD from bridge
+  console.log(`JUSD total supply: ${ethers.formatEther(jusdSupply)} JUSD (expected: ${ethers.formatEther(expectedSupply)})`);
+
+  if (jusdSupply !== expectedSupply) {
+    throw new Error(`JUSD supply mismatch: ${jusdSupply} vs expected ${expectedSupply}`);
+  }
+
+  // Verify Equity (JUICE) supply after initial investment
+  const equityContract = new ethers.Contract(equity.address, EquityArtifact.abi, provider);
+  const juiceSupply = await equityContract.totalSupply();
+  const expectedMinJuice = ethers.parseUnits('100000000', 18); // At least 100M from initial 1000 JUSD investment
+  console.log(`JUICE total supply: ${ethers.formatEther(juiceSupply)} JUICE (min expected: ${ethers.formatEther(expectedMinJuice)})`);
+
+  if (juiceSupply < expectedMinJuice) {
+    throw new Error(`JUICE supply too low: ${juiceSupply} vs minimum ${expectedMinJuice}`);
+  }
+
+  // Verify deployer balances
+  const deployerJUSD = await juiceDollarContract.balanceOf(deployer.address);
+  const deployerJUICE = await equityContract.balanceOf(deployer.address);
+  console.log(`Deployer JUSD balance: ${ethers.formatEther(deployerJUSD)} JUSD`);
+  console.log(`Deployer JUICE balance: ${ethers.formatEther(deployerJUICE)} JUICE`);
+
+  // Verify FrontendGateway initialization
+  const frontendContract = new ethers.Contract(frontendGateway.address, FrontendGatewayArtifact.abi, provider);
+  const fgSavingsGateway = await frontendContract.SAVINGS();
+  const fgMintingHubGateway = await frontendContract.MINTING_HUB();
+  console.log(`FrontendGateway initialized: ${fgSavingsGateway === savingsGateway.address && fgMintingHubGateway === mintingHubGateway.address ? '✓' : '✗'}`);
+
+  if (fgSavingsGateway !== savingsGateway.address || fgMintingHubGateway !== mintingHubGateway.address) {
+    throw new Error('FrontendGateway not properly initialized');
+  }
+
+  console.log('═'.repeat(80));
+  console.log('✓ ALL VERIFICATIONS PASSED');
+  console.log('═'.repeat(80) + '\n');
+
+  // ============================================================================
+  // BATCH INVESTMENTS PREPARATION
+  // ============================================================================
+
+  // Batch investments: Each batch from a separate address
+  const batchCount = contractsParams.initialInvestment.batchInvestments.count;
+  const batchAmount = contractsParams.initialInvestment.batchInvestments.amountPerBatch;
+
+  // Generate batch investor wallets using HD derivation from the same mnemonic
+  // Start at index 100 to avoid conflicts with standard wallet usage (indices 0-99)
+  const batchInvestors: Array<{ wallet: any; nonce: number }> = [];
+  console.log('\nGenerating batch investor wallets via HD derivation...');
+  for (let i = 0; i < batchCount; i++) {
+    const investorIndex = 100 + i;
+    const derivationPath = `m/44'/60'/0'/0/${investorIndex}`;
+    const investorNode = rootNode.derivePath(derivationPath);
+    const investorWallet = new ethers.Wallet(investorNode.privateKey, provider);
+
+    batchInvestors.push({ wallet: investorWallet, nonce: 0 });
+    console.log(`Batch investor ${i + 1}: ${investorWallet.address} (${derivationPath})`);
+  }
+
+  // Prepare separate transaction batches for ordered execution
+  type TxBatch = { tx: TransactionRequest; signer: any; label: string }[];
+  const cbtcFundingBatch: TxBatch = [];
+  const jusdTransferBatch: TxBatch = [];
+  const approvalBatch: TxBatch = [];
+  const investmentBatch: TxBatch = [];
+
+  // Batch 1: Fund investor wallets with cBTC for gas (Citrea native token)
+  console.log('\nPreparing cBTC funding transactions for batch investors...');
+  // Use configured maxFeePerGas (matches transaction settings)
+  const configuredMaxFee = ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei');
+
+  for (let i = 0; i < batchCount; i++) {
+    // Use actual gas limits from config (more accurate than estimates)
+    const approveGasLimit = BigInt(deploymentConstants.contractCallGasLimit);  // 300,000
+    const investGasLimit = BigInt(deploymentConstants.investCallGasLimit);    // 500,000
+
+    // EIP-1559 max upfront cost = gasLimit × maxFeePerGas
+    const totalMaxCost = (approveGasLimit + investGasLimit) * configuredMaxFee;
+    const bufferMultiplier = 150n; // 50% safety buffer
+    const cbtcAmount = (totalMaxCost * bufferMultiplier) / 100n;
+
+    // Create cBTC transfer transaction (native token via value field)
+    const cbtcTransferTx: TransactionRequest = {
+      to: batchInvestors[i].wallet.address,
+      value: cbtcAmount,
+      data: '0x', // Empty data for native transfer
+      gasLimit: 21000n, // Standard transfer gas
+      chainId: chainId,
+      type: 2, // EIP-1559
+      maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+      maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
+      // nonce will be set at execution time
+    };
+
+    cbtcFundingBatch.push({
+      tx: cbtcTransferTx,
+      signer: deployer,
+      label: `cBTC funding for investor ${i + 1}`
+    });
+
+    console.log(`  Investor ${i + 1}: ${ethers.formatUnits(cbtcAmount, 18)} cBTC (gas funding)`);
+  }
+
+  // Batch 2: Transfer JUSD from deployer to each investor
+  console.log('\nPreparing JUSD transfer transactions to batch investors...');
+  for (let i = 0; i < batchCount; i++) {
+    const contract = new ethers.Contract(juiceDollar.address, JuiceDollarArtifact.abi, deployer);
+    const data = contract.interface.encodeFunctionData('transfer', [batchInvestors[i].wallet.address, batchAmount]);
+
+    const jusdTransferTx: TransactionRequest = {
+      to: juiceDollar.address,
+      data,
+      value: 0,
+      gasLimit: ethers.parseUnits(deploymentConstants.contractCallGasLimit, 'wei'),
+      chainId: chainId,
+      type: 2,
+      maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+      maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
+      // nonce will be set at execution time
+    };
+
+    jusdTransferBatch.push({
+      tx: jusdTransferTx,
+      signer: deployer,
+      label: `JUSD transfer to investor ${i + 1}`
+    });
+  }
+
+  // Batch 3: Prepare approval transactions for batch investors
+  console.log('\nPreparing approval transactions for batch investors...');
+  for (let i = 0; i < batchCount; i++) {
+    const investor = batchInvestors[i];
+    const contract = new ethers.Contract(juiceDollar.address, JuiceDollarArtifact.abi, investor.wallet);
+    const data = contract.interface.encodeFunctionData('approve', [equity.address, batchAmount]);
+
+    const approvalTx: TransactionRequest = {
+      to: juiceDollar.address,
+      data,
+      value: 0,
+      gasLimit: ethers.parseUnits(deploymentConstants.contractCallGasLimit, 'wei'),
+      chainId: chainId,
+      type: 2,
+      maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+      maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
+      // nonce will be set at execution time
+    };
+
+    approvalBatch.push({
+      tx: approvalTx,
+      signer: investor.wallet,
+      label: `Approval by investor ${i + 1}`
+    });
+  }
+
+  // Batch 4: Prepare investment transactions for batch investors
+  console.log('\nPreparing investment transactions for batch investors...');
+  for (let i = 0; i < batchCount; i++) {
+    const investor = batchInvestors[i];
+    const contract = new ethers.Contract(equity.address, EquityArtifact.abi, investor.wallet);
+    const data = contract.interface.encodeFunctionData('invest', [batchAmount, 0]); // 0 = no slippage protection
+
+    const investmentTx: TransactionRequest = {
+      to: equity.address,
+      data,
+      value: 0,
+      gasLimit: ethers.parseUnits(deploymentConstants.investCallGasLimit, 'wei'),
+      chainId: chainId,
+      type: 2,
+      maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+      maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
+      // nonce will be set at execution time
+    };
+
+    investmentBatch.push({
+      tx: investmentTx,
+      signer: investor.wallet,
+      label: `Investment by investor ${i + 1}`
+    });
+  }
+
+  // Helper function to execute a batch of transactions with dynamic nonces and retry logic
+  async function executeBatch(
+    batch: TxBatch,
+    batchName: string,
+    maxRetries: number = 3
+  ): Promise<boolean> {
+    console.log(`\n${'═'.repeat(80)}`);
+    console.log(`${batchName} (${batch.length} transactions)`);
+    console.log('═'.repeat(80));
+
+    const confirmations = isLocal ? 1 : 6;
     const txResponses: TransactionResponse[] = [];
     const startTime = Date.now();
 
-    for (let i = 0; i < transactionBundle.length; i++) {
-      const tx = transactionBundle[i];
-      const txResponse: TransactionResponse = await deployer.sendTransaction(tx);
-      txResponses.push(txResponse);
+    // Local nonce tracker to prevent nonce collisions when multiple TXs from same signer
+    const nonceTracker: Record<string, number> = {};
 
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`[${i + 1}/${transactionBundle.length}] TX submitted: ${txResponse.hash} (${elapsed}s elapsed)`);
+    // PHASE 1: Send all transactions sequentially (no waiting for confirmations between sends)
+    for (let i = 0; i < batch.length; i++) {
+      const { tx, signer, label } = batch[i];
+
+      // Initialize nonce for this signer on first use
+      const signerAddress = await signer.getAddress();
+      if (nonceTracker[signerAddress] === undefined) {
+        nonceTracker[signerAddress] = await provider.getTransactionCount(signerAddress, 'latest');
+      }
+
+      // Assign nonce and increment locally
+      tx.nonce = nonceTracker[signerAddress]++;
+      console.log(`[${i + 1}/${batch.length}] Nonce ${tx.nonce} for ${signerAddress.slice(0, 8)}...`);
+
+      // Send transaction with retry logic
+      let attempt = 0;
+      let txResponse: TransactionResponse | null = null;
+
+      while (attempt < maxRetries && !txResponse) {
+        try {
+          const response = await signer.sendTransaction(tx);
+          const elapsed = ((Date.now() - startTime) / 1000).toFixed(2);
+          console.log(`[${i + 1}/${batch.length}] ✓ ${label}: ${response.hash} (${elapsed}s elapsed)`);
+          txResponse = response;
+        } catch (error: any) {
+          attempt++;
+          if (attempt >= maxRetries) {
+            console.error(`[${i + 1}/${batch.length}] ✗ ${label}: Failed after ${maxRetries} attempts - ${error.message}`);
+            return false;
+          }
+          console.warn(`[${i + 1}/${batch.length}] ⚠ ${label}: Retry ${attempt}/${maxRetries} - ${error.message}`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+        }
+      }
+
+      if (!txResponse) {
+        console.error(`[${i + 1}/${batch.length}] ✗ ${label}: Failed to send transaction`);
+        return false;
+      }
+
+      txResponses.push(txResponse);
     }
 
-    console.log(`\nAll ${transactionBundle.length} transactions submitted in ${((Date.now() - startTime) / 1000).toFixed(2)} seconds`);
-    console.log('Waiting for transaction confirmations sequentially with retry logic...\n');
+    console.log(`\n${batchName}: Phase 1 complete - all ${batch.length} transactions submitted in ${((Date.now() - startTime) / 1000).toFixed(2)}s`);
+    console.log(`${batchName}: Phase 2 starting - waiting for confirmations...\n`);
 
-    // Wait for transactions sequentially with retry logic to handle RPC timeouts
-    const receipts = [];
-    const confirmations = isLocal ? 1 : 6;
+    // PHASE 2: Wait for all confirmations in this batch
+    const receipts: (TransactionReceipt | null)[] = [];
     for (let i = 0; i < txResponses.length; i++) {
       try {
         const receipt = await waitForTransactionWithRetry(txResponses[i], confirmations, 5, 2000);
-        if (receipt) {
-          console.log(`[${i + 1}/${txResponses.length}] TX confirmed: ${txResponses[i].hash} (block ${receipt.blockNumber})`);
+        if (receipt && receipt.status === 1) {
+          console.log(`[${i + 1}/${txResponses.length}] ✓ Confirmed: ${txResponses[i].hash} (block ${receipt.blockNumber})`);
           receipts.push(receipt);
         } else {
-          console.error(`[${i + 1}/${txResponses.length}] TX failed to confirm: ${txResponses[i].hash}`);
+          console.error(`[${i + 1}/${txResponses.length}] ✗ Reverted: ${txResponses[i].hash}`);
           receipts.push(null);
         }
       } catch (error: any) {
-        console.error(`[${i + 1}/${txResponses.length}] TX confirmation error: ${txResponses[i].hash} - ${error.message}`);
+        console.error(`[${i + 1}/${txResponses.length}] ✗ Confirmation error: ${txResponses[i].hash} - ${error.message}`);
         receipts.push(null);
       }
     }
 
-    const nullReceipts = receipts.filter((receipt) => receipt === null);
-    const failedTxs = receipts.filter((receipt) => receipt && receipt.status === 0);
-
-    if (nullReceipts.length > 0) {
-      console.error(`\n${nullReceipts.length} transaction(s) failed to confirm`);
-      deploymentSuccessful = false;
-    } else if (failedTxs.length > 0) {
-      console.error(`\n${failedTxs.length} transaction(s) reverted`);
-      deploymentSuccessful = false;
-    } else {
-      console.log('\nAll transactions confirmed successfully!');
-      deploymentSuccessful = true;
+    const failedCount = receipts.filter((r) => r === null).length;
+    if (failedCount > 0) {
+      console.error(`\n${batchName}: ${failedCount} transaction(s) failed`);
+      return false;
     }
+
+    console.log(`\n${batchName}: All ${batch.length} transactions confirmed successfully!\n`);
+    return true;
+  }
+
+  // Execute batches in order with proper dependency management
+  console.log('\n' + '═'.repeat(80));
+  console.log('BATCHED DEPLOYMENT EXECUTION');
+  console.log('═'.repeat(80));
+  console.log('NOTE: Transactions will be executed in 4 batches to ensure proper dependencies.');
+  console.log('SECURITY: Use a fresh, unknown deployer address to minimize front-running risk.');
+
+  let deploymentSuccessful = false;
+
+  try {
+    // Batch 1: cBTC funding (must complete before JUSD transfers)
+    if (batchCount > 0 && cbtcFundingBatch.length > 0) {
+      const success = await executeBatch(cbtcFundingBatch, 'BATCH 1: cBTC Funding');
+      if (!success) {
+        console.error('Failed at cBTC funding batch. Exiting...');
+        process.exit(1);
+      }
+    }
+
+    // Batch 2: JUSD transfers (must complete before approvals)
+    if (batchCount > 0 && jusdTransferBatch.length > 0) {
+      const success = await executeBatch(jusdTransferBatch, 'BATCH 2: JUSD Transfers');
+      if (!success) {
+        console.error('Failed at JUSD transfer batch. Exiting...');
+        process.exit(1);
+      }
+    }
+
+    // Batch 3: Approvals (must complete before investments)
+    if (batchCount > 0 && approvalBatch.length > 0) {
+      const success = await executeBatch(approvalBatch, 'BATCH 3: JUSD Approvals');
+      if (!success) {
+        console.error('Failed at approval batch. Exiting...');
+        process.exit(1);
+      }
+    }
+
+    // Batch 4: Investments
+    if (batchCount > 0 && investmentBatch.length > 0) {
+      const success = await executeBatch(investmentBatch, 'BATCH 4: Equity Investments');
+      if (!success) {
+        console.error('Failed at investment batch. Exiting...');
+        process.exit(1);
+      }
+    }
+
+    console.log('\n' + '═'.repeat(80));
+    console.log('ALL BATCHES COMPLETED SUCCESSFULLY!');
+    console.log('═'.repeat(80) + '\n');
+    deploymentSuccessful = true;
+
   } catch (error) {
-    console.error('Error during rapid sequential deployment:', error);
+    console.error('\nError during batched deployment:', error);
+    deploymentSuccessful = false;
   }
 
   if (!deploymentSuccessful) {
@@ -425,10 +810,16 @@ async function main(hre: HardhatRuntimeEnvironment) {
       blockNumber: targetBlock
     },
     contracts: deployedContracts,
+    batchInvestors: batchInvestors.map((investor, index) => ({
+      index: index + 1,
+      address: investor.wallet.address,
+      investmentAmount: ethers.formatUnits(batchAmount, 18) + ' JUSD'
+    })),
     metadata: {
       deployer: 'JuiceDollar/smartContracts',
       deploymentMethod: 'rapid-sequential',
-      scriptVersion: '1.0.0'
+      scriptVersion: '1.0.0',
+      batchInvestmentStrategy: 'separate-addresses'
     }
   };
 
