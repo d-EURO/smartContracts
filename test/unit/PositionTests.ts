@@ -1300,6 +1300,57 @@ describe("Position Tests", () => {
         "PriceTooHigh"
       )
     });
+    it("should allow price decrease during cooldown", async () => {
+      // Wait for initial cooldown to pass
+      await evm_increaseTimeTo(await positionContract.cooldown());
+      const initialPrice = await positionContract.price();
+
+      // First decrease price so we have room to increase it
+      const lowerPrice = initialPrice / 2n;
+      await positionContract.adjustPrice(lowerPrice);
+
+      // Now increase price to trigger a new 3-day cooldown
+      const higherPrice = lowerPrice + floatToDec18(100);
+      await positionContract.adjustPrice(higherPrice);
+
+      // Verify we are now in cooldown
+      const cooldownEnd = await positionContract.cooldown();
+      const currentBlock = await ethers.provider.getBlock("latest");
+      expect(cooldownEnd).to.be.gt(currentBlock!.timestamp);
+
+      // Price increase should fail during cooldown
+      await expect(
+        positionContract.adjustPrice(higherPrice + floatToDec18(1)),
+      ).to.be.revertedWithCustomError(positionContract, "Hot");
+
+      // But price decrease should succeed even during cooldown
+      const evenLowerPrice = lowerPrice - floatToDec18(100);
+      await positionContract.adjustPrice(evenLowerPrice);
+      expect(await positionContract.price()).to.be.equal(evenLowerPrice);
+    });
+    it("should revert price increase during cooldown", async () => {
+      // Wait for initial cooldown to pass
+      await evm_increaseTimeTo(await positionContract.cooldown());
+      const initialPrice = await positionContract.price();
+
+      // First decrease price so we have room to increase it
+      const lowerPrice = initialPrice / 2n;
+      await positionContract.adjustPrice(lowerPrice);
+
+      // Now increase price to trigger a new 3-day cooldown
+      const higherPrice = lowerPrice + floatToDec18(100);
+      await positionContract.adjustPrice(higherPrice);
+
+      // Verify we are now in cooldown
+      const cooldownEnd = await positionContract.cooldown();
+      const currentBlock = await ethers.provider.getBlock("latest");
+      expect(cooldownEnd).to.be.gt(currentBlock!.timestamp);
+
+      // Another price increase should fail during cooldown
+      await expect(
+        positionContract.adjustPrice(higherPrice + floatToDec18(1)),
+      ).to.be.revertedWithCustomError(positionContract, "Hot");
+    });
   });
 
   describe("adjusting price with reference", async () => {

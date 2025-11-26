@@ -385,9 +385,11 @@ contract Position is Ownable, IPosition, MathUtil {
      * @param referencePosition For price increases: address(0) triggers 3-day cooldown,
      *                          valid reference allows cooldown-free adjustment.
      *                          For price decreases: ignored (only collateral check performed).
+     *                          Price decreases are allowed even during cooldown since they make the position safer.
      */
-    function _adjustPrice(uint256 newPrice, address referencePosition) internal noChallenge alive backed noCooldown {
+    function _adjustPrice(uint256 newPrice, address referencePosition) internal noChallenge alive backed {
         if (newPrice > price) {
+            if (block.timestamp <= cooldown) revert Hot();
             if (referencePosition == address(0)) {
                 _restrictMinting(3 days);
             } else if (!_isValidPriceReference(referencePosition, newPrice)) {
