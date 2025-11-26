@@ -133,6 +133,11 @@ export const PositionV2ABI = [
     type: 'error',
   },
   {
+    inputs: [],
+    name: 'InvalidPriceReference',
+    type: 'error',
+  },
+  {
     inputs: [
       {
         internalType: 'uint256',
@@ -302,11 +307,57 @@ export const PositionV2ABI = [
     inputs: [
       {
         internalType: 'uint256',
+        name: 'newPrincipal',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: 'newCollateral',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: 'newPrice',
+        type: 'uint256',
+      },
+      {
+        internalType: 'address',
+        name: 'referencePosition',
+        type: 'address',
+      },
+    ],
+    name: 'adjust',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
         name: 'newPrice',
         type: 'uint256',
       },
     ],
     name: 'adjustPrice',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: 'newPrice',
+        type: 'uint256',
+      },
+      {
+        internalType: 'address',
+        name: 'referencePosition',
+        type: 'address',
+      },
+    ],
+    name: 'adjustPriceWithReference',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -605,6 +656,30 @@ export const PositionV2ABI = [
   {
     inputs: [],
     name: 'isClosed',
+    outputs: [
+      {
+        internalType: 'bool',
+        name: '',
+        type: 'bool',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'referencePosition',
+        type: 'address',
+      },
+      {
+        internalType: 'uint256',
+        name: 'newPrice',
+        type: 'uint256',
+      },
+    ],
+    name: 'isValidPriceReference',
     outputs: [
       {
         internalType: 'bool',
