@@ -412,7 +412,7 @@ async function testPositionCreationAndMinting(contracts: Contracts, signer: Hard
   const expiration = 30 * 86400; // 30 days
   const challengePeriod = 1 * 86400; // 1 day
   const riskPremium = 10000; // 1%
-  const liqPrice = (ethers.parseEther('5500') * ethers.parseEther('1')) / minCollateral; // Requirement: Min. collateral value >= 5000 JUSD
+  const liqPrice = (ethers.parseEther('5500') * ethers.parseEther('1')) / minCollateral; // Requirement: Min. collateral value >= 100 JUSD
   const reservePPM = 200000; // 20%
   const frontendCode = ethers.ZeroHash; // empty frontend code
 
@@ -550,7 +550,7 @@ async function testPositionRolling(contracts: Contracts, sourcePosition: Positio
   const expiration = 60 * 86400; // 60 days (LONGER expiration)
   const challengePeriod = 1 * 86400; // 1 day
   const riskPremium = 10000; // 1%
-  const liqPrice = (ethers.parseEther('5500') * ethers.parseEther('1')) / minCollateral; // Requirement: Min. collateral value >= 5000 JUSD
+  const liqPrice = (ethers.parseEther('5500') * ethers.parseEther('1')) / minCollateral; // Requirement: Min. collateral value >= 100 JUSD
   const reservePPM = 200000; // 20%
   const frontendCode = ethers.ZeroHash; // empty frontend code
 

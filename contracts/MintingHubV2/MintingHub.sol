@@ -134,8 +134,8 @@ contract MintingHub is IMintingHub, ERC165 {
                 bytes memory /*lowLevelData*/
             ) {}
             if (_initialCollateral < _minCollateral) revert InsufficientCollateral();
-            // must start with at least 5000 JUSD worth of collateral
-            if (_minCollateral * _liqPrice < 5000 ether * 10 ** 18) revert InsufficientCollateral();
+            // must start with at least 100 JUSD worth of collateral
+            if (_minCollateral * _liqPrice < 100 ether * 10 ** 18) revert InsufficientCollateral();
         }
         IPosition pos = IPosition(
             POSITION_FACTORY.createNewPosition(
