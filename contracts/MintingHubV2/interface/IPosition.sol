@@ -60,6 +60,14 @@ interface IPosition {
 
     function adjustPrice(uint256 newPrice) external;
 
+    function adjustPriceWithReference(uint256 newPrice, address referencePosition) external;
+
+    function adjust(uint256 newMinted, uint256 newCollateral, uint256 newPrice, address referencePosition) external;
+
+    function isValidPriceReference(address referencePosition, uint256 newPrice) external view returns (bool);
+
+    function isClosed() external view returns (bool);
+
     function mint(address target, uint256 amount) external;
 
     function getDebt() external view returns (uint256);
