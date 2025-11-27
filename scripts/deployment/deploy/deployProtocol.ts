@@ -36,6 +36,7 @@ interface DeployedContracts {
   mintingHubGateway: DeployedContract;
   savingsVaultJUSD: DeployedContract;
   coinLendingGateway: DeployedContract;
+  genesisPosition?: DeployedContract;
 }
 
 /**
@@ -351,8 +352,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
     'StablecoinBridgeStartUSD',
   ]);
 
-  // Mint 2,001,000 SUSD through the StartUSD bridge
-  const totalStartUSDAmount = ethers.parseUnits('2001000', 18);
+  // Mint 2,002,000 SUSD through the StartUSD bridge
+  // 1,000 first investment + 2,000,000 batch investments + 1,000 genesis position opening fee
+  const totalStartUSDAmount = ethers.parseUnits('2002000', 18);
   createCallTx(
     startUSD.address,
     StartUSDArtifact.abi,
@@ -464,7 +466,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
 
   // Verify JUSD total supply
   const jusdSupply = await juiceDollarContract.totalSupply();
-  const expectedSupply = ethers.parseUnits('2001000', 18); // 2,001,000 JUSD from bridge
+  const expectedSupply = ethers.parseUnits('2002000', 18); // 2,002,000 JUSD from bridge
   console.log(`JUSD total supply: ${ethers.formatEther(jusdSupply)} JUSD (expected: ${ethers.formatEther(expectedSupply)})`);
 
   if (jusdSupply !== expectedSupply) {
@@ -794,6 +796,175 @@ async function main(hre: HardhatRuntimeEnvironment) {
   if (!deploymentSuccessful) {
     console.error('Failed to deploy protocol. Exiting...');
     process.exit(1);
+  }
+
+  // ============================================================================
+  // GENESIS POSITION CREATION
+  // ============================================================================
+  // Create a genesis position that can be cloned via CoinLendingGateway.lendWithCoin()
+  // This enables users to open positions without paying the 1000 JUSD opening fee
+  console.log('\n' + '═'.repeat(80));
+  console.log('GENESIS POSITION CREATION');
+  console.log('═'.repeat(80));
+
+  const genesisParams = contractsParams.genesisPosition;
+  const openingFee = ethers.parseUnits('1000', 18); // 1000 JUSD opening fee
+
+  // Check deployer has enough JUSD for opening fee
+  const jusdContract = new ethers.Contract(juiceDollar.address, JuiceDollarArtifact.abi, deployer);
+  const deployerJusdBalance = await jusdContract.balanceOf(deployer.address);
+  console.log(`Deployer JUSD balance: ${ethers.formatEther(deployerJusdBalance)} JUSD`);
+  console.log(`Opening fee required: ${ethers.formatEther(openingFee)} JUSD`);
+
+  if (deployerJusdBalance < openingFee) {
+    console.error('Insufficient JUSD for genesis position opening fee. Skipping genesis position creation.');
+  } else {
+    // Check deployer has enough cBTC for collateral
+    const deployerCbtcBalance = await provider.getBalance(deployer.address);
+    const collateralAmount = BigInt(genesisParams.initialCollateral);
+    console.log(`Deployer cBTC balance: ${ethers.formatEther(deployerCbtcBalance)} cBTC`);
+    console.log(`Collateral required: ${ethers.formatEther(collateralAmount)} cBTC`);
+
+    if (deployerCbtcBalance < collateralAmount) {
+      console.error('Insufficient cBTC for genesis position collateral. Skipping genesis position creation.');
+    } else {
+      console.log('\nCreating genesis position...');
+
+      // WcBTC interface for wrapping
+      const wcbtcAbi = [
+        'function deposit() external payable',
+        'function approve(address spender, uint256 amount) external returns (bool)',
+        'function balanceOf(address account) external view returns (uint256)',
+      ];
+      const wcbtcContract = new ethers.Contract(wcbtcAddress, wcbtcAbi, deployer);
+
+      // Get current nonce
+      let genesisNonce = await provider.getTransactionCount(deployer.address, 'latest');
+
+      // Step 1: Wrap cBTC to WcBTC
+      console.log('Step 1: Wrapping cBTC to WcBTC...');
+      const wrapTx = await deployer.sendTransaction({
+        to: wcbtcAddress,
+        value: collateralAmount,
+        data: wcbtcContract.interface.encodeFunctionData('deposit'),
+        gasLimit: ethers.parseUnits(deploymentConstants.contractCallGasLimit, 'wei'),
+        maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+        maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
+        nonce: genesisNonce++,
+      });
+      const wrapReceipt = await waitForTransactionWithRetry(wrapTx, confirmations, 5, 2000);
+      if (!wrapReceipt || wrapReceipt.status !== 1) {
+        throw new Error('Failed to wrap cBTC to WcBTC');
+      }
+      console.log(`  ✓ Wrapped ${ethers.formatEther(collateralAmount)} cBTC to WcBTC`);
+
+      // Step 2: Approve WcBTC for MintingHubGateway
+      console.log('Step 2: Approving WcBTC for MintingHubGateway...');
+      const approveWcbtcTx = await deployer.sendTransaction({
+        to: wcbtcAddress,
+        data: wcbtcContract.interface.encodeFunctionData('approve', [mintingHubGateway.address, collateralAmount]),
+        gasLimit: ethers.parseUnits(deploymentConstants.contractCallGasLimit, 'wei'),
+        maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+        maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
+        nonce: genesisNonce++,
+      });
+      const approveWcbtcReceipt = await waitForTransactionWithRetry(approveWcbtcTx, confirmations, 5, 2000);
+      if (!approveWcbtcReceipt || approveWcbtcReceipt.status !== 1) {
+        throw new Error('Failed to approve WcBTC');
+      }
+      console.log('  ✓ WcBTC approved for MintingHubGateway');
+
+      // Step 3: Approve JUSD for opening fee
+      console.log('Step 3: Approving JUSD for opening fee...');
+      const approveJusdTx = await deployer.sendTransaction({
+        to: juiceDollar.address,
+        data: jusdContract.interface.encodeFunctionData('approve', [mintingHubGateway.address, openingFee]),
+        gasLimit: ethers.parseUnits(deploymentConstants.contractCallGasLimit, 'wei'),
+        maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+        maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
+        nonce: genesisNonce++,
+      });
+      const approveJusdReceipt = await waitForTransactionWithRetry(approveJusdTx, confirmations, 5, 2000);
+      if (!approveJusdReceipt || approveJusdReceipt.status !== 1) {
+        throw new Error('Failed to approve JUSD');
+      }
+      console.log('  ✓ JUSD approved for opening fee');
+
+      // Step 4: Open genesis position
+      console.log('Step 4: Opening genesis position...');
+      const mintingHubContract = new ethers.Contract(mintingHubGateway.address, MintingHubGatewayArtifact.abi, deployer);
+      const frontendCode = ethers.ZeroHash; // No frontend code
+
+      const openPositionTx = await deployer.sendTransaction({
+        to: mintingHubGateway.address,
+        data: mintingHubContract.interface.encodeFunctionData(
+          'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)',
+          [
+          wcbtcAddress,                           // collateral address
+          genesisParams.minCollateral,            // min collateral
+          genesisParams.initialCollateral,        // initial collateral
+          genesisParams.mintingMaximum,           // minting maximum
+          genesisParams.initPeriodSeconds,        // init period
+          genesisParams.expirationSeconds,        // expiration
+          genesisParams.challengeSeconds,         // challenge period
+          genesisParams.riskPremiumPPM,           // risk premium
+          genesisParams.liquidationPrice,         // liquidation price
+          genesisParams.reservePPM,               // reserve PPM
+          frontendCode,                           // frontend code
+        ]),
+        gasLimit: ethers.parseUnits(deploymentConstants.openPositionGasLimit, 'wei'),
+        maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+        maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
+        nonce: genesisNonce++,
+      });
+
+      const openPositionReceipt = await waitForTransactionWithRetry(openPositionTx, confirmations, 5, 2000);
+      if (!openPositionReceipt || openPositionReceipt.status !== 1) {
+        throw new Error('Failed to open genesis position');
+      }
+
+      // Extract position address from PositionOpened event
+      // Event: PositionOpened(address indexed owner, address indexed position, address original, address collateral)
+      const positionOpenedTopic = ethers.id('PositionOpened(address,address,address,address)');
+      const positionLog = openPositionReceipt.logs.find(log => log.topics[0] === positionOpenedTopic);
+
+      if (positionLog) {
+        const genesisPositionAddress = ethers.getAddress('0x' + positionLog.topics[2].slice(26));
+        console.log(`  ✓ Genesis position created at: ${genesisPositionAddress}`);
+
+        // Add to deployed contracts
+        deployedContracts.genesisPosition = {
+          address: genesisPositionAddress,
+          constructorArgs: [
+            deployer.address,                       // owner
+            mintingHubGateway.address,              // hub
+            juiceDollar.address,                    // jusd
+            wcbtcAddress,                           // collateral
+            genesisParams.minCollateral,
+            genesisParams.mintingMaximum,
+            genesisParams.initPeriodSeconds,
+            genesisParams.expirationSeconds,
+            genesisParams.challengeSeconds,
+            genesisParams.riskPremiumPPM,
+            genesisParams.liquidationPrice,
+            genesisParams.reservePPM,
+          ],
+        };
+
+        console.log('\n  Genesis Position Details:');
+        console.log(`    Address: ${genesisPositionAddress}`);
+        console.log(`    Collateral: ${ethers.formatEther(genesisParams.initialCollateral)} WcBTC`);
+        console.log(`    Liquidation Price: ${ethers.formatEther(genesisParams.liquidationPrice)} JUSD/cBTC`);
+        console.log(`    Minting Maximum: ${ethers.formatEther(genesisParams.mintingMaximum)} JUSD`);
+        console.log(`    Expiration: ${genesisParams.expirationSeconds / 86400} days`);
+      } else {
+        console.error('  ✗ Could not extract genesis position address from logs');
+      }
+
+      console.log('\n' + '═'.repeat(80));
+      console.log('GENESIS POSITION CREATED SUCCESSFULLY!');
+      console.log('═'.repeat(80) + '\n');
+    }
   }
 
   const networkFolder = hre.network.name === 'hardhat' ? 'localhost' : hre.network.name;
