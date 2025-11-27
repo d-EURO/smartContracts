@@ -124,7 +124,7 @@ contract MintingHub is IMintingHub, ERC165 {
             if (CHALLENGER_REWARD > _reservePPM || _reservePPM > 1_000_000) revert InvalidReservePPM();
             if (IERC20Metadata(_collateralAddress).decimals() > 24) revert InvalidCollateralDecimals(); // leaves 12 digits for price
             if (_challengeSeconds < 1 days) revert ChallengeTimeTooShort();
-            if (_initPeriodSeconds < 6 hours) revert InitPeriodTooShort();
+            if (_initPeriodSeconds < 3 days) revert InitPeriodTooShort();
             uint256 invalidAmount = IERC20(_collateralAddress).totalSupply() + 1;
             // TODO: Improve for older tokens that revert with assert, 
             // which consumes all gas and makes the entire tx fail (uncatchable)
