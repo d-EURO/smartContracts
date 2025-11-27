@@ -30,6 +30,7 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
     error TransferFailed();
     error PriceAdjustmentFailed();
     error DirectCBTCNotAccepted();
+    error InsufficientWcBTC();
 
     event CoinRescued(address indexed to, uint256 amount);
     event TokenRescued(address indexed token, address indexed to, uint256 amount);
@@ -172,6 +173,48 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
     }
 
     /**
+     * @notice Adds collateral to an existing position using native cBTC
+     * @dev Wraps cBTC to WcBTC and transfers it directly to the position
+     * @param position The address of the position to add collateral to
+     */
+    function addCollateralWithCoin(address position) external payable nonReentrant whenNotPaused {
+        if (msg.value == 0) revert InsufficientCoin();
+        if (position == address(0)) revert InvalidPosition();
+
+        // Wrap cBTC to WcBTC
+        WCBTC.deposit{value: msg.value}();
+
+        // Transfer WcBTC directly to the position
+        bool success = WCBTC.transfer(position, msg.value);
+        if (!success) revert TransferFailed();
+
+        emit CollateralAddedWithCoin(position, msg.value);
+    }
+
+    /**
+     * @notice Withdraws WcBTC and returns native cBTC to the caller
+     * @dev User must first transfer WcBTC to this contract (e.g., via position.withdraw())
+     *      then call this function to unwrap and receive native cBTC
+     * @param amount The amount of WcBTC to unwrap and withdraw as native cBTC
+     */
+    function withdrawToCoin(uint256 amount) external nonReentrant whenNotPaused {
+        if (amount == 0) revert InsufficientCoin();
+
+        // Transfer WcBTC from caller to this contract
+        bool success = WCBTC.transferFrom(_msgSender(), address(this), amount);
+        if (!success) revert TransferFailed();
+
+        // Unwrap WcBTC to native cBTC
+        WCBTC.withdraw(amount);
+
+        // Send native cBTC to caller
+        (bool sent, ) = _msgSender().call{value: amount}("");
+        if (!sent) revert TransferFailed();
+
+        emit CollateralWithdrawnToCoin(_msgSender(), amount);
+    }
+
+    /**
      * @notice Rescue function to withdraw accidentally sent native cBTC
      * @dev Only owner can call this function
      */
@@ -215,9 +258,11 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
     }
 
     /**
-     * @dev Reject direct cBTC transfers to prevent stuck funds
+     * @dev Accept cBTC only from WcBTC contract (for unwrapping), reject all others
      */
     receive() external payable {
-        revert DirectCBTCNotAccepted();
+        if (msg.sender != address(WCBTC)) {
+            revert DirectCBTCNotAccepted();
+        }
     }
 }

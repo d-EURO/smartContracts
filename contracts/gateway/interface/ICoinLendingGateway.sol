@@ -59,6 +59,33 @@ interface ICoinLendingGateway {
     ) external payable returns (address position);
 
     /**
+     * @notice Emitted when collateral is added to a position with native coins
+     * @param position The address of the position
+     * @param amount The amount of native coin added as collateral
+     */
+    event CollateralAddedWithCoin(address indexed position, uint256 amount);
+
+    /**
+     * @notice Emitted when WcBTC is withdrawn as native coins
+     * @param to The recipient of the native coins
+     * @param amount The amount of native coins withdrawn
+     */
+    event CollateralWithdrawnToCoin(address indexed to, uint256 amount);
+
+    /**
+     * @notice Adds collateral to an existing position using native coins
+     * @param position The address of the position to add collateral to
+     */
+    function addCollateralWithCoin(address position) external payable;
+
+    /**
+     * @notice Withdraws WcBTC and returns native coins to the caller
+     * @dev User must first approve WcBTC spending by this contract
+     * @param amount The amount of WcBTC to unwrap and withdraw as native coins
+     */
+    function withdrawToCoin(uint256 amount) external;
+
+    /**
      * @notice Rescue function to withdraw accidentally sent native coins
      */
     function rescueCoin() external;
