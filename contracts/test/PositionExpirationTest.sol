@@ -54,7 +54,7 @@ contract PositionExpirationTest {
                 200000
             );
         }
-        Position(pos).transferOwnership(owner);
+        Position(payable(pos)).transferOwnership(owner);
         return pos;
     }
 
@@ -63,10 +63,10 @@ contract PositionExpirationTest {
     }
 
     function forceBuy(address pos, uint256 amount) public {
-        uint256 price = hub.expiredPurchasePrice(Position(pos));
+        uint256 price = hub.expiredPurchasePrice(Position(payable(pos)));
         uint256 balanceBefore = jusd.balanceOf(address(this));
         uint256 colBalBefore = col.balanceOf(address(this));
-        amount = hub.buyExpiredCollateral(Position(pos), amount);
+        amount = hub.buyExpiredCollateral(Position(payable(pos)), amount);
         uint256 balanceAfter = jusd.balanceOf(address(this));
         uint256 colBalAfter = col.balanceOf(address(this));
         require(colBalAfter - colBalBefore == amount, "collateral amount");

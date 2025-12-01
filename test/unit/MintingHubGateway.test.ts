@@ -70,6 +70,7 @@ describe('Minting Tests', () => {
       roller.getAddress(),
       positionFactory.getAddress(),
       gateway.getAddress(),
+      ethers.ZeroAddress,  // wcbtc - not used in these tests
     );
 
     await gateway.init('0x0000000000000000000000000000000000000000', mintingHub.getAddress());
@@ -217,8 +218,8 @@ describe('Minting Tests', () => {
       const tx = mintingHub
         .connect(alice)
         [
-          'clone(address,uint256,uint256,uint40,bytes32)'
-        ](positionAddr, fInitialCollateralClone, fMintAmount, expiration, frontendCode);
+          'clone(address,address,uint256,uint256,uint40,uint256,bytes32)'
+        ](alice.address, positionAddr, fInitialCollateralClone, fMintAmount, expiration, 0, frontendCode);
       await expect(tx).to.be.revertedWithCustomError(positionContract, 'LimitExceeded');
 
       const colbal1 = await mockVOL.balanceOf(positionAddr);
@@ -267,8 +268,8 @@ describe('Minting Tests', () => {
       const tx = await mintingHub
         .connect(alice)
         [
-          'clone(address,uint256,uint256,uint40,bytes32)'
-        ](positionAddr, fInitialCollateralClone, fMintAmount, newExpiration, frontendCode);
+          'clone(address,address,uint256,uint256,uint40,uint256,bytes32)'
+        ](alice.address, positionAddr, fInitialCollateralClone, fMintAmount, newExpiration, 0, frontendCode);
       clonePositionAddr = await getPositionAddressFromTX(tx);
       clonePositionContract = await ethers.getContractAt('Position', clonePositionAddr);
       clonePositionContract = clonePositionContract.connect(alice);
@@ -333,15 +334,15 @@ describe('Minting Tests', () => {
       const tx = mintingHub
         .connect(alice)
         [
-          'clone(address,uint256,uint256,uint40,bytes32)'
-        ](positionAddr, fInitialCollateralClone, available, expiration, frontendCode);
+          'clone(address,address,uint256,uint256,uint40,uint256,bytes32)'
+        ](alice.address, positionAddr, fInitialCollateralClone, available, expiration, 0, frontendCode);
       await expect(tx).to.be.revertedWithCustomError(positionContract, 'InsufficientCollateral');
 
       const pendingTx = mintingHub
         .connect(alice)
         [
-          'clone(address,uint256,uint256,uint40,bytes32)'
-        ](positionAddr, fInitialCollateralClone * 1000n, initialLimit, expiration, frontendCode);
+          'clone(address,address,uint256,uint256,uint40,uint256,bytes32)'
+        ](alice.address, positionAddr, fInitialCollateralClone * 1000n, initialLimit, expiration, 0, frontendCode);
       await expect(pendingTx).to.be.revertedWithCustomError(positionContract, 'LimitExceeded');
     });
     it('repay position', async () => {
@@ -607,11 +608,13 @@ describe('Minting Tests', () => {
       const positionContract = await ethers.getContractAt('Position', positionAddr);
       const expiration = await positionContract.expiration();
       await evm_increaseTimeTo(await positionContract.start());
-      tx = await mintingHub['clone(address,uint256,uint256,uint40,bytes32)'](
+      tx = await mintingHub['clone(address,address,uint256,uint256,uint40,uint256,bytes32)'](
+        owner.address,
         positionAddr,
         fInitialCollateral,
         initialLimit / 2n,
         expiration,
+        0,
         frontendCode,
       );
       const clonePositionAddr = await getPositionAddressFromTX(tx);
@@ -744,7 +747,7 @@ describe('Minting Tests', () => {
       const colBalance = await mockVOL.balanceOf(positionAddr);
       const amount = floatToDec18(100);
       await mockVOL.approve(positionAddr, amount);
-      await positionContract.adjust(0, colBalance + amount, floatToDec18(1000));
+      await positionContract.adjust(0, colBalance + amount, floatToDec18(1000), false);
 
       const newColBalance = await mockVOL.balanceOf(positionAddr);
       expect(newColBalance - colBalance).to.be.equal(amount);
@@ -755,7 +758,7 @@ describe('Minting Tests', () => {
       await evm_increaseTime(86400 * 8);
       const colBalance = await mockVOL.balanceOf(positionAddr);
       const amount = floatToDec18(100);
-      await positionContract.adjust(0, colBalance - amount, floatToDec18(1000));
+      await positionContract.adjust(0, colBalance - amount, floatToDec18(1000), false);
 
       const newColBalance = await mockVOL.balanceOf(positionAddr);
       expect(colBalance - newColBalance).to.be.equal(amount);
@@ -770,7 +773,7 @@ describe('Minting Tests', () => {
 
       const beforeJUSDBal = await JUSD.balanceOf(owner.address);
       const lastAccrualTimeBefore = await positionContract.lastAccrual();
-      await positionContract.adjust(minted + amount, colBalance, price);
+      await positionContract.adjust(minted + amount, colBalance, price, false);
       const lastAccrualTimeAfter = await positionContract.lastAccrual();
       const afterJUSDBal = await JUSD.balanceOf(owner.address);
       const reservePPM = await positionContract.reserveContribution();
@@ -787,7 +790,7 @@ describe('Minting Tests', () => {
       const colBalance = await mockVOL.balanceOf(positionAddr);
       const principal = await positionContract.principal();
       const amount = floatToDec18(100);
-      await positionContract.adjust(principal + amount, colBalance, price);
+      await positionContract.adjust(principal + amount, colBalance, price, false);
       expect(await positionContract.principal()).to.be.equal(principal + amount);
       expect((await gateway.frontendCodes(frontendCode)).balance).to.be.equal(
         0,
@@ -795,7 +798,7 @@ describe('Minting Tests', () => {
 
       const interest = await positionContract.getInterest();
       await JUSD.approve(positionAddr, amount + interest + floatToDec18(1));
-      await positionContract.adjust(principal, colBalance, price);
+      await positionContract.adjust(principal, colBalance, price, false);
       expect(await positionContract.principal()).to.be.equal(principal);
       expect(
         (await gateway.frontendCodes(frontendCode)).balance,
@@ -809,7 +812,7 @@ describe('Minting Tests', () => {
       const minted = await positionContract.getDebt();
       const collbal = await positionContract.minimumCollateral();
 
-      await positionContract.adjust(minted, collbal, price * 2n);
+      await positionContract.adjust(minted, collbal, price * 2n, false);
       expect(await positionContract.price()).to.be.equal(price * 2n);
       expect((await gateway.frontendCodes(frontendCode)).balance).to.be.equal(frontendCodeBefore);
     });

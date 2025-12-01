@@ -72,6 +72,7 @@ describe("Roller Tests", () => {
       await savings.getAddress(),
       await roller.getAddress(),
       await positionFactory.getAddress(),
+      ethers.ZeroAddress,  // wcbtc - not used in these tests
     );
 
     // test coin

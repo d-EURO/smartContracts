@@ -137,12 +137,13 @@ contract PositionRoller {
                     collDeposit,
                     mint,
                     expiration,
+                    0, // inherit price from parent
                     frontendCode // use the same frontend code
                 )
             );
         } else {
             return IPosition(
-                IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration)
+                IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration, 0)
             );
         }
     }

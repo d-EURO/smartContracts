@@ -13,7 +13,6 @@ import FrontendGatewayArtifact from '../../../artifacts/contracts/gateway/Fronte
 import SavingsGatewayArtifact from '../../../artifacts/contracts/gateway/SavingsGateway.sol/SavingsGateway.json';
 import MintingHubGatewayArtifact from '../../../artifacts/contracts/gateway/MintingHubGateway.sol/MintingHubGateway.json';
 import SavingsVaultJUSDArtifact from '../../../artifacts/contracts/SavingsVaultJUSD.sol/SavingsVaultJUSD.json';
-import CoinLendingGatewayArtifact from '../../../artifacts/contracts/gateway/CoinLendingGateway.sol/CoinLendingGateway.json';
 import EquityArtifact from '../../../artifacts/contracts/Equity.sol/Equity.json';
 import { ADDRESSES } from '../../../constants/addresses';
 
@@ -35,7 +34,6 @@ interface DeployedContracts {
   savingsGateway: DeployedContract;
   mintingHubGateway: DeployedContract;
   savingsVaultJUSD: DeployedContract;
-  coinLendingGateway: DeployedContract;
   genesisPosition?: DeployedContract;
 }
 
@@ -286,6 +284,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
     positionRoller.address,
     positionFactory.address,
     frontendGateway.address,
+    wcbtcAddress,
   ]);
 
   // Deploy SavingsVaultJUSD
@@ -294,13 +293,6 @@ async function main(hre: HardhatRuntimeEnvironment) {
     savingsGateway.address,
     'Savings Vault JUSD', // name
     'svJUSD', // symbol
-  ]);
-
-  // Deploy CoinLendingGateway
-  const coinLendingGateway = await createDeployTx('CoinLendingGateway', CoinLendingGatewayArtifact, [
-    mintingHubGateway.address,
-    wcbtcAddress,
-    juiceDollar.address,
   ]);
 
   const deployedContracts: DeployedContracts = {
@@ -314,7 +306,6 @@ async function main(hre: HardhatRuntimeEnvironment) {
     savingsGateway,
     mintingHubGateway,
     savingsVaultJUSD,
-    coinLendingGateway,
   };
 
   // Setup initialization transactions

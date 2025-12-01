@@ -13,8 +13,9 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
         address _leadrate,
         address _roller,
         address _factory,
-        address _gateway
-    ) MintingHub(_jusd, _leadrate, _roller, _factory) {
+        address _gateway,
+        address _wcbtc
+    ) MintingHub(_jusd, _leadrate, _roller, _factory, _wcbtc) {
         GATEWAY = IFrontendGateway(_gateway);
     }
 
@@ -30,8 +31,8 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
         uint256 _liqPrice,
         uint24 _reservePPM,
         bytes32 _frontendCode
-    ) public returns (address) {
-        address position = openPosition(
+    ) public payable returns (address) {
+        address position = MintingHub.openPosition(
             _collateralAddress,
             _minCollateral,
             _initialCollateral,
@@ -47,19 +48,12 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
         return position;
     }
 
-    function clone(
-        address parent,
-        uint256 _initialCollateral,
-        uint256 _initialMint,
-        uint40 expiration,
-        bytes32 frontendCode
-    ) public returns (address) {
-        return clone(msg.sender, parent, _initialCollateral, _initialMint, expiration, frontendCode);
-    }
-
     /**
-     * @notice Clones an existing position and immediately tries to mint the specified amount using the given collateral.
-     * @dev This needs an allowance to be set on the collateral contract such that the minting hub can get the collateral.
+     * @notice Clones an existing position and immediately tries to mint the specified amount using the given collateral. 
+     * @dev For native coin positions (WcBTC), send msg.value equal to _initialCollateral.
+     * For ERC20 collateral, ensure prior approval for the minting hub to transfer _initialCollateral.
+     * @param _liqPrice Optionally adjust price of new position after minting. Set to 0 to inherit parent's price.
+     * @param frontendCode Optionally register the position with a frontend code.
      */
     function clone(
         address owner,
@@ -67,9 +61,10 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
         uint256 _initialCollateral,
         uint256 _initialMint,
         uint40 expiration,
+        uint256 _liqPrice,
         bytes32 frontendCode
-    ) public returns (address) {
-        address position = clone(owner, parent, _initialCollateral, _initialMint, expiration);
+    ) public payable returns (address) {
+        address position = MintingHub.clone(owner, parent, _initialCollateral, _initialMint, expiration, _liqPrice);
         GATEWAY.registerPosition(position, frontendCode);
         return position;
     }

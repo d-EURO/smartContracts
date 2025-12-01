@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {IWrappedNative} from "../interface/IWrappedNative.sol";
 import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -36,6 +37,7 @@ contract MintingHub is IMintingHub, ERC165 {
     IJuiceDollar public immutable JUSD; // currency
     PositionRoller public immutable ROLLER; // helper to roll positions
     ILeadrate public immutable RATE; // to determine the interest rate
+    address public immutable WCBTC; // wrapped native token (cBTC) address
 
     Challenge[] public challenges; // list of open challenges
 
@@ -75,17 +77,20 @@ contract MintingHub is IMintingHub, ERC165 {
     error InvalidCollateralDecimals();
     error ChallengeTimeTooShort();
     error InitPeriodTooShort();
+    error NativeOnlyForWCBTC();
+    error ValueMismatch();
 
     modifier validPos(address position) {
         if (JUSD.getPositionParent(position) != address(this)) revert InvalidPos();
         _;
     }
 
-    constructor(address _jusd, address _leadrate, address _roller, address _factory) {
+    constructor(address _jusd, address _leadrate, address _roller, address _factory, address _wcbtc) {
         JUSD = IJuiceDollar(_jusd);
         RATE = ILeadrate(_leadrate);
         POSITION_FACTORY = IPositionFactory(_factory);
         ROLLER = PositionRoller(_roller);
+        WCBTC = _wcbtc;
     }
 
     /**
@@ -118,7 +123,7 @@ contract MintingHub is IMintingHub, ERC165 {
         uint24 _riskPremium,
         uint256 _liqPrice,
         uint24 _reservePPM
-    ) public returns (address) {
+    ) public payable returns (address) {
         {
             if (_riskPremium > 1_000_000) revert InvalidRiskPremium();
             if (CHALLENGER_REWARD > _reservePPM || _reservePPM > 1_000_000) revert InvalidReservePPM();
@@ -126,7 +131,7 @@ contract MintingHub is IMintingHub, ERC165 {
             if (_challengeSeconds < 1 days) revert ChallengeTimeTooShort();
             if (_initPeriodSeconds < 3 days) revert InitPeriodTooShort();
             uint256 invalidAmount = IERC20(_collateralAddress).totalSupply() + 1;
-            // TODO: Improve for older tokens that revert with assert, 
+            // TODO: Improve for older tokens that revert with assert,
             // which consumes all gas and makes the entire tx fail (uncatchable)
             try IERC20(_collateralAddress).transfer(address(0x123), invalidAmount) {
                 revert IncompatibleCollateral(); // we need a collateral that reverts on failed transfers
@@ -137,6 +142,7 @@ contract MintingHub is IMintingHub, ERC165 {
             // must start with at least 100 JUSD worth of collateral
             if (_minCollateral * _liqPrice < 100 ether * 10 ** 18) revert InsufficientCollateral();
         }
+
         IPosition pos = IPosition(
             POSITION_FACTORY.createNewPosition(
                 msg.sender,
@@ -154,41 +160,65 @@ contract MintingHub is IMintingHub, ERC165 {
         );
         JUSD.registerPosition(address(pos));
         JUSD.collectProfits(msg.sender, OPENING_FEE);
-        IERC20(_collateralAddress).transferFrom(msg.sender, address(pos), _initialCollateral); // TODO: Use SafeERC20
+
+        // Transfer collateral (handles native coin positions)
+        if (msg.value > 0) {
+            if (_collateralAddress != WCBTC) revert NativeOnlyForWCBTC();
+            if (msg.value != _initialCollateral) revert ValueMismatch();
+            IWrappedNative(WCBTC).deposit{value: msg.value}();
+            IERC20(WCBTC).transfer(address(pos), _initialCollateral);
+        } else {
+            IERC20(_collateralAddress).transferFrom(msg.sender, address(pos), _initialCollateral); // TODO: Use SafeERC20
+        }
 
         emit PositionOpened(msg.sender, address(pos), address(pos), _collateralAddress);
         return address(pos);
     }
 
-    function clone(
-        address parent,
-        uint256 _initialCollateral,
-        uint256 _initialMint,
-        uint40 expiration
-    ) public returns (address) {
-        return clone(msg.sender, parent, _initialCollateral, _initialMint, expiration);
-    }
-
     /**
      * @notice Clones an existing position and immediately tries to mint the specified amount using the given collateral.
      * @dev This needs an allowance to be set on the collateral contract such that the minting hub can get the collateral.
+     * For native coin positions (WcBTC), send msg.value equal to _initialCollateral.
+     * @param owner The owner of the cloned position
+     * @param parent The parent position to clone from
+     * @param _initialCollateral Amount of collateral to deposit
+     * @param _initialMint Amount of JUSD to mint
+     * @param expiration Expiration timestamp for the clone
+     * @param _liqPrice The liquidation price. If 0, inherits from parent.
      */
     function clone(
         address owner,
         address parent,
         uint256 _initialCollateral,
         uint256 _initialMint,
-        uint40 expiration
-    ) public validPos(parent) returns (address) {
+        uint40 expiration,
+        uint256 _liqPrice
+    ) public payable validPos(parent) returns (address) {
         address pos = POSITION_FACTORY.clonePosition(parent);
         IPosition child = IPosition(pos);
         child.initialize(parent, expiration);
         JUSD.registerPosition(pos);
         IERC20 collateral = child.collateral();
         if (_initialCollateral < child.minimumCollateral()) revert InsufficientCollateral();
-        collateral.transferFrom(msg.sender, pos, _initialCollateral); // collateral must still come from sender for security
+
+        // Transfer collateral (handles native coin positions)
+        if (msg.value > 0) {
+            if (address(collateral) != WCBTC) revert NativeOnlyForWCBTC();
+            if (msg.value != _initialCollateral) revert ValueMismatch();
+            IWrappedNative(WCBTC).deposit{value: msg.value}();
+            collateral.transfer(pos, _initialCollateral);
+        } else {
+            collateral.transferFrom(msg.sender, pos, _initialCollateral); // collateral must still come from sender for security
+        }
+
         emit PositionOpened(owner, address(pos), parent, address(collateral));
         child.mint(owner, _initialMint);
+
+        // Adjust price if requested, incurs cooldown on price increase
+        if (_liqPrice > 0 && _liqPrice != child.price()) {
+            child.adjustPrice(_liqPrice);
+        }
+
         Ownable(address(child)).transferOwnership(owner);
         return address(pos);
     }
