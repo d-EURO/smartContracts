@@ -7,7 +7,6 @@ export interface ChainAddress {
   savingsGateway: Address;
   savingsVaultJUSD: Address;
   mintingHubGateway: Address;
-  coinLendingGateway: Address;
   bridgeStartUSD: Address;
   startUSD: Address;
   roller: Address;
@@ -25,23 +24,21 @@ export const ADDRESS: Record<number, ChainAddress> = {
     savingsGateway: zeroAddress,
     savingsVaultJUSD: zeroAddress,
     mintingHubGateway: zeroAddress,
-    coinLendingGateway: zeroAddress,
     bridgeStartUSD: zeroAddress,
     startUSD: zeroAddress,
     roller: zeroAddress,
     positionFactoryV2: zeroAddress,
   },
   5115: {
-    juiceDollar: "0x258e525B6F9f62195478fe94d14AE20178AB2545",
-    equity: "0xDd965FCdcb4022414204B9BDc5dF949c2761e7Cc",
-    frontendGateway: "0xA9DAD130a5744Bc6DBD7151e184352BFfc57BC87",
-    savingsGateway: "0x71335aa01FB04C234B7CfA72361d7CdC355fE097",
-    savingsVaultJUSD: "0xA049fc273034D44515A81A564c8F43400B3f77B3",
-    mintingHubGateway: "0xF2D5F2F3fA1d048284a9d669805478F8ad677e5a",
-    coinLendingGateway: "0x16c530290662Dc04Dba3040e5e6EBD8e7D3bfe03",
-    bridgeStartUSD: "0x568965b5f8Fa9e6EE56b670e684F85b277545EFE",
-    startUSD: "0xD4A183699d0AbCf774b1ea23CDfC0B4b1d5cB30f",
-    roller: "0x2017C636AA98c7BAAAa68b48195d31Ef5869e37C",
-    positionFactoryV2: "0x171dAe92afc8AC3D581178163a1F993533a94c4B",
+    juiceDollar: "0x0D511a9C1662924dd8f9c12D2Bd72B0264E48583",
+    equity: "0x8FF9be291A44CA3E7b45361bf6bbE1aCd0135c06",
+    frontendGateway: "0x6721aC661e52C6BA092debb6cc33Ee58F1a4D10A",
+    savingsGateway: "0xC638D446072416Aa1760A73748D291Af9f3925cB",
+    savingsVaultJUSD: "0x4bD31350f611b469bA7fCC2c5945aAEBefD7A191",
+    mintingHubGateway: "0x44B0727688F1839c2BF7b74686F04Cba0CfE89D6",
+    bridgeStartUSD: "0x8d149f42C8F73F9fC90e2CbED8eE0644e8837623",
+    startUSD: "0xf65BF14763699C08F9ff11e9Dc6706DdEB69b5b9",
+    roller: "0xD09CeBBac7cA43430A505CA7A78123D83d53Af39",
+    positionFactoryV2: "0xD6673d8Fc25094579Ae23802957e9084860F5d1a",
   },
 };

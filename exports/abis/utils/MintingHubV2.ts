@@ -21,6 +21,11 @@ export const MintingHubV2ABI = [
         name: '_factory',
         type: 'address',
       },
+      {
+        internalType: 'address',
+        name: '_wcbtc',
+        type: 'address',
+      },
     ],
     stateMutability: 'nonpayable',
     type: 'constructor',
@@ -78,7 +83,17 @@ export const MintingHubV2ABI = [
   },
   {
     inputs: [],
+    name: 'NativeOnlyForWCBTC',
+    type: 'error',
+  },
+  {
+    inputs: [],
     name: 'UnexpectedPrice',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'ValueMismatch',
     type: 'error',
   },
   {
@@ -334,6 +349,19 @@ export const MintingHubV2ABI = [
     type: 'function',
   },
   {
+    inputs: [],
+    name: 'WCBTC',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
     inputs: [
       {
         internalType: 'uint32',
@@ -447,40 +475,6 @@ export const MintingHubV2ABI = [
     inputs: [
       {
         internalType: 'address',
-        name: 'parent',
-        type: 'address',
-      },
-      {
-        internalType: 'uint256',
-        name: '_initialCollateral',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: '_initialMint',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint40',
-        name: 'expiration',
-        type: 'uint40',
-      },
-    ],
-    name: 'clone',
-    outputs: [
-      {
-        internalType: 'address',
-        name: '',
-        type: 'address',
-      },
-    ],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'address',
         name: 'owner',
         type: 'address',
       },
@@ -504,6 +498,11 @@ export const MintingHubV2ABI = [
         name: 'expiration',
         type: 'uint40',
       },
+      {
+        internalType: 'uint256',
+        name: '_liqPrice',
+        type: 'uint256',
+      },
     ],
     name: 'clone',
     outputs: [
@@ -513,7 +512,7 @@ export const MintingHubV2ABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -596,7 +595,7 @@ export const MintingHubV2ABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {

@@ -77,6 +77,11 @@ export const PositionV2ABI = [
   },
   {
     inputs: [],
+    name: 'CannotRescueCollateral',
+    type: 'error',
+  },
+  {
+    inputs: [],
     name: 'ChallengeTooSmall',
     type: 'error',
   },
@@ -151,6 +156,11 @@ export const PositionV2ABI = [
       },
     ],
     name: 'LimitExceeded',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'NativeTransferFailed',
     type: 'error',
   },
   {
@@ -297,38 +307,15 @@ export const PositionV2ABI = [
         name: 'newPrice',
         type: 'uint256',
       },
-    ],
-    name: 'adjust',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
       {
-        internalType: 'uint256',
-        name: 'newPrincipal',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'newCollateral',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'newPrice',
-        type: 'uint256',
-      },
-      {
-        internalType: 'address',
-        name: 'referencePosition',
-        type: 'address',
+        internalType: 'bool',
+        name: 'withdrawAsNative',
+        type: 'bool',
       },
     ],
     name: 'adjust',
     outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -360,6 +347,39 @@ export const PositionV2ABI = [
     name: 'adjustPriceWithReference',
     outputs: [],
     stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: 'newPrincipal',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: 'newCollateral',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: 'newPrice',
+        type: 'uint256',
+      },
+      {
+        internalType: 'address',
+        name: 'referencePosition',
+        type: 'address',
+      },
+      {
+        internalType: 'bool',
+        name: 'withdrawAsNative',
+        type: 'bool',
+      },
+    ],
+    name: 'adjustWithReference',
+    outputs: [],
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -948,6 +968,29 @@ export const PositionV2ABI = [
     type: 'function',
   },
   {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'token',
+        type: 'address',
+      },
+      {
+        internalType: 'address',
+        name: 'target',
+        type: 'address',
+      },
+      {
+        internalType: 'uint256',
+        name: 'amount',
+        type: 'uint256',
+      },
+    ],
+    name: 'rescueToken',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
     inputs: [],
     name: 'reserveContribution',
     outputs: [
@@ -1034,11 +1077,6 @@ export const PositionV2ABI = [
     inputs: [
       {
         internalType: 'address',
-        name: 'token',
-        type: 'address',
-      },
-      {
-        internalType: 'address',
         name: 'target',
         type: 'address',
       },
@@ -1048,7 +1086,7 @@ export const PositionV2ABI = [
         type: 'uint256',
       },
     ],
-    name: 'withdraw',
+    name: 'withdrawCollateral',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -1066,9 +1104,13 @@ export const PositionV2ABI = [
         type: 'uint256',
       },
     ],
-    name: 'withdrawCollateral',
+    name: 'withdrawCollateralAsNative',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
+  },
+  {
+    stateMutability: 'payable',
+    type: 'receive',
   },
 ] as const;

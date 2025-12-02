@@ -26,6 +26,11 @@ export const MintingHubGatewayABI = [
         name: '_gateway',
         type: 'address',
       },
+      {
+        internalType: 'address',
+        name: '_wcbtc',
+        type: 'address',
+      },
     ],
     stateMutability: 'nonpayable',
     type: 'constructor',
@@ -83,7 +88,17 @@ export const MintingHubGatewayABI = [
   },
   {
     inputs: [],
+    name: 'NativeOnlyForWCBTC',
+    type: 'error',
+  },
+  {
+    inputs: [],
     name: 'UnexpectedPrice',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'ValueMismatch',
     type: 'error',
   },
   {
@@ -352,6 +367,19 @@ export const MintingHubGatewayABI = [
     type: 'function',
   },
   {
+    inputs: [],
+    name: 'WCBTC',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
     inputs: [
       {
         internalType: 'uint32',
@@ -465,38 +493,9 @@ export const MintingHubGatewayABI = [
     inputs: [
       {
         internalType: 'address',
-        name: 'parent',
+        name: 'owner',
         type: 'address',
       },
-      {
-        internalType: 'uint256',
-        name: '_initialCollateral',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: '_initialMint',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint40',
-        name: 'expiration',
-        type: 'uint40',
-      },
-    ],
-    name: 'clone',
-    outputs: [
-      {
-        internalType: 'address',
-        name: '',
-        type: 'address',
-      },
-    ],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
       {
         internalType: 'address',
         name: 'parent',
@@ -518,9 +517,9 @@ export const MintingHubGatewayABI = [
         type: 'uint40',
       },
       {
-        internalType: 'bytes32',
-        name: 'frontendCode',
-        type: 'bytes32',
+        internalType: 'uint256',
+        name: '_liqPrice',
+        type: 'uint256',
       },
     ],
     name: 'clone',
@@ -531,7 +530,7 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -562,6 +561,11 @@ export const MintingHubGatewayABI = [
         type: 'uint40',
       },
       {
+        internalType: 'uint256',
+        name: '_liqPrice',
+        type: 'uint256',
+      },
+      {
         internalType: 'bytes32',
         name: 'frontendCode',
         type: 'bytes32',
@@ -575,46 +579,7 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'address',
-        name: 'owner',
-        type: 'address',
-      },
-      {
-        internalType: 'address',
-        name: 'parent',
-        type: 'address',
-      },
-      {
-        internalType: 'uint256',
-        name: '_initialCollateral',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: '_initialMint',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint40',
-        name: 'expiration',
-        type: 'uint40',
-      },
-    ],
-    name: 'clone',
-    outputs: [
-      {
-        internalType: 'address',
-        name: '',
-        type: 'address',
-      },
-    ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -710,7 +675,7 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -779,7 +744,7 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
