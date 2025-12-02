@@ -10,6 +10,8 @@ interface IMintingHub {
 
     function ROLLER() external view returns (PositionRoller);
 
+    function WCBTC() external view returns (address);
+
     function challenge(
         address _positionAddr,
         uint256 _collateralAmount,

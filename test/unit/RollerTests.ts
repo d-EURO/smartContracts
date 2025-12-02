@@ -592,7 +592,7 @@ describe("Roller Tests", () => {
       const i1After = await pos1.getInterest();
       const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
       const bDiff = (p1 + i1 - p1Reserve) - await pos2.getUsableMint(p2);
-      
+
       expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
       expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
       expect(eCollWithdraw).to.be.equal(collBal);
@@ -656,7 +656,7 @@ describe("Roller Tests", () => {
       const i1After = await pos1.getInterest();
       const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
       const bDiff = (p1 + i1 - p1Reserve) - await pos2.getUsableMint(p2);
-      
+
       expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
       expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
       expect(eCollWithdraw).to.be.equal(collBal);
@@ -759,7 +759,7 @@ describe("Roller Tests", () => {
       const p1Reserve = (p1 * await pos1.reserveContribution()) / 1_000_000n;
       const bDiff = (p1 + i1 - p1Reserve) - await pos2.getUsableMint(p2);
       const ownerColBalAfter = await coin.balanceOf(owner.address);
-      
+
       expect(eSource).to.be.equal(ethers.getAddress(await pos1.getAddress()));
       expect(eTarget).to.be.equal(ethers.getAddress(cloneAddr));
       expect(eCollWithdraw).to.be.equal(collBal);

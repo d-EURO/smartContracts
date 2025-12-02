@@ -11,7 +11,7 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
     constructor(
         address _jusd,
         address _leadrate,
-        address _roller,
+        address payable _roller,
         address _factory,
         address _gateway,
         address _wcbtc

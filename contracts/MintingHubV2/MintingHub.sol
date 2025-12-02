@@ -85,7 +85,7 @@ contract MintingHub is IMintingHub, ERC165 {
         _;
     }
 
-    constructor(address _jusd, address _leadrate, address _roller, address _factory, address _wcbtc) {
+    constructor(address _jusd, address _leadrate, address payable _roller, address _factory, address _wcbtc) {
         JUSD = IJuiceDollar(_jusd);
         RATE = ILeadrate(_leadrate);
         POSITION_FACTORY = IPositionFactory(_factory);
