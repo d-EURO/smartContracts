@@ -147,17 +147,36 @@ describe("Position Tests", () => {
       collateral = await mockVOL.getAddress();
     });
 
-    it("should revert position opening when initial period is less than 3 days", async () => {
+    it("should allow first position (genesis) with any init period, but revert subsequent positions with < 3 days", async () => {
+      // First position (genesis) can skip init period requirement
       await mockVOL
         .connect(owner)
-        .approve(await mintingHub.getAddress(), fInitialCollateral);
+        .approve(await mintingHub.getAddress(), fInitialCollateral * 2n);
+
+      // Genesis position with 1 second init period should succeed (only genesis can have < 3 days)
+      await JUSD.connect(owner).approve(await mintingHub.getAddress(), floatToDec18(1000));
+      const tx = await mintingHub.openPosition(
+        collateral,
+        minCollateral,
+        fInitialCollateral,
+        initialLimit,
+        1, // 1 second init period for genesis (only first position can do this)
+        duration,
+        challengePeriod,
+        fFees,
+        fliqPrice,
+        fReserve,
+      );
+      await tx.wait();
+
+      // Second position with < 3 days should revert
       await expect(
         mintingHub.openPosition(
           collateral,
           minCollateral,
           fInitialCollateral,
           initialLimit,
-          86400 * 2,
+          86400 * 2, // 2 days - should fail
           duration,
           challengePeriod,
           fFees,

@@ -47,6 +47,12 @@ contract MintingHub is IMintingHub, ERC165 {
      */
     mapping(address collateral => mapping(address owner => uint256 amount)) public pendingReturns;
 
+    /**
+     * @notice Tracks whether the first position has been created.
+     * @dev The first position (genesis) can skip the 3-day init period requirement.
+     */
+    bool private _genesisPositionCreated;
+
     struct Challenge {
         address challenger; // the address from which the challenge was initiated
         uint40 start; // the start of the challenge
@@ -129,7 +135,12 @@ contract MintingHub is IMintingHub, ERC165 {
             if (CHALLENGER_REWARD > _reservePPM || _reservePPM > 1_000_000) revert InvalidReservePPM();
             if (IERC20Metadata(_collateralAddress).decimals() > 24) revert InvalidCollateralDecimals(); // leaves 12 digits for price
             if (_challengeSeconds < 1 days) revert ChallengeTimeTooShort();
-            if (_initPeriodSeconds < 3 days) revert InitPeriodTooShort();
+            // First position (genesis) can skip init period, all others require 3 days minimum
+            if (_genesisPositionCreated) {
+                if (_initPeriodSeconds < 3 days) revert InitPeriodTooShort();
+            } else {
+                _genesisPositionCreated = true;
+            }
             uint256 invalidAmount = IERC20(_collateralAddress).totalSupply() + 1;
             // TODO: Improve for older tokens that revert with assert,
             // which consumes all gas and makes the entire tx fail (uncatchable)
