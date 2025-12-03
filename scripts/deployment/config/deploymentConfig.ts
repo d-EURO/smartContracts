@@ -103,7 +103,7 @@ export const contractsParams = {
     minCollateral: '2000000000000000',              // 0.002 cBTC (100 JUSD mintable at 50k liq price)
     initialCollateral: '2000000000000000',          // 0.002 cBTC
     mintingMaximum: '100000000000000000000000000',  // 100,000,000 JUSD
-    initPeriodSeconds: 259200,                      // 3 days
+    initPeriodSeconds: 0,                           // Genesis position: immediately active (no init period)
     expirationSeconds: 31536000,                    // 12 months (365 days)
     challengeSeconds: 86400,                        // 1 day
     riskPremiumPPM: 0,                              // 0% (no risk premium)
