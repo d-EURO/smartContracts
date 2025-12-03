@@ -12,7 +12,7 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
       {
-        internalType: 'address',
+        internalType: 'address payable',
         name: '_roller',
         type: 'address',
       },
