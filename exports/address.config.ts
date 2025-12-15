@@ -11,6 +11,7 @@ export interface ChainAddress {
   startUSD: Address;
   roller: Address;
   positionFactoryV2: Address;
+  genesisPosition: Address;
 }
 
 // Citrea Mainnet Chain ID: 62831
@@ -28,6 +29,7 @@ export const ADDRESS: Record<number, ChainAddress> = {
     startUSD: zeroAddress,
     roller: zeroAddress,
     positionFactoryV2: zeroAddress,
+    genesisPosition: zeroAddress,
   },
   5115: {
     juiceDollar: "0xFdB0a83d94CD65151148a131167Eb499Cb85d015",
@@ -40,5 +42,6 @@ export const ADDRESS: Record<number, ChainAddress> = {
     startUSD: "0xDFa3153E1eDa84F966BD01bc4C6D9A4FF36AcAeA",
     roller: "0x09d24251654e5B89d5fcd35d087f0CB4163471aC",
     positionFactoryV2: "0xB22a0701237a226d17aE0C4FE8263Edf5Be5f20d",
+    genesisPosition: "0xE2D4Ca089457ECfabF89F472568eac4e94b21d8C",
   },
 };
