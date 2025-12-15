@@ -88,6 +88,11 @@ export const MintingHubV2ABI = [
   },
   {
     inputs: [],
+    name: 'NativeTransferFailed',
+    type: 'error',
+  },
+  {
+    inputs: [],
     name: 'UnexpectedPrice',
     type: 'error',
   },
@@ -387,6 +392,34 @@ export const MintingHubV2ABI = [
   {
     inputs: [
       {
+        internalType: 'uint32',
+        name: '_challengeNumber',
+        type: 'uint32',
+      },
+      {
+        internalType: 'uint256',
+        name: 'size',
+        type: 'uint256',
+      },
+      {
+        internalType: 'bool',
+        name: 'postponeCollateralReturn',
+        type: 'bool',
+      },
+      {
+        internalType: 'bool',
+        name: 'returnCollateralAsNative',
+        type: 'bool',
+      },
+    ],
+    name: 'bid',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
         internalType: 'contract IPosition',
         name: 'pos',
         type: 'address',
@@ -395,6 +428,35 @@ export const MintingHubV2ABI = [
         internalType: 'uint256',
         name: 'upToAmount',
         type: 'uint256',
+      },
+    ],
+    name: 'buyExpiredCollateral',
+    outputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+    ],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'contract IPosition',
+        name: 'pos',
+        type: 'address',
+      },
+      {
+        internalType: 'uint256',
+        name: 'upToAmount',
+        type: 'uint256',
+      },
+      {
+        internalType: 'bool',
+        name: 'receiveAsNative',
+        type: 'bool',
       },
     ],
     name: 'buyExpiredCollateral',
@@ -434,7 +496,7 @@ export const MintingHubV2ABI = [
         type: 'uint256',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -653,6 +715,29 @@ export const MintingHubV2ABI = [
         name: 'target',
         type: 'address',
       },
+      {
+        internalType: 'bool',
+        name: 'asNative',
+        type: 'bool',
+      },
+    ],
+    name: 'returnPostponedCollateral',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'collateral',
+        type: 'address',
+      },
+      {
+        internalType: 'address',
+        name: 'target',
+        type: 'address',
+      },
     ],
     name: 'returnPostponedCollateral',
     outputs: [],
@@ -677,5 +762,9 @@ export const MintingHubV2ABI = [
     ],
     stateMutability: 'view',
     type: 'function',
+  },
+  {
+    stateMutability: 'payable',
+    type: 'receive',
   },
 ] as const;

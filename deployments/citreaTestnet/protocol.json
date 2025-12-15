@@ -5,86 +5,86 @@
     "chainId": 5115
   },
   "deployment": {
-    "deployedAt": "2025-12-03T14:11:42.869Z",
+    "deployedAt": "2025-12-15T13:34:28.737Z",
     "deployedBy": "0xE399782Fe2B0aBb138926b14261F49473b4881A3",
-    "blockNumber": 18981881
+    "blockNumber": 19497713
   },
   "contracts": {
     "startUSD": {
-      "address": "0xa37f823Bd1bae4379265A4fF9cD5a68f402dE2f5",
+      "address": "0xDFa3153E1eDa84F966BD01bc4C6D9A4FF36AcAeA",
       "constructorArgs": []
     },
     "juiceDollar": {
-      "address": "0x2742bb39221434bbfcac81959C8367fDE5d83ce9",
+      "address": "0xFdB0a83d94CD65151148a131167Eb499Cb85d015",
       "constructorArgs": [
         1209600
       ]
     },
     "equity": {
-      "address": "0xD6B9d4600C45eC4388e45A474C1C153828B7C018",
+      "address": "0x7b2A560bf72B0Dd2EAbE3271F829C2597c8420d5",
       "constructorArgs": [
-        "0x2742bb39221434bbfcac81959C8367fDE5d83ce9"
+        "0xFdB0a83d94CD65151148a131167Eb499Cb85d015"
       ]
     },
     "positionFactory": {
-      "address": "0x70dDC84C79B724b247C10BB9a11Bd98c08Ee3C1a",
+      "address": "0xB22a0701237a226d17aE0C4FE8263Edf5Be5f20d",
       "constructorArgs": []
     },
     "positionRoller": {
-      "address": "0xB9B5f670A19E345fFb82D91e699a3f917E237f55",
+      "address": "0x09d24251654e5B89d5fcd35d087f0CB4163471aC",
       "constructorArgs": [
-        "0x2742bb39221434bbfcac81959C8367fDE5d83ce9"
+        "0xFdB0a83d94CD65151148a131167Eb499Cb85d015"
       ]
     },
     "bridgeStartUSD": {
-      "address": "0x8c5e5594c05205454BC09487ad53db4e4DB6564D",
+      "address": "0x25F8599Be1D25501212b20bD72DF1caA97b496b1",
       "constructorArgs": [
-        "0xa37f823Bd1bae4379265A4fF9cD5a68f402dE2f5",
-        "0x2742bb39221434bbfcac81959C8367fDE5d83ce9",
+        "0xDFa3153E1eDa84F966BD01bc4C6D9A4FF36AcAeA",
+        "0xFdB0a83d94CD65151148a131167Eb499Cb85d015",
         "100000000000000000000000000",
         6
       ]
     },
     "frontendGateway": {
-      "address": "0x52C2d93DAC83Da412D93D035b017486DecCE782A",
+      "address": "0x3EB394f950abf90aC78127C0f4c78545E0eD3DFe",
       "constructorArgs": [
-        "0x2742bb39221434bbfcac81959C8367fDE5d83ce9"
+        "0xFdB0a83d94CD65151148a131167Eb499Cb85d015"
       ]
     },
     "savingsGateway": {
-      "address": "0x2e1697e7BaA6CE62B0c36B015B7a5BEC6157B99e",
+      "address": "0xbfE44EE0471D0cF4759B97A458240f26c2D340Ca",
       "constructorArgs": [
-        "0x2742bb39221434bbfcac81959C8367fDE5d83ce9",
+        "0xFdB0a83d94CD65151148a131167Eb499Cb85d015",
         100000,
-        "0x52C2d93DAC83Da412D93D035b017486DecCE782A"
+        "0x3EB394f950abf90aC78127C0f4c78545E0eD3DFe"
       ]
     },
     "mintingHubGateway": {
-      "address": "0x57c4aB0f9480AC52a58C820a58ad802B0D4c23EB",
+      "address": "0x372368ca530B4d55622c24E28F0347e26caDc64A",
       "constructorArgs": [
-        "0x2742bb39221434bbfcac81959C8367fDE5d83ce9",
-        "0x2e1697e7BaA6CE62B0c36B015B7a5BEC6157B99e",
-        "0xB9B5f670A19E345fFb82D91e699a3f917E237f55",
-        "0x70dDC84C79B724b247C10BB9a11Bd98c08Ee3C1a",
-        "0x52C2d93DAC83Da412D93D035b017486DecCE782A",
+        "0xFdB0a83d94CD65151148a131167Eb499Cb85d015",
+        "0xbfE44EE0471D0cF4759B97A458240f26c2D340Ca",
+        "0x09d24251654e5B89d5fcd35d087f0CB4163471aC",
+        "0xB22a0701237a226d17aE0C4FE8263Edf5Be5f20d",
+        "0x3EB394f950abf90aC78127C0f4c78545E0eD3DFe",
         "0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93"
       ]
     },
     "savingsVaultJUSD": {
-      "address": "0x45DA5a722b591bBce0b87B192d846AB85EFA88d3",
+      "address": "0x9580498224551E3f2e3A04330a684BF025111C53",
       "constructorArgs": [
-        "0x2742bb39221434bbfcac81959C8367fDE5d83ce9",
-        "0x2e1697e7BaA6CE62B0c36B015B7a5BEC6157B99e",
+        "0xFdB0a83d94CD65151148a131167Eb499Cb85d015",
+        "0xbfE44EE0471D0cF4759B97A458240f26c2D340Ca",
         "Savings Vault JUSD",
         "svJUSD"
       ]
     },
     "genesisPosition": {
-      "address": "0xc7Cfb0708aC6ADc81f64ED2793b212bb6AE438aE",
+      "address": "0xE2D4Ca089457ECfabF89F472568eac4e94b21d8C",
       "constructorArgs": [
         "0xE399782Fe2B0aBb138926b14261F49473b4881A3",
-        "0x57c4aB0f9480AC52a58C820a58ad802B0D4c23EB",
-        "0x2742bb39221434bbfcac81959C8367fDE5d83ce9",
+        "0x372368ca530B4d55622c24E28F0347e26caDc64A",
+        "0xFdB0a83d94CD65151148a131167Eb499Cb85d015",
         "0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93",
         "2000000000000000",
         "100000000000000000000000000",
