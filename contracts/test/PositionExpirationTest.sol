@@ -14,7 +14,7 @@ contract PositionExpirationTest {
     IJuiceDollar public jusd;
     bytes32 public frontendCode;
 
-    constructor(address hub_) {
+    constructor(address payable hub_) {
         hub = MintingHubGateway(hub_);
         col = new TestToken("Some Collateral", "COL", uint8(0));
         jusd = hub.JUSD();

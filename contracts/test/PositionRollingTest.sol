@@ -20,7 +20,7 @@ contract PositionRollingTest {
     IPosition public p1;
     IPosition public p2;
 
-    constructor(address hub_) {
+    constructor(address payable hub_) {
         hub = MintingHub(hub_);
         col = new TestToken("Some Collateral", "COL", uint8(0));
         jusd = hub.JUSD();
