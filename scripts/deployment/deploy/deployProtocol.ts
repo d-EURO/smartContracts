@@ -14,6 +14,7 @@ import SavingsGatewayArtifact from '../../../artifacts/contracts/gateway/Savings
 import MintingHubGatewayArtifact from '../../../artifacts/contracts/gateway/MintingHubGateway.sol/MintingHubGateway.json';
 import SavingsVaultJUSDArtifact from '../../../artifacts/contracts/SavingsVaultJUSD.sol/SavingsVaultJUSD.json';
 import EquityArtifact from '../../../artifacts/contracts/Equity.sol/Equity.json';
+import PositionArtifact from '../../../artifacts/contracts/MintingHubV2/Position.sol/Position.json';
 import { ADDRESSES } from '../../../constants/addresses';
 
 dotenv.config();
@@ -942,11 +943,32 @@ async function main(hre: HardhatRuntimeEnvironment) {
           ],
         };
 
+        // Step 5: Mint initial JUSD loan on the genesis position
+        console.log('Step 5: Minting initial JUSD loan...');
+        const positionContract = new ethers.Contract(genesisPositionAddress, PositionArtifact.abi, deployer);
+        const mintAmount = BigInt(genesisParams.initialMintAmount);
+
+        const mintTx = await deployer.sendTransaction({
+          to: genesisPositionAddress,
+          data: positionContract.interface.encodeFunctionData('mint', [deployer.address, mintAmount]),
+          gasLimit: ethers.parseUnits(deploymentConstants.contractCallGasLimit, 'wei'),
+          maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
+          maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
+          nonce: genesisNonce++,
+        });
+
+        const mintReceipt = await waitForTransactionWithRetry(mintTx, confirmations, 5, 2000);
+        if (!mintReceipt || mintReceipt.status !== 1) {
+          throw new Error('Failed to mint initial JUSD loan on genesis position');
+        }
+        console.log(`  ✓ Minted ${ethers.formatEther(mintAmount)} JUSD loan on genesis position`);
+
         console.log('\n  Genesis Position Details:');
         console.log(`    Address: ${genesisPositionAddress}`);
         console.log(`    Collateral: ${ethers.formatEther(genesisParams.initialCollateral)} WcBTC`);
         console.log(`    Liquidation Price: ${ethers.formatEther(genesisParams.liquidationPrice)} JUSD/cBTC`);
         console.log(`    Minting Maximum: ${ethers.formatEther(genesisParams.mintingMaximum)} JUSD`);
+        console.log(`    Initial Loan: ${ethers.formatEther(mintAmount)} JUSD`);
         console.log(`    Expiration: ${genesisParams.expirationSeconds / 86400} days`);
       } else {
         console.error('  ✗ Could not extract genesis position address from logs');

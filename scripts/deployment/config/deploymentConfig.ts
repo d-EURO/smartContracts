@@ -55,6 +55,7 @@ export interface GenesisPositionParams {
   riskPremiumPPM: number;         // Risk premium in PPM (e.g., 10000 = 1%)
   liquidationPrice: string;       // Liquidation price (wei, 18 decimals)
   reservePPM: number;             // Reserve contribution in PPM (e.g., 200000 = 20%)
+  initialMintAmount: string;      // Initial JUSD loan to mint (wei, 18 decimals)
 }
 
 export interface ContractsParams {
@@ -103,11 +104,12 @@ export const contractsParams = {
     minCollateral: '2000000000000000',              // 0.002 cBTC (100 JUSD mintable at 50k liq price)
     initialCollateral: '2000000000000000',          // 0.002 cBTC
     mintingMaximum: '100000000000000000000000000',  // 100,000,000 JUSD
-    initPeriodSeconds: 60,                           // Genesis position: immediately active (no init period)
+    initPeriodSeconds: 60,                          // Genesis position: immediately active (no init period)
     expirationSeconds: 31536000,                    // 12 months (365 days)
     challengeSeconds: 86400,                        // 1 day
     riskPremiumPPM: 0,                              // 0% (no risk premium)
     liquidationPrice: '50000000000000000000000',    // 50,000 JUSD/cBTC (18 decimals)
     reservePPM: 200000,                             // 20%
+    initialMintAmount: '50000000000000000000',      // 50 JUSD initial loan
   },
 };
