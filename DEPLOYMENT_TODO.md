@@ -26,8 +26,8 @@
 {
   name: 'WcBTC-Position',
   collateralAddress: '0x0000000000000000000000000000000000000000', // ⚠️ TODO: Update
-  minCollateral: '0.01', // 0.01 BTC (~$1,000 at $100k/BTC)
-  initialCollateral: '0.01',
+  minCollateral: '0.002', // 0.002 BTC (~$200 at $100k/BTC) - matches genesis position
+  initialCollateral: '0.002', // 0.002 BTC
   mintingMaximum: '10000000', // 10M JUSD
   initPeriodSeconds: 259200, // 3 days
   expirationSeconds: 15552000, // 180 days
