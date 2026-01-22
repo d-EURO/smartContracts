@@ -11,50 +11,7 @@ import { HardhatUserConfig } from 'hardhat/config';
 // Import tasks
 import './tasks/getContracts';
 
-// Lazy load monitoring tasks to avoid circular dependency with typechain
-// These tasks will only import their dependencies when actually executed
 import { task } from 'hardhat/config';
-
-// Define monitoring tasks with lazy loading
-task('monitor-positions', 'Monitor positions in the JuiceDollar Protocol')
-  .addOptionalParam('sort', 'Column to sort by')
-  .setAction(async (args, hre) => {
-    const { monitorPositionsAction } = await import('./tasks/monitorPositions');
-    return monitorPositionsAction(args, hre);
-  });
-
-task('monitor-bridges', 'Monitor bridges in the JuiceDollar Protocol')
-  .setAction(async (args, hre) => {
-    const { monitorBridgesAction } = await import('./tasks/monitorBridges');
-    return monitorBridgesAction(args, hre);
-  });
-
-task('monitor-jusd', 'Monitor the JuiceDollar token')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async (args, hre) => {
-    const { monitorJuiceDollarAction } = await import('./tasks/monitorJuiceDollar');
-    return monitorJuiceDollarAction(args, hre);
-  });
-
-task('monitor-equity', 'Monitor the Equity contract')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async (args, hre) => {
-    const { monitorEquityAction } = await import('./tasks/monitorEquity');
-    return monitorEquityAction(args, hre);
-  });
-
-task('monitor-savings', 'Monitor the Savings Gateway')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async (args, hre) => {
-    const { monitorSavingsGatewayAction } = await import('./tasks/monitorSavingsGateway');
-    return monitorSavingsGatewayAction(args, hre);
-  });
-
-task('monitor-all', 'Monitor all JuiceDollar Protocol contracts')
-  .setAction(async (args, hre) => {
-    const { monitorAllAction } = await import('./tasks/monitorAll');
-    return monitorAllAction(args, hre);
-  });
 
 // Pre-compile hook to ensure ABI directories exist
 // This prevents hardhat-abi-exporter from failing on fresh clones where abi/ is gitignored

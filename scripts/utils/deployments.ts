@@ -1,9 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-import { DeploymentAddresses } from '../monitoring/types';
 
 dotenv.config();
+
+export interface DeploymentAddresses {
+  deployer: string;
+  [contractName: string]: string;
+}
 
 export interface DeploymentData {
   network: string;
