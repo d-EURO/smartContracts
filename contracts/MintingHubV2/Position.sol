@@ -23,6 +23,15 @@ contract Position is Ownable, IPosition, MathUtil {
      */
 
     /**
+     * @notice Maximum allowed message length for denial messages (prevents gas griefing attacks).
+     * @dev This constant is intentionally duplicated in MintingHub.sol for defense-in-depth.
+     *      Both contracts validate independently since Position contracts are deployed separately
+     *      and must enforce limits even if the hub validation is bypassed or modified.
+     *      If changing this value, update MintingHub.MAX_MESSAGE_LENGTH as well.
+     */
+    uint256 private constant MAX_MESSAGE_LENGTH = 500;
+
+    /**
      * @notice The JUSD price per unit of the collateral below which challenges succeed, (36 - collateral.decimals) decimals
      */
     uint256 public price;
@@ -126,6 +135,29 @@ contract Position is Ownable, IPosition, MathUtil {
     event MintingUpdate(uint256 collateral, uint256 price, uint256 principal);
     event PositionDenied(address indexed sender, string message); // emitted if closed by governance
 
+    /**
+     * @dev Emits MintingUpdate both locally and to the hub for centralized monitoring.
+     * This allows monitoring systems to track all position updates from a single address (the hub).
+     * @notice Adds ~3,800 gas overhead for the hub call.
+     */
+    function _emitUpdate(uint256 _collateral, uint256 _price, uint256 _principal) internal {
+        emit MintingUpdate(_collateral, _price, _principal);
+        IMintingHub(hub).emitPositionUpdate(_collateral, _price, _principal);
+    }
+
+    /**
+     * @dev Emits PositionDenied both locally and to the hub for centralized monitoring.
+     * @param sender The address that triggered the denial
+     * @param message Reason for denial (1-500 bytes, prevents gas griefing and ensures meaningful messages)
+     */
+    function _emitDenied(address sender, string memory message) internal {
+        uint256 messageLength = bytes(message).length;
+        if (messageLength == 0) revert EmptyMessage();
+        if (messageLength > MAX_MESSAGE_LENGTH) revert MessageTooLong(messageLength, MAX_MESSAGE_LENGTH);
+        emit PositionDenied(sender, message);
+        IMintingHub(hub).emitPositionDenied(sender, message);
+    }
+
     error InsufficientCollateral(uint256 needed, uint256 available);
     error TooLate();
     error RepaidTooMuch(uint256 excess);
@@ -140,6 +172,8 @@ contract Position is Ownable, IPosition, MathUtil {
     error NotOriginal();
     error InvalidExpiration();
     error AlreadyInitialized();
+    error MessageTooLong(uint256 length, uint256 maxLength);
+    error EmptyMessage();
     error PriceTooHigh(uint256 newPrice, uint256 maxPrice);
     error InvalidPriceReference();
     error NativeTransferFailed();
@@ -222,7 +256,8 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function initialize(address parent, uint40 _expiration) external onlyHub {
         if (expiration != 0) revert AlreadyInitialized();
-        if (_expiration < block.timestamp || _expiration > Position(payable(original)).expiration()) revert InvalidExpiration(); // expiration must not be later than original
+        if (_expiration < block.timestamp || _expiration > Position(payable(original)).expiration())
+            revert InvalidExpiration(); // expiration must not be later than original
         expiration = _expiration;
         price = Position(payable(parent)).price();
         _fixRateToLeadrate(Position(payable(parent)).riskPremiumPPM());
@@ -282,7 +317,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (block.timestamp >= start) revert TooLate();
         IReserve(jusd.reserve()).checkQualified(msg.sender, helpers);
         _close();
-        emit PositionDenied(msg.sender, message);
+        _emitDenied(msg.sender, message);
     }
 
     /**
@@ -322,7 +357,12 @@ contract Position is Ownable, IPosition, MathUtil {
      * @param newPrice The new liquidation price
      * @param withdrawAsNative If true, withdraw collateral as native coin instead of wrapped token
      */
-    function adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative) external payable onlyOwner {
+    function adjust(
+        uint256 newPrincipal,
+        uint256 newCollateral,
+        uint256 newPrice,
+        bool withdrawAsNative
+    ) external payable onlyOwner {
         _adjust(newPrincipal, newCollateral, newPrice, address(0), withdrawAsNative);
     }
 
@@ -337,7 +377,13 @@ contract Position is Ownable, IPosition, MathUtil {
      * @param referencePosition Reference position for cooldown-free price increase (address(0) for normal logic with cooldown)
      * @param withdrawAsNative If true, withdraw collateral as native coin instead of wrapped token
      */
-    function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition, bool withdrawAsNative) external payable onlyOwner {
+    function adjustWithReference(
+        uint256 newPrincipal,
+        uint256 newCollateral,
+        uint256 newPrice,
+        address referencePosition,
+        bool withdrawAsNative
+    ) external payable onlyOwner {
         _adjust(newPrincipal, newCollateral, newPrice, referencePosition, withdrawAsNative);
     }
 
@@ -349,7 +395,13 @@ contract Position is Ownable, IPosition, MathUtil {
      * @param referencePosition Reference position for cooldown-free price increase (address(0) for normal logic)
      * @param withdrawAsNative If true and withdrawing collateral, unwrap to native coin
      */
-    function _adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition, bool withdrawAsNative) internal {
+    function _adjust(
+        uint256 newPrincipal,
+        uint256 newCollateral,
+        uint256 newPrice,
+        address referencePosition,
+        bool withdrawAsNative
+    ) internal {
         // Handle native coin deposit first (wraps to WCBTC)
         if (msg.value > 0) {
             IWrappedNative(address(collateral)).deposit{value: msg.value}();
@@ -378,7 +430,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (newPrice != price) {
             _adjustPrice(newPrice, referencePosition);
         }
-        emit MintingUpdate(newCollateral, newPrice, newPrincipal);
+        _emitUpdate(newCollateral, newPrice, newPrincipal);
     }
 
     /**
@@ -389,7 +441,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function adjustPrice(uint256 newPrice) public onlyOwner {
         _adjustPrice(newPrice, address(0));
-        emit MintingUpdate(_collateralBalance(), price, principal);
+        _emitUpdate(_collateralBalance(), price, principal);
     }
 
     /**
@@ -403,7 +455,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function adjustPriceWithReference(uint256 newPrice, address referencePosition) external onlyOwner {
         _adjustPrice(newPrice, referencePosition);
-        emit MintingUpdate(_collateralBalance(), price, principal);
+        _emitUpdate(_collateralBalance(), price, principal);
     }
 
     /**
@@ -499,7 +551,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function mint(address target, uint256 amount) public ownerOrRoller {
         uint256 collateralBalance = _collateralBalance();
         _mint(target, amount, collateralBalance);
-        emit MintingUpdate(collateralBalance, price, principal);
+        _emitUpdate(collateralBalance, price, principal);
     }
 
     /**
@@ -511,7 +563,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Computes the virtual price of the collateral in JUSD, which is the minimum collateral
-     * price required to cover the entire debt with interest overcollateralization, lower bounded by the floor price. 
+     * price required to cover the entire debt with interest overcollateralization, lower bounded by the floor price.
      * Returns the challenged price if a challenge is active.
      * @param colBalance The collateral balance of the position.
      * @param floorPrice The minimum price of the collateral in JUSD.
@@ -519,9 +571,9 @@ contract Position is Ownable, IPosition, MathUtil {
     function _virtualPrice(uint256 colBalance, uint256 floorPrice) internal view returns (uint256) {
         if (challengedAmount > 0) return challengedPrice;
         if (colBalance == 0) return floorPrice;
-        
+
         uint256 virtPrice = (_getCollateralRequirement() * ONE_DEC18) / colBalance;
-        return virtPrice < floorPrice ? floorPrice: virtPrice;
+        return virtPrice < floorPrice ? floorPrice : virtPrice;
     }
 
     /**
@@ -564,8 +616,9 @@ contract Position is Ownable, IPosition, MathUtil {
             // Single-division optimization for gas efficiency and precision. Equivalent formula:
             // uint256 usablePrincipal = (principal * (1_000_000 - reserveContribution)) / 1_000_000;
             // newInterest += (usablePrincipal * fixedAnnualRatePPM * delta) / (365 days * 1_000_000);
-            newInterest += (principal * (1_000_000 - reserveContribution) * fixedAnnualRatePPM * delta)
-                / (365 days * 1_000_000 * 1_000_000);
+            newInterest +=
+                (principal * (1_000_000 - reserveContribution) * fixedAnnualRatePPM * delta) /
+                (365 days * 1_000_000 * 1_000_000);
         }
 
         return newInterest;
@@ -594,7 +647,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function getDebt() public view returns (uint256) {
         return _getDebt();
     }
-    
+
     /**
      * @notice Public function to calculate current debt with overcollateralized interest
      * @return The total debt including overcollateralized interest
@@ -656,7 +709,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function repay(uint256 amount) public returns (uint256) {
         uint256 used = _payDownDebt(amount);
-        emit MintingUpdate(_collateralBalance(), price, principal);
+        _emitUpdate(_collateralBalance(), price, principal);
         return used;
     }
 
@@ -713,7 +766,7 @@ contract Position is Ownable, IPosition, MathUtil {
             if (proceeds > 0) {
                 jusd.transferFrom(buyer, owner(), proceeds);
             }
-            emit MintingUpdate(_collateralBalance(), price, principal);
+            _emitUpdate(_collateralBalance(), price, principal);
             return;
         }
 
@@ -736,7 +789,7 @@ contract Position is Ownable, IPosition, MathUtil {
             jusd.transferFrom(buyer, owner(), proceeds);
         }
 
-        emit MintingUpdate(_collateralBalance(), price, principal);
+        _emitUpdate(_collateralBalance(), price, principal);
     }
 
     /**
@@ -762,7 +815,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function withdrawCollateral(address target, uint256 amount) public ownerOrRoller {
         uint256 balance = _withdrawCollateral(target, amount);
-        emit MintingUpdate(balance, price, principal);
+        _emitUpdate(balance, price, principal);
     }
 
     /**
@@ -773,7 +826,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function withdrawCollateralAsNative(address target, uint256 amount) public onlyOwner {
         uint256 balance = _withdrawCollateralAsNative(target, amount);
-        emit MintingUpdate(balance, price, principal);
+        _emitUpdate(balance, price, principal);
     }
 
     function _withdrawCollateral(address target, uint256 amount) internal noCooldown noChallenge returns (uint256) {
@@ -786,7 +839,10 @@ contract Position is Ownable, IPosition, MathUtil {
      * @dev Internal helper for native coin withdrawal. Used by withdrawCollateralAsNative() and _adjust().
      *      Does NOT emit MintingUpdate - callers are responsible for emitting.
      */
-    function _withdrawCollateralAsNative(address target, uint256 amount) internal noCooldown noChallenge returns (uint256) {
+    function _withdrawCollateralAsNative(
+        address target,
+        uint256 amount
+    ) internal noCooldown noChallenge returns (uint256) {
         if (amount > 0) {
             IWrappedNative(address(collateral)).withdraw(amount);
             (bool success, ) = target.call{value: amount}("");
@@ -807,7 +863,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function transferChallengedCollateral(address target, uint256 amount) external onlyHub {
         uint256 newBalance = _sendCollateral(target, amount);
-        emit MintingUpdate(newBalance, price, principal);
+        _emitUpdate(newBalance, price, principal);
     }
 
     function _sendCollateral(address target, uint256 amount) internal returns (uint256) {
@@ -830,7 +886,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
         uint256 collateralRequirement = _getCollateralRequirement();
-        
+
         if (relevantCollateral * atPrice < collateralRequirement * ONE_DEC18) {
             revert InsufficientCollateral(relevantCollateral * atPrice, collateralRequirement * ONE_DEC18);
         }

@@ -32,6 +32,14 @@ contract MintingHub is IMintingHub, ERC165 {
     uint256 public constant CHALLENGER_REWARD = 20000; // 2%
     uint256 public constant EXPIRED_PRICE_FACTOR = 10;
 
+    /**
+     * @dev Maximum allowed message length for denial messages (prevents gas griefing attacks).
+     *      This constant is intentionally duplicated in Position.sol for defense-in-depth.
+     *      Hub validates as a second layer of protection; Position validates first to fail early.
+     *      If changing this value, update Position.MAX_MESSAGE_LENGTH as well.
+     */
+    uint256 private constant MAX_MESSAGE_LENGTH = 500;
+
     IPositionFactory private immutable POSITION_FACTORY; // position contract to clone
 
     IJuiceDollar public immutable JUSD; // currency
@@ -72,6 +80,7 @@ contract MintingHub is IMintingHub, ERC165 {
     );
     event PostponedReturn(address collateral, address indexed beneficiary, uint256 amount);
     event ForcedSale(address pos, uint256 amount, uint256 priceE36MinusDecimals);
+    // Note: PositionUpdate and PositionDeniedByGovernance events are defined in IMintingHub interface
 
     error UnexpectedPrice();
     error InvalidPos();
@@ -86,6 +95,8 @@ contract MintingHub is IMintingHub, ERC165 {
     error NativeOnlyForWCBTC();
     error ValueMismatch();
     error NativeTransferFailed();
+    error MessageTooLong(uint256 length, uint256 maxLength);
+    error EmptyMessage();
 
     modifier validPos(address position) {
         if (JUSD.getPositionParent(position) != address(this)) revert InvalidPos();
@@ -286,7 +297,12 @@ contract MintingHub is IMintingHub, ERC165 {
      *                                  In phase 1 (aversion): bidder receives native. In phase 2 (liquidation): both
      *                                  challenger refund and bidder acquisition are returned as native.
      */
-    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnCollateralAsNative) public {
+    function bid(
+        uint32 _challengeNumber,
+        uint256 size,
+        bool postponeCollateralReturn,
+        bool returnCollateralAsNative
+    ) public {
         Challenge memory _challenge = challenges[_challengeNumber];
         (uint256 liqPrice, uint40 phase) = _challenge.position.challengeData();
         size = _challenge.size < size ? _challenge.size : size; // cannot bid for more than the size of the challenge
@@ -295,8 +311,18 @@ contract MintingHub is IMintingHub, ERC165 {
             _avertChallenge(_challenge, _challengeNumber, liqPrice, size, returnCollateralAsNative);
             emit ChallengeAverted(address(_challenge.position), _challengeNumber, size);
         } else {
-            _returnChallengerCollateral(_challenge, _challengeNumber, size, postponeCollateralReturn, returnCollateralAsNative);
-            (uint256 transferredCollateral, uint256 offer) = _finishChallenge(_challenge, size, returnCollateralAsNative);
+            _returnChallengerCollateral(
+                _challenge,
+                _challengeNumber,
+                size,
+                postponeCollateralReturn,
+                returnCollateralAsNative
+            );
+            (uint256 transferredCollateral, uint256 offer) = _finishChallenge(
+                _challenge,
+                size,
+                returnCollateralAsNative
+            );
             emit ChallengeSucceeded(address(_challenge.position), _challengeNumber, offer, transferredCollateral, size);
         }
     }
@@ -322,8 +348,8 @@ contract MintingHub is IMintingHub, ERC165 {
         // enforced in Position.setPrice and knowing that collateral <= col.
         uint256 offer = _calculateOffer(_challenge, collateral);
 
-        JUSD.transferFrom(msg.sender, address(this), offer); // get money from bidder 
-        uint256 reward = (offer * CHALLENGER_REWARD) / 1_000_000; 
+        JUSD.transferFrom(msg.sender, address(this), offer); // get money from bidder
+        uint256 reward = (offer * CHALLENGER_REWARD) / 1_000_000;
         JUSD.transfer(_challenge.challenger, reward); // pay out the challenger reward
         uint256 fundsAvailable = offer - reward; // funds available after reward
 
@@ -359,7 +385,13 @@ contract MintingHub is IMintingHub, ERC165 {
         return (collateral, offer);
     }
 
-    function _avertChallenge(Challenge memory _challenge, uint32 number, uint256 liqPrice, uint256 size, bool asNative) internal {
+    function _avertChallenge(
+        Challenge memory _challenge,
+        uint32 number,
+        uint256 liqPrice,
+        uint256 size,
+        bool asNative
+    ) internal {
         require(block.timestamp != _challenge.start); // do not allow to avert the challenge in the same transaction, see CS-ZCHF-037
         if (msg.sender == _challenge.challenger) {
             // allow challenger to cancel challenge without paying themselves
@@ -471,7 +503,13 @@ contract MintingHub is IMintingHub, ERC165 {
         returnPostponedCollateral(collateral, target, false);
     }
 
-    function _returnCollateral(IERC20 collateral, address recipient, uint256 amount, bool postpone, bool asNative) internal {
+    function _returnCollateral(
+        IERC20 collateral,
+        address recipient,
+        uint256 amount,
+        bool postpone,
+        bool asNative
+    ) internal {
         if (postpone) {
             // Postponing helps in case the challenger was blacklisted or otherwise cannot receive at the moment.
             pendingReturns[address(collateral)][recipient] += amount;
@@ -508,7 +546,7 @@ contract MintingHub is IMintingHub, ERC165 {
             } else if (timePassed < 2 * challengePeriod) {
                 // from 1x liquidation price to 0 in second phase
                 uint256 timeLeft = 2 * challengePeriod - timePassed;
-                return (liqprice  * timeLeft) / challengePeriod;
+                return (liqprice * timeLeft) / challengePeriod;
             } else {
                 // get collateral for free after both phases passed
                 return 0;
@@ -566,10 +604,36 @@ contract MintingHub is IMintingHub, ERC165 {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
-        return
-            interfaceId == type(IMintingHub).interfaceId ||
-            super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == type(IMintingHub).interfaceId || super.supportsInterface(interfaceId);
+    }
+
+    /**
+     * @notice Allows Position contracts to emit state updates through the hub for centralized monitoring.
+     * @dev Only callable by registered positions. Emits PositionUpdate event with the caller as position.
+     * @param _collateral Current collateral balance of the position
+     * @param _price Current liquidation price of the position
+     * @param _principal Current principal (debt) of the position
+     */
+    function emitPositionUpdate(
+        uint256 _collateral,
+        uint256 _price,
+        uint256 _principal
+    ) external virtual validPos(msg.sender) {
+        emit PositionUpdate(msg.sender, _collateral, _price, _principal);
+    }
+
+    /**
+     * @notice Allows Position contracts to emit governance denial events through the hub.
+     * @dev Only callable by registered positions. Emits PositionDeniedByGovernance event.
+     * @param denier Address of the governance participant who denied the position
+     * @param message Reason for denial (max 500 bytes to prevent gas exhaustion attacks)
+     */
+    function emitPositionDenied(address denier, string calldata message) external virtual validPos(msg.sender) {
+        uint256 messageLength = bytes(message).length;
+        if (messageLength == 0) revert EmptyMessage();
+        if (messageLength > MAX_MESSAGE_LENGTH) revert MessageTooLong(messageLength, MAX_MESSAGE_LENGTH);
+        emit PositionDeniedByGovernance(msg.sender, denier, message);
     }
 
     /**
