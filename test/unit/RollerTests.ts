@@ -168,7 +168,7 @@ describe("Roller Tests", () => {
           floatToDec18(1), // min size
           floatToDec18(10), // size
           floatToDec18(100_000), // mint limit
-          3 * 86_400,
+          14 * 86_400,
           100 * 86_400,
           86_400,
           10000,
@@ -188,7 +188,7 @@ describe("Roller Tests", () => {
           floatToDec18(1), // min size
           floatToDec18(10), // size
           floatToDec18(100_000), // mint limit
-          3 * 86_400,
+          14 * 86_400,
           100 * 86_400,
           86_400,
           10000,
@@ -201,7 +201,7 @@ describe("Roller Tests", () => {
     });
 
     it("fully open", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       expect(await pos1.start()).to.be.lessThan(await getTimeStamp());
       expect(await pos2.start()).to.be.lessThan(await getTimeStamp());
     });
@@ -233,7 +233,7 @@ describe("Roller Tests", () => {
     });
 
     it("create mint and merge partially into existing position", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       const bJUSD1 = await jusd.balanceOf(owner.address);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const bJUSD2 = await jusd.balanceOf(owner.address);
@@ -270,7 +270,7 @@ describe("Roller Tests", () => {
     });
 
     it("merge full into existing position", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const colBalance1 = await coin.balanceOf(await pos1.getAddress());
 
@@ -304,7 +304,7 @@ describe("Roller Tests", () => {
     });
 
     it("merge full into existing position, consider pos1 closed", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
       await coin.approve(await roller.getAddress(), floatToDec18(10));
@@ -325,7 +325,7 @@ describe("Roller Tests", () => {
     });
 
     it("merge full, expiration below, create clone, check ownership", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
       await coin.approve(await roller.getAddress(), floatToDec18(10));
@@ -364,7 +364,7 @@ describe("Roller Tests", () => {
           floatToDec18(1), // min size
           floatToDec18(10), // size
           floatToDec18(100_000), // mint limit
-          3 * 86_400,
+          14 * 86_400,
           100 * 86_400,
           86_400,
           20000,
@@ -387,7 +387,7 @@ describe("Roller Tests", () => {
           floatToDec18(1), // min size
           floatToDec18(10), // size
           floatToDec18(110_000), // mint limit
-          3 * 86_400,
+          14 * 86_400,
           100 * 86_400,
           86_400,
           20000,
@@ -401,7 +401,7 @@ describe("Roller Tests", () => {
     });
 
     it("fully open, correct owner", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       expect(await pos1.start()).to.be.lessThan(await getTimeStamp());
       expect(await pos2.start()).to.be.lessThan(await getTimeStamp());
       expect(await pos1.owner()).to.be.equal(owner.address);
@@ -409,7 +409,7 @@ describe("Roller Tests", () => {
     });
 
     it("rollFully simple", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
       const m1 = await pos1.getDebt();
@@ -429,7 +429,7 @@ describe("Roller Tests", () => {
     });
 
     it("rollFully check collateral rolled amount", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const ownCoinBalance = await coin.balanceOf(owner.address);
       const oldPositionBalance = await coin.balanceOf(await pos1.getAddress());
@@ -455,7 +455,7 @@ describe("Roller Tests", () => {
     });
 
     it("should fail to rollFully if owner balance insufficient to cover interest", async () => {
-      await evm_increaseTime(3 * 86400 + 300);
+      await evm_increaseTime(14 * 86400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
       await evm_increaseTime(5 * 86_400); // 5 days to accrue some interest
@@ -479,7 +479,7 @@ describe("Roller Tests", () => {
     });
 
     it("rollFully check interests and rolled amount", async () => {
-      await evm_increaseTime(3 * 86400 + 300);
+      await evm_increaseTime(14 * 86400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
       await evm_increaseTime(5 * 86_400); // 5 days to accrue some interest
@@ -541,7 +541,7 @@ describe("Roller Tests", () => {
       // In this unit test equal collateral to the source position is required to maintain the same principle.
       // This is because the source position was heavily overcollateralized (it could have minted more JUSD or 
       // done with less collateral).
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const ownerInitBal = await jusd.balanceOf(owner.address);
       await jusd.transfer(bob.address, ownerInitBal - floatToDec18(1)); // remove some jusd for testing, add 1 to cover interest
@@ -615,7 +615,7 @@ describe("Roller Tests", () => {
       // capped at the source collateral and the principal will be less than the source principal. Here we assume that the owner has
       // sufficient funds to repay the flash loan and doesn't depend on the new mint from the target position which would be
       // insufficient as target principal < source principal ~ flash loan.
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const b1 = await jusd.balanceOf(owner.address);
 
@@ -678,7 +678,7 @@ describe("Roller Tests", () => {
       // this additionally required collateral will be missing. Consequently, the target collateral is capped at the source collateral
       // and the minted amount will be less than the principal of the source position. If the owner does not have sufficient funds
       // repaying the flash loan will fail as he receives less JUSD than he has to repay (target principal < source principal).
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const ownerInitBal = await jusd.balanceOf(owner.address);
       await jusd.transfer(bob.address, ownerInitBal - floatToDec18(1)); // remove some jusd for testing, add 1 to cover interest
@@ -712,7 +712,7 @@ describe("Roller Tests", () => {
     });
 
     it("rollFully with higher target collateral price (less collateral required for target)", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const ownerInitBal = await jusd.balanceOf(owner.address);
       await jusd.transfer(bob.address, ownerInitBal - floatToDec18(1_001)); // remove some jusd for testing, add 1 to cover interest
@@ -721,7 +721,7 @@ describe("Roller Tests", () => {
 
       // increase collateral price from 6_000 JUSD/coin to 9_000 JUSD/coin (requires 3 day cooldown to allow cloning)
       await pos2.adjustPrice(9_000n * 10n ** 18n);
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       const sourcePrice = await pos1.price();                                         // 6_000 JUSD/coin (price P1)
       const targetPrice = await pos2.price();                                         // 9_000 JUSD/coin (price P2)
       expect(targetPrice).to.be.greaterThan(sourcePrice);
@@ -799,7 +799,7 @@ describe("Roller Tests", () => {
           floatToDec18(1), // min size
           floatToDec18(10), // size
           floatToDec18(100_000), // mint limit
-          3 * 86_400,
+          14 * 86_400,
           100 * 86_400,
           86_400,
           riskPremium,
@@ -822,7 +822,7 @@ describe("Roller Tests", () => {
           floatToDec18(1), // min size
           floatToDec18(10), // size
           floatToDec18(100_000), // mint limit
-          3 * 86_400,
+          14 * 86_400,
           100 * 86_400,
           86_400,
           riskPremium,

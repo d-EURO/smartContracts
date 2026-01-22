@@ -36,7 +36,7 @@ export const config: PositionsConfig = {
       minCollateral: '0.002', // 0.002 BTC (~$200 at $100k/BTC) - matches genesis position
       initialCollateral: '0.002', // 0.002 BTC
       mintingMaximum: '10000000', // 10M JUSD maximum
-      initPeriodSeconds: 259200, // 3 days initialization period
+      initPeriodSeconds: 1209600, // 14 days initialization period
       expirationSeconds: 15552000, // 180 days (6 months)
       challengeSeconds: 172800, // 2 days challenge period
       riskPremiumPPM: 30000, // 3% risk premium

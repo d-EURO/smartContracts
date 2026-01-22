@@ -208,7 +208,7 @@ contract Position is Ownable, IPosition, MathUtil {
         reserveContribution = _reservePPM;
         minimumCollateral = _minCollateral;
         challengePeriod = _challengePeriod;
-        start = uint40(block.timestamp) + _initPeriod; // at least three days time to deny the position
+        start = uint40(block.timestamp) + _initPeriod; // at least 14 days time to deny the position
         cooldown = start;
         expiration = start + _duration;
         limit = _initialLimit;

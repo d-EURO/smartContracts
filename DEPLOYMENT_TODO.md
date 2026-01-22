@@ -29,7 +29,7 @@
   minCollateral: '0.002', // 0.002 BTC (~$200 at $100k/BTC) - matches genesis position
   initialCollateral: '0.002', // 0.002 BTC
   mintingMaximum: '10000000', // 10M JUSD
-  initPeriodSeconds: 259200, // 3 days
+  initPeriodSeconds: 1209600, // 14 days
   expirationSeconds: 15552000, // 180 days
   challengeSeconds: 172800, // 2 days
   riskPremiumPPM: 30000, // 3% risk premium

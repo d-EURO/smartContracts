@@ -49,7 +49,7 @@ describe("Native cBTC Challenge & Liquidation Tests", () => {
   const riskPremiumPPM = 10_000; // 1%
   const duration = 365n * 86_400n; // 1 year
   const challengePeriod = 3n * 86_400n; // 3 days
-  const initPeriod = 7n * 86_400n; // 7 days
+  const initPeriod = 14n * 86_400n; // 14 days
 
   before(async () => {
     [owner, alice, bob, challenger, bidder] = await ethers.getSigners();

@@ -408,7 +408,7 @@ async function testPositionCreationAndMinting(contracts: Contracts, signer: Hard
     availableCollateral > ethers.parseEther('5000') ? ethers.parseEther('5000') : (availableCollateral * 8n) / 10n;
   const minCollateral = collateralAmount / 10n; // 10% of total collateral
   const mintLimit = ethers.parseEther('50000');
-  const initPeriod = 3 * 86400; // 3 days
+  const initPeriod = 14 * 86400; // 14 days
   const expiration = 30 * 86400; // 30 days
   const challengePeriod = 1 * 86400; // 1 day
   const riskPremium = 10000; // 1%
@@ -546,7 +546,7 @@ async function testPositionRolling(contracts: Contracts, sourcePosition: Positio
     availableCollateral > ethers.parseEther('5000') ? ethers.parseEther('5000') : (availableCollateral * 8n) / 10n; // 80% of available collatera
   const minCollateral = collateralAmount / 10n; // 10% of total collateral
   const mintLimit = ethers.parseEther('500000'); // higher mint limit
-  const initPeriod = 3 * 86400; // 3 days
+  const initPeriod = 14 * 86400; // 14 days
   const expiration = 60 * 86400; // 60 days (LONGER expiration)
   const challengePeriod = 1 * 86400; // 1 day
   const riskPremium = 10000; // 1%

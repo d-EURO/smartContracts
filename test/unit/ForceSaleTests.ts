@@ -105,7 +105,7 @@ describe("ForceSale Tests", () => {
         floatToDec18(1),
         floatToDec18(10),
         floatToDec18(100_000),
-        3 * 86_400,
+        14 * 86_400,
         100 * 86_400,
         86_400,
         10000,
@@ -121,27 +121,27 @@ describe("ForceSale Tests", () => {
 
   describe("check position status", () => {
     it("fully open", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       expect(await position.start()).to.be.lessThan(await getTimeStamp());
       expect(await position.cooldown()).to.be.lessThan(await getTimeStamp());
     });
 
     it("expired", async () => {
-      await evm_increaseTime(103 * 86_400 + 300);
+      await evm_increaseTime(114 * 86_400 + 300);
       expect(await position.expiration()).to.be.lessThan(await getTimeStamp());
     });
   });
 
   describe("purchase price tests", () => {
     it("expect 10x liq. price", async () => {
-      await evm_increaseTime(3 * 86_400 + 300); // consider open
+      await evm_increaseTime(14 * 86_400 + 300); // consider open
       const p = await position.price();
       const expP = await mintingHub.expiredPurchasePrice(position);
       expect(expP).to.be.equal(10n * p);
     });
 
     it("expect 10x -> 1x ramp liq. price", async () => {
-      await evm_increaseTime(103 * 86_400 + 100); // consider expired
+      await evm_increaseTime(114 * 86_400 + 100); // consider expired
       const p = await position.price();
       const eP1 = await mintingHub.expiredPurchasePrice(position);
       expect(eP1).to.be.lessThanOrEqual(10n * p);
@@ -154,7 +154,7 @@ describe("ForceSale Tests", () => {
 
     it("expect 0 price after 2nd period", async () => {
       const period = await position.challengePeriod();
-      await evm_increaseTime(103n * 86_400n + 2n * period); // post 2nd period
+      await evm_increaseTime(114n * 86_400n + 2n * period); // post 2nd period
       const eP3 = await mintingHub.expiredPurchasePrice(position);
       expect(eP3).to.be.equal(0n);
     });
@@ -171,14 +171,14 @@ describe("ForceSale Tests", () => {
     });
 
     it("restricted to expired positions", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       const b = await coin.balanceOf(await position.getAddress());
       const r = mintingHub.buyExpiredCollateral(position, b);
       await expect(r).to.be.revertedWithCustomError(position, "Alive");
     });
 
     it("try to buy an Alive position and revert", async () => {
-      await evm_increaseTime(3 * 86_400 + 300); // consider open
+      await evm_increaseTime(14 * 86_400 + 300); // consider open
       const size = await coin.balanceOf(await position.getAddress());
       const tx = mintingHub.buyExpiredCollateral(position, size);
       await expect(tx).to.be.revertedWithCustomError(position, "Alive");
@@ -196,13 +196,13 @@ describe("ForceSale Tests", () => {
     });
 
     it("simple buy of expired positions", async () => {
-      await evm_increaseTime(103 * 86_400 + 300);
+      await evm_increaseTime(114 * 86_400 + 300);
       const b = await coin.balanceOf(await position.getAddress());
       const r = await mintingHub.buyExpiredCollateral(position, b);
     });
 
     it("buy 10x liq. price", async () => {
-      await evm_increaseTime(103 * 86_400 + 300); // consider expired
+      await evm_increaseTime(114 * 86_400 + 300); // consider expired
       const expP = await mintingHub
         .connect(alice)
         .expiredPurchasePrice(position);
@@ -230,7 +230,7 @@ describe("ForceSale Tests", () => {
 
     it("buy 1x liq. price", async () => {
       const period = await position.challengePeriod();
-      await evm_increaseTime(103n * 86_400n + period + 300n); // consider expired
+      await evm_increaseTime(114n * 86_400n + period + 300n); // consider expired
       const expP = await mintingHub
         .connect(alice)
         .expiredPurchasePrice(position);
@@ -251,7 +251,7 @@ describe("ForceSale Tests", () => {
     });
 
     it("Dispose bad debt on force sale", async () => {
-      await evm_increaseTime(3 * 86_400 + 300);
+      await evm_increaseTime(14 * 86_400 + 300);
       let col = await coin.balanceOf(await position.getAddress());
       let max = ((await position.price()) * col) / 10n ** 18n;
       await position.mint(owner, max);
@@ -394,7 +394,7 @@ describe("ForceSale Tests", () => {
         minCollateral,
         fInitialCollateral,
         initialLimit,
-        7n * 24n * 3600n,
+        14n * 24n * 3600n,
         duration,
         challengePeriod,
         fFees,

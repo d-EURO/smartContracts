@@ -49,7 +49,7 @@ contract MintingHub is IMintingHub, ERC165 {
 
     /**
      * @notice Tracks whether the first position has been created.
-     * @dev The first position (genesis) can skip the 3-day init period requirement.
+     * @dev The first position (genesis) can skip the 14-day init period requirement.
      */
     bool private _genesisPositionCreated;
 
@@ -136,9 +136,9 @@ contract MintingHub is IMintingHub, ERC165 {
             if (CHALLENGER_REWARD > _reservePPM || _reservePPM > 1_000_000) revert InvalidReservePPM();
             if (IERC20Metadata(_collateralAddress).decimals() > 24) revert InvalidCollateralDecimals(); // leaves 12 digits for price
             if (_challengeSeconds < 1 days) revert ChallengeTimeTooShort();
-            // First position (genesis) can skip init period, all others require 3 days minimum
+            // First position (genesis) can skip init period, all others require 14 days minimum
             if (_genesisPositionCreated) {
-                if (_initPeriodSeconds < 3 days) revert InitPeriodTooShort();
+                if (_initPeriodSeconds < 14 days) revert InitPeriodTooShort();
             } else {
                 _genesisPositionCreated = true;
             }

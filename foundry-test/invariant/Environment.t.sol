@@ -63,7 +63,7 @@ contract Environment is TestHelper {
 
         // create positions
         createPosition(alice);
-        increaseTime(5 days); // >= initPeriod
+        increaseTime(14 days); // >= initPeriod
     }
 
     function createPosition(address owner) internal {
@@ -71,7 +71,7 @@ contract Environment is TestHelper {
         uint256 minCollateral = 1e18; // min collateral
         uint256 initialCollateral = 110e18; // initial collateral
         uint256 initialLimit = 550_000e18; // initial limit / minting maximum
-        uint40 initPeriod = 3 days; // init period
+        uint40 initPeriod = 14 days; // init period
         uint40 duration = 365 days; // expiration / duration
         uint40 challengePeriod = 3 days; // challenge period
         uint24 riskPremium = 10_000; // risk premium
