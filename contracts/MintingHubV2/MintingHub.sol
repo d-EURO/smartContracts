@@ -527,7 +527,7 @@ contract MintingHub is IMintingHub, ERC165 {
      * @param upToAmount Maximum amount of collateral to buy
      * @param receiveAsNative If true and collateral is WcBTC, receive as native coin
      */
-    function buyExpiredCollateral(IPosition pos, uint256 upToAmount, bool receiveAsNative) public returns (uint256) {
+    function buyExpiredCollateral(IPosition pos, uint256 upToAmount, bool receiveAsNative) public validPos(address(pos)) returns (uint256) {
         uint256 max = pos.collateral().balanceOf(address(pos));
         uint256 amount = upToAmount > max ? max : upToAmount;
         uint256 forceSalePrice = expiredPurchasePrice(pos);

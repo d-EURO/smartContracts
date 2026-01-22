@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ERC4626, ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
@@ -11,24 +10,27 @@ import {ISavingsJUSD} from "./interface/ISavingsJUSD.sol";
 /**
  * @title SavingsVaultJUSD
  * @notice ERC-4626-compatible vault adapter for the JUSD Savings module.
- *         This vault tracks interest-bearing deposits using a custom price-based mechanism,
- *         where share value increases over time as interest accrues.
+ *         This vault tracks interest-bearing deposits where share value increases over time
+ *         as interest accrues in the underlying SAVINGS contract.
  *
- * @dev The vault mitigates dilution and price manipulation attacks on empty vaults
- *      (a known vulnerability in ERC-4626) by using an explicit price model that starts at 1e18,
- *      instead of relying on the default totalAssets / totalSupply ratio when supply is zero.
+ * @dev Inherits OpenZeppelin's ERC4626 virtual shares pattern for inflation attack mitigation.
+ *      The base _convertToShares/_convertToAssets functions add virtual shares (+10**_decimalsOffset())
+ *      and virtual assets (+1) to prevent first-depositor manipulation attacks.
  *
- *      Interest is recognized through a manual `_accrueInterest()` call, which updates the internal
- *      price based on newly accrued interest.
+ *      Only totalAssets() is overridden to return the vault's balance in the SAVINGS contract
+ *      plus any accrued interest. The base conversion functions use this through polymorphism.
+ *
+ *      Interest is recognized through `_accrueInterest()` calls during deposits/withdrawals.
  */
 contract SavingsVaultJUSD is ERC4626 {
-    using Math for uint256;
     using SafeCast for uint256;
 
     ISavingsJUSD public immutable SAVINGS;
     uint256 public totalClaimed;
 
     event InterestClaimed(uint256 interest, uint256 totalClaimed);
+
+    error ZeroShares();
 
     constructor(
         IERC20 _coin,
@@ -50,11 +52,9 @@ contract SavingsVaultJUSD is ERC4626 {
     }
 
     /// @notice Returns the current price per share of the contract
-    /// @dev If no shares exist, it defaults to 1 ether (implying 1:1 value)
+    /// @dev Uses virtual shares pattern for consistency with _convertToShares/_convertToAssets
     function price() public view returns (uint256) {
-        uint256 totalShares = totalSupply();
-        if (totalShares == 0) return 1 ether;
-        return (totalAssets() * 1 ether) / totalShares;
+        return ((totalAssets() + 1) * 1 ether) / (totalSupply() + 10 ** _decimalsOffset());
     }
 
     /// @notice Calculates the accrued interest for this contract
@@ -69,17 +69,10 @@ contract SavingsVaultJUSD is ERC4626 {
         return SAVINGS.savings(address(this)).saved + _interest();
     }
 
-    function _convertToShares(uint256 assets, Math.Rounding rounding) internal view virtual override returns (uint256) {
-        return assets.mulDiv(1 ether, price(), rounding);
-    }
-
-    function _convertToAssets(uint256 shares, Math.Rounding rounding) internal view virtual override returns (uint256) {
-        return shares.mulDiv(price(), 1 ether, rounding);
-    }
-
     // ---------------------------------------------------------------------------------------
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal virtual override {
+        if (shares == 0) revert ZeroShares();
         _accrueInterest();
 
         // If _asset is ERC-777, `transferFrom` can trigger a reentrancy BEFORE the transfer happens through the
