@@ -71,8 +71,8 @@ const config: HardhatUserConfig = {
       chainId: 1337,
     },
     citrea: {
-      url: process.env.RPC_URL || 'https://rpc.citrea.xyz',
-      chainId: 62831,
+      url: process.env.RPC_URL || 'https://rpc.mainnet.citrea.xyz',
+      chainId: 4114,
       gas: 'auto',
       gasPrice: 'auto',
       accounts: { mnemonic: deployerMnemonic },
@@ -94,9 +94,18 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
+      citrea: 'no-api-key-needed',
       citreaTestnet: 'no-api-key-needed',
     },
     customChains: [
+      {
+        network: "citrea",
+        chainId: 4114,
+        urls: {
+          apiURL: "https://explorer.mainnet.citrea.xyz/api",
+          browserURL: "https://explorer.mainnet.citrea.xyz"
+        }
+      },
       {
         network: "citreaTestnet",
         chainId: 5115,

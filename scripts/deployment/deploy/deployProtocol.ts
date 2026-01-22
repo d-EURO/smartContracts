@@ -31,6 +31,9 @@ interface DeployedContracts {
   positionFactory: DeployedContract;
   positionRoller: DeployedContract;
   bridgeStartUSD: DeployedContract;
+  bridgeUSDC?: DeployedContract;
+  bridgeUSDT?: DeployedContract;
+  bridgeCTUSD?: DeployedContract;
   frontendGateway: DeployedContract;
   savingsGateway: DeployedContract;
   mintingHubGateway: DeployedContract;
@@ -39,8 +42,8 @@ interface DeployedContracts {
 }
 
 /**
- * Waits for a transaction with retry logic to handle RPC timeouts. Uses exponential backoff 
- * and falls back to manual receipt query if .wait() times out. This handles Citrea testnet 
+ * Waits for a transaction with retry logic to handle RPC timeouts. Uses exponential backoff
+ * and falls back to manual receipt query if .wait() times out. This handles Citrea testnet
  * RPC reliability issues.
  *
  * @param txResponse - The transaction response to wait for
@@ -54,7 +57,7 @@ async function waitForTransactionWithRetry(
   txResponse: TransactionResponse,
   confirmations: number = 1,
   maxRetries: number = 5,
-  baseDelayMs: number = 2000
+  baseDelayMs: number = 2000,
 ): Promise<TransactionReceipt | null> {
   let lastError: Error | undefined;
 
@@ -73,7 +76,7 @@ async function waitForTransactionWithRetry(
       if (attempt < maxRetries - 1) {
         const delayMs = baseDelayMs * Math.pow(2, attempt);
         console.warn(`Retry ${attempt + 1}/${maxRetries} for ${txResponse.hash} after ${delayMs}ms (${error.message})`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
         continue;
       }
     }
@@ -107,14 +110,13 @@ async function main(hre: HardhatRuntimeEnvironment) {
   const chainId = network.chainId;
   const isLocal = hre.network.name === 'localhost' || hre.network.name === 'hardhat';
   // Fork should use Citrea gas prices, not hardhat's high test prices
-  const gasConfig = process.env.FORK_ENABLED === 'true'
-    ? getGasConfig('citreaTestnet')
-    : getGasConfig(hre.network.name);
+  const gasConfig =
+    process.env.FORK_ENABLED === 'true' ? getGasConfig('citreaTestnet') : getGasConfig(hre.network.name);
 
   // Derive deployer wallet from mnemonic using standard BIP44 path
   // Get root node (at path "m") to derive all addresses from absolute BIP44 paths
   const mnemonic = ethers.Mnemonic.fromPhrase(process.env.DEPLOYER_MNEMONIC!);
-  const rootNode = ethers.HDNodeWallet.fromMnemonic(mnemonic, "m");
+  const rootNode = ethers.HDNodeWallet.fromMnemonic(mnemonic, 'm');
   const deployerPath = "m/44'/60'/0'/0/0";
   const deployerNode = rootNode.derivePath(deployerPath);
   const deployer = new ethers.Wallet(deployerNode.privateKey, provider);
@@ -127,12 +129,17 @@ async function main(hre: HardhatRuntimeEnvironment) {
 
   // For local testing, accept WCBTC address from environment variable
   let wcbtcAddress: string;
+  let usdcEAddress: string | undefined;
+  let usdtEAddress: string | undefined;
+  let ctUsdAddress: string | undefined;
   if (isLocal && process.env.WCBTC_ADDRESS) {
     try {
       wcbtcAddress = ethers.getAddress(process.env.WCBTC_ADDRESS);
       console.log(`Using WCBTC address from environment for local testing: ${wcbtcAddress}`);
     } catch (error) {
-      throw new Error(`Invalid WCBTC_ADDRESS environment variable: ${process.env.WCBTC_ADDRESS}. Must be a valid Ethereum address.`);
+      throw new Error(
+        `Invalid WCBTC_ADDRESS environment variable: ${process.env.WCBTC_ADDRESS}. Must be a valid Ethereum address.`,
+      );
     }
   } else {
     const addressConfig = ADDRESSES[Number(chainId)];
@@ -141,8 +148,17 @@ async function main(hre: HardhatRuntimeEnvironment) {
     }
     wcbtcAddress = addressConfig.WCBTC;
     if (!wcbtcAddress) {
-      throw new Error(`WCBTC address not configured for chainId ${chainId} in ADDRESSES. ${isLocal ? 'For local testing, set WCBTC_ADDRESS environment variable.' : ''}`);
+      throw new Error(
+        `WCBTC address not configured for chainId ${chainId} in ADDRESSES. ${isLocal ? 'For local testing, set WCBTC_ADDRESS environment variable.' : ''}`,
+      );
     }
+    // Get USDC.e, USDT.e, and ctUSD addresses for stablecoin bridges (optional)
+    usdcEAddress = addressConfig.USDC_E;
+    usdtEAddress = addressConfig.USDT_E;
+    ctUsdAddress = addressConfig.CT_USD;
+    if (usdcEAddress) console.log(`USDC.e address: ${usdcEAddress}`);
+    if (usdtEAddress) console.log(`USDT.e address: ${usdtEAddress}`);
+    if (ctUsdAddress) console.log(`ctUSD address: ${ctUsdAddress}`);
   }
 
   const blockNumber = await provider.getBlockNumber();
@@ -155,7 +171,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
   const feeData = await provider.getFeeData();
   const configMaxFee = ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei');
 
-  console.log(`Network max fee: ${feeData.maxFeePerGas ? ethers.formatUnits(feeData.maxFeePerGas, 'gwei') : 'N/A'} gwei`);
+  console.log(
+    `Network max fee: ${feeData.maxFeePerGas ? ethers.formatUnits(feeData.maxFeePerGas, 'gwei') : 'N/A'} gwei`,
+  );
   console.log(`Configured max fee: ${gasConfig.maxFeePerGas} gwei\n`);
 
   if (feeData.maxFeePerGas && feeData.maxFeePerGas > configMaxFee) {
@@ -176,7 +194,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
   console.log(`Estimated deployment cost: ~${ethers.formatEther(estimatedCost)} cBTC (conservative estimate)\n`);
 
   if (deployerBalance < estimatedCost) {
-    console.warn(`WARNING: Balance may be insufficient. Have: ${ethers.formatEther(deployerBalance)} cBTC, Estimated need: ~${ethers.formatEther(estimatedCost)} cBTC\n`);
+    console.warn(
+      `WARNING: Balance may be insufficient. Have: ${ethers.formatEther(deployerBalance)} cBTC, Estimated need: ~${ethers.formatEther(estimatedCost)} cBTC\n`,
+    );
   }
 
   const transactionBundle: TransactionRequest[] = [];
@@ -266,10 +286,41 @@ async function main(hre: HardhatRuntimeEnvironment) {
     contractsParams.bridges.startUSD.weeks,
   ]);
 
+  // Deploy StablecoinBridge for USDC.e → JUSD (if configured)
+  let bridgeUSDC: DeployedContract | undefined;
+  if (usdcEAddress) {
+    bridgeUSDC = await createDeployTx('StablecoinBridgeUSDC', StablecoinBridgeArtifact, [
+      usdcEAddress,
+      juiceDollar.address,
+      contractsParams.bridges.USDC_E.limit,
+      contractsParams.bridges.USDC_E.weeks,
+    ]);
+  }
+
+  // Deploy StablecoinBridge for USDT.e → JUSD (if configured)
+  let bridgeUSDT: DeployedContract | undefined;
+  if (usdtEAddress) {
+    bridgeUSDT = await createDeployTx('StablecoinBridgeUSDT', StablecoinBridgeArtifact, [
+      usdtEAddress,
+      juiceDollar.address,
+      contractsParams.bridges.USDT_E.limit,
+      contractsParams.bridges.USDT_E.weeks,
+    ]);
+  }
+
+  // Deploy StablecoinBridge for ctUSD → JUSD (if configured)
+  let bridgeCTUSD: DeployedContract | undefined;
+  if (ctUsdAddress) {
+    bridgeCTUSD = await createDeployTx('StablecoinBridgeCTUSD', StablecoinBridgeArtifact, [
+      ctUsdAddress,
+      juiceDollar.address,
+      contractsParams.bridges.CT_USD.limit,
+      contractsParams.bridges.CT_USD.weeks,
+    ]);
+  }
+
   // Deploy FrontendGateway
-  const frontendGateway = await createDeployTx('FrontendGateway', FrontendGatewayArtifact, [
-    juiceDollar.address,
-  ]);
+  const frontendGateway = await createDeployTx('FrontendGateway', FrontendGatewayArtifact, [juiceDollar.address]);
 
   // Deploy SavingsGateway
   const savingsGateway = await createDeployTx('SavingsGateway', SavingsGatewayArtifact, [
@@ -303,6 +354,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
     positionFactory,
     positionRoller,
     bridgeStartUSD,
+    bridgeUSDC,
+    bridgeUSDT,
+    bridgeCTUSD,
     frontendGateway,
     savingsGateway,
     mintingHubGateway,
@@ -324,15 +378,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
     'MintingHubGateway',
   ]);
 
-  createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'initialize', [
-    positionRoller.address,
-    'PositionRoller',
-  ]);
+  createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'initialize', [positionRoller.address, 'PositionRoller']);
 
-  createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'initialize', [
-    savingsGateway.address,
-    'SavingsGateway',
-  ]);
+  createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'initialize', [savingsGateway.address, 'SavingsGateway']);
 
   createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'initialize', [
     frontendGateway.address,
@@ -344,15 +392,34 @@ async function main(hre: HardhatRuntimeEnvironment) {
     'StablecoinBridgeStartUSD',
   ]);
 
+  // Initialize USDC.e bridge as minter (if deployed)
+  if (bridgeUSDC) {
+    createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'initialize', [
+      bridgeUSDC.address,
+      'StablecoinBridgeUSDC',
+    ]);
+  }
+
+  // Initialize USDT.e bridge as minter (if deployed)
+  if (bridgeUSDT) {
+    createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'initialize', [
+      bridgeUSDT.address,
+      'StablecoinBridgeUSDT',
+    ]);
+  }
+
+  // Initialize ctUSD bridge as minter (if deployed)
+  if (bridgeCTUSD) {
+    createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'initialize', [
+      bridgeCTUSD.address,
+      'StablecoinBridgeCTUSD',
+    ]);
+  }
+
   // Mint 2,002,000 SUSD through the StartUSD bridge
   // 1,000 first investment + 2,000,000 batch investments + 1,000 genesis position opening fee
   const totalStartUSDAmount = ethers.parseUnits('2002000', 18);
-  createCallTx(
-    startUSD.address,
-    StartUSDArtifact.abi,
-    'approve',
-    [bridgeStartUSD.address, totalStartUSDAmount],
-  );
+  createCallTx(startUSD.address, StartUSDArtifact.abi, 'approve', [bridgeStartUSD.address, totalStartUSDAmount]);
 
   createCallTx(bridgeStartUSD.address, StablecoinBridgeArtifact.abi, 'mint', [totalStartUSDAmount]);
 
@@ -362,12 +429,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
 
   createCallTx(juiceDollar.address, JuiceDollarArtifact.abi, 'approve', [equity.address, firstInvestAmount]);
 
-  createCallTx(
-    equity.address,
-    EquityArtifact.abi,
-    'invest',
-    [firstInvestAmount, expectedShares],
-  );
+  createCallTx(equity.address, EquityArtifact.abi, 'invest', [firstInvestAmount, expectedShares]);
 
   // ============================================================================
   // EXECUTE MAIN DEPLOYMENT TRANSACTIONS
@@ -397,7 +459,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
     }
   }
 
-  console.log(`\nAll ${transactionBundle.length} transactions sent in ${((Date.now() - deploymentStartTime) / 1000).toFixed(2)}s`);
+  console.log(
+    `\nAll ${transactionBundle.length} transactions sent in ${((Date.now() - deploymentStartTime) / 1000).toFixed(2)}s`,
+  );
   console.log('Waiting for confirmations...\n');
 
   // Wait for all confirmations
@@ -407,7 +471,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
       if (!receipt || receipt.status !== 1) {
         throw new Error(`Transaction ${mainDeploymentResponses[i].hash} failed or reverted`);
       }
-      console.log(`[${i + 1}/${mainDeploymentResponses.length}] ✓ Confirmed: ${mainDeploymentResponses[i].hash} (block ${receipt.blockNumber})`);
+      console.log(
+        `[${i + 1}/${mainDeploymentResponses.length}] ✓ Confirmed: ${mainDeploymentResponses[i].hash} (block ${receipt.blockNumber})`,
+      );
     } catch (error: any) {
       console.error(`[${i + 1}/${mainDeploymentResponses.length}] ✗ Confirmation failed: ${error.message}`);
       throw error;
@@ -424,9 +490,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
   if (actualEquityAddress.toLowerCase() !== equity.address.toLowerCase()) {
     throw new Error(
       `Equity address verification failed!\n` +
-      `  Predicted: ${equity.address}\n` +
-      `  Actual:    ${actualEquityAddress}\n` +
-      `  This indicates JuiceDollar's internal nonce changed.`
+        `  Predicted: ${equity.address}\n` +
+        `  Actual:    ${actualEquityAddress}\n` +
+        `  This indicates JuiceDollar's internal nonce changed.`,
     );
   }
 
@@ -445,21 +511,38 @@ async function main(hre: HardhatRuntimeEnvironment) {
   const isSavingsMinter = await juiceDollarContract.isMinter(savingsGateway.address);
   const isFrontendMinter = await juiceDollarContract.isMinter(frontendGateway.address);
   const isBridgeMinter = await juiceDollarContract.isMinter(bridgeStartUSD.address);
+  const isBridgeUSDCMinter = bridgeUSDC ? await juiceDollarContract.isMinter(bridgeUSDC.address) : true;
+  const isBridgeUSDTMinter = bridgeUSDT ? await juiceDollarContract.isMinter(bridgeUSDT.address) : true;
+  const isBridgeCTUSDMinter = bridgeCTUSD ? await juiceDollarContract.isMinter(bridgeCTUSD.address) : true;
 
   console.log(`MintingHubGateway minter: ${isMinterHubMinter ? '✓' : '✗'}`);
   console.log(`PositionRoller minter: ${isRollerMinter ? '✓' : '✗'}`);
   console.log(`SavingsGateway minter: ${isSavingsMinter ? '✓' : '✗'}`);
   console.log(`FrontendGateway minter: ${isFrontendMinter ? '✓' : '✗'}`);
-  console.log(`StablecoinBridge minter: ${isBridgeMinter ? '✓' : '✗'}`);
+  console.log(`StablecoinBridge (StartUSD) minter: ${isBridgeMinter ? '✓' : '✗'}`);
+  if (bridgeUSDC) console.log(`StablecoinBridge (USDC.e) minter: ${isBridgeUSDCMinter ? '✓' : '✗'}`);
+  if (bridgeUSDT) console.log(`StablecoinBridge (USDT.e) minter: ${isBridgeUSDTMinter ? '✓' : '✗'}`);
+  if (bridgeCTUSD) console.log(`StablecoinBridge (ctUSD) minter: ${isBridgeCTUSDMinter ? '✓' : '✗'}`);
 
-  if (!isMinterHubMinter || !isRollerMinter || !isSavingsMinter || !isFrontendMinter || !isBridgeMinter) {
+  if (
+    !isMinterHubMinter ||
+    !isRollerMinter ||
+    !isSavingsMinter ||
+    !isFrontendMinter ||
+    !isBridgeMinter ||
+    !isBridgeUSDCMinter ||
+    !isBridgeUSDTMinter ||
+    !isBridgeCTUSDMinter
+  ) {
     throw new Error('One or more minters not properly registered in JuiceDollar');
   }
 
   // Verify JUSD total supply
   const jusdSupply = await juiceDollarContract.totalSupply();
   const expectedSupply = ethers.parseUnits('2002000', 18); // 2,002,000 JUSD from bridge
-  console.log(`JUSD total supply: ${ethers.formatEther(jusdSupply)} JUSD (expected: ${ethers.formatEther(expectedSupply)})`);
+  console.log(
+    `JUSD total supply: ${ethers.formatEther(jusdSupply)} JUSD (expected: ${ethers.formatEther(expectedSupply)})`,
+  );
 
   if (jusdSupply !== expectedSupply) {
     throw new Error(`JUSD supply mismatch: ${jusdSupply} vs expected ${expectedSupply}`);
@@ -469,7 +552,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
   const equityContract = new ethers.Contract(equity.address, EquityArtifact.abi, provider);
   const juiceSupply = await equityContract.totalSupply();
   const expectedMinJuice = ethers.parseUnits('100000000', 18); // At least 100M from initial 1000 JUSD investment
-  console.log(`JUICE total supply: ${ethers.formatEther(juiceSupply)} JUICE (min expected: ${ethers.formatEther(expectedMinJuice)})`);
+  console.log(
+    `JUICE total supply: ${ethers.formatEther(juiceSupply)} JUICE (min expected: ${ethers.formatEther(expectedMinJuice)})`,
+  );
 
   if (juiceSupply < expectedMinJuice) {
     throw new Error(`JUICE supply too low: ${juiceSupply} vs minimum ${expectedMinJuice}`);
@@ -485,7 +570,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
   const frontendContract = new ethers.Contract(frontendGateway.address, FrontendGatewayArtifact.abi, provider);
   const fgSavingsGateway = await frontendContract.SAVINGS();
   const fgMintingHubGateway = await frontendContract.MINTING_HUB();
-  console.log(`FrontendGateway initialized: ${fgSavingsGateway === savingsGateway.address && fgMintingHubGateway === mintingHubGateway.address ? '✓' : '✗'}`);
+  console.log(
+    `FrontendGateway initialized: ${fgSavingsGateway === savingsGateway.address && fgMintingHubGateway === mintingHubGateway.address ? '✓' : '✗'}`,
+  );
 
   if (fgSavingsGateway !== savingsGateway.address || fgMintingHubGateway !== mintingHubGateway.address) {
     throw new Error('FrontendGateway not properly initialized');
@@ -531,8 +618,8 @@ async function main(hre: HardhatRuntimeEnvironment) {
 
   for (let i = 0; i < batchCount; i++) {
     // Use actual gas limits from config (more accurate than estimates)
-    const approveGasLimit = BigInt(deploymentConstants.contractCallGasLimit);  // 300,000
-    const investGasLimit = BigInt(deploymentConstants.investCallGasLimit);    // 500,000
+    const approveGasLimit = BigInt(deploymentConstants.contractCallGasLimit); // 300,000
+    const investGasLimit = BigInt(deploymentConstants.investCallGasLimit); // 500,000
 
     // EIP-1559 max upfront cost = gasLimit × maxFeePerGas
     const totalMaxCost = (approveGasLimit + investGasLimit) * configuredMaxFee;
@@ -555,7 +642,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
     cbtcFundingBatch.push({
       tx: cbtcTransferTx,
       signer: deployer,
-      label: `cBTC funding for investor ${i + 1}`
+      label: `cBTC funding for investor ${i + 1}`,
     });
 
     console.log(`  Investor ${i + 1}: ${ethers.formatUnits(cbtcAmount, 18)} cBTC (gas funding)`);
@@ -582,7 +669,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
     jusdTransferBatch.push({
       tx: jusdTransferTx,
       signer: deployer,
-      label: `JUSD transfer to investor ${i + 1}`
+      label: `JUSD transfer to investor ${i + 1}`,
     });
   }
 
@@ -608,7 +695,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
     approvalBatch.push({
       tx: approvalTx,
       signer: investor.wallet,
-      label: `Approval by investor ${i + 1}`
+      label: `Approval by investor ${i + 1}`,
     });
   }
 
@@ -634,16 +721,12 @@ async function main(hre: HardhatRuntimeEnvironment) {
     investmentBatch.push({
       tx: investmentTx,
       signer: investor.wallet,
-      label: `Investment by investor ${i + 1}`
+      label: `Investment by investor ${i + 1}`,
     });
   }
 
   // Helper function to execute a batch of transactions with dynamic nonces and retry logic
-  async function executeBatch(
-    batch: TxBatch,
-    batchName: string,
-    maxRetries: number = 3
-  ): Promise<boolean> {
+  async function executeBatch(batch: TxBatch, batchName: string, maxRetries: number = 3): Promise<boolean> {
     console.log(`\n${'═'.repeat(80)}`);
     console.log(`${batchName} (${batch.length} transactions)`);
     console.log('═'.repeat(80));
@@ -682,11 +765,13 @@ async function main(hre: HardhatRuntimeEnvironment) {
         } catch (error: any) {
           attempt++;
           if (attempt >= maxRetries) {
-            console.error(`[${i + 1}/${batch.length}] ✗ ${label}: Failed after ${maxRetries} attempts - ${error.message}`);
+            console.error(
+              `[${i + 1}/${batch.length}] ✗ ${label}: Failed after ${maxRetries} attempts - ${error.message}`,
+            );
             return false;
           }
           console.warn(`[${i + 1}/${batch.length}] ⚠ ${label}: Retry ${attempt}/${maxRetries} - ${error.message}`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
         }
       }
 
@@ -698,7 +783,9 @@ async function main(hre: HardhatRuntimeEnvironment) {
       txResponses.push(txResponse);
     }
 
-    console.log(`\n${batchName}: Phase 1 complete - all ${batch.length} transactions submitted in ${((Date.now() - startTime) / 1000).toFixed(2)}s`);
+    console.log(
+      `\n${batchName}: Phase 1 complete - all ${batch.length} transactions submitted in ${((Date.now() - startTime) / 1000).toFixed(2)}s`,
+    );
     console.log(`${batchName}: Phase 2 starting - waiting for confirmations...\n`);
 
     // PHASE 2: Wait for all confirmations in this batch
@@ -707,14 +794,18 @@ async function main(hre: HardhatRuntimeEnvironment) {
       try {
         const receipt = await waitForTransactionWithRetry(txResponses[i], confirmations, 5, 2000);
         if (receipt && receipt.status === 1) {
-          console.log(`[${i + 1}/${txResponses.length}] ✓ Confirmed: ${txResponses[i].hash} (block ${receipt.blockNumber})`);
+          console.log(
+            `[${i + 1}/${txResponses.length}] ✓ Confirmed: ${txResponses[i].hash} (block ${receipt.blockNumber})`,
+          );
           receipts.push(receipt);
         } else {
           console.error(`[${i + 1}/${txResponses.length}] ✗ Reverted: ${txResponses[i].hash}`);
           receipts.push(null);
         }
       } catch (error: any) {
-        console.error(`[${i + 1}/${txResponses.length}] ✗ Confirmation error: ${txResponses[i].hash} - ${error.message}`);
+        console.error(
+          `[${i + 1}/${txResponses.length}] ✗ Confirmation error: ${txResponses[i].hash} - ${error.message}`,
+        );
         receipts.push(null);
       }
     }
@@ -779,7 +870,6 @@ async function main(hre: HardhatRuntimeEnvironment) {
     console.log('ALL BATCHES COMPLETED SUCCESSFULLY!');
     console.log('═'.repeat(80) + '\n');
     deploymentSuccessful = true;
-
   } catch (error) {
     console.error('\nError during batched deployment:', error);
     deploymentSuccessful = false;
@@ -884,7 +974,11 @@ async function main(hre: HardhatRuntimeEnvironment) {
 
       // Step 4: Open genesis position
       console.log('Step 4: Opening genesis position...');
-      const mintingHubContract = new ethers.Contract(mintingHubGateway.address, MintingHubGatewayArtifact.abi, deployer);
+      const mintingHubContract = new ethers.Contract(
+        mintingHubGateway.address,
+        MintingHubGatewayArtifact.abi,
+        deployer,
+      );
       const frontendCode = ethers.ZeroHash; // No frontend code
 
       const openPositionTx = await deployer.sendTransaction({
@@ -892,18 +986,19 @@ async function main(hre: HardhatRuntimeEnvironment) {
         data: mintingHubContract.interface.encodeFunctionData(
           'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)',
           [
-          wcbtcAddress,                           // collateral address
-          genesisParams.minCollateral,            // min collateral
-          genesisParams.initialCollateral,        // initial collateral
-          genesisParams.mintingMaximum,           // minting maximum
-          genesisParams.initPeriodSeconds,        // init period
-          genesisParams.expirationSeconds,        // expiration
-          genesisParams.challengeSeconds,         // challenge period
-          genesisParams.riskPremiumPPM,           // risk premium
-          genesisParams.liquidationPrice,         // liquidation price
-          genesisParams.reservePPM,               // reserve PPM
-          frontendCode,                           // frontend code
-        ]),
+            wcbtcAddress, // collateral address
+            genesisParams.minCollateral, // min collateral
+            genesisParams.initialCollateral, // initial collateral
+            genesisParams.mintingMaximum, // minting maximum
+            genesisParams.initPeriodSeconds, // init period
+            genesisParams.expirationSeconds, // expiration
+            genesisParams.challengeSeconds, // challenge period
+            genesisParams.riskPremiumPPM, // risk premium
+            genesisParams.liquidationPrice, // liquidation price
+            genesisParams.reservePPM, // reserve PPM
+            frontendCode, // frontend code
+          ],
+        ),
         gasLimit: ethers.parseUnits(deploymentConstants.openPositionGasLimit, 'wei'),
         maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
         maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
@@ -918,7 +1013,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
       // Extract position address from PositionOpened event
       // Event: PositionOpened(address indexed owner, address indexed position, address original, address collateral)
       const positionOpenedTopic = ethers.id('PositionOpened(address,address,address,address)');
-      const positionLog = openPositionReceipt.logs.find(log => log.topics[0] === positionOpenedTopic);
+      const positionLog = openPositionReceipt.logs.find((log) => log.topics[0] === positionOpenedTopic);
 
       if (positionLog) {
         const genesisPositionAddress = ethers.getAddress('0x' + positionLog.topics[2].slice(26));
@@ -928,10 +1023,10 @@ async function main(hre: HardhatRuntimeEnvironment) {
         deployedContracts.genesisPosition = {
           address: genesisPositionAddress,
           constructorArgs: [
-            deployer.address,                       // owner
-            mintingHubGateway.address,              // hub
-            juiceDollar.address,                    // jusd
-            wcbtcAddress,                           // collateral
+            deployer.address, // owner
+            mintingHubGateway.address, // hub
+            juiceDollar.address, // jusd
+            wcbtcAddress, // collateral
             genesisParams.minCollateral,
             genesisParams.mintingMaximum,
             genesisParams.initPeriodSeconds,
@@ -986,25 +1081,25 @@ async function main(hre: HardhatRuntimeEnvironment) {
     schemaVersion: '1.0',
     network: {
       name: hre.network.name,
-      chainId: Number(chainId)
+      chainId: Number(chainId),
     },
     deployment: {
       deployedAt: new Date().toISOString(),
       deployedBy: deployer.address,
-      blockNumber: targetBlock
+      blockNumber: targetBlock,
     },
     contracts: deployedContracts,
     batchInvestors: batchInvestors.map((investor, index) => ({
       index: index + 1,
       address: investor.wallet.address,
-      investmentAmount: ethers.formatUnits(batchAmount, 18) + ' JUSD'
+      investmentAmount: ethers.formatUnits(batchAmount, 18) + ' JUSD',
     })),
     metadata: {
       deployer: 'JuiceDollar/smartContracts',
       deploymentMethod: 'rapid-sequential',
       scriptVersion: '1.0.0',
-      batchInvestmentStrategy: 'separate-addresses'
-    }
+      batchInvestmentStrategy: 'separate-addresses',
+    },
   };
 
   const deploymentDir = path.join(__dirname, '../../../deployments', networkFolder);
@@ -1013,10 +1108,7 @@ async function main(hre: HardhatRuntimeEnvironment) {
   }
 
   const filename = 'protocol.json';
-  fs.writeFileSync(
-    path.join(deploymentDir, filename),
-    JSON.stringify(deploymentInfo, null, 2),
-  );
+  fs.writeFileSync(path.join(deploymentDir, filename), JSON.stringify(deploymentInfo, null, 2));
   console.log(`\nDeployment metadata saved to: deployments/${networkFolder}/${filename}`);
 
   console.log('\nDeployed Contracts:');

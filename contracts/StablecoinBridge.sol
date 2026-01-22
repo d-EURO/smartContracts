@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IJuiceDollar} from "./interface/IJuiceDollar.sol";
+import {IReserve} from "./interface/IReserve.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -12,6 +13,11 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
  */
 contract StablecoinBridge {
     using SafeERC20 for IERC20;
+
+    /**
+     * @notice Emergency quorum in basis points. 1000 = 10%.
+     */
+    uint32 private constant EMERGENCY_QUORUM = 1000;
 
     IERC20 public immutable usd; // the source stablecoin
     IJuiceDollar public immutable JUSD; // the JUSD
@@ -29,9 +35,20 @@ contract StablecoinBridge {
     uint256 public immutable limit;
     uint256 public minted;
 
+    /**
+     * @notice Whether this bridge has been permanently stopped via emergency stop.
+     */
+    bool public stopped;
+
+    event EmergencyStopped(address indexed caller, string message);
+
     error Limit(uint256 amount, uint256 limit);
     error Expired(uint256 time, uint256 expiration);
     error UnsupportedToken(address token);
+    error Stopped();
+    error AlreadyStopped();
+    error NotQualified();
+    error NoGovernance();
 
     constructor(address other, address JUSDAddress, uint256 limit_, uint256 weeks_) {
         usd = IERC20(other);
@@ -56,17 +73,45 @@ contract StablecoinBridge {
      * @param amount The amount of the source stablecoin to bridge (convert).
      */
     function mintTo(address target, uint256 amount) public {
+        if (stopped) revert Stopped();
+
         usd.safeTransferFrom(msg.sender, address(this), amount);
-        
+
         uint256 targetAmount = _convertAmount(amount, usdDecimals, JUSDDecimals);
         _mint(target, targetAmount);
     }
 
     function _mint(address target, uint256 amount) internal {
+        if (stopped) revert Stopped();
         if (block.timestamp > horizon) revert Expired(block.timestamp, horizon);
         JUSD.mint(target, amount);
         minted += amount;
         if (minted > limit) revert Limit(amount, limit);
+    }
+
+    /**
+     * @notice Permanently stop this bridge in case of emergency.
+     * @dev Requires 10% governance power. Once stopped, cannot be reactivated.
+     * Users can still burn JUSD to retrieve their stablecoins.
+     * @param _helpers Addresses that delegated their votes to the caller (must be sorted ascending, no duplicates)
+     * @param _message Reason for the emergency stop
+     */
+    function emergencyStop(address[] calldata _helpers, string calldata _message) external {
+        if (stopped) revert AlreadyStopped();
+
+        IReserve reserve = JUSD.reserve();
+        uint256 _totalVotes = reserve.totalVotes();
+        if (_totalVotes == 0) revert NoGovernance();
+
+        // Use votesDelegated from Equity which validates:
+        // - helpers are sorted and unique
+        // - helpers have delegated to sender
+        // - sender is not in helpers list
+        uint256 _votes = reserve.votesDelegated(msg.sender, _helpers);
+        if (_votes * 10_000 < EMERGENCY_QUORUM * _totalVotes) revert NotQualified();
+
+        stopped = true;
+        emit EmergencyStopped(msg.sender, _message);
     }
 
     /**
@@ -99,9 +144,9 @@ contract StablecoinBridge {
      */
     function _convertAmount(uint256 amount, uint8 fromDecimals, uint8 toDecimals) internal pure returns (uint256) {
         if (fromDecimals < toDecimals) {
-            return amount * 10**(toDecimals - fromDecimals);
+            return amount * 10 ** (toDecimals - fromDecimals);
         } else if (fromDecimals > toDecimals) {
-            return amount / 10**(fromDecimals - toDecimals);
+            return amount / 10 ** (fromDecimals - toDecimals);
         } else {
             return amount;
         }

@@ -11,16 +11,17 @@ import { vaultConfig, vaultMetadata } from '../config/savingsVaultConfig';
 async function main() {
   const [deployer] = await ethers.getSigners();
   const network = await ethers.provider.getNetwork();
+  const networkName = hre.network.name; // Use hardhat config network name, not ethers chain registry name
 
   // Make sure we're on a supported network
-  if (!vaultConfig[network.name]) {
-    console.error(`Network ${network.name} not supported. Supported networks: ${Object.keys(vaultConfig).join(', ')}`);
+  if (!vaultConfig[networkName]) {
+    console.error(`Network ${networkName} not supported. Supported networks: ${Object.keys(vaultConfig).join(', ')}`);
     process.exit(1);
   }
 
-  const networkConfig = vaultConfig[network.name];
+  const networkConfig = vaultConfig[networkName];
 
-  console.log(`Connected to ${network.name} (chainId: ${network.chainId})`);
+  console.log(`Connected to ${networkName} (chainId: ${network.chainId})`);
   console.log(`Using deployer address: ${deployer.address}`);
   console.log(`Using JUSD address: ${networkConfig.jusd}`);
   console.log(`Using Savings address: ${networkConfig.savings}`);
@@ -42,7 +43,7 @@ async function main() {
   // Save deployment info
   const timestamp = Math.floor(Date.now() / 1000);
   const deploymentInfo = {
-    network: network.name,
+    network: networkName,
     chainId: Number(network.chainId),
     vault: {
       address: vaultAddress,
@@ -57,18 +58,18 @@ async function main() {
   };
 
   // Save deployment result
-  const deploymentDir = path.join(__dirname, '../../deployments');
+  const deploymentDir = path.join(__dirname, '../../../deployments');
   if (!fs.existsSync(deploymentDir)) {
     fs.mkdirSync(deploymentDir, { recursive: true });
   }
 
-  const filename = `savings-vault-${network.name}-${timestamp}.json`;
+  const filename = `savings-vault-${networkName}-${timestamp}.json`;
   fs.writeFileSync(path.join(deploymentDir, filename), JSON.stringify(deploymentInfo, null, 2));
 
   console.log(`Deployment info saved to: ${filename}`);
 
   // Wait for block confirmations and verify on live networks
-  if (network.name !== 'hardhat' && network.name !== 'localhost') {
+  if (networkName !== 'hardhat' && networkName !== 'localhost') {
     console.log('Waiting for block confirmations...');
     const deploymentTx = vault.deploymentTransaction();
     if (deploymentTx) {

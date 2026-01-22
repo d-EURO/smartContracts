@@ -1,7 +1,7 @@
 # JuiceDollar Citrea Deployment - TODO List
 
 > **Status:** Pre-Deployment Phase - Simplified Architecture
-> **Target Network:** Citrea Mainnet (Chain ID: 62831)
+> **Target Network:** Citrea Mainnet (Chain ID: 4114)
 > **Testnet:** Citrea Testnet (Chain ID: 5115)
 > **Last Updated:** 2025-10-18
 > **Collateral Strategy:** WcBTC (Wrapped cBTC) only
@@ -109,7 +109,7 @@ export const citrea = {
 **Current State:**
 ```typescript
 const networkConfig: Record<number, NetworkConfig> = {
-  62831: { // Citrea Mainnet
+  4114: { // Citrea Mainnet
     mintingHubGateway: "0x...", // ❌ Empty
     weth: "0x...", // ❌ Empty - Should be WcBTC
     jusd: "0x...", // ❌ Empty
@@ -143,7 +143,7 @@ const networkConfig: Record<number, NetworkConfig> = {
 **Current State:**
 ```typescript
 export const networkConfig: Record<number, SavingsVaultConfig> = {
-  62831: { // Citrea Mainnet
+  4114: { // Citrea Mainnet
     jusd: '0x...', // ❌ Empty
     frontendGateway: '0x...', // ❌ Empty
     name: 'Savings Vault JUSD',
@@ -200,12 +200,12 @@ The config file was never actually using Flashbots - just legacy naming from Eth
 **Status:** ⏳ Waiting for Deployment
 
 **Current State:**
-All addresses are `zeroAddress` for both Citrea Mainnet (62831) and Testnet (5115).
+All addresses are `zeroAddress` for both Citrea Mainnet (4114) and Testnet (5115).
 
 **Action Required:**
 After deploying each contract, update the following addresses:
 
-**Citrea Mainnet (62831):**
+**Citrea Mainnet (4114):**
 ```typescript
 {
   juiceDollar: '0x...', // ✅ Deploy first
@@ -341,7 +341,7 @@ yarn run monitor --network citreaTestnet
 ```typescript
 citrea: {
   url: 'https://rpc.juiceswap.com', // ⚠️ Verify this RPC endpoint
-  chainId: 62831,
+  chainId: 4114,
   gas: 'auto',
   gasPrice: 'auto',
   accounts: [deployerPk],

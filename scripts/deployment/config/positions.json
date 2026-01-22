@@ -1,20 +1,20 @@
 {
-  "_comment": "Example position configuration - update collateralAddress for Citrea deployment",
+  "_comment": "Position configuration for Citrea Mainnet (chainId 4114). For testnet use 0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93",
   "openingFee": "1000",
   "positions": [
     {
-      "name": "Example-Position",
-      "collateralAddress": "0x0000000000000000000000000000000000000000",
+      "name": "WcBTC-Position",
+      "collateralAddress": "0x3100000000000000000000000000000000000006",
       "decimals": 18,
-      "minCollateral": "5",
-      "initialCollateral": "10",
-      "mintingMaximum": "10000",
+      "minCollateral": "0.002",
+      "initialCollateral": "0.002",
+      "mintingMaximum": "10000000",
       "initPeriodSeconds": 259200,
-      "expirationSeconds": 2592000,
-      "challengeSeconds": 86400,
-      "riskPremium": 50000,
-      "liqPrice": "1000",
-      "reservePPM": 200000
+      "expirationSeconds": 15552000,
+      "challengeSeconds": 172800,
+      "riskPremium": 30000,
+      "liqPrice": "90000",
+      "reservePPM": 150000
     }
   ]
 }

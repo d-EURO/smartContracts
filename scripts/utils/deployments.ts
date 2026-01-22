@@ -49,7 +49,7 @@ export function getDeployer(): string {
   }
 
   const deployment = loadFileJSON(process.env.DEPLOYMENT_FILE_PATH);
-  return deployment.deployer;
+  return deployment.deployment.deployedBy;
 }
 
 export function getFullDeployment(): DeploymentData {
@@ -65,9 +65,9 @@ export function getDeploymentAddresses(): DeploymentAddresses {
     throw new Error('DEPLOYMENT_FILE_PATH environment variable not set');
   }
 
-  const deployment = getFullDeployment();
+  const deployment = loadFileJSON(process.env.DEPLOYMENT_FILE_PATH);
   return {
-    deployer: deployment.deployer,
-    ...Object.fromEntries(Object.entries(deployment.contracts).map(([name, data]) => [name, data.address])),
+    deployer: deployment.deployment.deployedBy,
+    ...Object.fromEntries(Object.entries(deployment.contracts).map(([name, data]) => [name, (data as { address: string }).address])),
   } as DeploymentAddresses;
 }

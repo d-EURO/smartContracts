@@ -1,4 +1,5 @@
 import { ethers } from 'hardhat';
+import hre from 'hardhat';
 import { parseUnits, formatUnits } from 'ethers';
 import fs from 'fs';
 import path from 'path';
@@ -83,11 +84,11 @@ async function deployBridge() {
     console.log('Bridge suggested as a minter');
 
     const network = await ethers.provider.getNetwork();
-    const networkName = network.name || `chain-${network.chainId}`;
+    const networkName = hre.network.name; // Use hardhat config network name, not ethers chain registry name
     const timestamp = Math.floor(Date.now() / 1000);
     const deploymentInfo = {
       network: networkName,
-      chainId: network.chainId,
+      chainId: Number(network.chainId),
       blockNumber: await ethers.provider.getBlockNumber(),
       deployer: deployer.address,
       bridgeAddress,
@@ -97,7 +98,7 @@ async function deployBridge() {
       timestamp: timestamp,
     };
 
-    const deploymentDir = path.join(__dirname, '../../deployments');
+    const deploymentDir = path.join(__dirname, '../../../deployments', networkName);
     if (!fs.existsSync(deploymentDir)) {
       fs.mkdirSync(deploymentDir, { recursive: true });
     }

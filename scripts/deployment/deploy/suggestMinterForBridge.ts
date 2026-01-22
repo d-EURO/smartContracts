@@ -25,9 +25,9 @@ async function suggestMinterForBridge() {
     console.log(`Description: ${description}`);
 
     // Get JUSD contract
-    const dEuroAddress = getContractAddress('decentralizeJUSD');
-    const JUSD = await ethers.getContractAt('JuiceDollar', dEuroAddress);
-    const dEuroDecimals = await JUSD.decimals();
+    const jusdAddress = getContractAddress('juiceDollar');
+    const JUSD = await ethers.getContractAt('JuiceDollar', jusdAddress);
+    const jusdDecimals = await JUSD.decimals();
 
     // Get required parameters
     const minFee = await JUSD.MIN_FEE();
@@ -35,18 +35,18 @@ async function suggestMinterForBridge() {
     const deployerBalance = await JUSD.balanceOf(deployer.address);
 
     console.log(`\n----------------------------------------\n`);
-    console.log(`JUSD address: ${dEuroAddress}`);
-    console.log(`Required minimum fee: ${formatUnits(minFee, Number(dEuroDecimals))} JUSD`);
+    console.log(`JUSD address: ${jusdAddress}`);
+    console.log(`Required minimum fee: ${formatUnits(minFee, Number(jusdDecimals))} JUSD`);
     console.log(`Application period: ${Math.floor(Number(minApplicationPeriod) / 86400)} days`);
-    console.log(`Deployer balance: ${formatUnits(deployerBalance, Number(dEuroDecimals))} JUSD`);
+    console.log(`Deployer balance: ${formatUnits(deployerBalance, Number(jusdDecimals))} JUSD`);
 
     if (deployerBalance < minFee) {
       throw new Error('Insufficient JUSD balance for suggestMinter fee');
     }
 
     // Approve JUSD to spend the fee
-    console.log(`\nApproving JUSD to spend ${formatUnits(minFee, Number(dEuroDecimals))} JUSD from deployer...`);
-    const approveTx = await JUSD.approve(dEuroAddress, minFee);
+    console.log(`\nApproving JUSD to spend ${formatUnits(minFee, Number(jusdDecimals))} JUSD from deployer...`);
+    const approveTx = await JUSD.approve(jusdAddress, minFee);
     await approveTx.wait();
     console.log(`Approval transaction completed: ${approveTx.hash}`);
 
