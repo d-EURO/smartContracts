@@ -213,32 +213,6 @@ USE_FORK=true BRIDGE_KEY=<KEY> npx hardhat run scripts/deployment/deploy/deployB
 
 Bridge configurations: `scripts/deployment/config/stablecoinBridgeConfig.ts`
 
-### Hardhat Ignition Deployment
-
-```bash
-# Deploy single module with verification
-npm run deploy ignition/modules/MODULE --network citrea --verify --deployment-id MODULE_ID_01
-
-# Deploy all modules
-npm run deploy -- --network citrea --verify
-```
-
-**Output:**
-- `ignition/deployments/[deployment]/deployed_addresses.json`
-- `ignition/deployments/[deployment]/journal.jsonl`
-- `ignition/constructor-args/*.js`
-
-### Manual Verification
-
-```bash
-npx hardhat verify --network citrea \
-  --constructor-args ./ignition/constructor-args/$FILE.js \
-  $ADDRESS
-
-# Verify unrelated contracts
-npx hardhat ignition verify $DEPLOYMENT --include-unrelated-contracts
-```
-
 ---
 
 ## NPM Package

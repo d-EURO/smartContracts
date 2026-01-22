@@ -1,8 +1,10 @@
 import '@nomicfoundation/hardhat-ethers';
 import '@nomicfoundation/hardhat-verify';
-import '@nomicfoundation/hardhat-toolbox';
 import '@nomicfoundation/hardhat-network-helpers';
-import '@nomicfoundation/hardhat-ignition-ethers';
+import '@nomicfoundation/hardhat-chai-matchers';
+import '@typechain/hardhat';
+import 'hardhat-gas-reporter';
+import 'solidity-coverage';
 import 'hardhat-deploy';
 import 'hardhat-abi-exporter';
 import 'hardhat-contract-sizer';

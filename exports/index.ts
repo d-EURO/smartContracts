@@ -22,6 +22,3 @@ export * from "./abis/utils/StartUSD";
 export * from "./abis/utils/StablecoinBridge";
 export * from "./abis/utils/MintingHubV2";
 export * from "./abis/utils/Savings";
-
-// constructor args
-// export * from './ignition/constructor-args/index';

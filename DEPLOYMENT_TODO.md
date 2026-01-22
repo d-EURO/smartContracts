@@ -307,7 +307,7 @@ yarn run monitor --network citreaTestnet
 - [ ] Ensure no test/mock contracts are included in deployment
 - [ ] Verify all SafeERC20 uses (check MintingHub.sol:129, 157)
 - [ ] Confirm reserve initial funding amount
-- [ ] Verify initial mint amount to close initialization phase (FullDeployment.ts:39)
+- [ ] Verify initial mint amount to close initialization phase (deploymentConfig.ts:initialMintAmount)
 - [ ] Review interest rate parameters (Leadrate)
 - [ ] Confirm opening fee amount (positionsConfig.ts:26)
 - [ ] Verify collateral requirements for each position type
