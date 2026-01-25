@@ -67,6 +67,7 @@ const config: HardhatUserConfig = {
         url: process.env.RPC_URL || 'https://rpc.testnet.citrea.xyz',
         enabled: true,
       } : undefined,
+      accounts: process.env.FORK_ENABLED === 'true' ? { mnemonic: deployerMnemonic } : undefined,
     },
     localhost: {
       url: "http://127.0.0.1:8545",

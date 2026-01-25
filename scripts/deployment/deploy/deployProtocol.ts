@@ -1038,8 +1038,21 @@ async function main(hre: HardhatRuntimeEnvironment) {
           ],
         };
 
-        // Step 5: Mint initial JUSD loan on the genesis position
-        console.log('Step 5: Minting initial JUSD loan...');
+        // Step 5: Wait for init period to pass before minting
+        // On hardhat/localhost, must use evm_increaseTime since setTimeout doesn't advance block.timestamp
+        // On live networks, real-time waiting works as new blocks have updated timestamps
+        if (hre.network.name === 'hardhat' || hre.network.name === 'localhost') {
+          console.log(`Step 5: Advancing EVM time by ${genesisParams.initPeriodSeconds + 1} seconds...`);
+          await hre.network.provider.send('evm_increaseTime', [genesisParams.initPeriodSeconds + 1]);
+          await hre.network.provider.send('evm_mine', []);
+        } else {
+          console.log(`Step 5: Waiting ${genesisParams.initPeriodSeconds} seconds for init period to pass...`);
+          await new Promise((resolve) => setTimeout(resolve, genesisParams.initPeriodSeconds * 1000));
+        }
+        console.log('  ✓ Init period complete');
+
+        // Step 6: Mint initial JUSD loan on the genesis position
+        console.log('Step 6: Minting initial JUSD loan...');
         const positionContract = new ethers.Contract(genesisPositionAddress, PositionArtifact.abi, deployer);
         const mintAmount = BigInt(genesisParams.initialMintAmount);
 

@@ -120,7 +120,11 @@ export const contractsParams = {
     minCollateral: '2000000000000000', // 0.002 cBTC (100 JUSD mintable at 50k liq price)
     initialCollateral: '2000000000000000', // 0.002 cBTC
     mintingMaximum: '100000000000000000000000000', // 100,000,000 JUSD
-    initPeriodSeconds: 0, // Genesis position: no init period (allows immediate minting)
+    // Genesis position init period must be > 0 to bypass the price-doubling check in Position._setPrice().
+    // With initPeriodSeconds: 0, the check `block.timestamp >= start` is true during construction,
+    // causing PriceTooHigh(newPrice, 0) since price is uninitialized. Any value > 0 makes start
+    // be in the future, bypassing the check. The deployment script waits this many seconds before minting.
+    initPeriodSeconds: 20,
     expirationSeconds: 31536000, // 12 months (365 days)
     challengeSeconds: 86400, // 1 day
     riskPremiumPPM: 0, // 0% (no risk premium)
