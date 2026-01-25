@@ -7,11 +7,16 @@ export interface ChainAddress {
   savingsGateway: Address;
   savingsVaultJUSD: Address;
   mintingHubGateway: Address;
+  /** Bridge contract addresses */
   bridgeStartUSD: Address;
   bridgeUSDC?: Address;
   bridgeUSDT?: Address;
   bridgeCTUSD?: Address;
+  /** Underlying stablecoin token addresses */
   startUSD: Address;
+  USDC?: Address;
+  USDT?: Address;
+  CTUSD?: Address;
   roller: Address;
   positionFactoryV2: Address;
   genesisPosition: Address;
@@ -29,7 +34,13 @@ export const ADDRESS: Record<number, ChainAddress> = {
     savingsVaultJUSD: zeroAddress,
     mintingHubGateway: zeroAddress,
     bridgeStartUSD: zeroAddress,
+    bridgeUSDC: zeroAddress,
+    bridgeUSDT: zeroAddress,
+    bridgeCTUSD: zeroAddress,
     startUSD: zeroAddress,
+    USDC: '0xE045e6c36cF77FAA2CfB54466D71A3aEF7bbE839',
+    USDT: '0x9f3096Bac87e7F03DC09b0B416eB0DF837304dc4',
+    CTUSD: '0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D',
     roller: zeroAddress,
     positionFactoryV2: zeroAddress,
     genesisPosition: zeroAddress,
