@@ -96,6 +96,11 @@ export const PositionV2ABI = [
     type: 'error',
   },
   {
+    inputs: [],
+    name: 'EmptyMessage',
+    type: 'error',
+  },
+  {
     inputs: [
       {
         internalType: 'uint40',
@@ -156,6 +161,22 @@ export const PositionV2ABI = [
       },
     ],
     name: 'LimitExceeded',
+    type: 'error',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: 'length',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: 'maxLength',
+        type: 'uint256',
+      },
+    ],
+    name: 'MessageTooLong',
     type: 'error',
   },
   {

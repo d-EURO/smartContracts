@@ -223,6 +223,11 @@ export const SavingsVaultJUSDABI = [
     type: 'error',
   },
   {
+    inputs: [],
+    name: 'ZeroShares',
+    type: 'error',
+  },
+  {
     anonymous: false,
     inputs: [
       {

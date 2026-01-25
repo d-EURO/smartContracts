@@ -37,6 +37,11 @@ export const MintingHubV2ABI = [
   },
   {
     inputs: [],
+    name: 'EmptyMessage',
+    type: 'error',
+  },
+  {
+    inputs: [],
     name: 'IncompatibleCollateral',
     type: 'error',
   },
@@ -79,6 +84,22 @@ export const MintingHubV2ABI = [
       },
     ],
     name: 'LeaveNoDust',
+    type: 'error',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: 'length',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: 'maxLength',
+        type: 'uint256',
+      },
+    ],
+    name: 'MessageTooLong',
     type: 'error',
   },
   {
@@ -225,6 +246,31 @@ export const MintingHubV2ABI = [
       {
         indexed: true,
         internalType: 'address',
+        name: 'position',
+        type: 'address',
+      },
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'denier',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'string',
+        name: 'message',
+        type: 'string',
+      },
+    ],
+    name: 'PositionDeniedByGovernance',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: 'address',
         name: 'owner',
         type: 'address',
       },
@@ -248,6 +294,37 @@ export const MintingHubV2ABI = [
       },
     ],
     name: 'PositionOpened',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'position',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'collateral',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'price',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'principal',
+        type: 'uint256',
+      },
+    ],
+    name: 'PositionUpdate',
     type: 'event',
   },
   {
@@ -575,6 +652,47 @@ export const MintingHubV2ABI = [
       },
     ],
     stateMutability: 'payable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'denier',
+        type: 'address',
+      },
+      {
+        internalType: 'string',
+        name: 'message',
+        type: 'string',
+      },
+    ],
+    name: 'emitPositionDenied',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: '_collateral',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '_price',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '_principal',
+        type: 'uint256',
+      },
+    ],
+    name: 'emitPositionUpdate',
+    outputs: [],
+    stateMutability: 'nonpayable',
     type: 'function',
   },
   {
