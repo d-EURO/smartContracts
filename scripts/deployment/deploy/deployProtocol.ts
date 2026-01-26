@@ -109,9 +109,11 @@ async function main(hre: HardhatRuntimeEnvironment) {
   const network = await provider.getNetwork();
   const chainId = network.chainId;
   const isLocal = hre.network.name === 'localhost' || hre.network.name === 'hardhat';
+  const isForkNetwork = process.env.FORK_TESTNET === "true" || process.env.FORK_MAINNET === "true";
   // Fork should use Citrea gas prices, not hardhat's high test prices
-  const gasConfig =
-    process.env.FORK_ENABLED === 'true' ? getGasConfig('citreaTestnet') : getGasConfig(hre.network.name);
+  const gasConfig = isForkNetwork
+    ? getGasConfig(process.env.FORK_MAINNET ? 'citrea' : 'citreaTestnet')
+    : getGasConfig(hre.network.name);
 
   // Derive deployer wallet from mnemonic using standard BIP44 path
   // Get root node (at path "m") to derive all addresses from absolute BIP44 paths
@@ -1039,9 +1041,10 @@ async function main(hre: HardhatRuntimeEnvironment) {
         };
 
         // Step 5: Wait for init period to pass before minting
-        // On hardhat/localhost, must use evm_increaseTime since setTimeout doesn't advance block.timestamp
+        // On hardhat/localhost/fork networks, must use evm_increaseTime since setTimeout doesn't advance block.timestamp
         // On live networks, real-time waiting works as new blocks have updated timestamps
-        if (hre.network.name === 'hardhat' || hre.network.name === 'localhost') {
+        const canManipulateTime = hre.network.name === 'hardhat' || hre.network.name === 'localhost' || isForkNetwork;
+        if (canManipulateTime) {
           console.log(`Step 5: Advancing EVM time by ${genesisParams.initPeriodSeconds + 1} seconds...`);
           await hre.network.provider.send('evm_increaseTime', [genesisParams.initPeriodSeconds + 1]);
           await hre.network.provider.send('evm_mine', []);

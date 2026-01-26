@@ -33,9 +33,10 @@ import { getContractAddress } from '../../scripts/utils/deployments';
  * `getContractAddress` function.
  *
  * How to run on a Citrea fork:
- * > npx hardhat node --no-deploy
- * > # Assumption: Contracts are deployed on Citrea, otherwise deploy them now
- * > npx hardhat run test/integration/integrationTest.ts
+ * > FORK_TESTNET=true npx hardhat run test/integration/integrationTest.ts --network hardhat
+ * > # Or with a persistent forked node:
+ * > npm run node:fork:testnet   # Terminal 1
+ * > npx hardhat run test/integration/integrationTest.ts --network forkTestnet   # Terminal 2
  */
 
 interface Contracts {
