@@ -1,6 +1,6 @@
 {
   "name": "@juicedollar/jusd",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "JuiceDollar (JUSD) - Oracle-free, Bitcoin-collateralized stablecoin on Citrea. Decentralized minting with democratic governance.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

@@ -1,4 +1,4 @@
-import { Address, zeroAddress } from 'viem';
+import { Address } from 'viem';
 
 export interface ChainAddress {
   juiceDollar: Address;
@@ -43,7 +43,7 @@ export const ADDRESS: Record<number, ChainAddress> = {
     CTUSD: '0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D',
     roller: '0xC1b97398c06B9C6a49Fd9dCFAC8907700301e9Ac',
     positionFactoryV2: '0x107eDf5f030d724bD0C73f88A300bEA09AE581e2',
-    genesisPosition: zeroAddress, // Not created - insufficient collateral
+    genesisPosition: '0xe8c97614Ac1A5Ac0e8aB2d0e04b4B315817ecb36',
   },
   5115: {
     juiceDollar: '0x6a850a548fdd050e8961223ec8FfCDfacEa57E39',
