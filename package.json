@@ -29,6 +29,8 @@
     "deploy:fork:mainnet": "FORK_MAINNET=true npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network hardhat",
     "deploy:mainnet": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network citrea",
     "deploy:testnet": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network citreaTestnet",
+    "genesis:fork:mainnet": "FORK_MAINNET=true npx hardhat run scripts/genesis/createGenesisPosition.ts --network hardhat",
+    "genesis:mainnet": "npx hardhat run scripts/genesis/createGenesisPosition.ts --network citrea",
     "verify": "npx hardhat run scripts/verifyContracts.ts --network citrea",
     "verify:mainnet": "DEPLOYMENT_FILE_PATH=./deployments/citrea/protocol.json npx hardhat run scripts/verifyContracts.ts --network citrea",
     "verify:testnet": "DEPLOYMENT_FILE_PATH=./deployments/citreaTestnet/protocol.json npx hardhat run scripts/verifyContracts.ts --network citreaTestnet",

@@ -314,5 +314,32 @@
     "deploymentMethod": "rapid-sequential",
     "scriptVersion": "1.0.0",
     "batchInvestmentStrategy": "separate-addresses"
+  },
+  "genesisPosition": {
+    "address": "0xe8c97614Ac1A5Ac0e8aB2d0e04b4B315817ecb36",
+    "constructorArgs": [
+      "0xECc0b131D481dE8aB538D19F04dD4b253660D82B",
+      "0x1a20B160bf546774246C7920939E6e7Ac0f88b8e",
+      "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+      "0x3100000000000000000000000000000000000006",
+      "2000000000000000",
+      "100000000000000000000000000",
+      20,
+      31536000,
+      86400,
+      0,
+      "50000000000000000000000",
+      200000
+    ],
+    "owner": "0xECc0b131D481dE8aB538D19F04dD4b253660D82B",
+    "collateral": "0x3100000000000000000000000000000000000006",
+    "initialCollateral": "2000000000000000",
+    "initialMint": "50000000000000000000",
+    "liquidationPrice": "50000000000000000000000",
+    "expirationSeconds": 31536000,
+    "openPositionTxHash": "0x43cb9aa9a0d7b2a7bc21adae13d8bd8cf5823036841d34998b1a1e28de022a8d",
+    "mintTxHash": "0x60ab6aeef971886a2eee92cc6874f13e6f3d006fb6ad5a941f04253e794194bb",
+    "createdAt": "2026-01-26T15:56:26.840Z",
+    "createdAtBlock": 2671319
   }
 }

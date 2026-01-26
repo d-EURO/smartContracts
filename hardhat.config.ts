@@ -64,6 +64,10 @@ const config: HardhatUserConfig = {
     hardhat: {
       chainId: process.env.FORK_TESTNET ? 5115 : process.env.FORK_MAINNET ? 4114 : 31337,
       allowUnlimitedContractSize: true,
+      // Use deployer mnemonic when forking, default Hardhat accounts otherwise
+      accounts: (process.env.FORK_TESTNET || process.env.FORK_MAINNET)
+        ? { mnemonic: deployerMnemonic }
+        : undefined,
       forking: process.env.FORK_TESTNET ? {
         url: process.env.CITREA_TESTNET_RPC || "https://rpc.testnet.citrea.xyz",
         enabled: true,
