@@ -26,24 +26,24 @@ export interface ChainAddress {
 // Citrea Testnet Chain ID: 5115
 export const ADDRESS: Record<number, ChainAddress> = {
   4114: {
-    // Citrea Mainnet - TODO: Add deployed contract addresses
-    juiceDollar: zeroAddress,
-    equity: zeroAddress,
-    frontendGateway: zeroAddress,
-    savingsGateway: zeroAddress,
-    savingsVaultJUSD: zeroAddress,
-    mintingHubGateway: zeroAddress,
-    bridgeStartUSD: zeroAddress,
-    bridgeUSDC: zeroAddress,
-    bridgeUSDT: zeroAddress,
-    bridgeCTUSD: zeroAddress,
-    startUSD: zeroAddress,
+    // Citrea Mainnet
+    juiceDollar: '0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C',
+    equity: '0x2A36f2b204B46Fd82653cd06d00c7fF757C99ae4',
+    frontendGateway: '0x3090a89A1fF5DC99117BE655599e5491A0BaBB92',
+    savingsGateway: '0x22FE239892eBC8805DA8f05eD3bc6aF75332b60b',
+    savingsVaultJUSD: '0x1b70ae756b1089cc5948e4f8a2AD498DF30E897d',
+    mintingHubGateway: '0x1a20B160bf546774246C7920939E6e7Ac0f88b8e',
+    bridgeStartUSD: '0x51ff8141D731676Fb21aE1E5D5A88c04511994dD',
+    bridgeUSDC: '0x920DB0aDf6fEe2D69401e9f68D60319177dCa20F',
+    bridgeUSDT: '0x5CC0e668F8BA61E111B6168E19d17d3C65040614',
+    bridgeCTUSD: '0x8D11020286aF9ecf7E5D7bD79699c391b224a0bd',
+    startUSD: '0xD41ab73aF9c7324b9c7c6e63dE1aeC666d98bc80',
     USDC: '0xE045e6c36cF77FAA2CfB54466D71A3aEF7bbE839',
     USDT: '0x9f3096Bac87e7F03DC09b0B416eB0DF837304dc4',
     CTUSD: '0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D',
-    roller: zeroAddress,
-    positionFactoryV2: zeroAddress,
-    genesisPosition: zeroAddress,
+    roller: '0xC1b97398c06B9C6a49Fd9dCFAC8907700301e9Ac',
+    positionFactoryV2: '0x107eDf5f030d724bD0C73f88A300bEA09AE581e2',
+    genesisPosition: zeroAddress, // Not created - insufficient collateral
   },
   5115: {
     juiceDollar: '0x6a850a548fdd050e8961223ec8FfCDfacEa57E39',

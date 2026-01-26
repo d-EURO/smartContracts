@@ -1,0 +1,318 @@
+{
+  "schemaVersion": "1.0",
+  "network": {
+    "name": "citrea",
+    "chainId": 4114
+  },
+  "deployment": {
+    "deployedAt": "2026-01-26T04:35:27.916Z",
+    "deployedBy": "0xECc0b131D481dE8aB538D19F04dD4b253660D82B",
+    "blockNumber": 2650849
+  },
+  "contracts": {
+    "startUSD": {
+      "address": "0xD41ab73aF9c7324b9c7c6e63dE1aeC666d98bc80",
+      "constructorArgs": []
+    },
+    "juiceDollar": {
+      "address": "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+      "constructorArgs": [
+        1209600
+      ]
+    },
+    "equity": {
+      "address": "0x2A36f2b204B46Fd82653cd06d00c7fF757C99ae4",
+      "constructorArgs": [
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C"
+      ]
+    },
+    "positionFactory": {
+      "address": "0x107eDf5f030d724bD0C73f88A300bEA09AE581e2",
+      "constructorArgs": []
+    },
+    "positionRoller": {
+      "address": "0xC1b97398c06B9C6a49Fd9dCFAC8907700301e9Ac",
+      "constructorArgs": [
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C"
+      ]
+    },
+    "bridgeStartUSD": {
+      "address": "0x51ff8141D731676Fb21aE1E5D5A88c04511994dD",
+      "constructorArgs": [
+        "0xD41ab73aF9c7324b9c7c6e63dE1aeC666d98bc80",
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+        "100000000000000000000000000",
+        6
+      ]
+    },
+    "bridgeUSDC": {
+      "address": "0x920DB0aDf6fEe2D69401e9f68D60319177dCa20F",
+      "constructorArgs": [
+        "0xE045e6c36cF77FAA2CfB54466D71A3aEF7bbE839",
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+        "100000000000000000000000000",
+        208
+      ]
+    },
+    "bridgeUSDT": {
+      "address": "0x5CC0e668F8BA61E111B6168E19d17d3C65040614",
+      "constructorArgs": [
+        "0x9f3096Bac87e7F03DC09b0B416eB0DF837304dc4",
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+        "100000000000000000000000000",
+        208
+      ]
+    },
+    "bridgeCTUSD": {
+      "address": "0x8D11020286aF9ecf7E5D7bD79699c391b224a0bd",
+      "constructorArgs": [
+        "0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D",
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+        "100000000000000000000000000",
+        208
+      ]
+    },
+    "frontendGateway": {
+      "address": "0x3090a89A1fF5DC99117BE655599e5491A0BaBB92",
+      "constructorArgs": [
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C"
+      ]
+    },
+    "savingsGateway": {
+      "address": "0x22FE239892eBC8805DA8f05eD3bc6aF75332b60b",
+      "constructorArgs": [
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+        100000,
+        "0x3090a89A1fF5DC99117BE655599e5491A0BaBB92"
+      ]
+    },
+    "mintingHubGateway": {
+      "address": "0x1a20B160bf546774246C7920939E6e7Ac0f88b8e",
+      "constructorArgs": [
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+        "0x22FE239892eBC8805DA8f05eD3bc6aF75332b60b",
+        "0xC1b97398c06B9C6a49Fd9dCFAC8907700301e9Ac",
+        "0x107eDf5f030d724bD0C73f88A300bEA09AE581e2",
+        "0x3090a89A1fF5DC99117BE655599e5491A0BaBB92",
+        "0x3100000000000000000000000000000000000006"
+      ]
+    },
+    "savingsVaultJUSD": {
+      "address": "0x1b70ae756b1089cc5948e4f8a2AD498DF30E897d",
+      "constructorArgs": [
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+        "0x22FE239892eBC8805DA8f05eD3bc6aF75332b60b",
+        "Savings Vault JUSD",
+        "svJUSD"
+      ]
+    }
+  },
+  "batchInvestors": [
+    {
+      "index": 1,
+      "address": "0x52653CF1b6dDF48EC3a90839d8cb6863b07b58b1",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 2,
+      "address": "0xA3C7d24Ce21F051287FF7811Bef95CFD89cA7DCA",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 3,
+      "address": "0x08cfDc6973B9c436f271fB025A611e52bC5E5eeA",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 4,
+      "address": "0xDD8ddd9baD9d0c4A22E0223087232C6E84B7be9c",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 5,
+      "address": "0xcdC3B8c3D60FD98A9C1B743a80f1A7a977D81803",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 6,
+      "address": "0x573e3485e465B23327f1589ca9885A7787b4F328",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 7,
+      "address": "0x53f82512844e6C8535B9690f64a3cC92F9d9376b",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 8,
+      "address": "0xF2fd91c55f8b0B2930A17daA0C1FDc15c27067CD",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 9,
+      "address": "0x151064F6Cc3aaca7b70912265abF9bC7992C2fd6",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 10,
+      "address": "0x2730262F276E1ba3be1bfeb2D678c1B4BC545417",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 11,
+      "address": "0xDD0f601243E7CE70AbA59551c8F05972a1D2f18a",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 12,
+      "address": "0x74c55B92749f27A9573e197a631F051ecf96EdB6",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 13,
+      "address": "0x15C9bf61B1363fe5C572087eB4B7d1867491e8f1",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 14,
+      "address": "0xFf1D92DbF7060563878d25ab68090411880d5BEa",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 15,
+      "address": "0x3226696FAFC124049347cc700A4acD5D2159Ccda",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 16,
+      "address": "0x441Ac4Fb5017E0ef2404B8bAa8B69Dda22F983b3",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 17,
+      "address": "0x144C24F9EEbD04dC2532Df2654AaEF876bF9e92B",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 18,
+      "address": "0x74B305af10eb9a3e7E32282760ebadd3E6f6502F",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 19,
+      "address": "0x98d76b16F23222DdB3CFF0b85B8203AEE0c77436",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 20,
+      "address": "0x743d0288443134B5e66F619542fD90A8CfD938fD",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 21,
+      "address": "0xb7592FB18A5497FB8CEEE7311292b2D6F6f9039F",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 22,
+      "address": "0x670f43e7353C721b32a039E961df8056c46425Ed",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 23,
+      "address": "0x4439bC3Ba9070eDaBFc3Bb72895cBE9b15781BbD",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 24,
+      "address": "0x0043515aaFF8448B5c400C78D84849e6e9c4cd98",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 25,
+      "address": "0xb0b9918F7502C686EEcd717d7DaA2B621f7f51b0",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 26,
+      "address": "0x05d340ff85eD7480B48Ecc539DAA26B3e6FdA681",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 27,
+      "address": "0x27fa198B007A94251D9966757ff85398f1aA1cF4",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 28,
+      "address": "0xE310e07666B88c0B9bf7340B7E0528607842878F",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 29,
+      "address": "0x9540663188C424eb948f2196E77C032232312Ab0",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 30,
+      "address": "0xe5Baf299391B08e9C2a18aB199b8E0281A859693",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 31,
+      "address": "0x598CA2603BA17e6f81e11FB6DCBaF19e662F6Fb8",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 32,
+      "address": "0x3aA7E145Cef7FE028Fc2b844c4f1fB634666cda6",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 33,
+      "address": "0x491070edbECa4F5C92487f49d6AD8A765ef690ea",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 34,
+      "address": "0x52009d9078d7EA53a90A2f92223c52716a9c6ff9",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 35,
+      "address": "0x49A525873731924c9daFB01b376873761130386C",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 36,
+      "address": "0xcCA88dac2AC51aA905340Bc74F8f14BE140982BE",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 37,
+      "address": "0xD6C4882D64c81bD9AA24f73e60e4540cAf557Bae",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 38,
+      "address": "0xCAf7927D0b3d7C38761D68bf922eC0EBFFfE18B5",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 39,
+      "address": "0xBc4E72378c22e4b075023573A7D7FC5A01b053d4",
+      "investmentAmount": "50000.0 JUSD"
+    },
+    {
+      "index": 40,
+      "address": "0x09d9896BAf6535D82513BFe04BbfdCc142CA6700",
+      "investmentAmount": "50000.0 JUSD"
+    }
+  ],
+  "metadata": {
+    "deployer": "JuiceDollar/smartContracts",
+    "deploymentMethod": "rapid-sequential",
+    "scriptVersion": "1.0.0",
+    "batchInvestmentStrategy": "separate-addresses"
+  }
+}

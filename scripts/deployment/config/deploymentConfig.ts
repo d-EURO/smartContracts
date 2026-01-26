@@ -14,10 +14,10 @@ export function getGasConfig(networkName: string): GasConfig {
       maxFeePerGas: '10',
       maxPriorityFeePerGas: '1',
     },
-    citrea: {
-      maxFeePerGas: '0.01',
-      maxPriorityFeePerGas: '0.001',
-    },
+    citrea: {                                                                                                                                   
+      maxFeePerGas: '0.002',                                                                                                                    
+      maxPriorityFeePerGas: '0.0005',                                                                                                           
+    }, 
     citreaTestnet: {
       maxFeePerGas: '0.01',
       maxPriorityFeePerGas: '0.001',
