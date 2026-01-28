@@ -36,6 +36,6 @@ export function etherscanUrl(hash: string, type: string = 'address'): string {
   // For now, using Ethereum Etherscan as placeholder
   return `https://etherscan.io/${type}/${hash}`;
 
-  // Expected Citrea block explorer format (update when available):
-  // return `https://explorer.citrea.xyz/${type}/${hash}`;
+  // Citrea block explorer:
+  // return `https://citreascan.com/${type}/${hash}`;
 }
