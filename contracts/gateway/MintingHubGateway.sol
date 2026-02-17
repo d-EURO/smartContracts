@@ -10,11 +10,11 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
 
     constructor(
         address _deuro,
-        address _leadrate,
+        uint24 _initialRatePPM,
         address _roller,
         address _factory,
         address _gateway
-    ) MintingHub(_deuro, _leadrate, _roller, _factory) {
+    ) MintingHub(_deuro, _initialRatePPM, _roller, _factory) {
         GATEWAY = IFrontendGateway(_gateway);
     }
 
