@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {IMintingHubGateway} from "./interface/IMintingHubGateway.sol";
+import {IMintingHub} from "../MintingHubV2/interface/IMintingHub.sol";
 import {ICoinLendingGateway} from "./interface/ICoinLendingGateway.sol";
 import {IPosition} from "../MintingHubV2/interface/IPosition.sol";
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
@@ -21,7 +21,7 @@ interface IWETH is IERC20 {
  * @dev This version handles the ownership transfer timing issue to allow price adjustments in the same transaction
  */
 contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pausable {
-    IMintingHubGateway public immutable MINTING_HUB;
+    IMintingHub public immutable MINTING_HUB;
     IWETH public immutable WETH;
     IDecentralizedEURO public immutable DEURO;
 
@@ -41,7 +41,7 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
      * @param _deuro The address of the DecentralizedEURO contract
      */
     constructor(address _mintingHub, address _weth, address _deuro) Ownable(_msgSender()) {
-        MINTING_HUB = IMintingHubGateway(_mintingHub);
+        MINTING_HUB = IMintingHub(_mintingHub);
         WETH = IWETH(_weth);
         DEURO = IDecentralizedEURO(_deuro);
     }
@@ -135,8 +135,7 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
             parent,          // parent position
             msg.value,       // collateral amount
             initialMint,     // mint amount
-            expiration,
-            frontendCode
+            expiration
         );
 
         if (position == address(0)) revert InvalidPosition();
