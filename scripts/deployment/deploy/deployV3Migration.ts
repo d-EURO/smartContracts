@@ -2,21 +2,21 @@ import fs from 'fs';
 import path from 'path';
 import { ethers } from 'hardhat';
 import hre from 'hardhat';
-import { migrationV2Config, migrationV2Params } from '../config/migrationV2Config';
+import { migrationV3Config, migrationV3Params } from '../config/migrationV3Config';
 
 /**
- * @description Deploys V2 migration contracts (Savings, MintingHub, SavingsVaultDEURO, CoinLendingGateway)
+ * @description Deploys V3 migration contracts (Savings, MintingHub, SavingsVaultDEURO, CoinLendingGateway)
  *              and registers Savings + MintingHub as minters on dEURO.
- * @usage npx hardhat run scripts/deployment/deploy/deployV2Migration.ts --network <network>
+ * @usage npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network <network>
  */
 async function main() {
   const [deployer] = await ethers.getSigners();
   const network = await ethers.provider.getNetwork();
   const networkName = hre.network.name;
 
-  const config = migrationV2Config[networkName];
+  const config = migrationV3Config[networkName];
   if (!config) {
-    console.error(`Network ${networkName} not supported. Supported networks: ${Object.keys(migrationV2Config).join(', ')}`);
+    console.error(`Network ${networkName} not supported. Supported networks: ${Object.keys(migrationV3Config).join(', ')}`);
     process.exit(1);
   }
 
@@ -47,7 +47,7 @@ async function main() {
   // --- 1. Deploy Savings ---
   console.log('\n1/7 Deploying Savings...');
   const Savings = await ethers.getContractFactory('Savings');
-  const savings = await Savings.deploy(config.decentralizedEURO, migrationV2Params.initialSavingsRatePPM);
+  const savings = await Savings.deploy(config.decentralizedEURO, migrationV3Params.initialSavingsRatePPM);
   const savingsDeployTxHash = savings.deploymentTransaction()?.hash;
   console.log(`    Savings deployment tx: ${savingsDeployTxHash}`);
   await savings.waitForDeployment();
@@ -59,7 +59,7 @@ async function main() {
   const MintingHub = await ethers.getContractFactory('MintingHub');
   const mintingHub = await MintingHub.deploy(
     config.decentralizedEURO,
-    migrationV2Params.initialLendingRatePPM,
+    migrationV3Params.initialLendingRatePPM,
     config.positionRoller,
     config.positionFactory,
   );
@@ -75,8 +75,8 @@ async function main() {
   const savingsVault = await SavingsVaultDEURO.deploy(
     config.decentralizedEURO,
     savingsAddress,
-    migrationV2Params.savingsVaultName,
-    migrationV2Params.savingsVaultSymbol,
+    migrationV3Params.savingsVaultName,
+    migrationV3Params.savingsVaultSymbol,
   );
   const savingsVaultDeployTxHash = savingsVault.deploymentTransaction()?.hash;
   console.log(`    SavingsVaultDEURO deployment tx: ${savingsVaultDeployTxHash}`);
@@ -126,18 +126,18 @@ async function main() {
 
   // --- Save deployment info ---
   const timestamp = Math.floor(Date.now() / 1000);
-  const savingsConstructorArgs = [config.decentralizedEURO, migrationV2Params.initialSavingsRatePPM];
+  const savingsConstructorArgs = [config.decentralizedEURO, migrationV3Params.initialSavingsRatePPM];
   const mintingHubConstructorArgs = [
     config.decentralizedEURO,
-    migrationV2Params.initialLendingRatePPM,
+    migrationV3Params.initialLendingRatePPM,
     config.positionRoller,
     config.positionFactory,
   ];
   const savingsVaultConstructorArgs = [
     config.decentralizedEURO,
     savingsAddress,
-    migrationV2Params.savingsVaultName,
-    migrationV2Params.savingsVaultSymbol,
+    migrationV3Params.savingsVaultName,
+    migrationV3Params.savingsVaultSymbol,
   ];
   const coinLendingGatewayConstructorArgs = [mintingHubAddress, config.weth, config.decentralizedEURO];
 
@@ -184,7 +184,7 @@ async function main() {
     fs.mkdirSync(deploymentDir, { recursive: true });
   }
 
-  const filename = `v2-migration-${networkName}-${timestamp}.json`;
+  const filename = `v3-migration-${networkName}-${timestamp}.json`;
   fs.writeFileSync(path.join(deploymentDir, filename), JSON.stringify(deploymentInfo, null, 2));
   console.log(`\nDeployment info saved to: scripts/deployments/${filename}`);
 
@@ -226,7 +226,7 @@ async function main() {
   }
 
   // --- Summary ---
-  console.log('\n=== V2 Migration Deployment Summary ===');
+  console.log('\n=== V3 Migration Deployment Summary ===');
   console.log(`Savings:            ${savingsAddress}`);
   console.log(`MintingHub:         ${mintingHubAddress}`);
   console.log(`SavingsVaultDEURO:  ${savingsVaultAddress}`);

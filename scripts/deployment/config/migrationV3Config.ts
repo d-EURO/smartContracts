@@ -1,4 +1,4 @@
-export interface MigrationV2Config {
+export interface MigrationV3Config {
   [network: string]: {
     decentralizedEURO: string;
     positionRoller: string;
@@ -7,14 +7,14 @@ export interface MigrationV2Config {
   };
 }
 
-export interface MigrationV2Params {
+export interface MigrationV3Params {
   initialSavingsRatePPM: number;
   initialLendingRatePPM: number;
   savingsVaultName: string;
   savingsVaultSymbol: string;
 }
 
-export const migrationV2Config: MigrationV2Config = {
+export const migrationV3Config: MigrationV3Config = {
   mainnet: {
     decentralizedEURO: '0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea',
     positionRoller: '0x4CE0AB2FC21Bd27a47A64F594Fdf7654Ea57Dc79',
@@ -30,7 +30,7 @@ export const migrationV2Config: MigrationV2Config = {
   },
 };
 
-export const migrationV2Params: MigrationV2Params = {
+export const migrationV3Params: MigrationV3Params = {
   initialSavingsRatePPM: 80_000, // 8%
   initialLendingRatePPM: 80_000, // 8%
   savingsVaultName: 'Savings Vault dEURO',
