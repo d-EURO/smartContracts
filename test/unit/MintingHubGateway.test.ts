@@ -66,7 +66,7 @@ describe('Minting Tests', () => {
     const mintingHubFactory = await ethers.getContractFactory('MintingHubGateway');
     mintingHub = await mintingHubFactory.deploy(
       dEURO.getAddress(),
-      savings.getAddress(),
+      0n,
       roller.getAddress(),
       positionFactory.getAddress(),
       gateway.getAddress(),

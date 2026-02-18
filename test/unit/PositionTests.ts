@@ -71,7 +71,7 @@ describe("Position Tests", () => {
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
       await dEURO.getAddress(),
-      await savings.getAddress(),
+      0n,
       await roller.getAddress(),
       await positionFactory.getAddress(),
     );
@@ -1865,10 +1865,10 @@ describe("Position Tests", () => {
 
     beforeEach(async () => {
       // Set initial lead rate
-      await savings.proposeChange(initialLeadratePPM, []);
+      await mintingHub.proposeChange(initialLeadratePPM, []);
       const timePassed = BigInt(7 * 86_400 + 60);
       await evm_increaseTime(timePassed);
-      await savings.applyChange();
+      await mintingHub.applyChange();
 
       // Open position
       await mockVOL
@@ -1908,11 +1908,11 @@ describe("Position Tests", () => {
       const initialMintAmount = floatToDec18(1000);
       await positionContract.mint(owner.address, initialMintAmount);
       const newLeadratePPM = initialLeadratePPM + 20000n;
-      await savings.proposeChange(newLeadratePPM, []);
+      await mintingHub.proposeChange(newLeadratePPM, []);
       const timePassed = BigInt(7 * 86_400 + 60);
       await evm_increaseTime(timePassed);
-      await savings.applyChange();
-      expect(await savings.currentRatePPM()).to.be.equal(newLeadratePPM);
+      await mintingHub.applyChange();
+      expect(await mintingHub.currentRatePPM()).to.be.equal(newLeadratePPM);
 
       await evm_increaseTime(timePassed);
       const debtAfter = await positionContract.getDebt();
@@ -1931,11 +1931,11 @@ describe("Position Tests", () => {
       await evm_increaseTime(timeAtInitialLeadrate);
 
       const newLeadratePPM = initialLeadratePPM + 20000n;
-      await savings.proposeChange(newLeadratePPM, []);
+      await mintingHub.proposeChange(newLeadratePPM, []);
       const proposalDuration = BigInt(7 * 86_400 + 60);
       await evm_increaseTime(proposalDuration);
-      await savings.applyChange();
-      expect(await savings.currentRatePPM()).to.be.eq(newLeadratePPM);
+      await mintingHub.applyChange();
+      expect(await mintingHub.currentRatePPM()).to.be.eq(newLeadratePPM);
 
       const timeAtNewLeadrateBeforeMint = BigInt(3 * 86_400);
       await evm_increaseTime(timeAtNewLeadrateBeforeMint);
@@ -2009,10 +2009,10 @@ describe("Position Tests", () => {
 
       // Change the lead rate
       const newLeadratePPM = initialLeadratePPM + 40000n;
-      await savings.proposeChange(newLeadratePPM, []);
+      await mintingHub.proposeChange(newLeadratePPM, []);
       const proposalDuration = BigInt(7 * 86400 + 60);
       await evm_increaseTime(proposalDuration);
-      await savings.applyChange();
+      await mintingHub.applyChange();
 
       // Roll into the new position
       await dEURO
@@ -2091,10 +2091,10 @@ describe("Position Tests", () => {
       );
       await evm_increaseTimeTo(await positionContract.start());
 
-      await savings.proposeChange(BigInt(10_000), []);
+      await mintingHub.proposeChange(BigInt(10_000), []);
       const timePassed = BigInt(7 * 86_400 + 60);
       await evm_increaseTime(timePassed);
-      await savings.applyChange();
+      await mintingHub.applyChange();
 
       const initialMintAmount = floatToDec18(1000);
       await positionContract.mint(owner.address, initialMintAmount);

@@ -50,7 +50,7 @@ describe("Basic Tests", () => {
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     await mintingHubFactory.deploy(
       await dEURO.getAddress(),
-      await savings.getAddress(),
+      50000n,
       await roller.getAddress(),
       await positionFactory.getAddress(),
     );

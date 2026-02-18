@@ -38,7 +38,7 @@ contract Environment is TestHelper {
         s_savingsGateway = new SavingsGateway(s_deuro, 5, address(s_frontendGateway));
         s_mintingHubGateway = new MintingHubGateway(
             address(s_deuro),
-            address(s_savingsGateway),
+            5,
             address(s_positionRoller),
             address(s_positionFactory),
             address(s_frontendGateway)

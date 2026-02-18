@@ -70,7 +70,7 @@ describe("ForceSale Tests", () => {
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
       await dEURO.getAddress(),
-      await savings.getAddress(),
+      20000n,
       await roller.getAddress(),
       await positionFactory.getAddress(),
     );

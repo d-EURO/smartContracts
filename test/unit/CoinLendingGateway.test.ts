@@ -7,10 +7,9 @@ import { evm_increaseTime } from '../utils';
 import {
   CoinLendingGateway,
   DecentralizedEURO,
-  MintingHubGateway,
+  MintingHub,
   Position,
   TestWETH,
-  FrontendGateway,
   Savings,
   PositionRoller,
   PositionFactory,
@@ -25,9 +24,8 @@ describe('CoinLendingGateway Tests', () => {
 
   let coinLendingGateway: CoinLendingGateway;
   let dEURO: DecentralizedEURO;
-  let mintingHub: MintingHubGateway;
+  let mintingHub: MintingHub;
   let testWETH: TestWETH;
-  let gateway: FrontendGateway;
   let savings: Savings;
   let roller: PositionRoller;
   let positionFactory: PositionFactory;
@@ -37,7 +35,6 @@ describe('CoinLendingGateway Tests', () => {
   let parentPosition: string;
   let parentPositionContract: Position;
 
-  const frontendCode = ethers.randomBytes(32);
   const initialLimit = floatToDec18(1_000_000);
   const minCollateral = floatToDec18(3);
   const liqPrice = floatToDec18(2000); // 1 ETH = 2000 dEURO
@@ -65,10 +62,6 @@ describe('CoinLendingGateway Tests', () => {
     const TestWETHFactory = await ethers.getContractFactory('TestWETH');
     testWETH = await TestWETHFactory.deploy();
 
-    // Deploy FrontendGateway
-    const GatewayFactory = await ethers.getContractFactory('FrontendGateway');
-    gateway = await GatewayFactory.deploy(dEURO.getAddress(), '0x0000000000000000000000000000000000000000');
-
     // Deploy PositionFactory
     const PositionFactoryFactory = await ethers.getContractFactory('PositionFactory');
     positionFactory = await PositionFactoryFactory.deploy();
@@ -81,18 +74,14 @@ describe('CoinLendingGateway Tests', () => {
     const RollerFactory = await ethers.getContractFactory('PositionRoller');
     roller = await RollerFactory.deploy(dEURO.getAddress());
 
-    // Deploy MintingHubGateway
-    const MintingHubFactory = await ethers.getContractFactory('MintingHubGateway');
+    // Deploy plain MintingHub (no gateway)
+    const MintingHubFactory = await ethers.getContractFactory('MintingHub');
     mintingHub = await MintingHubFactory.deploy(
       dEURO.getAddress(),
-      savings.getAddress(),
+      0n,
       roller.getAddress(),
       positionFactory.getAddress(),
-      gateway.getAddress(),
     );
-
-    // Initialize gateway
-    await gateway.init('0x0000000000000000000000000000000000000000', mintingHub.getAddress());
 
     // Create mockXEUR and bridge to bootstrap dEURO
     const TestTokenFactory = await ethers.getContractFactory('TestToken');
@@ -129,9 +118,7 @@ describe('CoinLendingGateway Tests', () => {
     await testWETH.approve(mintingHub.getAddress(), floatToDec18(100));
     await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
 
-    const tx = await mintingHub[
-      'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
-    ](
+    const tx = await mintingHub.openPosition(
       testWETH.getAddress(),
       minCollateral,
       floatToDec18(50),
@@ -142,7 +129,6 @@ describe('CoinLendingGateway Tests', () => {
       riskPremiumPPM,
       liqPrice,
       reservePPM,
-      frontendCode,
     );
 
     parentPosition = await getPositionAddressFromTX(tx);
@@ -169,7 +155,6 @@ describe('CoinLendingGateway Tests', () => {
         parentPosition,
         mintAmount,
         Number(expiration),
-        frontendCode,
         liquidationPrice,
         { value: ethAmount }
       );
@@ -209,7 +194,6 @@ describe('CoinLendingGateway Tests', () => {
         parentPosition,
         mintAmount,
         Number(expiration),
-        frontendCode,
         0,
         { value: ethAmount }
       );
@@ -237,7 +221,6 @@ describe('CoinLendingGateway Tests', () => {
         parentPosition,
         mintAmount,
         Number(expiration),
-        frontendCode,
         0,
         { value: ethAmount }
       );
@@ -258,7 +241,6 @@ describe('CoinLendingGateway Tests', () => {
         parentPosition,
         mintAmount,
         Number(expiration),
-        frontendCode,
         currentPrice,
         { value: ethAmount }
       );
@@ -283,7 +265,6 @@ describe('CoinLendingGateway Tests', () => {
         parentPosition,
         mintAmount,
         Number(expiration),
-        frontendCode,
         higherPrice,
         { value: ethAmount }
       );
@@ -319,7 +300,6 @@ describe('CoinLendingGateway Tests', () => {
           parentPosition,
           floatToDec18(100),
           Number(await parentPositionContract.expiration()) - 86400,
-          frontendCode,
           0,
           { value: 0 }
         )
@@ -333,7 +313,6 @@ describe('CoinLendingGateway Tests', () => {
           parentPosition,
           floatToDec18(100),
           Number(await parentPositionContract.expiration()) - 86400,
-          frontendCode,
           0,
           { value: floatToDec18(1) }
         )
@@ -346,7 +325,6 @@ describe('CoinLendingGateway Tests', () => {
           ethers.ZeroAddress, // Invalid parent
           floatToDec18(100),
           Number(await parentPositionContract.expiration()) - 86400,
-          frontendCode,
           0,
           { value: floatToDec18(1) }
         )
@@ -364,7 +342,6 @@ describe('CoinLendingGateway Tests', () => {
           parentPosition,
           mintAmount,
           Number(expiration),
-          frontendCode,
           liquidationPrice,
           { value: ethAmount }
         )
@@ -383,7 +360,6 @@ describe('CoinLendingGateway Tests', () => {
           parentPosition,
           mintAmount,
           Number(expiration),
-          frontendCode,
           tooHighPrice,
           { value: ethAmount }
         )
@@ -400,7 +376,6 @@ describe('CoinLendingGateway Tests', () => {
           parentPosition,
           floatToDec18(100),
           Number(await parentPositionContract.expiration()) - 86400,
-          frontendCode,
           0,
           { value: floatToDec18(1) }
         )
@@ -412,7 +387,6 @@ describe('CoinLendingGateway Tests', () => {
           parentPosition,
           floatToDec18(100),
           Number(await parentPositionContract.expiration()) - 86400,
-          frontendCode,
           0,
           { value: floatToDec18(1) }
         )
@@ -424,7 +398,6 @@ describe('CoinLendingGateway Tests', () => {
         parentPosition,
         floatToDec18(100),
         Number(await parentPositionContract.expiration()) - 86400,
-        frontendCode,
         0,
         { value: floatToDec18(3) }
       );
@@ -512,7 +485,6 @@ describe('CoinLendingGateway Tests', () => {
           parentPosition,
           mintAmount,
           Number(await parentPositionContract.expiration()) - 86400,
-          frontendCode,
           0,
           { value: ethAmount }
         )
@@ -532,7 +504,6 @@ describe('CoinLendingGateway Tests', () => {
           parentPosition,
           mintAmount,
           Number(await parentPositionContract.expiration()) - (86400 * (i + 1)),
-          frontendCode,
           0,
           { value: ethAmount }
         );
@@ -554,7 +525,6 @@ describe('CoinLendingGateway Tests', () => {
         parentPosition,
         floatToDec18(500),
         Number(await parentPositionContract.expiration()) - 86400,
-        frontendCode,
         0,
         { value: floatToDec18(3) }
       );
@@ -578,7 +548,6 @@ describe('CoinLendingGateway Tests', () => {
           parentPosition,
           mintAmount,
           Number(await parentPositionContract.expiration()) - 86400,
-          frontendCode,
           liquidationPrice,
           { value: ethAmount }
         )
