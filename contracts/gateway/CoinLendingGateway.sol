@@ -36,7 +36,7 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
 
     /**
      * @notice Initializes the Coin Lending Gateway
-     * @param _mintingHub The address of the MintingHubGateway contract
+     * @param _mintingHub The address of the MintingHub contract
      * @param _weth The address of the wrapped native token contract (WETH, WMATIC, etc.)
      * @param _deuro The address of the DecentralizedEURO contract
      */
@@ -52,7 +52,6 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
      * @param parent The parent position to clone from
      * @param initialMint The amount of dEURO to mint
      * @param expiration The expiration timestamp for the position
-     * @param frontendCode The frontend referral code
      * @param liquidationPrice The desired liquidation price (0 to skip adjustment)
      * @return position The address of the newly created position
      */
@@ -60,7 +59,6 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
         address parent,
         uint256 initialMint,
         uint40 expiration,
-        bytes32 frontendCode,
         uint256 liquidationPrice
     ) external payable nonReentrant whenNotPaused returns (address position) {
         if (msg.value == 0) revert InsufficientCoin();
@@ -70,7 +68,6 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
             parent,
             initialMint,
             expiration,
-            frontendCode,
             liquidationPrice
         );
     }
@@ -82,7 +79,6 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
      * @param parent The parent position to clone from
      * @param initialMint The amount of dEURO to mint
      * @param expiration The expiration timestamp for the position
-     * @param frontendCode The frontend referral code
      * @param liquidationPrice The desired liquidation price (0 to skip adjustment)
      * @return position The address of the newly created position
      */
@@ -91,7 +87,6 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
         address parent,
         uint256 initialMint,
         uint40 expiration,
-        bytes32 frontendCode,
         uint256 liquidationPrice
     ) external payable nonReentrant whenNotPaused returns (address position) {
         if (msg.value == 0) revert InsufficientCoin();
@@ -102,7 +97,6 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
             parent,
             initialMint,
             expiration,
-            frontendCode,
             liquidationPrice
         );
     }
@@ -113,7 +107,6 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
      * @param parent The parent position to clone from
      * @param initialMint The amount of dEURO to mint
      * @param expiration The expiration timestamp for the position
-     * @param frontendCode The frontend referral code
      * @param liquidationPrice The desired liquidation price (0 to skip adjustment)
      * @return position The address of the newly created position
      */
@@ -122,7 +115,6 @@ contract CoinLendingGateway is ICoinLendingGateway, Ownable, ReentrancyGuard, Pa
         address parent,
         uint256 initialMint,
         uint40 expiration,
-        bytes32 frontendCode,
         uint256 liquidationPrice
     ) internal returns (address position) {
         WETH.deposit{value: msg.value}();

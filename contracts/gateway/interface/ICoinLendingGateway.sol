@@ -27,7 +27,6 @@ interface ICoinLendingGateway {
      * @param parent The parent position to clone from
      * @param initialMint The amount of dEURO to mint
      * @param expiration The expiration timestamp for the position
-     * @param frontendCode The frontend referral code
      * @param liquidationPrice The desired liquidation price (0 to skip adjustment)
      * @return position The address of the newly created position
      */
@@ -35,7 +34,6 @@ interface ICoinLendingGateway {
         address parent,
         uint256 initialMint,
         uint40 expiration,
-        bytes32 frontendCode,
         uint256 liquidationPrice
     ) external payable returns (address position);
 
@@ -45,7 +43,6 @@ interface ICoinLendingGateway {
      * @param parent The parent position to clone from
      * @param initialMint The amount of dEURO to mint
      * @param expiration The expiration timestamp for the position
-     * @param frontendCode The frontend referral code
      * @param liquidationPrice The desired liquidation price (0 to skip adjustment)
      * @return position The address of the newly created position
      */
@@ -54,7 +51,6 @@ interface ICoinLendingGateway {
         address parent,
         uint256 initialMint,
         uint40 expiration,
-        bytes32 frontendCode,
         uint256 liquidationPrice
     ) external payable returns (address position);
 
