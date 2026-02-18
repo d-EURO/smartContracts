@@ -423,7 +423,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      * To prevent dust either the remaining collateral needs to be bought or collateral with a value
      * of at least OPENING_FEE (1000 dEURO) needs to remain in the position for a different buyer
      */
-    function buyExpiredCollateral(IPosition pos, uint256 upToAmount) external returns (uint256) {
+    function buyExpiredCollateral(IPosition pos, uint256 upToAmount) external validPos(address(pos)) returns (uint256) {
         uint256 max = pos.collateral().balanceOf(address(pos));
         uint256 amount = upToAmount > max ? max : upToAmount;
         uint256 forceSalePrice = expiredPurchasePrice(pos);

@@ -414,11 +414,11 @@ describe('Minting Tests', () => {
       expect(interest).to.be.equal(0);
     });
     it('deny challenge', async () => {
-      expect(positionContract.deny([], '')).to.be.emit(positionContract, 'PositionDenied');
+      expect(positionContract.deny([], 'denied')).to.be.emit(positionContract, 'PositionDenied');
     });
     it('should revert denying challenge when challenge started', async () => {
       await evm_increaseTime(86400 * 8);
-      await expect(positionContract.deny([], '')).to.be.revertedWithCustomError(positionContract, 'TooLate');
+      await expect(positionContract.deny([], 'denied')).to.be.revertedWithCustomError(positionContract, 'TooLate');
     });
   });
   describe('challenge active', () => {

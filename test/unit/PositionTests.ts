@@ -763,14 +763,14 @@ describe("Position Tests", () => {
       expect(currentInterest).to.be.eq(0);
     });
     it("deny challenge", async () => {
-      expect(positionContract.deny([], "")).to.be.emit(
+      expect(positionContract.deny([], "denied")).to.be.emit(
         positionContract,
         "PositionDenied",
       );
     });
     it("should revert denying challenge when challenge started", async () => {
       await evm_increaseTime(86400 * 8);
-      await expect(positionContract.deny([], "")).to.be.revertedWithCustomError(
+      await expect(positionContract.deny([], "denied")).to.be.revertedWithCustomError(
         positionContract,
         "TooLate",
       );
@@ -1499,7 +1499,7 @@ describe("Position Tests", () => {
       ).to.be.revertedWithCustomError(positionContract, "Hot");
     });
     it("should not revert when withdrawing portion of collaterals leaving dust", async () => {
-      await positionContract.deny([], "");
+      await positionContract.deny([], "denied");
       await evm_increaseTime(86400 * 7);
       const balance = await mockVOL.balanceOf(positionAddr);
       await positionContract.withdrawCollateral(
@@ -1508,7 +1508,7 @@ describe("Position Tests", () => {
       );
     });
     it("owner should be able to withdraw collaterals after the auction is closed", async () => {
-      await positionContract.deny([], "");
+      await positionContract.deny([], "denied");
       const colBal = await mockVOL.balanceOf(positionAddr);
       expect(
         positionContract.withdrawCollateral(owner.address, colBal),

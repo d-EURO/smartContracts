@@ -21,6 +21,8 @@ contract Position is Ownable, IPosition, MathUtil {
      * the constant and immutable fields, but have their own values for the other fields.
      */
 
+    uint256 private constant MAX_MESSAGE_LENGTH = 500;
+
     /**
      * @notice The deuro price per unit of the collateral below which challenges succeed, (36 - collateral.decimals) decimals
      */
@@ -139,6 +141,8 @@ contract Position is Ownable, IPosition, MathUtil {
     error NotOriginal();
     error InvalidExpiration();
     error AlreadyInitialized();
+    error MessageTooLong(uint256 length, uint256 maxLength);
+    error EmptyMessage();
     error PriceTooHigh(uint256 newPrice, uint256 maxPrice);
 
     modifier alive() {
@@ -276,6 +280,9 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function deny(address[] calldata helpers, string calldata message) external {
         if (block.timestamp >= start) revert TooLate();
+        uint256 messageLength = bytes(message).length;
+        if (messageLength == 0) revert EmptyMessage();
+        if (messageLength > MAX_MESSAGE_LENGTH) revert MessageTooLong(messageLength, MAX_MESSAGE_LENGTH);
         IReserve(deuro.reserve()).checkQualified(msg.sender, helpers);
         _close();
         emit PositionDenied(msg.sender, message);
