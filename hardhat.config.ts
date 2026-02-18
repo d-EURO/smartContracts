@@ -1,4 +1,5 @@
 import '@nomicfoundation/hardhat-ethers';
+import '@nomicfoundation/hardhat-chai-matchers';
 import '@nomicfoundation/hardhat-verify';
 import '@nomicfoundation/hardhat-network-helpers';
 import 'hardhat-deploy';
