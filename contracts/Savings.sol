@@ -19,6 +19,7 @@ contract Savings is Leadrate {
     IERC20 public immutable deuro;
 
     mapping(address => Account) public savings;
+    mapping(address => uint192) public principalWithoutCompounding;
 
     struct Account {
         uint192 saved;
@@ -57,7 +58,7 @@ contract Savings is Leadrate {
         Account storage account = savings[accountOwner];
         uint64 ticks = currentTicks();
         if (ticks > account.ticks) {
-            uint192 earnedInterest = calculateInterest(account, ticks);
+            uint192 earnedInterest = calculateInterest(accountOwner, account, ticks);
             if (earnedInterest > 0) {
                 // collect interest as you go and trigger accounting event
                 (IDecentralizedEURO(address(deuro))).distributeProfits(address(this), earnedInterest);
@@ -75,7 +76,7 @@ contract Savings is Leadrate {
 
     function accruedInterest(address accountOwner, uint256 timestamp) public view returns (uint192) {
         Account memory account = savings[accountOwner];
-        return calculateInterest(account, ticks(timestamp));
+        return calculateInterest(accountOwner, account, ticks(timestamp));
     }
 
     function calculateInterest(Account memory account, uint64 ticks) public view returns (uint192) {
@@ -85,7 +86,23 @@ contract Savings is Leadrate {
             uint192 earnedInterest = uint192((uint256(ticks - account.ticks) * account.saved) / 1_000_000 / 365 days);
             uint256 equity = IDecentralizedEURO(address(deuro)).equity();
             if (earnedInterest > equity) {
-                return uint192(equity); // safe conversion as equity is smaller than uint192 earnedInterest
+                return uint192(equity);
+            } else {
+                return earnedInterest;
+            }
+        }
+    }
+
+    function calculateInterest(address accountOwner, Account memory account, uint64 ticks) internal view returns (uint192) {
+        if (ticks <= account.ticks || account.ticks == 0) {
+            return 0;
+        } else {
+            // Calculate interest only on the principal (saved minus non-compounding amounts)
+            uint192 principal = account.saved - principalWithoutCompounding[accountOwner];
+            uint192 earnedInterest = uint192((uint256(ticks - account.ticks) * principal) / 1_000_000 / 365 days);
+            uint256 equity = IDecentralizedEURO(address(deuro)).equity();
+            if (earnedInterest > equity) {
+                return uint192(equity);
             } else {
                 return earnedInterest;
             }
@@ -93,31 +110,61 @@ contract Savings is Leadrate {
     }
 
     /**
-     * Save 'amount'.
+     * Save 'amount' with compound interest (reinvests accrued interest).
      */
-    function save(uint192 amount) public {
-        save(msg.sender, amount);
+    function saveAndCompound(uint192 amount) public {
+        saveAndCompound(msg.sender, amount);
     }
 
     function adjust(uint192 targetAmount) public {
         Account storage balance = refresh(msg.sender);
         if (balance.saved < targetAmount) {
-            save(targetAmount - balance.saved);
+            saveAndCompound(targetAmount - balance.saved);
         } else if (balance.saved > targetAmount) {
             withdraw(msg.sender, balance.saved - targetAmount);
         }
     }
 
     /**
-     * Send 'amount' to the account of the provided owner.
+     * Send 'amount' to the account of the provided owner with compound interest.
      */
-    function save(address owner, uint192 amount) public {
+    function saveAndCompound(address owner, uint192 amount) public {
         if (currentRatePPM == 0) revert ModuleDisabled();
         if (nextRatePPM == 0 && (nextChange <= block.timestamp)) revert ModuleDisabled();
         Account storage balance = refresh(owner);
         deuro.transferFrom(msg.sender, address(this), amount);
         assert(balance.ticks >= currentTicks()); // @dev: should not differ, since there is no shift of interests
         balance.saved += amount;
+        emit Saved(owner, amount);
+    }
+
+    /**
+     * Save 'amount' without compounding accrued interest.
+     * This keeps the interest separate and doesn't add it to the principal.
+     */
+    function save(uint192 amount) public {
+        save(msg.sender, amount);
+    }
+
+    /**
+     * Send 'amount' to the account of the provided owner without compounding interest.
+     * This doesn't call refresh() first, so any accrued interest remains separate
+     * and is not added to the principal. Interest continues to accrue on the original saved amount only.
+     */
+    function save(address owner, uint192 amount) public {
+        if (currentRatePPM == 0) revert ModuleDisabled();
+        if (nextRatePPM == 0 && (nextChange <= block.timestamp)) revert ModuleDisabled();
+        
+        Account storage account = savings[owner];
+        
+        // If this is a new account, initialize ticks
+        if (account.ticks == 0) {
+            account.ticks = currentTicks();
+        }
+        
+        deuro.transferFrom(msg.sender, address(this), amount);
+        account.saved += amount;
+        principalWithoutCompounding[owner] += amount;
         emit Saved(owner, amount);
     }
 
@@ -131,7 +178,13 @@ contract Savings is Leadrate {
         if (amount >= account.saved) {
             amount = account.saved;
             delete savings[msg.sender];
+            delete principalWithoutCompounding[msg.sender];
         } else {
+            // Proportionally reduce the non-compounding principal before reducing saved
+            if (principalWithoutCompounding[msg.sender] > 0) {
+                uint192 reduction = uint192((uint256(principalWithoutCompounding[msg.sender]) * amount) / account.saved);
+                principalWithoutCompounding[msg.sender] -= reduction;
+            }
             account.saved -= amount;
         }
         deuro.transfer(target, amount);
