@@ -226,7 +226,7 @@ export const CoinLendingGatewayABI = [
     name: 'MINTING_HUB',
     outputs: [
       {
-        internalType: 'contract IMintingHubGateway',
+        internalType: 'contract IMintingHub',
         name: '',
         type: 'address',
       },
@@ -263,11 +263,6 @@ export const CoinLendingGatewayABI = [
         internalType: 'uint40',
         name: 'expiration',
         type: 'uint40',
-      },
-      {
-        internalType: 'bytes32',
-        name: 'frontendCode',
-        type: 'bytes32',
       },
       {
         internalType: 'uint256',
@@ -307,11 +302,6 @@ export const CoinLendingGatewayABI = [
         internalType: 'uint40',
         name: 'expiration',
         type: 'uint40',
-      },
-      {
-        internalType: 'bytes32',
-        name: 'frontendCode',
-        type: 'bytes32',
       },
       {
         internalType: 'uint256',

@@ -7,9 +7,9 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
       {
-        internalType: 'address',
-        name: '_leadrate',
-        type: 'address',
+        internalType: 'uint24',
+        name: '_initialRatePPM',
+        type: 'uint24',
       },
       {
         internalType: 'address',
@@ -33,6 +33,11 @@ export const MintingHubGatewayABI = [
   {
     inputs: [],
     name: 'ChallengeTimeTooShort',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'ChangeNotReady',
     type: 'error',
   },
   {
@@ -79,6 +84,11 @@ export const MintingHubGatewayABI = [
       },
     ],
     name: 'LeaveNoDust',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'NoPendingChange',
     type: 'error',
   },
   {
@@ -261,6 +271,44 @@ export const MintingHubGatewayABI = [
     type: 'event',
   },
   {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'uint24',
+        name: 'newRate',
+        type: 'uint24',
+      },
+    ],
+    name: 'RateChanged',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'who',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint24',
+        name: 'nextRate',
+        type: 'uint24',
+      },
+      {
+        indexed: false,
+        internalType: 'uint40',
+        name: 'nextChange',
+        type: 'uint40',
+      },
+    ],
+    name: 'RateProposed',
+    type: 'event',
+  },
+  {
     inputs: [],
     name: 'CHALLENGER_REWARD',
     outputs: [
@@ -349,6 +397,13 @@ export const MintingHubGatewayABI = [
       },
     ],
     stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'applyChange',
+    outputs: [],
+    stateMutability: 'nonpayable',
     type: 'function',
   },
   {
@@ -618,6 +673,45 @@ export const MintingHubGatewayABI = [
     type: 'function',
   },
   {
+    inputs: [],
+    name: 'currentRatePPM',
+    outputs: [
+      {
+        internalType: 'uint24',
+        name: '',
+        type: 'uint24',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'currentTicks',
+    outputs: [
+      {
+        internalType: 'uint64',
+        name: '',
+        type: 'uint64',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'equity',
+    outputs: [
+      {
+        internalType: 'contract IReserve',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
     inputs: [
       {
         internalType: 'contract IPosition',
@@ -631,6 +725,32 @@ export const MintingHubGatewayABI = [
         internalType: 'uint256',
         name: '',
         type: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'nextChange',
+    outputs: [
+      {
+        internalType: 'uint40',
+        name: '',
+        type: 'uint40',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'nextRatePPM',
+    outputs: [
+      {
+        internalType: 'uint24',
+        name: '',
+        type: 'uint24',
       },
     ],
     stateMutability: 'view',
@@ -828,6 +948,24 @@ export const MintingHubGatewayABI = [
   {
     inputs: [
       {
+        internalType: 'uint24',
+        name: 'newRatePPM_',
+        type: 'uint24',
+      },
+      {
+        internalType: 'address[]',
+        name: 'helpers',
+        type: 'address[]',
+      },
+    ],
+    name: 'proposeChange',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
         internalType: 'address',
         name: 'collateral',
         type: 'address',
@@ -857,6 +995,25 @@ export const MintingHubGatewayABI = [
         internalType: 'bool',
         name: '',
         type: 'bool',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: 'timestamp',
+        type: 'uint256',
+      },
+    ],
+    name: 'ticks',
+    outputs: [
+      {
+        internalType: 'uint64',
+        name: '',
+        type: 'uint64',
       },
     ],
     stateMutability: 'view',
