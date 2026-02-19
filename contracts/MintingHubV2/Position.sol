@@ -281,12 +281,9 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function deny(address[] calldata helpers, string calldata message) external {
         if (block.timestamp >= start) revert TooLate();
-        uint256 messageLength = bytes(message).length;
-        if (messageLength == 0) revert EmptyMessage();
-        if (messageLength > MAX_MESSAGE_LENGTH) revert MessageTooLong(messageLength, MAX_MESSAGE_LENGTH);
         IReserve(deuro.reserve()).checkQualified(msg.sender, helpers);
         _close();
-        emit PositionDenied(msg.sender, message);
+        _emitDenied(msg.sender, message);
     }
 
     /**
@@ -299,6 +296,16 @@ contract Position is Ownable, IPosition, MathUtil {
 
     function isClosed() public view returns (bool) {
         return closed;
+    }
+
+    function _emitUpdate(uint256 _collateral, uint256 _price, uint256 _principal) internal {
+        emit MintingUpdate(_collateral, _price, _principal);
+        IMintingHub(hub).emitPositionUpdate(_collateral, _price, _principal);
+    }
+
+    function _emitDenied(address denier, string calldata message) internal {
+        emit PositionDenied(denier, message);
+        IMintingHub(hub).emitPositionDenied(denier, message);
     }
 
     /**
@@ -340,7 +347,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (newPrice != price) {
             _adjustPrice(newPrice);
         }
-        emit MintingUpdate(newCollateral, newPrice, newPrincipal);
+        _emitUpdate(newCollateral, newPrice, newPrincipal);
     }
 
     /**
@@ -350,7 +357,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function adjustPrice(uint256 newPrice) public onlyOwner {
         _adjustPrice(newPrice);
-        emit MintingUpdate(_collateralBalance(), price, principal);
+        _emitUpdate(_collateralBalance(), price, principal);
     }
 
     function _adjustPrice(uint256 newPrice) internal noChallenge alive backed noCooldown {
@@ -384,7 +391,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function mint(address target, uint256 amount) public ownerOrRoller {
         uint256 collateralBalance = _collateralBalance();
         _mint(target, amount, collateralBalance);
-        emit MintingUpdate(collateralBalance, price, principal);
+        _emitUpdate(collateralBalance, price, principal);
     }
 
     /**
@@ -535,7 +542,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function repay(uint256 amount) public returns (uint256) {
         uint256 used = _payDownDebt(amount);
-        emit MintingUpdate(_collateralBalance(), price, principal);
+        _emitUpdate(_collateralBalance(), price, principal);
         return used;
     }
 
@@ -592,7 +599,7 @@ contract Position is Ownable, IPosition, MathUtil {
             if (proceeds > 0) {
                 deuro.transferFrom(buyer, owner(), proceeds);
             }
-            emit MintingUpdate(_collateralBalance(), price, principal);
+            _emitUpdate(_collateralBalance(), price, principal);
             return;
         }
 
@@ -615,7 +622,7 @@ contract Position is Ownable, IPosition, MathUtil {
             deuro.transferFrom(buyer, owner(), proceeds);
         }
 
-        emit MintingUpdate(_collateralBalance(), price, principal);
+        _emitUpdate(_collateralBalance(), price, principal);
     }
 
     /**
@@ -637,7 +644,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function withdrawCollateral(address target, uint256 amount) public ownerOrRoller {
         uint256 balance = _withdrawCollateral(target, amount);
-        emit MintingUpdate(balance, price, principal);
+        _emitUpdate(balance, price, principal);
     }
 
     function _withdrawCollateral(address target, uint256 amount) internal noCooldown noChallenge returns (uint256) {
@@ -651,7 +658,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function transferChallengedCollateral(address target, uint256 amount) external onlyHub {
         uint256 newBalance = _sendCollateral(target, amount);
-        emit MintingUpdate(newBalance, price, principal);
+        _emitUpdate(newBalance, price, principal);
     }
 
     function _sendCollateral(address target, uint256 amount) internal returns (uint256) {

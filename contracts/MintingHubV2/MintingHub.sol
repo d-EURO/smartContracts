@@ -65,6 +65,8 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
     event PostponedReturn(address collateral, address indexed beneficiary, uint256 amount);
     event ForcedSale(address pos, uint256 amount, uint256 priceE36MinusDecimals);
 
+    uint256 private constant MAX_MESSAGE_LENGTH = 500;
+
     error UnexpectedPrice();
     error InvalidPos();
     error IncompatibleCollateral();
@@ -75,6 +77,8 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
     error InvalidCollateralDecimals();
     error ChallengeTimeTooShort();
     error InitPeriodTooShort();
+    error MessageTooLong(uint256 length, uint256 maxLength);
+    error EmptyMessage();
 
     modifier validPos(address position) {
         if (DEURO.getPositionParent(position) != address(this)) revert InvalidPos();
@@ -437,6 +441,17 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         pos.forceSale(msg.sender, amount, costs);
         emit ForcedSale(address(pos), amount, forceSalePrice);
         return amount;
+    }
+
+    function emitPositionUpdate(uint256 _collateral, uint256 _price, uint256 _principal) external virtual validPos(msg.sender) {
+        emit PositionUpdate(msg.sender, _collateral, _price, _principal);
+    }
+
+    function emitPositionDenied(address denier, string calldata message) external virtual validPos(msg.sender) {
+        uint256 messageLength = bytes(message).length;
+        if (messageLength == 0) revert EmptyMessage();
+        if (messageLength > MAX_MESSAGE_LENGTH) revert MessageTooLong(messageLength, MAX_MESSAGE_LENGTH);
+        emit PositionDeniedByGovernance(msg.sender, denier, message);
     }
 
     /**
