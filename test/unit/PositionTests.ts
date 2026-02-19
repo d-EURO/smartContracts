@@ -1916,9 +1916,10 @@ describe("Position Tests", () => {
 
       await evm_increaseTime(timePassed);
       const debtAfter = await positionContract.getDebt();
+      const reservePPM = await positionContract.reserveContribution();
       const expectedInterest =
-        (initialMintAmount * expectedAnnualRate * (2n * timePassed)) /
-        (1000000n * 365n * 86400n);
+        (initialMintAmount * (1_000_000n - reservePPM) * expectedAnnualRate * (2n * timePassed)) /
+        (1000000n * 1000000n * 365n * 86400n);
       expect(debtAfter - initialMintAmount).to.be.approximately(
         expectedInterest,
         floatToDec18(0.001),
@@ -1941,11 +1942,13 @@ describe("Position Tests", () => {
       await evm_increaseTime(timeAtNewLeadrateBeforeMint);
       const totalLoanTime =
         timeAtInitialLeadrate + proposalDuration + timeAtNewLeadrateBeforeMint;
+      const reservePPM2 = await positionContract.reserveContribution();
       const expectedInterestBeforeMint =
         (initialMintAmount *
+          (1_000_000n - reservePPM2) *
           (initialLeadratePPM + riskPremium) *
           totalLoanTime) /
-        (1000000n * 365n * 86400n);
+        (1000000n * 1000000n * 365n * 86400n);
       expect(
         (await positionContract.getDebt()) - initialMintAmount,
       ).to.be.approximately(expectedInterestBeforeMint, floatToDec18(0.001));
@@ -1962,9 +1965,10 @@ describe("Position Tests", () => {
         principalAfterMint +
         expectedInterestBeforeMint +
         (newMintAmount *
+          (1_000_000n - reservePPM2) *
           (newLeadratePPM + riskPremium) *
           timeAtNewLeadrateAfterMint) /
-          (1000000n * 365n * 86400n);
+          (1000000n * 1000000n * 365n * 86400n);
       expect(await positionContract.getDebt()).to.be.approximately(
         expectedDebt,
         floatToDec18(2),
@@ -2038,9 +2042,10 @@ describe("Position Tests", () => {
       await evm_increaseTime(timeUnderNewRate);
       const newPosDebt = await targetPositionContract.getDebt();
       const mintedInNewPos = await targetPositionContract.principal();
+      const reservePPM3 = await targetPositionContract.reserveContribution();
       const expectedInterestNewPos =
-        (mintedInNewPos * newFixedRate * timeUnderNewRate) /
-        (1000000n * 365n * 86400n);
+        (mintedInNewPos * (1_000_000n - reservePPM3) * newFixedRate * timeUnderNewRate) /
+        (1000000n * 1000000n * 365n * 86400n);
       expect(newPosDebt - mintedInNewPos).to.be.approximately(
         expectedInterestNewPos,
         floatToDec18(0.01),

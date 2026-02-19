@@ -443,7 +443,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
         if (timestamp > lastAccrual && principal > 0) {
             uint256 delta = timestamp - lastAccrual;
-            newInterest += (principal * fixedAnnualRatePPM * delta) / (365 days * 1_000_000);
+            newInterest += (principal * (1_000_000 - reserveContribution) * fixedAnnualRatePPM * delta) / (365 days * 1_000_000 * 1_000_000);
         }
 
         return newInterest;
