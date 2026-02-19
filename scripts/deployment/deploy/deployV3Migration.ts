@@ -5,7 +5,7 @@ import hre from 'hardhat';
 import { migrationV3Config, migrationV3Params } from '../config/migrationV3Config';
 
 /**
- * @description Deploys V3 migration contracts (Savings, MintingHub, SavingsVaultDEURO)
+ * @description Deploys V3 migration contracts (PositionFactory, PositionRoller, Savings, MintingHub, SavingsVaultDEURO)
  *              and registers Savings + MintingHub as minters on dEURO.
  * @usage npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network <network>
  */
@@ -23,8 +23,6 @@ async function main() {
   console.log(`Connected to ${networkName} (chainId: ${network.chainId})`);
   console.log(`Using deployer: ${deployer.address}`);
   console.log(`Using dEURO: ${config.decentralizedEURO}`);
-  console.log(`Using PositionRoller: ${config.positionRoller}`);
-  console.log(`Using PositionFactory: ${config.positionFactory}`);
   console.log(`Using WETH: ${config.weth}`);
 
   // Read on-chain minter application parameters
@@ -44,8 +42,28 @@ async function main() {
     process.exit(1);
   }
 
-  // --- 1. Deploy Savings ---
-  console.log('\n1/5 Deploying Savings...');
+  // --- 1. Deploy PositionFactory ---
+  console.log('\n1/7 Deploying PositionFactory...');
+  const PositionFactory = await ethers.getContractFactory('PositionFactory');
+  const positionFactory = await PositionFactory.deploy();
+  const positionFactoryDeployTxHash = positionFactory.deploymentTransaction()?.hash;
+  console.log(`    PositionFactory deployment tx: ${positionFactoryDeployTxHash}`);
+  await positionFactory.waitForDeployment();
+  const positionFactoryAddress = await positionFactory.getAddress();
+  console.log(`    PositionFactory deployed to: ${positionFactoryAddress}`);
+
+  // --- 2. Deploy PositionRoller ---
+  console.log('2/7 Deploying PositionRoller...');
+  const PositionRoller = await ethers.getContractFactory('PositionRoller');
+  const positionRoller = await PositionRoller.deploy(config.decentralizedEURO);
+  const positionRollerDeployTxHash = positionRoller.deploymentTransaction()?.hash;
+  console.log(`    PositionRoller deployment tx: ${positionRollerDeployTxHash}`);
+  await positionRoller.waitForDeployment();
+  const positionRollerAddress = await positionRoller.getAddress();
+  console.log(`    PositionRoller deployed to: ${positionRollerAddress}`);
+
+  // --- 3. Deploy Savings ---
+  console.log('3/7 Deploying Savings...');
   const Savings = await ethers.getContractFactory('Savings');
   const savings = await Savings.deploy(config.decentralizedEURO, migrationV3Params.initialSavingsRatePPM);
   const savingsDeployTxHash = savings.deploymentTransaction()?.hash;
@@ -54,14 +72,14 @@ async function main() {
   const savingsAddress = await savings.getAddress();
   console.log(`    Savings deployed to: ${savingsAddress}`);
 
-  // --- 2. Deploy MintingHub ---
-  console.log('2/5 Deploying MintingHub...');
+  // --- 4. Deploy MintingHub ---
+  console.log('4/7 Deploying MintingHub...');
   const MintingHub = await ethers.getContractFactory('MintingHub');
   const mintingHub = await MintingHub.deploy(
     config.decentralizedEURO,
     migrationV3Params.initialLendingRatePPM,
-    config.positionRoller,
-    config.positionFactory,
+    positionRollerAddress,
+    positionFactoryAddress,
     config.weth,
   );
   const mintingHubDeployTxHash = mintingHub.deploymentTransaction()?.hash;
@@ -70,8 +88,8 @@ async function main() {
   const mintingHubAddress = await mintingHub.getAddress();
   console.log(`    MintingHub deployed to: ${mintingHubAddress}`);
 
-  // --- 3. Deploy SavingsVaultDEURO ---
-  console.log('3/5 Deploying SavingsVaultDEURO...');
+  // --- 5. Deploy SavingsVaultDEURO ---
+  console.log('5/7 Deploying SavingsVaultDEURO...');
   const SavingsVaultDEURO = await ethers.getContractFactory('SavingsVaultDEURO');
   const savingsVault = await SavingsVaultDEURO.deploy(
     config.decentralizedEURO,
@@ -85,8 +103,8 @@ async function main() {
   const savingsVaultAddress = await savingsVault.getAddress();
   console.log(`    SavingsVaultDEURO deployed to: ${savingsVaultAddress}`);
 
-  // --- 4. Approve dEURO for minter fees ---
-  console.log('4/5 Approving dEURO for minter application fees...');
+  // --- 6. Approve dEURO for minter fees ---
+  console.log('6/7 Approving dEURO for minter application fees...');
   const approveTx = await dEURO.approve(config.decentralizedEURO, totalFee);
   console.log(`    Approve tx: ${approveTx.hash}`);
   const approveReceipt = await approveTx.wait();
@@ -95,8 +113,8 @@ async function main() {
   }
   console.log(`    Approved ${ethers.formatEther(totalFee)} dEURO`);
 
-  // --- 5. suggestMinter for Savings ---
-  console.log('5/5a Registering Savings as minter...');
+  // --- 7a. suggestMinter for Savings ---
+  console.log('7/7a Registering Savings as minter...');
   const suggestSavingsTx = await dEURO.suggestMinter(savingsAddress, minApplicationPeriod, minFee, 'Savings');
   console.log(`    suggestMinter(Savings) tx: ${suggestSavingsTx.hash}`);
   const suggestSavingsReceipt = await suggestSavingsTx.wait();
@@ -105,8 +123,8 @@ async function main() {
   }
   console.log(`    suggestMinter(Savings) submitted`);
 
-  // --- 5b. suggestMinter for MintingHub ---
-  console.log('5/5b Registering MintingHub as minter...');
+  // --- 7b. suggestMinter for MintingHub ---
+  console.log('7/7b Registering MintingHub as minter...');
   const suggestMintingHubTx = await dEURO.suggestMinter(mintingHubAddress, minApplicationPeriod, minFee, 'MintingHub');
   console.log(`    suggestMinter(MintingHub) tx: ${suggestMintingHubTx.hash}`);
   const suggestMintingHubReceipt = await suggestMintingHubTx.wait();
@@ -117,12 +135,14 @@ async function main() {
 
   // --- Save deployment info ---
   const timestamp = Math.floor(Date.now() / 1000);
+  const positionFactoryConstructorArgs: any[] = [];
+  const positionRollerConstructorArgs = [config.decentralizedEURO];
   const savingsConstructorArgs = [config.decentralizedEURO, migrationV3Params.initialSavingsRatePPM];
   const mintingHubConstructorArgs = [
     config.decentralizedEURO,
     migrationV3Params.initialLendingRatePPM,
-    config.positionRoller,
-    config.positionFactory,
+    positionRollerAddress,
+    positionFactoryAddress,
     config.weth,
   ];
   const savingsVaultConstructorArgs = [
@@ -138,11 +158,11 @@ async function main() {
     deployer: deployer.address,
     existingContracts: {
       decentralizedEURO: config.decentralizedEURO,
-      positionRoller: config.positionRoller,
-      positionFactory: config.positionFactory,
       weth: config.weth,
     },
     contracts: {
+      positionFactory: { address: positionFactoryAddress, constructorArgs: positionFactoryConstructorArgs },
+      positionRoller: { address: positionRollerAddress, constructorArgs: positionRollerConstructorArgs },
       savings: { address: savingsAddress, constructorArgs: savingsConstructorArgs },
       mintingHub: { address: mintingHubAddress, constructorArgs: mintingHubConstructorArgs },
       savingsVaultDEURO: { address: savingsVaultAddress, constructorArgs: savingsVaultConstructorArgs },
@@ -158,6 +178,8 @@ async function main() {
       },
     },
     transactions: {
+      positionFactoryDeploy: positionFactoryDeployTxHash,
+      positionRollerDeploy: positionRollerDeployTxHash,
       savingsDeploy: savingsDeployTxHash,
       mintingHubDeploy: mintingHubDeployTxHash,
       savingsVaultDeploy: savingsVaultDeployTxHash,
@@ -186,6 +208,8 @@ async function main() {
     }
 
     const contractsToVerify = [
+      { name: 'PositionFactory', address: positionFactoryAddress, constructorArguments: positionFactoryConstructorArgs },
+      { name: 'PositionRoller', address: positionRollerAddress, constructorArguments: positionRollerConstructorArgs },
       { name: 'Savings', address: savingsAddress, constructorArguments: savingsConstructorArgs },
       { name: 'MintingHub', address: mintingHubAddress, constructorArguments: mintingHubConstructorArgs },
       { name: 'SavingsVaultDEURO', address: savingsVaultAddress, constructorArguments: savingsVaultConstructorArgs },
@@ -211,6 +235,8 @@ async function main() {
 
   // --- Summary ---
   console.log('\n=== V3 Migration Deployment Summary ===');
+  console.log(`PositionFactory:    ${positionFactoryAddress}`);
+  console.log(`PositionRoller:     ${positionRollerAddress}`);
   console.log(`Savings:            ${savingsAddress}`);
   console.log(`MintingHub:         ${mintingHubAddress}`);
   console.log(`SavingsVaultDEURO:  ${savingsVaultAddress}`);
