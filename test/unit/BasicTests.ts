@@ -334,4 +334,97 @@ describe("Basic Tests", () => {
       expect(allowanceVal2).to.eq(newAmount);
     });
   });
+
+});
+
+describe("StablecoinBridge Emergency Stop", () => {
+  let owner: HardhatEthersSigner;
+  let alice: HardhatEthersSigner;
+
+  let localDEURO: DecentralizedEURO;
+  let localEquity: Equity;
+  let emergencyBridge: StablecoinBridge;
+  let emergencyXEUR: TestToken;
+  let emergencyBridgeAddr: string;
+
+  const limit = 100_000n * DECIMALS;
+  const weeks = 30;
+
+  before(async () => {
+    [owner, alice] = await ethers.getSigners();
+
+    // Fresh dEURO so we can initialize
+    const DecentralizedEUROFactory =
+      await ethers.getContractFactory("DecentralizedEURO");
+    localDEURO = await DecentralizedEUROFactory.deploy(10 * 86400);
+    localEquity = await ethers.getContractAt("Equity", await localDEURO.reserve());
+
+    const XEURFactory = await ethers.getContractFactory("TestToken");
+    emergencyXEUR = await XEURFactory.deploy("EmergencyEUR", "EEUR", 18);
+    const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
+    emergencyBridge = await bridgeFactory.deploy(
+      await emergencyXEUR.getAddress(),
+      await localDEURO.getAddress(),
+      limit,
+      weeks,
+    );
+    emergencyBridgeAddr = await emergencyBridge.getAddress();
+    await localDEURO.initialize(emergencyBridgeAddr, "Emergency Bridge");
+
+    // Mint some EEUR
+    await emergencyXEUR.mint(owner.address, floatToDec18(50_000));
+    await emergencyXEUR.mint(alice.address, floatToDec18(50_000));
+
+    // Bootstrap: mint dEURO via bridge, invest in equity for voting power
+    const mintAmount = floatToDec18(20_000);
+    await emergencyXEUR.approve(emergencyBridgeAddr, mintAmount);
+    await emergencyBridge.mint(mintAmount);
+    await localDEURO.approve(localEquity, floatToDec18(10_000));
+    await localEquity.invest(floatToDec18(10_000), 0);
+
+    // Wait for voting power to accumulate (90+ days)
+    await evm_increaseTime(91 * 86400);
+  });
+
+  it("should allow minting before emergency stop", async () => {
+    const amount = floatToDec18(1000);
+    await emergencyXEUR.approve(emergencyBridgeAddr, amount);
+    await emergencyBridge.mint(amount);
+  });
+
+  it("should reject emergency stop from unqualified caller", async () => {
+    await expect(
+      emergencyBridge.connect(alice).emergencyStop([], "depeg detected"),
+    ).to.be.revertedWithCustomError(emergencyBridge, "NotQualified");
+  });
+
+  it("should allow emergency stop from qualified holder", async () => {
+    expect(await emergencyBridge.stopped()).to.be.false;
+    await expect(emergencyBridge.emergencyStop([], "source stablecoin depegged"))
+      .to.emit(emergencyBridge, "EmergencyStopped");
+    expect(await emergencyBridge.stopped()).to.be.true;
+  });
+
+  it("should prevent minting after emergency stop", async () => {
+    const amount = floatToDec18(100);
+    await emergencyXEUR.approve(emergencyBridgeAddr, amount);
+    await expect(
+      emergencyBridge.mint(amount),
+    ).to.be.revertedWithCustomError(emergencyBridge, "Stopped");
+  });
+
+  it("should still allow burning after emergency stop", async () => {
+    const amount = floatToDec18(100);
+    const balBefore = await emergencyXEUR.balanceOf(owner.address);
+    await localDEURO.approve(emergencyBridgeAddr, amount);
+    await emergencyBridge.burn(amount);
+    const balAfter = await emergencyXEUR.balanceOf(owner.address);
+    expect(balAfter - balBefore).to.be.equal(amount);
+  });
+
+  it("should reject double emergency stop", async () => {
+    await expect(
+      emergencyBridge.emergencyStop([], "again"),
+    ).to.be.revertedWithCustomError(emergencyBridge, "AlreadyStopped");
+  });
 });
