@@ -66,12 +66,14 @@ describe("Roller Tests", () => {
     const rollerFactory = await ethers.getContractFactory("PositionRoller");
     roller = await rollerFactory.deploy(deuro.getAddress());
 
+    const weth = await (await ethers.getContractFactory('TestWETH')).deploy();
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
       await deuro.getAddress(),
       20000n,
       await roller.getAddress(),
       await positionFactory.getAddress(),
+      await weth.getAddress(),
     );
 
     // test coin

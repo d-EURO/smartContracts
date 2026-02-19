@@ -47,12 +47,14 @@ describe("Basic Tests", () => {
     const RollerFactory = await ethers.getContractFactory("PositionRoller");
     roller = await RollerFactory.deploy(await dEURO.getAddress());
 
+    const weth = await (await ethers.getContractFactory('TestWETH')).deploy();
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     await mintingHubFactory.deploy(
       await dEURO.getAddress(),
       50000n,
       await roller.getAddress(),
       await positionFactory.getAddress(),
+      await weth.getAddress(),
     );
   });
 

@@ -7,6 +7,7 @@ import {IReserve} from "../interface/IReserve.sol";
 import {MathUtil} from "../utils/MathUtil.sol";
 import {IMintingHub} from "./interface/IMintingHub.sol";
 import {IPosition} from "./interface/IPosition.sol";
+import {IWrappedNative} from "../interface/IWrappedNative.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -72,7 +73,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice The original position to help identify clones.
      */
-    address public immutable original;
+    address payable public immutable original;
 
     /**
      * @notice Pointer to the minting hub.
@@ -146,6 +147,7 @@ contract Position is Ownable, IPosition, MathUtil {
     error PriceTooHigh(uint256 newPrice, uint256 maxPrice);
     error CannotRescueCollateral();
     error InvalidPriceReference();
+    error NativeTransferFailed();
 
     modifier alive() {
         if (block.timestamp >= expiration) revert Expired(uint40(block.timestamp), expiration);
@@ -202,7 +204,7 @@ contract Position is Ownable, IPosition, MathUtil {
         uint256 _liqPrice,
         uint24 _reservePPM
     ) Ownable(_owner) {
-        original = address(this);
+        original = payable(address(this));
         hub = _hub;
         deuro = IDecentralizedEURO(_deuro);
         collateral = IERC20(_collateral);
@@ -226,8 +228,8 @@ contract Position is Ownable, IPosition, MathUtil {
         if (expiration != 0) revert AlreadyInitialized();
         if (_expiration < block.timestamp || _expiration > Position(original).expiration()) revert InvalidExpiration(); // expiration must not be later than original
         expiration = _expiration;
-        price = Position(parent).price();
-        _fixRateToLeadrate(Position(parent).riskPremiumPPM());
+        price = Position(payable(parent)).price();
+        _fixRateToLeadrate(Position(payable(parent)).riskPremiumPPM());
         _transferOwnership(hub);
     }
 
@@ -329,26 +331,11 @@ contract Position is Ownable, IPosition, MathUtil {
      * and the price in one transaction.
      */
     function adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice) external onlyOwner {
-        uint256 colbal = _collateralBalance();
-        if (newCollateral > colbal) {
-            collateral.transferFrom(msg.sender, address(this), newCollateral - colbal);
-        }
-        // Must be called after collateral deposit, but before withdrawal
-        if (newPrincipal < principal) {
-            uint256 debt = principal + _accrueInterest();
-            _payDownDebt(debt - newPrincipal);
-        }
-        if (newCollateral < colbal) {
-            _withdrawCollateral(msg.sender, colbal - newCollateral);
-        }
-        // Must be called after collateral withdrawal
-        if (newPrincipal > principal) {
-            _mint(msg.sender, newPrincipal - principal, newCollateral);
-        }
-        if (newPrice != price) {
-            _adjustPrice(newPrice, address(0));
-        }
-        _emitUpdate(newCollateral, newPrice, newPrincipal);
+        _adjustPosition(newPrincipal, newCollateral, newPrice, false, address(0));
+    }
+
+    function adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative) external payable onlyOwner {
+        _adjustPosition(newPrincipal, newCollateral, newPrice, withdrawAsNative, address(0));
     }
 
     /**
@@ -374,17 +361,35 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice "All in one" function with reference position support.
      */
     function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition) external onlyOwner {
+        _adjustPosition(newPrincipal, newCollateral, newPrice, false, referencePosition);
+    }
+
+    function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition, bool withdrawAsNative) external payable onlyOwner {
+        _adjustPosition(newPrincipal, newCollateral, newPrice, withdrawAsNative, referencePosition);
+    }
+
+    function _adjustPosition(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative, address referencePosition) internal {
         uint256 colbal = _collateralBalance();
+        if (msg.value > 0) {
+            IWrappedNative(address(collateral)).deposit{value: msg.value}();
+            colbal = _collateralBalance();
+        }
         if (newCollateral > colbal) {
             collateral.transferFrom(msg.sender, address(this), newCollateral - colbal);
         }
+        // Must be called after collateral deposit, but before withdrawal
         if (newPrincipal < principal) {
             uint256 debt = principal + _accrueInterest();
             _payDownDebt(debt - newPrincipal);
         }
         if (newCollateral < colbal) {
-            _withdrawCollateral(msg.sender, colbal - newCollateral);
+            if (withdrawAsNative) {
+                _withdrawCollateralAsNative(msg.sender, colbal - newCollateral);
+            } else {
+                _withdrawCollateral(msg.sender, colbal - newCollateral);
+            }
         }
+        // Must be called after collateral withdrawal
         if (newPrincipal > principal) {
             _mint(msg.sender, newPrincipal - principal, newCollateral);
         }
@@ -729,6 +734,26 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
+     * @notice Withdraw collateral as native coin (unwraps WETH to ETH).
+     */
+    function withdrawCollateralAsNative(address target, uint256 amount) public onlyOwner {
+        uint256 balance = _withdrawCollateralAsNative(target, amount);
+        _emitUpdate(balance, price, principal);
+    }
+
+    function _withdrawCollateralAsNative(address target, uint256 amount) internal noCooldown noChallenge returns (uint256) {
+        if (amount > 0) {
+            IWrappedNative(address(collateral)).withdraw(amount);
+            (bool success, ) = target.call{value: amount}("");
+            if (!success) revert NativeTransferFailed();
+        }
+        uint256 balance = _collateralBalance();
+        if (balance < minimumCollateral) _close();
+        _checkCollateral(balance, price);
+        return balance;
+    }
+
+    /**
      * @notice Transfer the challenged collateral to the bidder. Only callable by minting hub.
      */
     function transferChallengedCollateral(address target, uint256 amount) external onlyHub {
@@ -887,5 +912,14 @@ contract Position is Ownable, IPosition, MathUtil {
         _restrictMinting(3 days);
 
         return (owner(), _size, principalToPay, interestToPay, reserveContribution);
+    }
+
+    /**
+     * @notice Auto-wraps ETH sent to the position. Guard prevents recursion during WETH.withdraw().
+     */
+    receive() external payable {
+        if (msg.sender != address(collateral)) {
+            IWrappedNative(address(collateral)).deposit{value: msg.value}();
+        }
     }
 }

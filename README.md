@@ -26,7 +26,6 @@ The source code can be found in the [contracts](contracts) folder. The following
 | FrontendGateway.sol    | A module that rewards frontend providers for referrals into the dEURO Ecosystem   |
 | MintingHubGateway.sol  | Plugin for oracle-free collateralized minting with rewards for frontend providers |
 | SavingsGateway.sol     | A module to pay out interest to ZCHF holders and reward frontend providers        |
-| CoinLendingGateway.sol | Gateway for native coin (ETH/MATIC) lending with custom liquidation prices        |
 | SavingsVaultDEURO.sol  | ERC-4626 vault wrapper for the Savings module                                     |
 
 # Code basis and changes after the fork

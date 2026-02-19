@@ -21,7 +21,7 @@ contract PositionRollingTest {
     IPosition public p2;
 
     constructor(address hub_) {
-        hub = MintingHub(hub_);
+        hub = MintingHub(payable(hub_));
         col = new TestToken("Some Collateral", "COL", uint8(0));
         deuro = hub.DEURO();
         roller = hub.ROLLER();

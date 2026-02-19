@@ -5,7 +5,7 @@ import hre from 'hardhat';
 import { migrationV3Config, migrationV3Params } from '../config/migrationV3Config';
 
 /**
- * @description Deploys V3 migration contracts (Savings, MintingHub, SavingsVaultDEURO, CoinLendingGateway)
+ * @description Deploys V3 migration contracts (Savings, MintingHub, SavingsVaultDEURO)
  *              and registers Savings + MintingHub as minters on dEURO.
  * @usage npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network <network>
  */
@@ -45,7 +45,7 @@ async function main() {
   }
 
   // --- 1. Deploy Savings ---
-  console.log('\n1/7 Deploying Savings...');
+  console.log('\n1/5 Deploying Savings...');
   const Savings = await ethers.getContractFactory('Savings');
   const savings = await Savings.deploy(config.decentralizedEURO, migrationV3Params.initialSavingsRatePPM);
   const savingsDeployTxHash = savings.deploymentTransaction()?.hash;
@@ -55,13 +55,14 @@ async function main() {
   console.log(`    Savings deployed to: ${savingsAddress}`);
 
   // --- 2. Deploy MintingHub ---
-  console.log('2/7 Deploying MintingHub...');
+  console.log('2/5 Deploying MintingHub...');
   const MintingHub = await ethers.getContractFactory('MintingHub');
   const mintingHub = await MintingHub.deploy(
     config.decentralizedEURO,
     migrationV3Params.initialLendingRatePPM,
     config.positionRoller,
     config.positionFactory,
+    config.weth,
   );
   const mintingHubDeployTxHash = mintingHub.deploymentTransaction()?.hash;
   console.log(`    MintingHub deployment tx: ${mintingHubDeployTxHash}`);
@@ -70,7 +71,7 @@ async function main() {
   console.log(`    MintingHub deployed to: ${mintingHubAddress}`);
 
   // --- 3. Deploy SavingsVaultDEURO ---
-  console.log('3/7 Deploying SavingsVaultDEURO...');
+  console.log('3/5 Deploying SavingsVaultDEURO...');
   const SavingsVaultDEURO = await ethers.getContractFactory('SavingsVaultDEURO');
   const savingsVault = await SavingsVaultDEURO.deploy(
     config.decentralizedEURO,
@@ -84,18 +85,8 @@ async function main() {
   const savingsVaultAddress = await savingsVault.getAddress();
   console.log(`    SavingsVaultDEURO deployed to: ${savingsVaultAddress}`);
 
-  // --- 4. Deploy CoinLendingGateway ---
-  console.log('4/7 Deploying CoinLendingGateway...');
-  const CoinLendingGateway = await ethers.getContractFactory('CoinLendingGateway');
-  const coinLendingGateway = await CoinLendingGateway.deploy(mintingHubAddress, config.weth, config.decentralizedEURO);
-  const coinLendingGatewayDeployTxHash = coinLendingGateway.deploymentTransaction()?.hash;
-  console.log(`    CoinLendingGateway deployment tx: ${coinLendingGatewayDeployTxHash}`);
-  await coinLendingGateway.waitForDeployment();
-  const coinLendingGatewayAddress = await coinLendingGateway.getAddress();
-  console.log(`    CoinLendingGateway deployed to: ${coinLendingGatewayAddress}`);
-
-  // --- 5. Approve dEURO for minter fees ---
-  console.log('5/7 Approving dEURO for minter application fees...');
+  // --- 4. Approve dEURO for minter fees ---
+  console.log('4/5 Approving dEURO for minter application fees...');
   const approveTx = await dEURO.approve(config.decentralizedEURO, totalFee);
   console.log(`    Approve tx: ${approveTx.hash}`);
   const approveReceipt = await approveTx.wait();
@@ -104,8 +95,8 @@ async function main() {
   }
   console.log(`    Approved ${ethers.formatEther(totalFee)} dEURO`);
 
-  // --- 6. suggestMinter for Savings ---
-  console.log('6/7 Registering Savings as minter...');
+  // --- 5. suggestMinter for Savings ---
+  console.log('5/5a Registering Savings as minter...');
   const suggestSavingsTx = await dEURO.suggestMinter(savingsAddress, minApplicationPeriod, minFee, 'Savings');
   console.log(`    suggestMinter(Savings) tx: ${suggestSavingsTx.hash}`);
   const suggestSavingsReceipt = await suggestSavingsTx.wait();
@@ -114,8 +105,8 @@ async function main() {
   }
   console.log(`    suggestMinter(Savings) submitted`);
 
-  // --- 7. suggestMinter for MintingHub ---
-  console.log('7/7 Registering MintingHub as minter...');
+  // --- 5b. suggestMinter for MintingHub ---
+  console.log('5/5b Registering MintingHub as minter...');
   const suggestMintingHubTx = await dEURO.suggestMinter(mintingHubAddress, minApplicationPeriod, minFee, 'MintingHub');
   console.log(`    suggestMinter(MintingHub) tx: ${suggestMintingHubTx.hash}`);
   const suggestMintingHubReceipt = await suggestMintingHubTx.wait();
@@ -132,6 +123,7 @@ async function main() {
     migrationV3Params.initialLendingRatePPM,
     config.positionRoller,
     config.positionFactory,
+    config.weth,
   ];
   const savingsVaultConstructorArgs = [
     config.decentralizedEURO,
@@ -139,7 +131,6 @@ async function main() {
     migrationV3Params.savingsVaultName,
     migrationV3Params.savingsVaultSymbol,
   ];
-  const coinLendingGatewayConstructorArgs = [mintingHubAddress, config.weth, config.decentralizedEURO];
 
   const deploymentInfo = {
     network: networkName,
@@ -155,7 +146,6 @@ async function main() {
       savings: { address: savingsAddress, constructorArgs: savingsConstructorArgs },
       mintingHub: { address: mintingHubAddress, constructorArgs: mintingHubConstructorArgs },
       savingsVaultDEURO: { address: savingsVaultAddress, constructorArgs: savingsVaultConstructorArgs },
-      coinLendingGateway: { address: coinLendingGatewayAddress, constructorArgs: coinLendingGatewayConstructorArgs },
     },
     minterSuggestions: {
       savings: {
@@ -171,7 +161,6 @@ async function main() {
       savingsDeploy: savingsDeployTxHash,
       mintingHubDeploy: mintingHubDeployTxHash,
       savingsVaultDeploy: savingsVaultDeployTxHash,
-      coinLendingGatewayDeploy: coinLendingGatewayDeployTxHash,
       approve: approveTx.hash,
       suggestMinterSavings: suggestSavingsTx.hash,
       suggestMinterMintingHub: suggestMintingHubTx.hash,
@@ -191,7 +180,7 @@ async function main() {
   // --- Etherscan verification on live networks ---
   if (networkName !== 'hardhat' && networkName !== 'localhost') {
     console.log('\nWaiting for block confirmations before verification...');
-    const lastDeployTx = coinLendingGateway.deploymentTransaction();
+    const lastDeployTx = savingsVault.deploymentTransaction();
     if (lastDeployTx) {
       await lastDeployTx.wait(5);
     }
@@ -200,11 +189,6 @@ async function main() {
       { name: 'Savings', address: savingsAddress, constructorArguments: savingsConstructorArgs },
       { name: 'MintingHub', address: mintingHubAddress, constructorArguments: mintingHubConstructorArgs },
       { name: 'SavingsVaultDEURO', address: savingsVaultAddress, constructorArguments: savingsVaultConstructorArgs },
-      {
-        name: 'CoinLendingGateway',
-        address: coinLendingGatewayAddress,
-        constructorArguments: coinLendingGatewayConstructorArgs,
-      },
     ];
 
     for (const contract of contractsToVerify) {
@@ -230,7 +214,6 @@ async function main() {
   console.log(`Savings:            ${savingsAddress}`);
   console.log(`MintingHub:         ${mintingHubAddress}`);
   console.log(`SavingsVaultDEURO:  ${savingsVaultAddress}`);
-  console.log(`CoinLendingGateway: ${coinLendingGatewayAddress}`);
   console.log(`\nMinter suggestions submitted. Approval after ${Number(minApplicationPeriod) / 86400} days.`);
 }
 
