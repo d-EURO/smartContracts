@@ -148,6 +148,7 @@ contract Position is Ownable, IPosition, MathUtil {
     error CannotRescueCollateral();
     error InvalidPriceReference();
     error NativeTransferFailed();
+    error NativeOnlyForWETH();
 
     modifier alive() {
         if (block.timestamp >= expiration) revert Expired(uint40(block.timestamp), expiration);
@@ -373,6 +374,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
     function _adjustPosition(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative, address referencePosition) internal {
         if (msg.value > 0) {
+            if (address(collateral) != IMintingHub(hub).WETH()) revert NativeOnlyForWETH();
             IWrappedNative(address(collateral)).deposit{value: msg.value}();
         }
         uint256 colbal = _collateralBalance();

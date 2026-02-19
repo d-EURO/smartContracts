@@ -113,8 +113,9 @@ contract StablecoinBridge {
         if (stopped) revert AlreadyStopped();
         IReserve reserve = dEURO.reserve();
         if (address(reserve) == address(0)) revert NoGovernance();
-        uint256 votes = reserve.votesDelegated(msg.sender, _helpers);
         uint256 total = reserve.totalVotes();
+        if (total == 0) revert NoGovernance();
+        uint256 votes = reserve.votesDelegated(msg.sender, _helpers);
         if (votes * 10_000 < EMERGENCY_QUORUM * total) revert NotQualified();
         stopped = true;
         emit EmergencyStopped(msg.sender, _message);
