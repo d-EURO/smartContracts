@@ -145,6 +145,7 @@ contract Position is Ownable, IPosition, MathUtil {
     error EmptyMessage();
     error PriceTooHigh(uint256 newPrice, uint256 maxPrice);
     error CannotRescueCollateral();
+    error InvalidPriceReference();
 
     modifier alive() {
         if (block.timestamp >= expiration) revert Expired(uint40(block.timestamp), expiration);
@@ -345,7 +346,7 @@ contract Position is Ownable, IPosition, MathUtil {
             _mint(msg.sender, newPrincipal - principal, newCollateral);
         }
         if (newPrice != price) {
-            _adjustPrice(newPrice);
+            _adjustPrice(newPrice, address(0));
         }
         _emitUpdate(newCollateral, newPrice, newPrincipal);
     }
@@ -356,17 +357,91 @@ contract Position is Ownable, IPosition, MathUtil {
      * Increasing the liquidation price triggers a cooldown period of 3 days, during which minting is suspended.
      */
     function adjustPrice(uint256 newPrice) public onlyOwner {
-        _adjustPrice(newPrice);
+        _adjustPrice(newPrice, address(0));
         _emitUpdate(_collateralBalance(), price, principal);
     }
 
-    function _adjustPrice(uint256 newPrice) internal noChallenge alive backed noCooldown {
+    /**
+     * @notice Adjust the liquidation price using a reference position to skip the 3-day cooldown.
+     * The reference must satisfy all validity checks (same hub, same collateral, meaningful principal, etc.).
+     */
+    function adjustPriceWithReference(uint256 newPrice, address referencePosition) external onlyOwner {
+        _adjustPrice(newPrice, referencePosition);
+        _emitUpdate(_collateralBalance(), price, principal);
+    }
+
+    /**
+     * @notice "All in one" function with reference position support.
+     */
+    function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition) external onlyOwner {
+        uint256 colbal = _collateralBalance();
+        if (newCollateral > colbal) {
+            collateral.transferFrom(msg.sender, address(this), newCollateral - colbal);
+        }
+        if (newPrincipal < principal) {
+            uint256 debt = principal + _accrueInterest();
+            _payDownDebt(debt - newPrincipal);
+        }
+        if (newCollateral < colbal) {
+            _withdrawCollateral(msg.sender, colbal - newCollateral);
+        }
+        if (newPrincipal > principal) {
+            _mint(msg.sender, newPrincipal - principal, newCollateral);
+        }
+        if (newPrice != price) {
+            _adjustPrice(newPrice, referencePosition);
+        }
+        _emitUpdate(newCollateral, newPrice, newPrincipal);
+    }
+
+    function _adjustPrice(uint256 newPrice, address referencePosition) internal noChallenge alive backed {
         if (newPrice > price) {
-            _restrictMinting(3 days);
+            if (block.timestamp <= cooldown) revert Hot();
+            if (referencePosition == address(0)) {
+                _restrictMinting(3 days);
+            } else if (!_isValidPriceReference(referencePosition, newPrice)) {
+                revert InvalidPriceReference();
+            }
         } else {
             _checkCollateral(_collateralBalance(), newPrice);
         }
         _setPrice(newPrice, principal + availableForMinting());
+    }
+
+    /**
+     * @notice Checks whether a reference position is valid for skipping the cooldown on a price increase.
+     */
+    function isValidPriceReference(address referencePosition, uint256 newPrice) external view returns (bool) {
+        return _isValidPriceReference(referencePosition, newPrice);
+    }
+
+    function _isValidPriceReference(address referencePosition, uint256 newPrice) internal view returns (bool) {
+        IPosition ref = IPosition(referencePosition);
+        // 1. Reference registered in same hub
+        if (ref.hub() != hub) return false;
+        // 2. Reference is not this position itself
+        if (referencePosition == address(this)) return false;
+        // 3. Same collateral token
+        if (address(ref.collateral()) != address(collateral)) return false;
+        // 4. Reference not in cooldown
+        if (block.timestamp <= ref.cooldown()) return false;
+        // 5. Reference not expired
+        if (block.timestamp >= ref.expiration()) return false;
+        // 6. Reference not challenged
+        if (ref.challengedAmount() > 0) return false;
+        // 7. Reference not closed
+        if (ref.isClosed()) return false;
+        // 8. newPrice <= reference price
+        if (newPrice > ref.price()) return false;
+        // 9. Reference principal > 0
+        if (ref.principal() == 0) return false;
+        // 10. Reference principal >= 1000 dEURO (meaningful skin-in-the-game)
+        if (ref.principal() < 1000 * 10 ** 18) return false;
+        // 11. Reference has been out of cooldown for >= challengePeriod
+        if (ref.cooldown() + ref.challengePeriod() > block.timestamp) return false;
+        // 12. Reference has meaningful remaining life (can still be challenged)
+        if (ref.expiration() <= block.timestamp + ref.challengePeriod()) return false;
+        return true;
     }
 
     function _setPrice(uint256 newPrice, uint256 bounds) internal {

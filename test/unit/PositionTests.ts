@@ -2264,4 +2264,173 @@ describe("Position Tests", () => {
       expect(virtualPrice).to.be.eq(expectedVirtualPrice);
     });
   });
+
+  describe("Reference position for cooldown-free price increases", () => {
+    let collateral: string;
+    let fliqPrice = floatToDec18(5000);
+    let minCollateral = floatToDec18(1);
+    let fInitialCollateral = floatToDec18(initialCollateral);
+    let duration = BigInt(365 * 86_400);
+    let fFees = BigInt(fee * 1_000_000);
+    let fReserve = BigInt(reserve * 1_000_000);
+    let challengePeriod = BigInt(3 * 86400);
+    let positionContract: Position;
+    let referenceContract: Position;
+    let positionAddr: string;
+    let referenceAddr: string;
+
+    beforeEach(async () => {
+      collateral = await mockVOL.getAddress();
+
+      // Create reference position with high principal
+      await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
+      let tx = await mintingHub.openPosition(
+        collateral,
+        minCollateral,
+        fInitialCollateral,
+        initialLimit,
+        7n * 24n * 3600n,
+        duration,
+        challengePeriod,
+        fFees,
+        fliqPrice,
+        fReserve,
+      );
+      let rc = await tx.wait();
+      const topic = "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
+      let log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
+      referenceAddr = "0x" + log?.topics[2].substring(26);
+      referenceContract = await ethers.getContractAt("Position", referenceAddr);
+
+      // Wait for reference to become active, then mint meaningful principal
+      await evm_increaseTimeTo(await referenceContract.start());
+      await referenceContract.mint(owner.address, floatToDec18(2000)); // > 1000 dEURO threshold
+
+      // Wait for reference to be out of cooldown for >= challengePeriod (check #11)
+      // cooldown is set to start time, and we need cooldown + challengePeriod <= now
+      // After minting, cooldown is still at start time, so we need start + challengePeriod <= now
+      await evm_increaseTime(challengePeriod + 60n);
+
+      // Create the position we want to adjust (lower price, needs higher minCollateral to meet 5000 dEURO floor)
+      await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
+      tx = await mintingHub.openPosition(
+        collateral,
+        floatToDec18(2), // minCollateral * 4000 >= 5000 dEURO
+        fInitialCollateral,
+        initialLimit,
+        7n * 24n * 3600n,
+        duration,
+        challengePeriod,
+        fFees,
+        floatToDec18(4000), // lower price than reference
+        fReserve,
+      );
+      rc = await tx.wait();
+      log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
+      positionAddr = "0x" + log?.topics[2].substring(26);
+      positionContract = await ethers.getContractAt("Position", positionAddr);
+
+      await evm_increaseTimeTo(await positionContract.start());
+    });
+
+    it("reference position bypasses cooldown on price increase", async () => {
+      const oldPrice = await positionContract.price();
+      const refPrice = await referenceContract.price();
+      expect(refPrice).to.be.gte(oldPrice);
+
+      // Verify the reference is valid
+      expect(await positionContract.isValidPriceReference(referenceAddr, refPrice)).to.be.true;
+
+      // Increase price using reference - should not trigger cooldown
+      await positionContract.adjustPriceWithReference(refPrice, referenceAddr);
+      expect(await positionContract.price()).to.be.equal(refPrice);
+
+      // Should be able to mint immediately (no cooldown)
+      await positionContract.mint(owner.address, floatToDec18(100));
+    });
+
+    it("rejects shill reference with < 1000 dEURO principal", async () => {
+      // Create a shill position with tiny principal
+      await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
+      const tx = await mintingHub.openPosition(
+        collateral,
+        minCollateral,
+        fInitialCollateral,
+        initialLimit,
+        7n * 24n * 3600n,
+        duration,
+        challengePeriod,
+        fFees,
+        fliqPrice,
+        fReserve,
+      );
+      const rc = await tx.wait();
+      const topic = "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
+      const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
+      const shillAddr = "0x" + log?.topics[2].substring(26);
+      const shillContract = await ethers.getContractAt("Position", shillAddr);
+
+      await evm_increaseTimeTo(await shillContract.start());
+      await shillContract.mint(owner.address, floatToDec18(500)); // below 1000 threshold
+      await evm_increaseTime(challengePeriod + 60n);
+
+      expect(await positionContract.isValidPriceReference(shillAddr, await shillContract.price())).to.be.false;
+      await expect(
+        positionContract.adjustPriceWithReference(await shillContract.price(), shillAddr)
+      ).to.be.revertedWithCustomError(positionContract, "InvalidPriceReference");
+    });
+
+    it("rejects fresh reference that just came out of cooldown", async () => {
+      // Create a fresh position
+      await mockVOL.approve(await mintingHub.getAddress(), fInitialCollateral);
+      await dEURO.approve(mintingHub.getAddress(), await mintingHub.OPENING_FEE());
+      const tx = await mintingHub.openPosition(
+        collateral,
+        minCollateral,
+        fInitialCollateral,
+        initialLimit,
+        7n * 24n * 3600n,
+        duration,
+        challengePeriod,
+        fFees,
+        fliqPrice,
+        fReserve,
+      );
+      const rc = await tx.wait();
+      const topic = "0xc9b570ab9d98bdf3e38a40fd71b20edafca42449f23ca51f0bdcbf40e8ffe175";
+      const log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
+      const freshAddr = "0x" + log?.topics[2].substring(26);
+      const freshContract = await ethers.getContractAt("Position", freshAddr);
+
+      await evm_increaseTimeTo(await freshContract.start());
+      await freshContract.mint(owner.address, floatToDec18(2000));
+      // Don't wait for challengePeriod - reference is too fresh (check #11)
+
+      expect(await positionContract.isValidPriceReference(freshAddr, await freshContract.price())).to.be.false;
+      await expect(
+        positionContract.adjustPriceWithReference(await freshContract.price(), freshAddr)
+      ).to.be.revertedWithCustomError(positionContract, "InvalidPriceReference");
+    });
+
+    it("rejects self-reference", async () => {
+      await positionContract.mint(owner.address, floatToDec18(2000));
+      await evm_increaseTime(challengePeriod + 60n);
+      expect(await positionContract.isValidPriceReference(positionAddr, await positionContract.price())).to.be.false;
+    });
+
+    it("rejects reference with lower price than requested", async () => {
+      const refPrice = await referenceContract.price();
+      expect(await positionContract.isValidPriceReference(referenceAddr, refPrice + 1n)).to.be.false;
+    });
+
+    it("price decrease still works without reference", async () => {
+      const currentPrice = await positionContract.price();
+      const lowerPrice = currentPrice / 2n;
+      await positionContract.adjustPrice(lowerPrice);
+      expect(await positionContract.price()).to.be.equal(lowerPrice);
+    });
+  });
 });
