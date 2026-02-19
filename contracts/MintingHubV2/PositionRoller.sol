@@ -164,7 +164,7 @@ contract PositionRoller {
         collDeposit = (mint * 10 ** 18 + targetPrice - 1) / targetPrice;
         if (collDeposit > totalCollateral) {
             collDeposit = totalCollateral;
-            mint = (collDeposit * target.price()) / 10 ** 18;
+            mint = (collDeposit * targetPrice) / 10 ** 18;
         }
         repay = _principal + _interest;
     }

@@ -765,7 +765,7 @@ describe("Position Tests", () => {
       expect(currentInterest).to.be.eq(0);
     });
     it("deny challenge", async () => {
-      expect(positionContract.deny([], "denied")).to.be.emit(
+      await expect(positionContract.deny([], "denied")).to.emit(
         positionContract,
         "PositionDenied",
       );
@@ -1025,7 +1025,7 @@ describe("Position Tests", () => {
         mintingHub
           .connect(alice)
           .bid(challengeNumber, challenge.size * 2n, true),
-      ).to.be.emit(mintingHub, "PostponedReturn");
+      ).to.emit(mintingHub, "PostponedReturn");
     });
   });
   describe("challenge clone", () => {
@@ -1183,7 +1183,7 @@ describe("Position Tests", () => {
       await dEURO.approve(await mintingHub.getAddress(), approvalAmount);
       await expect(
         mintingHub.bid(challengeNumber, floatToDec18(bidSize), false),
-      ).to.be.emit(mintingHub, "ChallengeSucceeded");
+      ).to.emit(mintingHub, "ChallengeSucceeded");
       expect(await mintingHub.price(challengeNumber)).to.be.eq(0);
     });
     it("bid on not existing challenge", async () => {
@@ -1262,7 +1262,7 @@ describe("Position Tests", () => {
       await evm_increaseTimeTo(prevCooldown);
       await positionContract.adjustPrice(initialPrice - floatToDec18(1));
       expect(await positionContract.price()).to.be.equal(initialPrice - floatToDec18(1));
-      await expect(positionContract.adjustPrice(initialPrice)).to.be.emit(
+      await expect(positionContract.adjustPrice(initialPrice)).to.emit(
         positionContract,
         "MintingUpdate",
       );
@@ -1511,11 +1511,12 @@ describe("Position Tests", () => {
     });
     it("owner should be able to withdraw collaterals after the auction is closed", async () => {
       await positionContract.deny([], "denied");
+      await evm_increaseTime(86400 * 8); // advance past 7-day init cooldown
       const colBal = await mockVOL.balanceOf(positionAddr);
-      expect(
+      await expect(
         positionContract.withdrawCollateral(owner.address, colBal),
-      ).to.be.emit(positionContract, "MintingUpdate");
-      expect(positionContract.withdrawCollateral(owner.address, 0)).to.be.emit(
+      ).to.emit(positionContract, "MintingUpdate");
+      await expect(positionContract.withdrawCollateral(owner.address, 0)).to.emit(
         positionContract,
         "MintingUpdate",
       );

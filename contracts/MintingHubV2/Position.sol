@@ -423,9 +423,9 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _isValidPriceReference(address referencePosition, uint256 newPrice) internal view returns (bool) {
+        // 1. Reference is a registered position created by the same hub
+        if (deuro.getPositionParent(referencePosition) != hub) return false;
         IPosition ref = IPosition(referencePosition);
-        // 1. Reference registered in same hub
-        if (ref.hub() != hub) return false;
         // 2. Reference is not this position itself
         if (referencePosition == address(this)) return false;
         // 3. Same collateral token
