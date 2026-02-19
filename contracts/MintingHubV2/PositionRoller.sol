@@ -23,7 +23,6 @@ contract PositionRoller {
     error NotOwner(address pos);
     error NotPosition(address pos);
     error NativeTransferFailed();
-    error Log(uint256, uint256, uint256);
 
     event Roll(address source, uint256 collWithdraw, uint256 repay, address target, uint256 collDeposit, uint256 mint);
 
@@ -131,7 +130,7 @@ contract PositionRoller {
             );
         } else {
             return IPosition(
-                IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration)
+                IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration, 0)
             );
         }
     }
@@ -185,14 +184,14 @@ contract PositionRoller {
     ) public payable valid(source) valid(target) own(source) {
         IERC20 collateralToken = source.collateral();
 
-        // Wrap any ETH sent as additional collateral
-        if (msg.value > 0) {
-            IWrappedNative(address(collateralToken)).deposit{value: msg.value}();
-        }
-
         deuro.mint(address(this), repay); // take a flash loan
         uint256 used = source.repay(repay);
         source.withdrawCollateral(address(this), collWithdraw);
+
+        // Wrap any ETH sent as additional collateral (after flash loan to avoid idle WETH)
+        if (msg.value > 0) {
+            IWrappedNative(address(collateralToken)).deposit{value: msg.value}();
+        }
 
         if (mint > 0) {
             IERC20 targetCollateral = IERC20(target.collateral());

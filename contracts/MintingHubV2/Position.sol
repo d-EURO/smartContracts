@@ -307,6 +307,9 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _emitDenied(address denier, string calldata message) internal {
+        uint256 messageLength = bytes(message).length;
+        if (messageLength == 0) revert EmptyMessage();
+        if (messageLength > MAX_MESSAGE_LENGTH) revert MessageTooLong(messageLength, MAX_MESSAGE_LENGTH);
         emit PositionDenied(denier, message);
         IMintingHub(hub).emitPositionDenied(denier, message);
     }
@@ -369,11 +372,10 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     function _adjustPosition(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative, address referencePosition) internal {
-        uint256 colbal = _collateralBalance();
         if (msg.value > 0) {
             IWrappedNative(address(collateral)).deposit{value: msg.value}();
-            colbal = _collateralBalance();
         }
+        uint256 colbal = _collateralBalance();
         if (newCollateral > colbal) {
             collateral.transferFrom(msg.sender, address(this), newCollateral - colbal);
         }
