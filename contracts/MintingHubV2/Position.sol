@@ -144,6 +144,7 @@ contract Position is Ownable, IPosition, MathUtil {
     error MessageTooLong(uint256 length, uint256 maxLength);
     error EmptyMessage();
     error PriceTooHigh(uint256 newPrice, uint256 maxPrice);
+    error CannotRescueCollateral();
 
     modifier alive() {
         if (block.timestamp >= expiration) revert Expired(uint40(block.timestamp), expiration);
@@ -618,17 +619,14 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice Withdraw any ERC20 token that might have ended up on this address.
-     * Withdrawing collateral is subject to the same restrictions as withdrawCollateral(...).
+     * @notice Rescue any ERC20 token that might have ended up on this address accidentally.
+     * Cannot be used to withdraw collateral — use withdrawCollateral(...) for that.
      */
-    function withdraw(address token, address target, uint256 amount) external onlyOwner {
-        if (token == address(collateral)) {
-            withdrawCollateral(target, amount);
-        } else {
-            uint256 balance = _collateralBalance();
-            IERC20(token).transfer(target, amount);
-            require(balance == _collateralBalance()); // guard against double-entry-point tokens
-        }
+    function rescueToken(address token, address target, uint256 amount) external onlyOwner {
+        if (token == address(collateral)) revert CannotRescueCollateral();
+        uint256 balance = _collateralBalance();
+        IERC20(token).transfer(target, amount);
+        require(balance == _collateralBalance()); // guard against double-entry-point tokens
     }
 
     /**

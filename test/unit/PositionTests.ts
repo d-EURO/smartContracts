@@ -1519,42 +1519,44 @@ describe("Position Tests", () => {
       );
     });
   });
-  describe("withdrawing any tokens", () => {
-    it("should revert withdrawing tokens from non position owner", async () => {
+  describe("rescuing tokens", () => {
+    it("should revert rescuing tokens from non position owner", async () => {
       const amount = floatToDec18(1);
       await expect(
         positionContract
           .connect(alice)
-          .withdraw(await dEURO.getAddress(), owner.address, amount),
+          .rescueToken(await dEURO.getAddress(), owner.address, amount),
       ).to.be.revertedWithCustomError(
         positionContract,
         "OwnableUnauthorizedAccount",
       );
     });
-    it("owner can withdraw any erc20 tokens locked on position contract", async () => {
+    it("owner can rescue any erc20 tokens locked on position contract", async () => {
       await evm_increaseTime(86400 * 8);
       const amount = floatToDec18(1);
 
       await dEURO.transfer(positionAddr, amount);
       const beforeBal = await dEURO.balanceOf(positionAddr);
-      await positionContract.withdraw(
+      await positionContract.rescueToken(
         await dEURO.getAddress(),
         owner.address,
         amount,
       );
       const afterBal = await dEURO.balanceOf(positionAddr);
       expect(beforeBal - afterBal).to.be.equal(amount);
-
-      // withdraw collaterals
-      await mockVOL.transfer(positionAddr, amount);
-      const beforeColBal = await mockVOL.balanceOf(positionAddr);
-      await positionContract.withdraw(
-        await mockVOL.getAddress(),
-        owner.address,
-        amount,
+    });
+    it("should revert when trying to rescue collateral token", async () => {
+      const amount = floatToDec18(1);
+      await expect(
+        positionContract.rescueToken(
+          await mockVOL.getAddress(),
+          owner.address,
+          amount,
+        ),
+      ).to.be.revertedWithCustomError(
+        positionContract,
+        "CannotRescueCollateral",
       );
-      const afterColBal = await mockVOL.balanceOf(positionAddr);
-      expect(beforeColBal - afterColBal).to.be.equal(amount);
     });
   });
   describe("returning postponed collateral", async () => {
