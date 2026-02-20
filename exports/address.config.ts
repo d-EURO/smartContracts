@@ -31,7 +31,7 @@ export interface ChainAddress {
   eure: Address;
   eura: Address;
   roller: Address;
-  positionFactoryV2: Address;
+  positionFactoryV3: Address;
 }
 
 export const ADDRESS: Record<number, ChainAddress> = {
@@ -66,6 +66,6 @@ export const ADDRESS: Record<number, ChainAddress> = {
     eure: "0x3231Cb76718CDeF2155FC47b5286d82e6eDA273f",
     eura: "0x1a7e4e63778b4f12a199c062f3efdd288afcbce8",
     roller: "0x4CE0AB2FC21Bd27a47A64F594Fdf7654Ea57Dc79",
-    positionFactoryV2: "0x167144d66AC1D02EAAFCa3649ef3305ea31Ee5A8",
+    positionFactoryV3: "0x167144d66AC1D02EAAFCa3649ef3305ea31Ee5A8",
   },
 };

@@ -67,7 +67,11 @@ In contrast to Frankencoin, dEURO does not use the minting module v1 at all
 
 ## Minting module v2
 
-Interest is no longer paid when a position is opened but is credited as a debt on an ongoing basis and only has to be paid when a position is closed or modified. 
+Interest is no longer paid when a position is opened but is credited as a debt on an ongoing basis and only has to be paid when a position is closed or modified.
+
+## Minting module v3
+
+Native ETH/WETH support across MintingHub, Position, and PositionRoller. Leadrate integrated directly into MintingHub. Interest is now charged only on the usable mint (excluding reserve contribution). A reference position mechanism allows cooldown-free price increases.
 
 ## Front-end gateway
 It is possible to use the SmartContracts through a gateway and thus obtain a refferal commission. This module is completely new. 

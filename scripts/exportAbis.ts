@@ -42,21 +42,21 @@ const contractABI = [
   },
 
   {
-    from: `${ARTIFACTS_PATH}/MintingHubV2/PositionFactory.sol/PositionFactory.json`,
-    to: `${ABIS_EXPORT_PATH}/MintingHubV2/PositionFactoryV2.ts`,
-    exportName: 'PositionFactoryV2ABI',
+    from: `${ARTIFACTS_PATH}/MintingHubV3/PositionFactory.sol/PositionFactory.json`,
+    to: `${ABIS_EXPORT_PATH}/MintingHubV3/PositionFactoryV3.ts`,
+    exportName: 'PositionFactoryV3ABI',
   },
 
   {
-    from: `${ARTIFACTS_PATH}/MintingHubV2/PositionRoller.sol/PositionRoller.json`,
-    to: `${ABIS_EXPORT_PATH}/MintingHubV2/PositionRoller.ts`,
+    from: `${ARTIFACTS_PATH}/MintingHubV3/PositionRoller.sol/PositionRoller.json`,
+    to: `${ABIS_EXPORT_PATH}/MintingHubV3/PositionRoller.ts`,
     exportName: 'PositionRollerABI',
   },
 
   {
-    from: `${ARTIFACTS_PATH}/MintingHubV2/Position.sol/Position.json`,
-    to: `${ABIS_EXPORT_PATH}/MintingHubV2/PositionV2.ts`,
-    exportName: 'PositionV2ABI',
+    from: `${ARTIFACTS_PATH}/MintingHubV3/Position.sol/Position.json`,
+    to: `${ABIS_EXPORT_PATH}/MintingHubV3/PositionV3.ts`,
+    exportName: 'PositionV3ABI',
   },
   {
     from: `${ARTIFACTS_PATH}/StablecoinBridge.sol/StablecoinBridge.json`,
@@ -71,9 +71,9 @@ const contractABI = [
   },
 
   {
-    from: `${ARTIFACTS_PATH}/MintingHubV2/MintingHub.sol/MintingHub.json`,
-    to: `${ABIS_EXPORT_PATH}/utils/MintingHubV2.ts`,
-    exportName: 'MintingHubV2ABI',
+    from: `${ARTIFACTS_PATH}/MintingHubV3/MintingHub.sol/MintingHub.json`,
+    to: `${ABIS_EXPORT_PATH}/utils/MintingHubV3.ts`,
+    exportName: 'MintingHubV3ABI',
   },
 
   {

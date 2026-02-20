@@ -4,10 +4,10 @@ pragma solidity ^0.8.0;
 // import "./Strings.sol";
 import "./TestToken.sol";
 import "../Equity.sol";
-import "../MintingHubV2/Position.sol";
-import "../MintingHubV2/MintingHub.sol";
+import "../MintingHubV3/Position.sol";
+import "../MintingHubV3/MintingHub.sol";
 import "../StablecoinBridge.sol";
-import "../MintingHubV2/interface/IPosition.sol";
+import "../MintingHubV3/interface/IPosition.sol";
 import "../interface/IReserve.sol";
 import "../interface/IDecentralizedEURO.sol";
 

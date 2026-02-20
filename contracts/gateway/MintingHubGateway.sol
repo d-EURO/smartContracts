@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {MintingHub} from "../MintingHubV2/MintingHub.sol";
+import {MintingHub} from "../MintingHubV3/MintingHub.sol";
 import {IFrontendGateway} from "./interface/IFrontendGateway.sol";
 import {IMintingHubGateway} from "./interface/IMintingHubGateway.sol";
 
