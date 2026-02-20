@@ -688,7 +688,8 @@ describe("Position Tests", () => {
         positionContract.notifyRepaid(0),
       ).to.be.revertedWithCustomError(positionContract, "NotHub");
     });
-    it("should revert cloning when it is expired", async () => async () => {
+    it("should revert cloning when it is expired", async () => {
+      const snapshotId = await ethers.provider.send('evm_snapshot', []);
       await evm_increaseTime(86400 * 61);
       let fInitialCollateralClone = floatToDec18(initialCollateralClone);
       fGlblZCHBalanceOfCloner = await dEURO.balanceOf(alice.address);
@@ -704,6 +705,7 @@ describe("Position Tests", () => {
             expiration,
           ),
       ).to.be.revertedWithCustomError(positionContract, "Expired");
+      await ethers.provider.send('evm_revert', [snapshotId]);
     });
     it("should revert reducing limit when there is a challenge", async () => {
       challengeAmount = initialCollateralClone / 2;

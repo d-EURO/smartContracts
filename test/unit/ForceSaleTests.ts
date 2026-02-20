@@ -117,7 +117,6 @@ describe("ForceSale Tests", () => {
     // PositionOpened
     const positionAddr = await getPositionAddressFromTX(tx);
     position = await ethers.getContractAt("Position", positionAddr);
-    getPositionAddressFromTX
   });
 
   describe("check position status", () => {

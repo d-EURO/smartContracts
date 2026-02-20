@@ -29,7 +29,7 @@ async function main() {
   const dEURO = await ethers.getContractAt('DecentralizedEURO', config.decentralizedEURO);
   const minFee = await dEURO.MIN_FEE();
   const minApplicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
-  const totalFee = minFee * 2n; // Two suggestMinter calls
+  const totalFee = minFee * 3n; // Three suggestMinter calls
 
   console.log(`\nOn-chain MIN_FEE: ${ethers.formatEther(minFee)} dEURO`);
   console.log(`On-chain MIN_APPLICATION_PERIOD: ${Number(minApplicationPeriod) / 86400} days (${minApplicationPeriod}s)`);
@@ -133,6 +133,16 @@ async function main() {
   }
   console.log(`    suggestMinter(MintingHub) submitted`);
 
+  // --- 7c. suggestMinter for PositionRoller ---
+  console.log('7/7c Registering PositionRoller as minter...');
+  const suggestRollerTx = await dEURO.suggestMinter(positionRollerAddress, minApplicationPeriod, minFee, 'PositionRoller');
+  console.log(`    suggestMinter(PositionRoller) tx: ${suggestRollerTx.hash}`);
+  const suggestRollerReceipt = await suggestRollerTx.wait();
+  if (!suggestRollerReceipt || suggestRollerReceipt.status !== 1) {
+    throw new Error('suggestMinter(PositionRoller) transaction failed');
+  }
+  console.log(`    suggestMinter(PositionRoller) submitted`);
+
   // --- Save deployment info ---
   const timestamp = Math.floor(Date.now() / 1000);
   const positionFactoryConstructorArgs: any[] = [];
@@ -176,6 +186,10 @@ async function main() {
         applicationPeriod: Number(minApplicationPeriod),
         fee: minFee.toString(),
       },
+      positionRoller: {
+        applicationPeriod: Number(minApplicationPeriod),
+        fee: minFee.toString(),
+      },
     },
     transactions: {
       positionFactoryDeploy: positionFactoryDeployTxHash,
@@ -186,6 +200,7 @@ async function main() {
       approve: approveTx.hash,
       suggestMinterSavings: suggestSavingsTx.hash,
       suggestMinterMintingHub: suggestMintingHubTx.hash,
+      suggestMinterPositionRoller: suggestRollerTx.hash,
     },
     timestamp,
   };
