@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Position} from "../MintingHubV2/Position.sol";
+import {Position} from "../MintingHubV3/Position.sol";
 import {MintingHubGateway} from "../gateway/MintingHubGateway.sol";
 import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
@@ -15,7 +15,7 @@ contract PositionExpirationTest {
     bytes32 public frontendCode;
 
     constructor(address hub_) {
-        hub = MintingHubGateway(hub_);
+        hub = MintingHubGateway(payable(hub_));
         col = new TestToken("Some Collateral", "COL", uint8(0));
         deuro = hub.DEURO();
     }
@@ -54,7 +54,7 @@ contract PositionExpirationTest {
                 200000
             );
         }
-        Position(pos).transferOwnership(owner);
+        Position(payable(pos)).transferOwnership(owner);
         return pos;
     }
 
@@ -63,10 +63,10 @@ contract PositionExpirationTest {
     }
 
     function forceBuy(address pos, uint256 amount) public {
-        uint256 price = hub.expiredPurchasePrice(Position(pos));
+        uint256 price = hub.expiredPurchasePrice(Position(payable(pos)));
         uint256 balanceBefore = deuro.balanceOf(address(this));
         uint256 colBalBefore = col.balanceOf(address(this));
-        amount = hub.buyExpiredCollateral(Position(pos), amount);
+        amount = hub.buyExpiredCollateral(Position(payable(pos)), amount);
         uint256 balanceAfter = deuro.balanceOf(address(this));
         uint256 colBalAfter = col.balanceOf(address(this));
         require(colBalAfter - colBalBefore == amount, "collateral amount");

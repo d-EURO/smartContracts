@@ -48,9 +48,9 @@ contract PositionFactory {
      * @return address of the newly created clone position
      */
     function clonePosition(address _parent) external returns (address) {
-        Position parent = Position(_parent);
+        Position parent = Position(payable(_parent));
         parent.assertCloneable();
-        Position clone = Position(_createClone(parent.original()));
+        Position clone = Position(payable(_createClone(parent.original())));
         return address(clone);
     }
 

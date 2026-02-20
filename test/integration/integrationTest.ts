@@ -18,9 +18,7 @@ import {
 import { mainnet } from '../../constants/addresses';
 import UNISWAP_V3_ROUTER from '../../constants/abi/UniswapV3Router.json';
 import UNISWAP_V3_FACTORY from '../../constants/abi/UniswapV3Factory.json';
-import { getContractAddress } from '../../scripts/utils/deployments'; // Flashbots deployment
-// import { getDeployedAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
-// TODO: Dynamically handle the deployment method or remove unused imports
+import { getContractAddress } from '../../scripts/utils/deployments';
 
 /**
  ******************************************************************************

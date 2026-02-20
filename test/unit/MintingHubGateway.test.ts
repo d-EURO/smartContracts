@@ -63,12 +63,16 @@ describe('Minting Tests', () => {
     const rollerFactory = await ethers.getContractFactory('PositionRoller');
     roller = await rollerFactory.deploy(dEURO.getAddress());
 
+    const wethFactory = await ethers.getContractFactory('TestWETH');
+    const weth = await wethFactory.deploy();
+
     const mintingHubFactory = await ethers.getContractFactory('MintingHubGateway');
     mintingHub = await mintingHubFactory.deploy(
       dEURO.getAddress(),
-      savings.getAddress(),
+      0n,
       roller.getAddress(),
       positionFactory.getAddress(),
+      weth.getAddress(),
       gateway.getAddress(),
     );
 
@@ -414,11 +418,11 @@ describe('Minting Tests', () => {
       expect(interest).to.be.equal(0);
     });
     it('deny challenge', async () => {
-      expect(positionContract.deny([], '')).to.be.emit(positionContract, 'PositionDenied');
+      await expect(positionContract.deny([], 'denied')).to.emit(positionContract, 'PositionDenied');
     });
     it('should revert denying challenge when challenge started', async () => {
       await evm_increaseTime(86400 * 8);
-      await expect(positionContract.deny([], '')).to.be.revertedWithCustomError(positionContract, 'TooLate');
+      await expect(positionContract.deny([], 'denied')).to.be.revertedWithCustomError(positionContract, 'TooLate');
     });
   });
   describe('challenge active', () => {
@@ -571,7 +575,7 @@ describe('Minting Tests', () => {
         mintingHub
           .connect(alice)
           .bid(challengeNumber, challenge.size * 2n, true),
-      ).to.be.emit(mintingHub, "PostponedReturn");
+      ).to.emit(mintingHub, "PostponedReturn");
     });
   });
   describe('challenge clone', () => {
@@ -686,7 +690,7 @@ describe('Minting Tests', () => {
       await dEURO.approve(await mintingHub.getAddress(), approvalAmount);
       await expect(
         mintingHub.bid(challengeNumber, floatToDec18(bidSize), false),
-      ).to.be.emit(mintingHub, "ChallengeSucceeded");
+      ).to.emit(mintingHub, "ChallengeSucceeded");
       expect(await mintingHub.price(challengeNumber)).to.be.equal(0);
     });
     it("bid on not existing challenge", async () => {

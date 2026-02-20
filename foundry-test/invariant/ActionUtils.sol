@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {Position} from "../../contracts/MintingHubV2/Position.sol";
+import {Position} from "../../contracts/MintingHubV3/Position.sol";
 import {TestToken} from "../../contracts/test/TestToken.sol";
 import {MintingHubGateway} from "../../contracts/gateway/MintingHubGateway.sol";
 

@@ -4,7 +4,7 @@ import * as path from 'path';
 import { mainnet } from '../../../constants/addresses';
 import ERC20_ABI from '../../../abi/@openzeppelin/contracts/token/ERC20/ERC20.sol/ERC20.json';
 import WETH9_ABI from '../../../constants/abi/Weth9.json';
-import { getDeployedAddress } from '../../../ignition/utils/addresses';
+import { ADDRESS } from '../../../exports/address.config';
 
 interface Config {
   openingFee: string;
@@ -27,6 +27,12 @@ interface Config {
 // Deploy positions
 async function main() {
   const [deployer] = await ethers.getSigners();
+  const network = await ethers.provider.getNetwork();
+  const chainId = Number(network.chainId);
+  const addresses = ADDRESS[chainId];
+  if (!addresses) {
+    throw new Error(`No addresses configured for chain ${chainId}`);
+  }
   console.log('Deploying positions with account:', deployer.address);
 
   // Get some WETH
@@ -39,22 +45,22 @@ async function main() {
   // Load config file
   const configPath = path.join(__dirname, '../config/positions.json');
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Config;
-  console.log('Using MintingHubGateway at:', getDeployedAddress('MintingHubGateway'));
+  console.log('Using MintingHubGateway at:', addresses.mintingHubGateway);
   console.log(`Found ${config.positions.length} position(s) to deploy`);
 
   // Get contracts
-  const dEuro = await ethers.getContractAt('DecentralizedEURO', getDeployedAddress('DecentralizedEURO'));
+  const dEuro = await ethers.getContractAt('DecentralizedEURO', addresses.decentralizedEURO);
   const dEuroConnected = dEuro.connect(deployer);
   const mintingHubGateway = await ethers.getContractAt(
     'MintingHubGateway',
-    getDeployedAddress('MintingHubGateway'),
+    addresses.mintingHubGateway,
   );
   const mintingHubGatewayConnected = mintingHubGateway.connect(deployer);
   const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
 
-  // Before proceding, check MintingHubGateway is deployed (sanity check)
-  if ((await ethers.provider.getCode(getDeployedAddress('MintingHubGateway'))) === '0x') {
-    throw new Error(`MintingHubGateway contract not deployed at address: ${getDeployedAddress('MintingHubGateway')}`);
+  // Before proceeding, check MintingHubGateway is deployed (sanity check)
+  if ((await ethers.provider.getCode(addresses.mintingHubGateway)) === '0x') {
+    throw new Error(`MintingHubGateway contract not deployed at address: ${addresses.mintingHubGateway}`);
   }
 
   // Deploy each position
@@ -76,8 +82,8 @@ async function main() {
 
     try {
       const collateralToken = await ethers.getContractAt(ERC20_ABI, position.collateralAddress);
-      await collateralToken.approve(getDeployedAddress('MintingHubGateway'), initialCollateral);
-      await dEuroConnected.approve(getDeployedAddress('MintingHubGateway'), openingFee);
+      await collateralToken.approve(addresses.mintingHubGateway, initialCollateral);
+      await dEuroConnected.approve(addresses.mintingHubGateway, openingFee);
 
       // Open position
       const tx = await mintingHubGateway[
@@ -125,7 +131,6 @@ async function main() {
  * > npx hardhat node --no-deploy
  * > npm run deploy -- --network localhost
  * > npx hardhat run scripts/deployment/deploy/deployPositions.ts --network localhost
- * You may need to delete the ignition deployment artifacts to avoid errors.
  */
 main().catch((error) => {
   console.error(error);

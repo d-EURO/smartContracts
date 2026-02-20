@@ -7,9 +7,9 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
       {
-        internalType: 'address',
-        name: '_leadrate',
-        type: 'address',
+        internalType: 'uint24',
+        name: '_initialRatePPM',
+        type: 'uint24',
       },
       {
         internalType: 'address',
@@ -19,6 +19,11 @@ export const MintingHubGatewayABI = [
       {
         internalType: 'address',
         name: '_factory',
+        type: 'address',
+      },
+      {
+        internalType: 'address',
+        name: '_weth',
         type: 'address',
       },
       {
@@ -33,6 +38,11 @@ export const MintingHubGatewayABI = [
   {
     inputs: [],
     name: 'ChallengeTimeTooShort',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'ChangeNotReady',
     type: 'error',
   },
   {
@@ -83,7 +93,27 @@ export const MintingHubGatewayABI = [
   },
   {
     inputs: [],
+    name: 'NativeOnlyForWETH',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'NativeTransferFailed',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'NoPendingChange',
+    type: 'error',
+  },
+  {
+    inputs: [],
     name: 'UnexpectedPrice',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'ValueMismatch',
     type: 'error',
   },
   {
@@ -210,6 +240,31 @@ export const MintingHubGatewayABI = [
       {
         indexed: true,
         internalType: 'address',
+        name: 'position',
+        type: 'address',
+      },
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'denier',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'string',
+        name: 'message',
+        type: 'string',
+      },
+    ],
+    name: 'PositionDeniedByGovernance',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: 'address',
         name: 'owner',
         type: 'address',
       },
@@ -239,6 +294,37 @@ export const MintingHubGatewayABI = [
     anonymous: false,
     inputs: [
       {
+        indexed: true,
+        internalType: 'address',
+        name: 'position',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'collateral',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'price',
+        type: 'uint256',
+      },
+      {
+        indexed: false,
+        internalType: 'uint256',
+        name: 'principal',
+        type: 'uint256',
+      },
+    ],
+    name: 'PositionUpdate',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
         indexed: false,
         internalType: 'address',
         name: 'collateral',
@@ -258,6 +344,44 @@ export const MintingHubGatewayABI = [
       },
     ],
     name: 'PostponedReturn',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'uint24',
+        name: 'newRate',
+        type: 'uint24',
+      },
+    ],
+    name: 'RateChanged',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: false,
+        internalType: 'address',
+        name: 'who',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'uint24',
+        name: 'nextRate',
+        type: 'uint24',
+      },
+      {
+        indexed: false,
+        internalType: 'uint40',
+        name: 'nextChange',
+        type: 'uint40',
+      },
+    ],
+    name: 'RateProposed',
     type: 'event',
   },
   {
@@ -352,6 +476,26 @@ export const MintingHubGatewayABI = [
     type: 'function',
   },
   {
+    inputs: [],
+    name: 'WETH',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'applyChange',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
     inputs: [
       {
         internalType: 'uint32',
@@ -377,6 +521,34 @@ export const MintingHubGatewayABI = [
   {
     inputs: [
       {
+        internalType: 'uint32',
+        name: '_challengeNumber',
+        type: 'uint32',
+      },
+      {
+        internalType: 'uint256',
+        name: 'size',
+        type: 'uint256',
+      },
+      {
+        internalType: 'bool',
+        name: 'postponeCollateralReturn',
+        type: 'bool',
+      },
+      {
+        internalType: 'bool',
+        name: 'returnAsNative',
+        type: 'bool',
+      },
+    ],
+    name: 'bid',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
         internalType: 'contract IPosition',
         name: 'pos',
         type: 'address',
@@ -385,6 +557,35 @@ export const MintingHubGatewayABI = [
         internalType: 'uint256',
         name: 'upToAmount',
         type: 'uint256',
+      },
+    ],
+    name: 'buyExpiredCollateral',
+    outputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+    ],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'contract IPosition',
+        name: 'pos',
+        type: 'address',
+      },
+      {
+        internalType: 'uint256',
+        name: 'upToAmount',
+        type: 'uint256',
+      },
+      {
+        internalType: 'bool',
+        name: 'receiveAsNative',
+        type: 'bool',
       },
     ],
     name: 'buyExpiredCollateral',
@@ -424,7 +625,7 @@ export const MintingHubGatewayABI = [
         type: 'uint256',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -492,7 +693,7 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -531,7 +732,7 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -575,7 +776,7 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -614,7 +815,180 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
     ],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'owner',
+        type: 'address',
+      },
+      {
+        internalType: 'address',
+        name: 'parent',
+        type: 'address',
+      },
+      {
+        internalType: 'uint256',
+        name: '_initialCollateral',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '_initialMint',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint40',
+        name: 'expiration',
+        type: 'uint40',
+      },
+      {
+        internalType: 'uint256',
+        name: '_liqPrice',
+        type: 'uint256',
+      },
+    ],
+    name: 'clone',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'owner',
+        type: 'address',
+      },
+      {
+        internalType: 'address',
+        name: 'parent',
+        type: 'address',
+      },
+      {
+        internalType: 'uint256',
+        name: '_initialCollateral',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '_initialMint',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint40',
+        name: 'expiration',
+        type: 'uint40',
+      },
+      {
+        internalType: 'uint256',
+        name: '_liqPrice',
+        type: 'uint256',
+      },
+      {
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
+      },
+    ],
+    name: 'clone',
+    outputs: [
+      {
+        internalType: 'address',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'payable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'currentRatePPM',
+    outputs: [
+      {
+        internalType: 'uint24',
+        name: '',
+        type: 'uint24',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'currentTicks',
+    outputs: [
+      {
+        internalType: 'uint64',
+        name: '',
+        type: 'uint64',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'denier',
+        type: 'address',
+      },
+      {
+        internalType: 'string',
+        name: 'message',
+        type: 'string',
+      },
+    ],
+    name: 'emitPositionDenied',
+    outputs: [],
     stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: '_collateral',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '_price',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '_principal',
+        type: 'uint256',
+      },
+    ],
+    name: 'emitPositionUpdate',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'equity',
+    outputs: [
+      {
+        internalType: 'contract IReserve',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
     type: 'function',
   },
   {
@@ -631,6 +1005,32 @@ export const MintingHubGatewayABI = [
         internalType: 'uint256',
         name: '',
         type: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'nextChange',
+    outputs: [
+      {
+        internalType: 'uint40',
+        name: '',
+        type: 'uint40',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'nextRatePPM',
+    outputs: [
+      {
+        internalType: 'uint24',
+        name: '',
+        type: 'uint24',
       },
     ],
     stateMutability: 'view',
@@ -710,7 +1110,7 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -779,7 +1179,7 @@ export const MintingHubGatewayABI = [
         type: 'address',
       },
     ],
-    stateMutability: 'nonpayable',
+    stateMutability: 'payable',
     type: 'function',
   },
   {
@@ -828,6 +1228,47 @@ export const MintingHubGatewayABI = [
   {
     inputs: [
       {
+        internalType: 'uint24',
+        name: 'newRatePPM_',
+        type: 'uint24',
+      },
+      {
+        internalType: 'address[]',
+        name: 'helpers',
+        type: 'address[]',
+      },
+    ],
+    name: 'proposeChange',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'collateral',
+        type: 'address',
+      },
+      {
+        internalType: 'address',
+        name: 'target',
+        type: 'address',
+      },
+      {
+        internalType: 'bool',
+        name: 'asNative',
+        type: 'bool',
+      },
+    ],
+    name: 'returnPostponedCollateral',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
         internalType: 'address',
         name: 'collateral',
         type: 'address',
@@ -861,5 +1302,28 @@ export const MintingHubGatewayABI = [
     ],
     stateMutability: 'view',
     type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: 'timestamp',
+        type: 'uint256',
+      },
+    ],
+    name: 'ticks',
+    outputs: [
+      {
+        internalType: 'uint64',
+        name: '',
+        type: 'uint64',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    stateMutability: 'payable',
+    type: 'receive',
   },
 ] as const;

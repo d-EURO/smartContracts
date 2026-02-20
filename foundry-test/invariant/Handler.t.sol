@@ -3,8 +3,8 @@ pragma solidity ^0.8.10;
 
 import {Environment} from "./Environment.t.sol";
 import {ActionUtils} from "./ActionUtils.sol";
-import {Position} from "../../contracts/MintingHubV2/Position.sol";
-import {MintingHub} from "../../contracts/MintingHubV2/MintingHub.sol";
+import {Position} from "../../contracts/MintingHubV3/Position.sol";
+import {MintingHub} from "../../contracts/MintingHubV3/MintingHub.sol";
 import {TestHelper} from "../TestHelper.sol";
 import {StatsCollector} from "../StatsCollector.sol";
 import {stdToml} from "forge-std/StdToml.sol";
