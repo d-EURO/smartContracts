@@ -112,7 +112,6 @@ contract StablecoinBridge {
     function emergencyStop(address[] calldata _helpers, string calldata _message) external {
         if (stopped) revert AlreadyStopped();
         IReserve reserve = dEURO.reserve();
-        if (address(reserve) == address(0)) revert NoGovernance();
         uint256 total = reserve.totalVotes();
         if (total == 0) revert NoGovernance();
         uint256 votes = reserve.votesDelegated(msg.sender, _helpers);

@@ -47,11 +47,6 @@ export const MintingHubGatewayABI = [
   },
   {
     inputs: [],
-    name: 'EmptyMessage',
-    type: 'error',
-  },
-  {
-    inputs: [],
     name: 'IncompatibleCollateral',
     type: 'error',
   },
@@ -94,22 +89,6 @@ export const MintingHubGatewayABI = [
       },
     ],
     name: 'LeaveNoDust',
-    type: 'error',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: 'length',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'maxLength',
-        type: 'uint256',
-      },
-    ],
-    name: 'MessageTooLong',
     type: 'error',
   },
   {

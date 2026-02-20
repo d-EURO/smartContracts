@@ -412,4 +412,36 @@ describe("Savings Tests", () => {
       });
     });
   });
+
+  describe("Leadrate ticks accumulation (uint64 cast)", () => {
+    const SEVEN_DAYS = 7 * 86_400;
+
+    const setRate = async (ratePPM: number) => {
+      await mintingHub.proposeChange(ratePPM, []);
+      await evm_increaseTime(SEVEN_DAYS + 60);
+      await mintingHub.applyChange();
+    };
+
+    it("applyChange should not overflow after 130+ days at 100k PPM rate", async () => {
+      await setRate(100_000);
+      const ticksAfterSet = await mintingHub.currentTicks();
+
+      await evm_increaseTime(130 * 86_400);
+
+      await mintingHub.proposeChange(50_000, []);
+      await evm_increaseTime(SEVEN_DAYS + 60);
+
+      // ~137 days * 86400 * 100000 = 1,183,680,000,000 > uint40.max — would revert without uint64 cast
+      await mintingHub.applyChange();
+
+      const ticksAfterApply = await mintingHub.currentTicks();
+      expect(ticksAfterApply).to.be.gt(ticksAfterSet);
+
+      const gapSeconds = BigInt(130 * 86_400 + SEVEN_DAYS + 60);
+      const expectedDelta = gapSeconds * 100_000n;
+      const ticksDelta = ticksAfterApply - ticksAfterSet;
+      expect(ticksDelta).to.be.approximately(expectedDelta, 100_000n * 5n);
+    });
+
+  });
 });
