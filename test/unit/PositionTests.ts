@@ -2170,6 +2170,72 @@ describe("Position Tests", () => {
     });
   });
 
+  // _finishChallenge() calls notifyChallengeSucceeded() which zeros challengedAmount and
+  // reduces debt BEFORE _calculateOffer() re-queries challengeData(). With challengedAmount
+  // == 0, _virtualPrice() falls through to a debt-based price (now reduced), collapsing to
+  // the floor price. The bidder pays less; the shortfall is absorbed via coverLoss().
+  //
+  // Without the fix in _finishChallenge(), this test fails — proving the bug exists.
+  describe("Liquidation price collapse bug", () => {
+    it("should use pre-mutation price for the liquidation offer", async () => {
+      const collateral = await mockVOL.getAddress();
+      const fliqPrice = floatToDec18(5000);
+      const minCol = floatToDec18(1);
+      const fInitCol = floatToDec18(10);
+      const duration = 2n * 365n * 86_400n;
+      const riskPremiumPPM = 100_000n;
+      const reservePPM = 100_000n;
+      const challengePeriod = 3n * 86_400n;
+
+      await mockVOL.mint(owner.address, fInitCol);
+      await mockVOL.approve(await mintingHub.getAddress(), fInitCol);
+      await dEURO.approve(await mintingHub.getAddress(), await mintingHub.OPENING_FEE());
+      const openTx = await mintingHub.openPosition(
+        collateral, minCol, fInitCol, initialLimit,
+        7n * 86_400n, duration, challengePeriod,
+        riskPremiumPPM, fliqPrice, reservePPM,
+      );
+      const posAddr = await getPositionAddressFromTX(openTx);
+      const pos = await ethers.getContractAt("Position", posAddr);
+
+      await evm_increaseTimeTo(await pos.start());
+      await pos.mint(owner.address, floatToDec18(49_000));
+
+      // 365 days of interest pushes virtualPrice above the floor
+      await evm_increaseTime(365n * 86_400n);
+      expect(await pos.virtualPrice()).to.be.gt(fliqPrice);
+
+      // Bob challenges full collateral
+      const chalCol = fInitCol;
+      await mockVOL.mint(bob.address, chalCol);
+      await mockVOL.connect(bob).approve(await mintingHub.getAddress(), chalCol);
+      const chalTx = await mintingHub.connect(bob).challenge(posAddr, chalCol, await pos.price());
+      const chalRc = await chalTx.wait();
+      const chalLog = chalRc?.logs
+        .map((log) => { try { return mintingHub.interface.parseLog(log); } catch { return null; } })
+        .find((parsed) => parsed?.name === "ChallengeStarted");
+      const chalNumber = Number(chalLog!.args.number);
+
+      // Into phase 2
+      await evm_increaseTime(challengePeriod);
+
+      // Expected price read while challengedAmount > 0 (correct locked price)
+      const expectedPrice = await mintingHub.price(chalNumber);
+      const expectedOffer = (expectedPrice * chalCol) / DECIMALS;
+      expect(expectedOffer).to.be.gt(0n);
+
+      // Alice bids
+      await dEURO.transfer(alice.address, floatToDec18(60_000));
+      await dEURO.connect(alice).approve(await mintingHub.getAddress(), floatToDec18(60_000));
+      const balBefore = await dEURO.balanceOf(alice.address);
+      await mintingHub.connect(alice).bid(chalNumber, chalCol, false);
+      const actualOffer = balBefore - (await dEURO.balanceOf(alice.address));
+
+      // approximately: small difference from 1-block time decay in phase 2 auction
+      expect(actualOffer).to.be.approximately(expectedOffer, floatToDec18(1));
+    });
+  });
+
   describe("Interest overcollateralization", () => {
     let positionAddr: string;
     let positionContract: Position;

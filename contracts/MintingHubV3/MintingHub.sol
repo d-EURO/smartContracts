@@ -304,6 +304,8 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         uint256 size,
         bool asNative
     ) internal returns (uint256, uint256) {
+        uint256 unitPrice = _challengeUnitPrice(_challenge);
+
         // Repayments depend on what was actually minted, whereas bids depend on the available collateral
         (address owner, uint256 collateral, uint256 repayment, uint256 interest, uint32 reservePPM) = _challenge
             .position
@@ -311,7 +313,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
 
         // No overflow possible thanks to invariant (col * price <= limit * 10**18)
         // enforced in Position.setPrice and knowing that collateral <= col.
-        uint256 offer = _calculateOffer(_challenge, collateral);
+        uint256 offer = (unitPrice * collateral) / 10 ** 18;
 
         DEURO.transferFrom(msg.sender, address(this), offer); // get money from bidder
         uint256 reward = (offer * CHALLENGER_REWARD) / 1_000_000;
@@ -399,12 +401,12 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
     }
 
     /**
-     * @notice Calculates the offer amount for the given challenge.
-     * @dev The offer is calculated as the current price times the collateral amount.
+     * @notice Returns the current unit price for the given challenge's collateral.
+     * @dev Must be called before notifyChallengeSucceeded(), which mutates challengedAmount and debt.
      */
-    function _calculateOffer(Challenge memory _challenge, uint256 collateral) internal view returns (uint256) {
+    function _challengeUnitPrice(Challenge memory _challenge) internal view returns (uint256) {
         (uint256 liqPrice, uint40 phase) = _challenge.position.challengeData();
-        return (_calculatePrice(_challenge.start + phase, phase, liqPrice) * collateral) / 10 ** 18;
+        return _calculatePrice(_challenge.start + phase, phase, liqPrice);
     }
 
     /**
