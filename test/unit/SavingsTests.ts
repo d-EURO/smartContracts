@@ -103,10 +103,10 @@ describe("Savings Tests", () => {
       expect(r.saved).to.be.approximately(amount, 10**12);
     });
 
-    it("multi save", async () => {
-      await savings["save(uint192)"](amount);
-      await savings["save(uint192)"](amount); // @dev: will collect interest
-      await savings["save(uint192)"](amount); // @dev: will collect interest
+    it("multi save with compound", async () => {
+      await savings["saveAndCompound(uint192)"](amount);
+      await savings["saveAndCompound(uint192)"](amount); // @dev: will collect interest
+      await savings["saveAndCompound(uint192)"](amount); // @dev: will collect interest
       const r = await savings.savings(owner.address);
       expect(r.saved).to.be.greaterThanOrEqual(amount * 3n);
       expect(r.saved * 10n).to.be.lessThan(amount * 31n);
@@ -130,7 +130,7 @@ describe("Savings Tests", () => {
     it("any interests after 365days", async () => {
       const i0 = await deuro.balanceOf(owner.address);
       const amount = floatToDec18(10_000);
-      await savings["save(uint192)"](amount);
+      await savings["saveAndCompound(uint192)"](amount);
       await evm_increaseTime(365 * 86_400);
       await savings.withdraw(owner.address, 2n * amount); // as much as possible, 2x amount is enough
       /* \__ Will cause an Error, if not registered as minter. __/
