@@ -19,11 +19,15 @@ contract SavingsGateway is Savings, Context {
         if (ticks > account.ticks) {
             uint192 earnedInterest = calculateInterest(account, ticks);
             if (earnedInterest > 0) {
-                // collect interest as you go and trigger accounting event
                 (IDecentralizedEURO(address(deuro))).distributeProfits(address(this), earnedInterest);
-                account.saved += earnedInterest;
+                bool compounded = !nonCompounding[accountOwner];
+                if (compounded) {
+                    account.saved += earnedInterest;
+                } else {
+                    claimableInterest[accountOwner] += earnedInterest;
+                }
                 GATEWAY.updateSavingRewards(accountOwner, earnedInterest);
-                emit InterestCollected(accountOwner, earnedInterest);
+                emit InterestCollected(accountOwner, earnedInterest, compounded);
             }
             account.ticks = ticks;
         }
