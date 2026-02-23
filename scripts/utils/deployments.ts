@@ -1,8 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
-import { DeploymentAddresses } from '../monitoring/types';
-
 dotenv.config();
 
 export interface DeploymentData {
@@ -56,14 +54,3 @@ export function getFullDeployment(): DeploymentData {
   return loadFileJSON(process.env.FLASHBOTS_DEPLOYMENT_PATH);
 }
 
-export function getDeploymentAddresses(): DeploymentAddresses {
-  if (!process.env.FLASHBOTS_DEPLOYMENT_PATH) {
-    throw new Error('FLASHBOTS_DEPLOYMENT_PATH environment variable not set');
-  }
-
-  const deployment = getFullDeployment();
-  return {
-    deployer: deployment.deployer,
-    ...Object.fromEntries(Object.entries(deployment.contracts).map(([name, data]) => [name, data.address])),
-  } as DeploymentAddresses;
-}
