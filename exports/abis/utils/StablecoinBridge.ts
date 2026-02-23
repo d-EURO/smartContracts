@@ -26,6 +26,11 @@ export const StablecoinBridgeABI = [
     type: 'constructor',
   },
   {
+    inputs: [],
+    name: 'AlreadyStopped',
+    type: 'error',
+  },
+  {
     inputs: [
       {
         internalType: 'uint256',
@@ -58,6 +63,16 @@ export const StablecoinBridgeABI = [
     type: 'error',
   },
   {
+    inputs: [],
+    name: 'NoGovernance',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'NotQualified',
+    type: 'error',
+  },
+  {
     inputs: [
       {
         internalType: 'address',
@@ -66,6 +81,11 @@ export const StablecoinBridgeABI = [
       },
     ],
     name: 'SafeERC20FailedOperation',
+    type: 'error',
+  },
+  {
+    inputs: [],
+    name: 'Stopped',
     type: 'error',
   },
   {
@@ -78,6 +98,25 @@ export const StablecoinBridgeABI = [
     ],
     name: 'UnsupportedToken',
     type: 'error',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: 'address',
+        name: 'caller',
+        type: 'address',
+      },
+      {
+        indexed: false,
+        internalType: 'string',
+        name: 'message',
+        type: 'string',
+      },
+    ],
+    name: 'EmergencyStopped',
+    type: 'event',
   },
   {
     inputs: [
@@ -121,6 +160,24 @@ export const StablecoinBridgeABI = [
       },
     ],
     stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address[]',
+        name: '_helpers',
+        type: 'address[]',
+      },
+      {
+        internalType: 'string',
+        name: '_message',
+        type: 'string',
+      },
+    ],
+    name: 'emergencyStop',
+    outputs: [],
+    stateMutability: 'nonpayable',
     type: 'function',
   },
   {
@@ -201,6 +258,19 @@ export const StablecoinBridgeABI = [
         internalType: 'uint256',
         name: '',
         type: 'uint256',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'stopped',
+    outputs: [
+      {
+        internalType: 'bool',
+        name: '',
+        type: 'bool',
       },
     ],
     stateMutability: 'view',

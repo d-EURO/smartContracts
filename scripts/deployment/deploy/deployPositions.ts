@@ -1,7 +1,6 @@
 import { ethers } from 'hardhat';
 import { config } from '../config/positionsConfig';
-import { getContractAddress } from '../../utils/deployments'; // Flashbots deployment
-// import { await getFlashbotDeploymentAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
+import { getContractAddress } from '../../utils/deployments';
 import fs from 'fs';
 import path from 'path';
 
@@ -183,7 +182,6 @@ async function main() {
  * > npx hardhat node --no-deploy
  * > npm run deploy -- --network localhost
  * > npx hardhat run scripts/deployment/deploy/deployPositions.ts --network localhost
- * You may need to delete the ignition deployment artifacts to avoid errors.
  */
 main().catch((error) => {
   console.error(error);

@@ -7,6 +7,7 @@ import {IReserve} from "../interface/IReserve.sol";
 import {MathUtil} from "../utils/MathUtil.sol";
 import {IMintingHub} from "./interface/IMintingHub.sol";
 import {IPosition} from "./interface/IPosition.sol";
+import {IWrappedNative} from "../interface/IWrappedNative.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -20,6 +21,8 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice Note that this contract is intended to be cloned. All clones will share the same values for
      * the constant and immutable fields, but have their own values for the other fields.
      */
+
+    uint256 private constant MAX_MESSAGE_LENGTH = 500;
 
     /**
      * @notice The deuro price per unit of the collateral below which challenges succeed, (36 - collateral.decimals) decimals
@@ -70,7 +73,7 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice The original position to help identify clones.
      */
-    address public immutable original;
+    address payable public immutable original;
 
     /**
      * @notice Pointer to the minting hub.
@@ -139,7 +142,13 @@ contract Position is Ownable, IPosition, MathUtil {
     error NotOriginal();
     error InvalidExpiration();
     error AlreadyInitialized();
+    error MessageTooLong(uint256 length, uint256 maxLength);
+    error EmptyMessage();
     error PriceTooHigh(uint256 newPrice, uint256 maxPrice);
+    error CannotRescueCollateral();
+    error InvalidPriceReference();
+    error NativeTransferFailed();
+    error NativeOnlyForWETH();
 
     modifier alive() {
         if (block.timestamp >= expiration) revert Expired(uint40(block.timestamp), expiration);
@@ -196,7 +205,7 @@ contract Position is Ownable, IPosition, MathUtil {
         uint256 _liqPrice,
         uint24 _reservePPM
     ) Ownable(_owner) {
-        original = address(this);
+        original = payable(address(this));
         hub = _hub;
         deuro = IDecentralizedEURO(_deuro);
         collateral = IERC20(_collateral);
@@ -220,8 +229,8 @@ contract Position is Ownable, IPosition, MathUtil {
         if (expiration != 0) revert AlreadyInitialized();
         if (_expiration < block.timestamp || _expiration > Position(original).expiration()) revert InvalidExpiration(); // expiration must not be later than original
         expiration = _expiration;
-        price = Position(parent).price();
-        _fixRateToLeadrate(Position(parent).riskPremiumPPM());
+        price = Position(payable(parent)).price();
+        _fixRateToLeadrate(Position(payable(parent)).riskPremiumPPM());
         _transferOwnership(hub);
     }
 
@@ -278,7 +287,7 @@ contract Position is Ownable, IPosition, MathUtil {
         if (block.timestamp >= start) revert TooLate();
         IReserve(deuro.reserve()).checkQualified(msg.sender, helpers);
         _close();
-        emit PositionDenied(msg.sender, message);
+        _emitDenied(msg.sender, message);
     }
 
     /**
@@ -291,6 +300,19 @@ contract Position is Ownable, IPosition, MathUtil {
 
     function isClosed() public view returns (bool) {
         return closed;
+    }
+
+    function _emitUpdate(uint256 _collateral, uint256 _price, uint256 _principal) internal {
+        emit MintingUpdate(_collateral, _price, _principal);
+        IMintingHub(hub).emitPositionUpdate(_collateral, _price, _principal);
+    }
+
+    function _emitDenied(address denier, string calldata message) internal {
+        uint256 messageLength = bytes(message).length;
+        if (messageLength == 0) revert EmptyMessage();
+        if (messageLength > MAX_MESSAGE_LENGTH) revert MessageTooLong(messageLength, MAX_MESSAGE_LENGTH);
+        emit PositionDenied(denier, message);
+        IMintingHub(hub).emitPositionDenied(denier, message);
     }
 
     /**
@@ -313,6 +335,48 @@ contract Position is Ownable, IPosition, MathUtil {
      * and the price in one transaction.
      */
     function adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice) external onlyOwner {
+        _adjustPosition(newPrincipal, newCollateral, newPrice, false, address(0));
+    }
+
+    function adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative) external payable onlyOwner {
+        _adjustPosition(newPrincipal, newCollateral, newPrice, withdrawAsNative, address(0));
+    }
+
+    /**
+     * @notice Allows the position owner to adjust the liquidation price as long as there is no pending challenge.
+     * Lowering the liquidation price can be done with immediate effect, given that there is enough collateral.
+     * Increasing the liquidation price triggers a cooldown period of 3 days, during which minting is suspended.
+     */
+    function adjustPrice(uint256 newPrice) public onlyOwner {
+        _adjustPrice(newPrice, address(0));
+        _emitUpdate(_collateralBalance(), price, principal);
+    }
+
+    /**
+     * @notice Adjust the liquidation price using a reference position to skip the 3-day cooldown.
+     * The reference must satisfy all validity checks (same hub, same collateral, meaningful principal, etc.).
+     */
+    function adjustPriceWithReference(uint256 newPrice, address referencePosition) external onlyOwner {
+        _adjustPrice(newPrice, referencePosition);
+        _emitUpdate(_collateralBalance(), price, principal);
+    }
+
+    /**
+     * @notice "All in one" function with reference position support.
+     */
+    function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition) external onlyOwner {
+        _adjustPosition(newPrincipal, newCollateral, newPrice, false, referencePosition);
+    }
+
+    function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition, bool withdrawAsNative) external payable onlyOwner {
+        _adjustPosition(newPrincipal, newCollateral, newPrice, withdrawAsNative, referencePosition);
+    }
+
+    function _adjustPosition(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative, address referencePosition) internal {
+        if (msg.value > 0) {
+            if (address(collateral) != IMintingHub(hub).WETH()) revert NativeOnlyForWETH();
+            IWrappedNative(address(collateral)).deposit{value: msg.value}();
+        }
         uint256 colbal = _collateralBalance();
         if (newCollateral > colbal) {
             collateral.transferFrom(msg.sender, address(this), newCollateral - colbal);
@@ -323,35 +387,70 @@ contract Position is Ownable, IPosition, MathUtil {
             _payDownDebt(debt - newPrincipal);
         }
         if (newCollateral < colbal) {
-            _withdrawCollateral(msg.sender, colbal - newCollateral);
+            if (withdrawAsNative) {
+                _withdrawCollateralAsNative(msg.sender, colbal - newCollateral);
+            } else {
+                _withdrawCollateral(msg.sender, colbal - newCollateral);
+            }
         }
         // Must be called after collateral withdrawal
         if (newPrincipal > principal) {
             _mint(msg.sender, newPrincipal - principal, newCollateral);
         }
         if (newPrice != price) {
-            _adjustPrice(newPrice);
+            _adjustPrice(newPrice, referencePosition);
         }
-        emit MintingUpdate(newCollateral, newPrice, newPrincipal);
+        _emitUpdate(newCollateral, newPrice, newPrincipal);
     }
 
-    /**
-     * @notice Allows the position owner to adjust the liquidation price as long as there is no pending challenge.
-     * Lowering the liquidation price can be done with immediate effect, given that there is enough collateral.
-     * Increasing the liquidation price triggers a cooldown period of 3 days, during which minting is suspended.
-     */
-    function adjustPrice(uint256 newPrice) public onlyOwner {
-        _adjustPrice(newPrice);
-        emit MintingUpdate(_collateralBalance(), price, principal);
-    }
-
-    function _adjustPrice(uint256 newPrice) internal noChallenge alive backed noCooldown {
+    function _adjustPrice(uint256 newPrice, address referencePosition) internal noChallenge alive backed {
         if (newPrice > price) {
-            _restrictMinting(3 days);
+            if (block.timestamp <= cooldown) revert Hot();
+            if (referencePosition == address(0)) {
+                _restrictMinting(3 days);
+            } else if (!_isValidPriceReference(referencePosition, newPrice)) {
+                revert InvalidPriceReference();
+            }
         } else {
             _checkCollateral(_collateralBalance(), newPrice);
         }
         _setPrice(newPrice, principal + availableForMinting());
+    }
+
+    /**
+     * @notice Checks whether a reference position is valid for skipping the cooldown on a price increase.
+     */
+    function isValidPriceReference(address referencePosition, uint256 newPrice) external view returns (bool) {
+        return _isValidPriceReference(referencePosition, newPrice);
+    }
+
+    function _isValidPriceReference(address referencePosition, uint256 newPrice) internal view returns (bool) {
+        // 1. Reference is a registered position created by the same hub
+        if (deuro.getPositionParent(referencePosition) != hub) return false;
+        IPosition ref = IPosition(referencePosition);
+        // 2. Reference is not this position itself
+        if (referencePosition == address(this)) return false;
+        // 3. Same collateral token
+        if (address(ref.collateral()) != address(collateral)) return false;
+        // 4. Reference not in cooldown
+        if (block.timestamp <= ref.cooldown()) return false;
+        // 5. Reference not expired
+        if (block.timestamp >= ref.expiration()) return false;
+        // 6. Reference not challenged
+        if (ref.challengedAmount() > 0) return false;
+        // 7. Reference not closed
+        if (ref.isClosed()) return false;
+        // 8. newPrice <= reference price
+        if (newPrice > ref.price()) return false;
+        // 9. Reference principal > 0
+        if (ref.principal() == 0) return false;
+        // 10. Reference principal >= 1000 dEURO (meaningful skin-in-the-game)
+        if (ref.principal() < 1000 * 10 ** 18) return false;
+        // 11. Reference has been out of cooldown for >= challengePeriod
+        if (ref.cooldown() + ref.challengePeriod() > block.timestamp) return false;
+        // 12. Reference has meaningful remaining life (can still be challenged)
+        if (ref.expiration() <= block.timestamp + ref.challengePeriod()) return false;
+        return true;
     }
 
     function _setPrice(uint256 newPrice, uint256 bounds) internal {
@@ -376,7 +475,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function mint(address target, uint256 amount) public ownerOrRoller {
         uint256 collateralBalance = _collateralBalance();
         _mint(target, amount, collateralBalance);
-        emit MintingUpdate(collateralBalance, price, principal);
+        _emitUpdate(collateralBalance, price, principal);
     }
 
     /**
@@ -436,7 +535,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
         if (timestamp > lastAccrual && principal > 0) {
             uint256 delta = timestamp - lastAccrual;
-            newInterest += (principal * fixedAnnualRatePPM * delta) / (365 days * 1_000_000);
+            newInterest += (principal * (1_000_000 - reserveContribution) * fixedAnnualRatePPM * delta) / (365 days * 1_000_000 * 1_000_000);
         }
 
         return newInterest;
@@ -527,7 +626,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function repay(uint256 amount) public returns (uint256) {
         uint256 used = _payDownDebt(amount);
-        emit MintingUpdate(_collateralBalance(), price, principal);
+        _emitUpdate(_collateralBalance(), price, principal);
         return used;
     }
 
@@ -584,7 +683,7 @@ contract Position is Ownable, IPosition, MathUtil {
             if (proceeds > 0) {
                 deuro.transferFrom(buyer, owner(), proceeds);
             }
-            emit MintingUpdate(_collateralBalance(), price, principal);
+            _emitUpdate(_collateralBalance(), price, principal);
             return;
         }
 
@@ -607,21 +706,18 @@ contract Position is Ownable, IPosition, MathUtil {
             deuro.transferFrom(buyer, owner(), proceeds);
         }
 
-        emit MintingUpdate(_collateralBalance(), price, principal);
+        _emitUpdate(_collateralBalance(), price, principal);
     }
 
     /**
-     * @notice Withdraw any ERC20 token that might have ended up on this address.
-     * Withdrawing collateral is subject to the same restrictions as withdrawCollateral(...).
+     * @notice Rescue any ERC20 token that might have ended up on this address accidentally.
+     * Cannot be used to withdraw collateral — use withdrawCollateral(...) for that.
      */
-    function withdraw(address token, address target, uint256 amount) external onlyOwner {
-        if (token == address(collateral)) {
-            withdrawCollateral(target, amount);
-        } else {
-            uint256 balance = _collateralBalance();
-            IERC20(token).transfer(target, amount);
-            require(balance == _collateralBalance()); // guard against double-entry-point tokens
-        }
+    function rescueToken(address token, address target, uint256 amount) external onlyOwner {
+        if (token == address(collateral)) revert CannotRescueCollateral();
+        uint256 balance = _collateralBalance();
+        IERC20(token).transfer(target, amount);
+        require(balance == _collateralBalance()); // guard against double-entry-point tokens
     }
 
     /**
@@ -632,7 +728,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     function withdrawCollateral(address target, uint256 amount) public ownerOrRoller {
         uint256 balance = _withdrawCollateral(target, amount);
-        emit MintingUpdate(balance, price, principal);
+        _emitUpdate(balance, price, principal);
     }
 
     function _withdrawCollateral(address target, uint256 amount) internal noCooldown noChallenge returns (uint256) {
@@ -642,11 +738,31 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
+     * @notice Withdraw collateral as native coin (unwraps WETH to ETH).
+     */
+    function withdrawCollateralAsNative(address target, uint256 amount) public onlyOwner {
+        uint256 balance = _withdrawCollateralAsNative(target, amount);
+        _emitUpdate(balance, price, principal);
+    }
+
+    function _withdrawCollateralAsNative(address target, uint256 amount) internal noCooldown noChallenge returns (uint256) {
+        if (amount > 0) {
+            IWrappedNative(address(collateral)).withdraw(amount);
+            (bool success, ) = target.call{value: amount}("");
+            if (!success) revert NativeTransferFailed();
+        }
+        uint256 balance = _collateralBalance();
+        if (balance < minimumCollateral) _close();
+        _checkCollateral(balance, price);
+        return balance;
+    }
+
+    /**
      * @notice Transfer the challenged collateral to the bidder. Only callable by minting hub.
      */
     function transferChallengedCollateral(address target, uint256 amount) external onlyHub {
         uint256 newBalance = _sendCollateral(target, amount);
-        emit MintingUpdate(newBalance, price, principal);
+        _emitUpdate(newBalance, price, principal);
     }
 
     function _sendCollateral(address target, uint256 amount) internal returns (uint256) {
@@ -800,5 +916,14 @@ contract Position is Ownable, IPosition, MathUtil {
         _restrictMinting(3 days);
 
         return (owner(), _size, principalToPay, interestToPay, reserveContribution);
+    }
+
+    /**
+     * @notice Auto-wraps ETH sent to the position. Guard prevents recursion during WETH.withdraw().
+     */
+    receive() external payable {
+        if (msg.sender != address(collateral)) {
+            IWrappedNative(address(collateral)).deposit{value: msg.value}();
+        }
     }
 }

@@ -16,7 +16,7 @@ interface IPosition {
 
     function challengedAmount() external view returns (uint256);
 
-    function original() external view returns (address);
+    function original() external view returns (address payable);
 
     function expiration() external view returns (uint40);
 
@@ -58,7 +58,19 @@ interface IPosition {
 
     function adjust(uint256 newMinted, uint256 newCollateral, uint256 newPrice) external;
 
+    function adjust(uint256 newMinted, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative) external payable;
+
     function adjustPrice(uint256 newPrice) external;
+
+    function adjustPriceWithReference(uint256 newPrice, address referencePosition) external;
+
+    function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition) external;
+
+    function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition, bool withdrawAsNative) external payable;
+
+    function isValidPriceReference(address referencePosition, uint256 newPrice) external view returns (bool);
+
+    function isClosed() external view returns (bool);
 
     function mint(address target, uint256 amount) external;
 
@@ -72,9 +84,11 @@ interface IPosition {
 
     function forceSale(address buyer, uint256 colAmount, uint256 proceeds) external;
 
-    function withdraw(address token, address target, uint256 amount) external;
+    function rescueToken(address token, address target, uint256 amount) external;
 
     function withdrawCollateral(address target, uint256 amount) external;
+
+    function withdrawCollateralAsNative(address target, uint256 amount) external;
 
     function transferChallengedCollateral(address target, uint256 amount) external;
 

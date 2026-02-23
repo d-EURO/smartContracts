@@ -223,6 +223,11 @@ export const SavingsVaultDEUROABI = [
     type: 'error',
   },
   {
+    inputs: [],
+    name: 'ZeroShares',
+    type: 'error',
+  },
+  {
     anonymous: false,
     inputs: [
       {

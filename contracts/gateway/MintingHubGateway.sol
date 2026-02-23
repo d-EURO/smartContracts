@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {MintingHub} from "../MintingHubV2/MintingHub.sol";
+import {MintingHub} from "../MintingHubV3/MintingHub.sol";
 import {IFrontendGateway} from "./interface/IFrontendGateway.sol";
 import {IMintingHubGateway} from "./interface/IMintingHubGateway.sol";
 
@@ -10,11 +10,12 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
 
     constructor(
         address _deuro,
-        address _leadrate,
+        uint24 _initialRatePPM,
         address _roller,
         address _factory,
+        address _weth,
         address _gateway
-    ) MintingHub(_deuro, _leadrate, _roller, _factory) {
+    ) MintingHub(_deuro, _initialRatePPM, _roller, _factory, _weth) {
         GATEWAY = IFrontendGateway(_gateway);
     }
 
@@ -30,7 +31,7 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
         uint256 _liqPrice,
         uint24 _reservePPM,
         bytes32 _frontendCode
-    ) public returns (address) {
+    ) public payable returns (address) {
         address position = openPosition(
             _collateralAddress,
             _minCollateral,
@@ -53,8 +54,8 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
         uint256 _initialMint,
         uint40 expiration,
         bytes32 frontendCode
-    ) public returns (address) {
-        return clone(msg.sender, parent, _initialCollateral, _initialMint, expiration, frontendCode);
+    ) public payable returns (address) {
+        return clone(msg.sender, parent, _initialCollateral, _initialMint, expiration, 0, frontendCode);
     }
 
     /**
@@ -68,8 +69,20 @@ contract MintingHubGateway is MintingHub, IMintingHubGateway {
         uint256 _initialMint,
         uint40 expiration,
         bytes32 frontendCode
-    ) public returns (address) {
-        address position = clone(owner, parent, _initialCollateral, _initialMint, expiration);
+    ) public payable returns (address) {
+        return clone(owner, parent, _initialCollateral, _initialMint, expiration, 0, frontendCode);
+    }
+
+    function clone(
+        address owner,
+        address parent,
+        uint256 _initialCollateral,
+        uint256 _initialMint,
+        uint40 expiration,
+        uint256 _liqPrice,
+        bytes32 frontendCode
+    ) public payable returns (address) {
+        address position = clone(owner, parent, _initialCollateral, _initialMint, expiration, _liqPrice);
         GATEWAY.registerPosition(position, frontendCode);
         return position;
     }

@@ -8,6 +8,7 @@ import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
 import {IMintingHub} from "./interface/IMintingHub.sol";
 import {IPosition} from "./interface/IPosition.sol";
 import {IReserve} from "../interface/IReserve.sol";
+import {IWrappedNative} from "../interface/IWrappedNative.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
@@ -21,7 +22,7 @@ contract PositionRoller {
 
     error NotOwner(address pos);
     error NotPosition(address pos);
-    error Log(uint256, uint256, uint256);
+    error NativeTransferFailed();
 
     event Roll(address source, uint256 collWithdraw, uint256 repay, address target, uint256 collDeposit, uint256 mint);
 
@@ -48,22 +49,9 @@ contract PositionRoller {
      * Like rollFully, but with a custom expiration date for the new position.
      */
     function rollFullyWithExpiration(IPosition source, IPosition target, uint40 expiration) public {
-        require(source.collateral() == target.collateral());
-        uint256 principal = source.principal();
-        uint256 interest = source.getInterest();
-        uint256 usableMint = source.getUsableMint(principal) + interest; // Roll interest into principal
-        uint256 mintAmount = target.getMintAmount(usableMint);
-        uint256 collateralToWithdraw = IERC20(source.collateral()).balanceOf(address(source));
-        uint256 targetPrice = target.price();
-        uint256 depositAmount = (mintAmount * 10 ** 18 + targetPrice - 1) / targetPrice; // round up
-        if (depositAmount > collateralToWithdraw) {
-            // If we need more collateral than available from the old position, we opt for taking
-            // the missing funds from the caller instead of requiring additional collateral.
-            depositAmount = collateralToWithdraw;
-            mintAmount = (depositAmount * target.price()) / 10 ** 18; // round down, rest will be taken from caller
-        }
-
-        roll(source, principal + interest, collateralToWithdraw, target, mintAmount, depositAmount, expiration);
+        (uint256 repay, uint256 collWithdraw, uint256 mint, uint256 collDeposit) =
+            _calculateRollParams(source, target, 0);
+        roll(source, repay, collWithdraw, target, mint, collDeposit, expiration);
     }
 
     /**
@@ -142,10 +130,101 @@ contract PositionRoller {
             );
         } else {
             return IPosition(
-                IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration)
+                IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration, 0)
             );
         }
     }
+
+    /**
+     * @notice Roll a position using native coin (ETH) as additional collateral.
+     */
+    function rollFullyNative(IPosition source, IPosition target) external payable {
+        rollFullyNativeWithExpiration(source, target, target.expiration());
+    }
+
+    function rollFullyNativeWithExpiration(IPosition source, IPosition target, uint40 expiration) public payable {
+        (uint256 repay, uint256 collWithdraw, uint256 mint, uint256 collDeposit) =
+            _calculateRollParams(source, target, msg.value);
+        rollNative(source, repay, collWithdraw, target, mint, collDeposit, expiration);
+    }
+
+    function _calculateRollParams(
+        IPosition source,
+        IPosition target,
+        uint256 extraCollateral
+    ) internal view returns (uint256 repay, uint256 collWithdraw, uint256 mint, uint256 collDeposit) {
+        require(source.collateral() == target.collateral());
+        uint256 _principal = source.principal();
+        uint256 _interest = source.getInterest();
+        uint256 usableMint = source.getUsableMint(_principal) + _interest;
+        mint = target.getMintAmount(usableMint);
+        collWithdraw = IERC20(source.collateral()).balanceOf(address(source));
+        uint256 totalCollateral = collWithdraw + extraCollateral;
+        uint256 targetPrice = target.price();
+        collDeposit = (mint * 10 ** 18 + targetPrice - 1) / targetPrice;
+        if (collDeposit > totalCollateral) {
+            collDeposit = totalCollateral;
+            mint = (collDeposit * targetPrice) / 10 ** 18;
+        }
+        repay = _principal + _interest;
+    }
+
+    /**
+     * @notice Roll with native coin support. Wraps msg.value, withdraws source collateral to the roller,
+     * deposits to target, and returns excess as native coin.
+     */
+    function rollNative(
+        IPosition source,
+        uint256 repay,
+        uint256 collWithdraw,
+        IPosition target,
+        uint256 mint,
+        uint256 collDeposit,
+        uint40 expiration
+    ) public payable valid(source) valid(target) own(source) {
+        IERC20 collateralToken = source.collateral();
+
+        deuro.mint(address(this), repay); // take a flash loan
+        uint256 used = source.repay(repay);
+        source.withdrawCollateral(address(this), collWithdraw);
+
+        // Wrap any ETH sent as additional collateral (after flash loan to avoid idle WETH)
+        if (msg.value > 0) {
+            IWrappedNative(address(collateralToken)).deposit{value: msg.value}();
+        }
+
+        if (mint > 0) {
+            IERC20 targetCollateral = IERC20(target.collateral());
+            if (Ownable(address(target)).owner() != msg.sender || expiration != target.expiration()) {
+                targetCollateral.approve(target.hub(), collDeposit);
+                target = _cloneTargetPosition(target, source, collDeposit, mint, expiration);
+            } else {
+                targetCollateral.transfer(address(target), collDeposit);
+                target.mint(msg.sender, mint);
+            }
+        }
+
+        if (repay > used) {
+            deuro.transfer(msg.sender, repay - used);
+        }
+
+        deuro.burnFrom(msg.sender, repay); // repay the flash loan
+
+        // Return excess collateral as native coin
+        uint256 remaining = collateralToken.balanceOf(address(this));
+        if (remaining > 0) {
+            IWrappedNative(address(collateralToken)).withdraw(remaining);
+            (bool success, ) = msg.sender.call{value: remaining}("");
+            if (!success) revert NativeTransferFailed();
+        }
+
+        emit Roll(address(source), collWithdraw, repay, address(target), collDeposit, mint);
+    }
+
+    /**
+     * @dev Required for WETH.withdraw() callbacks and receiving excess native coin.
+     */
+    receive() external payable {}
 
     modifier own(IPosition pos) {
         if (Ownable(address(pos)).owner() != msg.sender) revert NotOwner(address(pos));

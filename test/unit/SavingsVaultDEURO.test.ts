@@ -356,6 +356,30 @@ describe("SavingsVaultDEURO Tests", () => {
       const price = await largeVault.price();
       expect(price).to.equal(ethers.parseEther("1"));
     });
+
+    it("should revert with ZeroShares when inflation attack makes shares round to zero", async () => {
+      // Use the vault deployed in beforeEach (already initialized)
+      await deuro.connect(alice).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(bob).approve(await vault.getAddress(), ethers.MaxUint256);
+      await deuro.connect(alice).approve(await savings.getAddress(), ethers.MaxUint256);
+
+      // Step 1: Attacker deposits 1 wei to get 1 share
+      await vault.connect(alice).deposit(1n, alice.address);
+      expect(await vault.balanceOf(alice.address)).to.equal(1n);
+
+      // Step 2: Attacker donates large amount via savings to inflate totalAssets
+      const donationAmount = floatToDec18(10);
+      await savings.connect(alice)["save(address,uint192)"](await vault.getAddress(), donationAmount);
+
+      // Step 3: Victim deposits — should revert with ZeroShares, NOT silently give 0 shares
+      const victimDeposit = floatToDec18(1);
+      await expect(
+        vault.connect(bob).deposit(victimDeposit, bob.address)
+      ).to.be.revertedWithCustomError(vault, "ZeroShares");
+
+      // Victim is protected — no funds lost
+      expect(await vault.balanceOf(bob.address)).to.equal(0n);
+    });
   });
 
   describe("SafeCast Overflow Protection", () => {
@@ -456,8 +480,8 @@ describe("SavingsVaultDEURO Tests", () => {
       const t0 = await getTimeStamp();
       await evm_increaseTime(365 * 86_400);
 
-      // Trigger interest accrual
-      await vault.connect(alice).deposit(1n, alice.address);
+      // Trigger interest accrual (must deposit meaningful amount to avoid ZeroShares)
+      await vault.connect(alice).deposit(floatToDec18(1), alice.address);
       const t1 = await getTimeStamp();
 
       const totalClaimed = await vault.totalClaimed();
@@ -490,7 +514,7 @@ describe("SavingsVaultDEURO Tests", () => {
       expect(claimedBefore).to.equal(0n);
 
       await evm_increaseTime(365 * 86_400);
-      await vault.connect(alice).deposit(1n, alice.address);
+      await vault.connect(alice).deposit(floatToDec18(1), alice.address);
 
       const claimedAfter = await vault.totalClaimed();
       expect(claimedAfter).to.be.gt(0n);
@@ -756,7 +780,7 @@ describe("SavingsVaultDEURO Tests", () => {
       expect(await vault.totalClaimed()).to.equal(0n);
 
       await evm_increaseTime(365 * 86_400);
-      await vault.connect(alice).deposit(1n, alice.address);
+      await vault.connect(alice).deposit(floatToDec18(1), alice.address);
 
       expect(await vault.totalClaimed()).to.be.gt(0n);
     });
@@ -794,7 +818,7 @@ describe("SavingsVaultDEURO Tests", () => {
       await evm_increaseTime(100 * 86_400);
 
       await expect(
-        vault.connect(alice).deposit(1n, alice.address)
+        vault.connect(alice).deposit(floatToDec18(1), alice.address)
       ).to.emit(vault, "InterestClaimed");
     });
 

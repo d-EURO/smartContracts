@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {Position} from "../../contracts/MintingHubV2/Position.sol";
+import {Position} from "../../contracts/MintingHubV3/Position.sol";
 import {DecentralizedEURO} from "../../contracts/DecentralizedEURO.sol";
 import {TestToken} from "../../contracts/test/TestToken.sol";
-import {PositionFactory} from "../../contracts/MintingHubV2/PositionFactory.sol";
+import {PositionFactory} from "../../contracts/MintingHubV3/PositionFactory.sol";
 import {SavingsGateway} from "../../contracts/gateway/SavingsGateway.sol";
 import {DEPSWrapper} from "../../contracts/utils/DEPSWrapper.sol";
 import {FrontendGateway} from "../../contracts/gateway/FrontendGateway.sol";
 import {MintingHubGateway} from "../../contracts/gateway/MintingHubGateway.sol";
-import {PositionRoller} from "../../contracts/MintingHubV2/PositionRoller.sol";
+import {PositionRoller} from "../../contracts/MintingHubV3/PositionRoller.sol";
 import {Equity} from "../../contracts/Equity.sol";
 import {TestHelper} from "../TestHelper.sol";
-import {MintingHub} from "../../contracts/MintingHubV2/MintingHub.sol";
-import {IPosition} from "../../contracts/MintingHubV2/interface/IPosition.sol";
+import {MintingHub} from "../../contracts/MintingHubV3/MintingHub.sol";
+import {IPosition} from "../../contracts/MintingHubV3/interface/IPosition.sol";
 
 contract Environment is TestHelper {
     DecentralizedEURO internal s_deuro;
@@ -38,7 +38,7 @@ contract Environment is TestHelper {
         s_savingsGateway = new SavingsGateway(s_deuro, 5, address(s_frontendGateway));
         s_mintingHubGateway = new MintingHubGateway(
             address(s_deuro),
-            address(s_savingsGateway),
+            5,
             address(s_positionRoller),
             address(s_positionFactory),
             address(s_frontendGateway)
