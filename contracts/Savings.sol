@@ -106,6 +106,11 @@ contract Savings is Leadrate {
         save(msg.sender, amount);
     }
 
+    /**
+     * Save 'amount' and set the compounding preference.
+     * The flag is applied before settling pending interest, so any unsettled
+     * interest from the previous period is settled under the NEW mode.
+     */
     function save(uint192 amount, bool compound) public {
         nonCompounding[msg.sender] = !compound;
         save(msg.sender, amount);

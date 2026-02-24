@@ -246,6 +246,8 @@ describe("Savings Without Compounding Tests", () => {
 
       const accountAfterSwitch = await savings.savings(owner.address);
       expect(accountAfterSwitch.saved).to.be.gt(amount);
+      // Interest went to saved, not claimable
+      expect(await savings.claimableInterest(owner.address)).to.eq(0n);
 
       // Interest earned from here should also compound
       await evm_increaseTime(180 * 86_400);
@@ -253,6 +255,38 @@ describe("Savings Without Compounding Tests", () => {
 
       const account = await savings.savings(owner.address);
       expect(account.saved).to.be.gt(accountAfterSwitch.saved);
+    });
+
+    it("save(amount, false) switches to non-compounding; pending interest goes to claimable", async () => {
+      // Start compounding (default)
+      await savings["save(uint192)"](amount);
+      expect(await savings.nonCompounding(owner.address)).to.eq(false);
+
+      await evm_increaseTime(180 * 86_400);
+
+      // Nothing in claimable yet (compounding mode adds to saved)
+      expect(await savings.claimableInterest(owner.address)).to.eq(0n);
+
+      // Switch to non-compounding — flag is set before refresh runs,
+      // so the pending interest goes to claimableInterest instead of saved
+      await savings["save(uint192,bool)"](0, false);
+      expect(await savings.nonCompounding(owner.address)).to.eq(true);
+
+      // Principal unchanged (pending interest NOT added to saved)
+      expect((await savings.savings(owner.address)).saved).to.eq(amount);
+
+      // Pending interest routed to claimable
+      const claimable = await savings.claimableInterest(owner.address);
+      expect(claimable).to.be.gt(0n);
+
+      // Interest earned from here should also go to claimable
+      await evm_increaseTime(180 * 86_400);
+      await savings.refreshBalance(owner.address);
+
+      expect((await savings.savings(owner.address)).saved).to.eq(amount);
+      expect(await savings.claimableInterest(owner.address)).to.be.gt(
+        claimable
+      );
     });
 
     it("save(amount) without bool does not change the flag", async () => {
