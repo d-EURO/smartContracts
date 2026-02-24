@@ -56,7 +56,7 @@ contract Savings is Leadrate {
         return refresh(owner).saved;
     }
 
-    function refresh(address accountOwner) virtual internal returns (Account storage) {
+    function refresh(address accountOwner) internal returns (Account storage) {
         Account storage account = savings[accountOwner];
         uint64 ticks = currentTicks();
         if (ticks > account.ticks) {

@@ -531,11 +531,11 @@ contract MintingHub is IMintingHub, Leadrate {
         return amount;
     }
 
-    function emitPositionUpdate(uint256 _collateral, uint256 _price, uint256 _principal) external virtual validPos(msg.sender) {
+    function emitPositionUpdate(uint256 _collateral, uint256 _price, uint256 _principal) external validPos(msg.sender) {
         emit PositionUpdate(msg.sender, _collateral, _price, _principal);
     }
 
-    function emitPositionDenied(address denier, string calldata message) external virtual validPos(msg.sender) {
+    function emitPositionDenied(address denier, string calldata message) external validPos(msg.sender) {
         emit PositionDeniedByGovernance(msg.sender, denier, message);
     }
 
