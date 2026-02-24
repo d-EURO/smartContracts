@@ -1,4 +1,4 @@
-export const PositionFactoryV3ABI = [
+export const PositionFactoryV2ABI = [
   {
     inputs: [
       {

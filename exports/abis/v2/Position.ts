@@ -1,4 +1,4 @@
-export const PositionV3ABI = [
+export const PositionV2ABI = [
   {
     inputs: [
       {
@@ -77,11 +77,6 @@ export const PositionV3ABI = [
   },
   {
     inputs: [],
-    name: 'CannotRescueCollateral',
-    type: 'error',
-  },
-  {
-    inputs: [],
     name: 'ChallengeTooSmall',
     type: 'error',
   },
@@ -93,11 +88,6 @@ export const PositionV3ABI = [
   {
     inputs: [],
     name: 'Closed',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'EmptyMessage',
     type: 'error',
   },
   {
@@ -143,11 +133,6 @@ export const PositionV3ABI = [
     type: 'error',
   },
   {
-    inputs: [],
-    name: 'InvalidPriceReference',
-    type: 'error',
-  },
-  {
     inputs: [
       {
         internalType: 'uint256',
@@ -161,32 +146,6 @@ export const PositionV3ABI = [
       },
     ],
     name: 'LimitExceeded',
-    type: 'error',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: 'length',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'maxLength',
-        type: 'uint256',
-      },
-    ],
-    name: 'MessageTooLong',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'NativeOnlyForWETH',
-    type: 'error',
-  },
-  {
-    inputs: [],
-    name: 'NativeTransferFailed',
     type: 'error',
   },
   {
@@ -333,34 +292,6 @@ export const PositionV3ABI = [
         name: 'newPrice',
         type: 'uint256',
       },
-      {
-        internalType: 'bool',
-        name: 'withdrawAsNative',
-        type: 'bool',
-      },
-    ],
-    name: 'adjust',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: 'newPrincipal',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'newCollateral',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'newPrice',
-        type: 'uint256',
-      },
     ],
     name: 'adjust',
     outputs: [],
@@ -376,85 +307,6 @@ export const PositionV3ABI = [
       },
     ],
     name: 'adjustPrice',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: 'newPrice',
-        type: 'uint256',
-      },
-      {
-        internalType: 'address',
-        name: 'referencePosition',
-        type: 'address',
-      },
-    ],
-    name: 'adjustPriceWithReference',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: 'newPrincipal',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'newCollateral',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'newPrice',
-        type: 'uint256',
-      },
-      {
-        internalType: 'address',
-        name: 'referencePosition',
-        type: 'address',
-      },
-      {
-        internalType: 'bool',
-        name: 'withdrawAsNative',
-        type: 'bool',
-      },
-    ],
-    name: 'adjustWithReference',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'uint256',
-        name: 'newPrincipal',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'newCollateral',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'newPrice',
-        type: 'uint256',
-      },
-      {
-        internalType: 'address',
-        name: 'referencePosition',
-        type: 'address',
-      },
-    ],
-    name: 'adjustWithReference',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -777,30 +629,6 @@ export const PositionV3ABI = [
     type: 'function',
   },
   {
-    inputs: [
-      {
-        internalType: 'address',
-        name: 'referencePosition',
-        type: 'address',
-      },
-      {
-        internalType: 'uint256',
-        name: 'newPrice',
-        type: 'uint256',
-      },
-    ],
-    name: 'isValidPriceReference',
-    outputs: [
-      {
-        internalType: 'bool',
-        name: '',
-        type: 'bool',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
     inputs: [],
     name: 'lastAccrual',
     outputs: [
@@ -958,7 +786,7 @@ export const PositionV3ABI = [
     name: 'original',
     outputs: [
       {
-        internalType: 'address payable',
+        internalType: 'address',
         name: '',
         type: 'address',
       },
@@ -1041,29 +869,6 @@ export const PositionV3ABI = [
         type: 'uint256',
       },
     ],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'address',
-        name: 'token',
-        type: 'address',
-      },
-      {
-        internalType: 'address',
-        name: 'target',
-        type: 'address',
-      },
-      {
-        internalType: 'uint256',
-        name: 'amount',
-        type: 'uint256',
-      },
-    ],
-    name: 'rescueToken',
-    outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
   },
@@ -1154,6 +959,11 @@ export const PositionV3ABI = [
     inputs: [
       {
         internalType: 'address',
+        name: 'token',
+        type: 'address',
+      },
+      {
+        internalType: 'address',
         name: 'target',
         type: 'address',
       },
@@ -1163,7 +973,7 @@ export const PositionV3ABI = [
         type: 'uint256',
       },
     ],
-    name: 'withdrawCollateral',
+    name: 'withdraw',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -1181,13 +991,9 @@ export const PositionV3ABI = [
         type: 'uint256',
       },
     ],
-    name: 'withdrawCollateralAsNative',
+    name: 'withdrawCollateral',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
-  },
-  {
-    stateMutability: 'payable',
-    type: 'receive',
   },
 ] as const;

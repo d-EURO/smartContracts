@@ -161,7 +161,7 @@ contract Invariants is TestHelper {
         
         uint256 totalBalances = 0;
         totalBalances += deuro.balanceOf(address(deuro.reserve()));
-        totalBalances += deuro.balanceOf(address(s_env.savingsGateway()));
+        totalBalances += deuro.balanceOf(address(s_env.savings()));
         for (uint256 i = 0; i < 5; i++) totalBalances += deuro.balanceOf(s_env.eoas(i));
         
         assertEq(totalBalances, totalSupply, "Total dEURO balances inconsistent with total supply");

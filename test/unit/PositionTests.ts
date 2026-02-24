@@ -1679,10 +1679,7 @@ describe("Position Tests", () => {
 
       await dEURO.transfer(await test.getAddress(), 1000n * 10n ** 18n);
 
-      const tx = await test.openPositionFor(
-        alice.getAddress(),
-        ethers.randomBytes(32),
-      );
+      const tx = await test.openPositionFor(alice.getAddress());
       const positionAddr = await getPositionAddressFromTX(tx);
       pos = await ethers.getContractAt("Position", positionAddr);
 

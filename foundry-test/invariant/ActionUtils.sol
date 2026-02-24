@@ -3,7 +3,6 @@ pragma solidity ^0.8.10;
 
 import {Position} from "../../contracts/MintingHubV3/Position.sol";
 import {TestToken} from "../../contracts/test/TestToken.sol";
-import {MintingHubGateway} from "../../contracts/gateway/MintingHubGateway.sol";
 
 library ActionUtils {
     function mintToAllowed(Position self) public view returns (bool) {

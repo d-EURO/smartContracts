@@ -2,9 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
 import {IMintingHub} from "./interface/IMintingHub.sol";
 import {IPosition} from "./interface/IPosition.sol";
 import {IReserve} from "../interface/IReserve.sol";
@@ -85,7 +83,7 @@ contract PositionRoller {
             if (Ownable(address(target)).owner() != msg.sender || expiration != target.expiration()) {
                 targetCollateral.transferFrom(msg.sender, address(this), collDeposit); // get the new collateral
                 targetCollateral.approve(target.hub(), collDeposit); // approve the new collateral and clone:
-                target = _cloneTargetPosition(target, source, collDeposit, mint, expiration);
+                target = _cloneTargetPosition(target, collDeposit, mint, expiration);
             } else {
                 // We can roll into the provided existing position.
                 // We do not verify whether the target position was created by the known minting hub in order
@@ -109,30 +107,13 @@ contract PositionRoller {
      */
     function _cloneTargetPosition (
         IPosition target,
-        IPosition source,
         uint256 collDeposit,
         uint256 mint,
         uint40 expiration
     ) internal returns (IPosition) {
-        if (IERC165(target.hub()).supportsInterface(type(IMintingHubGateway).interfaceId)) {
-            bytes32 frontendCode = IMintingHubGateway(target.hub()).GATEWAY().getPositionFrontendCode(
-                address(source)
-            );
-            return IPosition(
-                IMintingHubGateway(target.hub()).clone(
-                    msg.sender,
-                    address(target),
-                    collDeposit,
-                    mint,
-                    expiration,
-                    frontendCode // use the same frontend code
-                )
-            );
-        } else {
-            return IPosition(
-                IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration, 0)
-            );
-        }
+        return IPosition(
+            IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration, 0)
+        );
     }
 
     /**
@@ -197,7 +178,7 @@ contract PositionRoller {
             IERC20 targetCollateral = IERC20(target.collateral());
             if (Ownable(address(target)).owner() != msg.sender || expiration != target.expiration()) {
                 targetCollateral.approve(target.hub(), collDeposit);
-                target = _cloneTargetPosition(target, source, collDeposit, mint, expiration);
+                target = _cloneTargetPosition(target, collDeposit, mint, expiration);
             } else {
                 targetCollateral.transfer(address(target), collDeposit);
                 target.mint(msg.sender, mint);

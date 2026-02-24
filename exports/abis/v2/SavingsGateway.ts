@@ -1,4 +1,4 @@
-export const SavingsABI = [
+export const SavingsGatewayV2ABI = [
   {
     inputs: [
       {
@@ -10,6 +10,11 @@ export const SavingsABI = [
         internalType: 'uint24',
         name: 'initialRatePPM',
         type: 'uint24',
+      },
+      {
+        internalType: 'address',
+        name: 'gateway_',
+        type: 'address',
       },
     ],
     stateMutability: 'nonpayable',
@@ -41,34 +46,9 @@ export const SavingsABI = [
       },
       {
         indexed: false,
-        internalType: 'uint192',
-        name: 'amount',
-        type: 'uint192',
-      },
-    ],
-    name: 'InterestClaimed',
-    type: 'event',
-  },
-  {
-    anonymous: false,
-    inputs: [
-      {
-        indexed: true,
-        internalType: 'address',
-        name: 'account',
-        type: 'address',
-      },
-      {
-        indexed: false,
         internalType: 'uint256',
         name: 'interest',
         type: 'uint256',
-      },
-      {
-        indexed: false,
-        internalType: 'bool',
-        name: 'compounded',
-        type: 'bool',
       },
     ],
     name: 'InterestCollected',
@@ -151,6 +131,19 @@ export const SavingsABI = [
     type: 'event',
   },
   {
+    inputs: [],
+    name: 'GATEWAY',
+    outputs: [
+      {
+        internalType: 'contract IFrontendGateway',
+        name: '',
+        type: 'address',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
     inputs: [
       {
         internalType: 'address',
@@ -200,6 +193,24 @@ export const SavingsABI = [
         name: 'targetAmount',
         type: 'uint192',
       },
+      {
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
+      },
+    ],
+    name: 'adjust',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'uint192',
+        name: 'targetAmount',
+        type: 'uint192',
+      },
     ],
     name: 'adjust',
     outputs: [],
@@ -239,44 +250,6 @@ export const SavingsABI = [
       },
     ],
     name: 'calculateInterest',
-    outputs: [
-      {
-        internalType: 'uint192',
-        name: '',
-        type: 'uint192',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'address',
-        name: 'target',
-        type: 'address',
-      },
-    ],
-    name: 'claimInterest',
-    outputs: [
-      {
-        internalType: 'uint192',
-        name: '',
-        type: 'uint192',
-      },
-    ],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'address',
-        name: '',
-        type: 'address',
-      },
-    ],
-    name: 'claimableInterest',
     outputs: [
       {
         internalType: 'uint192',
@@ -368,25 +341,6 @@ export const SavingsABI = [
   {
     inputs: [
       {
-        internalType: 'address',
-        name: '',
-        type: 'address',
-      },
-    ],
-    name: 'nonCompounding',
-    outputs: [
-      {
-        internalType: 'bool',
-        name: '',
-        type: 'bool',
-      },
-    ],
-    stateMutability: 'view',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
         internalType: 'uint24',
         name: 'newRatePPM_',
         type: 'uint24',
@@ -442,9 +396,9 @@ export const SavingsABI = [
         type: 'uint192',
       },
       {
-        internalType: 'bool',
-        name: 'compound',
-        type: 'bool',
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
       },
     ],
     name: 'save',
@@ -463,6 +417,29 @@ export const SavingsABI = [
         internalType: 'uint192',
         name: 'amount',
         type: 'uint192',
+      },
+    ],
+    name: 'save',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'owner',
+        type: 'address',
+      },
+      {
+        internalType: 'uint192',
+        name: 'amount',
+        type: 'uint192',
+      },
+      {
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
       },
     ],
     name: 'save',
@@ -537,6 +514,35 @@ export const SavingsABI = [
         internalType: 'uint192',
         name: 'amount',
         type: 'uint192',
+      },
+    ],
+    name: 'withdraw',
+    outputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+    ],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      {
+        internalType: 'address',
+        name: 'target',
+        type: 'address',
+      },
+      {
+        internalType: 'uint192',
+        name: 'amount',
+        type: 'uint192',
+      },
+      {
+        internalType: 'bytes32',
+        name: 'frontendCode',
+        type: 'bytes32',
       },
     ],
     name: 'withdraw',

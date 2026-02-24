@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 import {IReserve} from "../interface/IReserve.sol";
 import {MathUtil} from "../utils/MathUtil.sol";
@@ -10,7 +9,6 @@ import {IPosition} from "./interface/IPosition.sol";
 import {IWrappedNative} from "../interface/IWrappedNative.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 /**
  * @title Position
@@ -645,13 +643,10 @@ contract Position is Ownable, IPosition, MathUtil {
     }
 
     /**
-     * @notice Updates outstanding interest and notifies the minting hub gateway that interest has been paid.
+     * @notice Updates outstanding interest.
      */
     function _notifyInterestPaid(uint256 amount) internal {
         if (amount > interest) revert RepaidTooMuch(amount - interest);
-        if (IERC165(hub).supportsInterface(type(IMintingHubGateway).interfaceId)) {
-            IMintingHubGateway(hub).notifyInterestPaid(amount);
-        }
         interest -= amount;
     }
 

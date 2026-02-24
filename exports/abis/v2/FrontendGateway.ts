@@ -1,4 +1,4 @@
-export const FrontendGatewayABI = [
+export const FrontendGatewayV2ABI = [
   {
     inputs: [
       {

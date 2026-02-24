@@ -1,4 +1,4 @@
-export const PositionRollerABI = [
+export const PositionRollerV2ABI = [
   {
     inputs: [
       {
@@ -11,8 +11,24 @@ export const PositionRollerABI = [
     type: 'constructor',
   },
   {
-    inputs: [],
-    name: 'NativeTransferFailed',
+    inputs: [
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+      {
+        internalType: 'uint256',
+        name: '',
+        type: 'uint256',
+      },
+    ],
+    name: 'Log',
     type: 'error',
   },
   {
@@ -153,47 +169,6 @@ export const PositionRollerABI = [
         name: 'target',
         type: 'address',
       },
-    ],
-    name: 'rollFullyNative',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'contract IPosition',
-        name: 'source',
-        type: 'address',
-      },
-      {
-        internalType: 'contract IPosition',
-        name: 'target',
-        type: 'address',
-      },
-      {
-        internalType: 'uint40',
-        name: 'expiration',
-        type: 'uint40',
-      },
-    ],
-    name: 'rollFullyNativeWithExpiration',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'contract IPosition',
-        name: 'source',
-        type: 'address',
-      },
-      {
-        internalType: 'contract IPosition',
-        name: 'target',
-        type: 'address',
-      },
       {
         internalType: 'uint40',
         name: 'expiration',
@@ -204,52 +179,5 @@ export const PositionRollerABI = [
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
-  },
-  {
-    inputs: [
-      {
-        internalType: 'contract IPosition',
-        name: 'source',
-        type: 'address',
-      },
-      {
-        internalType: 'uint256',
-        name: 'repay',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'collWithdraw',
-        type: 'uint256',
-      },
-      {
-        internalType: 'contract IPosition',
-        name: 'target',
-        type: 'address',
-      },
-      {
-        internalType: 'uint256',
-        name: 'mint',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint256',
-        name: 'collDeposit',
-        type: 'uint256',
-      },
-      {
-        internalType: 'uint40',
-        name: 'expiration',
-        type: 'uint40',
-      },
-    ],
-    name: 'rollNative',
-    outputs: [],
-    stateMutability: 'payable',
-    type: 'function',
-  },
-  {
-    stateMutability: 'payable',
-    type: 'receive',
   },
 ] as const;
