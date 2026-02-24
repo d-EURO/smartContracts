@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -21,7 +20,7 @@ import {PositionRoller} from "./PositionRoller.sol";
  * @dev Only one instance of this contract is required, whereas every new position comes with a new position
  * contract. Pending challenges are stored as structs in an array.
  */
-contract MintingHub is IMintingHub, ERC165, Leadrate {
+contract MintingHub is IMintingHub, Leadrate {
     /**
      * @notice Irrevocable fee in deur when proposing a new position (but not when cloning an existing one).
      */
@@ -545,12 +544,4 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      */
     receive() external payable {}
 
-    /**
-     * @dev See {IERC165-supportsInterface}.
-     */
-    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
-        return
-            interfaceId == type(IMintingHub).interfaceId ||
-            super.supportsInterface(interfaceId);
-    }
 }
