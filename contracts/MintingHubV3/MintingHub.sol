@@ -11,6 +11,7 @@ import {IPositionFactory} from "./interface/IPositionFactory.sol";
 import {IPosition} from "./interface/IPosition.sol";
 import {IWrappedNative} from "../interface/IWrappedNative.sol";
 import {Leadrate} from "../Leadrate.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {PositionRoller} from "./PositionRoller.sol";
 
@@ -20,7 +21,7 @@ import {PositionRoller} from "./PositionRoller.sol";
  * @dev Only one instance of this contract is required, whereas every new position comes with a new position
  * contract. Pending challenges are stored as structs in an array.
  */
-contract MintingHub is IMintingHub, Leadrate {
+contract MintingHub is IMintingHub, ERC165, Leadrate {
     /**
      * @notice Irrevocable fee in deur when proposing a new position (but not when cloning an existing one).
      */
@@ -537,6 +538,15 @@ contract MintingHub is IMintingHub, Leadrate {
 
     function emitPositionDenied(address denier, string calldata message) external validPos(msg.sender) {
         emit PositionDeniedByGovernance(msg.sender, denier, message);
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
+        return
+            interfaceId == type(IMintingHub).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     /**
