@@ -5,25 +5,22 @@ import {Position} from "../../contracts/MintingHubV3/Position.sol";
 import {DecentralizedEURO} from "../../contracts/DecentralizedEURO.sol";
 import {TestToken} from "../../contracts/test/TestToken.sol";
 import {PositionFactory} from "../../contracts/MintingHubV3/PositionFactory.sol";
-import {SavingsGateway} from "../../contracts/gateway/SavingsGateway.sol";
+import {Savings} from "../../contracts/Savings.sol";
 import {DEPSWrapper} from "../../contracts/utils/DEPSWrapper.sol";
-import {FrontendGateway} from "../../contracts/gateway/FrontendGateway.sol";
-import {MintingHubGateway} from "../../contracts/gateway/MintingHubGateway.sol";
+import {MintingHub} from "../../contracts/MintingHubV3/MintingHub.sol";
 import {PositionRoller} from "../../contracts/MintingHubV3/PositionRoller.sol";
 import {Equity} from "../../contracts/Equity.sol";
 import {TestHelper} from "../TestHelper.sol";
-import {MintingHub} from "../../contracts/MintingHubV3/MintingHub.sol";
 import {IPosition} from "../../contracts/MintingHubV3/interface/IPosition.sol";
 
 contract Environment is TestHelper {
     DecentralizedEURO internal s_deuro;
     TestToken internal s_collateralToken;
-    MintingHubGateway internal s_mintingHubGateway;
+    MintingHub internal s_mintingHub;
     PositionRoller internal s_positionRoller;
     PositionFactory internal s_positionFactory;
     DEPSWrapper internal s_depsWrapper;
-    FrontendGateway internal s_frontendGateway;
-    SavingsGateway internal s_savingsGateway;
+    Savings internal s_savings;
     Position[] internal s_positions;
     address[] internal s_eoas; // EOAs
     address internal s_deployer;
@@ -34,21 +31,19 @@ contract Environment is TestHelper {
         s_positionRoller = new PositionRoller(address(s_deuro));
         s_positionFactory = new PositionFactory();
         s_depsWrapper = new DEPSWrapper(Equity(address(s_deuro.reserve())));
-        s_frontendGateway = new FrontendGateway(address(s_deuro), address(s_depsWrapper));
-        s_savingsGateway = new SavingsGateway(s_deuro, 5, address(s_frontendGateway));
-        s_mintingHubGateway = new MintingHubGateway(
+        s_savings = new Savings(s_deuro, 5);
+        s_mintingHub = new MintingHub(
             address(s_deuro),
             5,
             address(s_positionRoller),
             address(s_positionFactory),
-            address(s_frontendGateway)
+            address(0) // WETH not needed for tests
         );
 
         // initialize contracts
         s_deployer = msg.sender;
         vm.label(s_deployer, "Deployer");
-        s_frontendGateway.init(address(s_savingsGateway), address(s_mintingHubGateway));
-        s_deuro.initialize(address(s_mintingHubGateway), "Make MintingHubGateway minter");
+        s_deuro.initialize(address(s_mintingHub), "Make MintingHub minter");
         s_deuro.initialize(s_deployer, "Make Invariants contract minter");
         increaseBlocks(1);
 
@@ -81,17 +76,16 @@ contract Environment is TestHelper {
         uint24 riskPremium = 10_000; // risk premium
         uint256 liqPrice = 5000 * 10 ** (36 - s_collateralToken.decimals()); // liquidation price
         uint24 reservePPM = 100_000; // reserve PPM
-        bytes32 frontendCode = bytes32(keccak256(abi.encodePacked(owner))); // frontend code
 
         // Mint opening fee and collateral
-        uint256 openingFee = s_mintingHubGateway.OPENING_FEE();
+        uint256 openingFee = s_mintingHub.OPENING_FEE();
         mintCOL(owner, initialCollateral);
         mintDEURO(owner, openingFee);
 
         vm.startPrank(owner);
-        s_deuro.approve(address(s_mintingHubGateway), openingFee); // approve open fee
-        s_collateralToken.approve(address(s_mintingHubGateway), initialCollateral); // approve collateral
-        address position = s_mintingHubGateway.openPosition( // open position
+        s_deuro.approve(address(s_mintingHub), openingFee); // approve open fee
+        s_collateralToken.approve(address(s_mintingHub), initialCollateral); // approve collateral
+        address position = s_mintingHub.openPosition( // open position
                 collateral,
                 minCollateral,
                 initialCollateral,
@@ -101,11 +95,10 @@ contract Environment is TestHelper {
                 challengePeriod,
                 riskPremium,
                 liqPrice,
-                reservePPM,
-                frontendCode
+                reservePPM
             );
         vm.stopPrank();
-        s_positions.push(Position(position));
+        s_positions.push(Position(payable(position)));
     }
 
     /// Getters
@@ -117,8 +110,8 @@ contract Environment is TestHelper {
         return s_collateralToken;
     }
 
-    function mintingHubGateway() public view returns (MintingHubGateway) {
-        return s_mintingHubGateway;
+    function mintingHub() public view returns (MintingHub) {
+        return s_mintingHub;
     }
 
     function positionRoller() public view returns (PositionRoller) {
@@ -133,12 +126,8 @@ contract Environment is TestHelper {
         return s_depsWrapper;
     }
 
-    function frontendGateway() public view returns (FrontendGateway) {
-        return s_frontendGateway;
-    }
-
-    function savingsGateway() public view returns (SavingsGateway) {
-        return s_savingsGateway;
+    function savings() public view returns (Savings) {
+        return s_savings;
     }
 
     function getPosition(uint256 index) public view returns (Position) {
@@ -161,7 +150,7 @@ contract Environment is TestHelper {
 
         for (uint32 i = 0; i < maxIndex; i++) {
             uint32 idx = (index + i) % maxIndex;
-            (address challenger, uint40 start, IPosition pos, uint256 size) = s_mintingHubGateway.challenges(idx);
+            (address challenger, uint40 start, IPosition pos, uint256 size) = s_mintingHub.challenges(idx);
             if (pos != IPosition(address(0))) {
                 challenge = MintingHub.Challenge(challenger, start, pos, size);
                 return (idx, challenge);

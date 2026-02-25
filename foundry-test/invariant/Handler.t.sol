@@ -242,8 +242,8 @@ contract Handler is StatsCollector {
 
         // Execute challenge
         vm.startPrank(s_challenger);
-        s_env.collateralToken().approve(address(s_env.mintingHubGateway()), collateralAmount);
-        try s_env.mintingHubGateway().challenge(address(position), collateralAmount, minPrice) {
+        s_env.collateralToken().approve(address(s_env.mintingHub()), collateralAmount);
+        try s_env.mintingHub().challenge(address(position), collateralAmount, minPrice) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("challengePosition", collateralAmount, post);
 
@@ -279,7 +279,7 @@ contract Handler is StatsCollector {
         if (validIndex > s_challengesCount) return;
         if (block.timestamp == challenge.start) return; // do not allow avert in same TX as creation
 
-        Position position = Position(address(challenge.position));
+        Position position = Position(payable(address(challenge.position)));
         if (!position.bidChallengeAllowed()) return;
 
         (uint256 liqPrice, uint40 phase) = position.challengeData();
@@ -292,8 +292,8 @@ contract Handler is StatsCollector {
         s_env.mintDEURO(s_bidder, requiredDEURO);
         Snapshot memory pre = snapshot(position);
         vm.startPrank(s_bidder);
-        s_env.deuro().approve(address(s_env.mintingHubGateway()), requiredDEURO);
-        try s_env.mintingHubGateway().bid(uint32(validIndex), bidSize, postpone) {
+        s_env.deuro().approve(address(s_env.mintingHub()), requiredDEURO);
+        try s_env.mintingHub().bid(uint32(validIndex), bidSize, postpone) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("bidChallenge", bidSize, post);
 
@@ -353,8 +353,8 @@ contract Handler is StatsCollector {
 
         (uint256 lb, uint256 ub) = position.buyExpiredCollateralBounds();
         uint256 posBalanceCOL = position.collateral().balanceOf(address(position));
-        uint256 forceSalePrice = s_env.mintingHubGateway().expiredPurchasePrice(position);
-        uint256 dustAmount = forceSalePrice > 0 ? (s_env.mintingHubGateway().OPENING_FEE() * 1e18) / forceSalePrice : 0; // TODO: 0 division case handled correctly?
+        uint256 forceSalePrice = s_env.mintingHub().expiredPurchasePrice(position);
+        uint256 dustAmount = forceSalePrice > 0 ? (s_env.mintingHub().OPENING_FEE() * 1e18) / forceSalePrice : 0; // TODO: 0 division case handled correctly?
         upToAmount = bound(upToAmount, lb, ub);
         upToAmount = upToAmount < posBalanceCOL && posBalanceCOL - upToAmount < dustAmount ? posBalanceCOL : upToAmount;
 
@@ -363,9 +363,9 @@ contract Handler is StatsCollector {
         s_env.mintDEURO(s_bidder, requiredDEURO);
         Snapshot memory pre = snapshot(position);
         vm.startPrank(s_bidder);
-        // We must approve the Position contract, not the MintingHubGateway
+        // We must approve the Position contract, not the MintingHub
         s_env.deuro().approve(address(position), requiredDEURO);
-        try s_env.mintingHubGateway().buyExpiredCollateral(position, upToAmount) {
+        try s_env.mintingHub().buyExpiredCollateral(position, upToAmount) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("buyExpiredCollateral", upToAmount, post);
 
@@ -458,7 +458,7 @@ contract Handler is StatsCollector {
                 // dEURO
                 minterReserve: s_env.deuro().minterReserve(),
                 // MintingHub
-                mintingHubBalanceCOL: s_env.collateralToken().balanceOf(address(s_env.mintingHubGateway())),
+                mintingHubBalanceCOL: s_env.collateralToken().balanceOf(address(s_env.mintingHub())),
                 challengerBalanceCOL: s_env.collateralToken().balanceOf(s_challenger),
                 bidderBalanceCOL: s_env.collateralToken().balanceOf(s_bidder)
             });

@@ -1,6 +1,6 @@
 {
   "name": "@deuro/eurocoin",
-  "version": "1.0.17",
+  "version": "2.0.0",
   "description": "It shall support a wide range of collateralized minting methods that are governed by a democratic process.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -16,9 +16,6 @@
     "compile": "npx hardhat compile",
     "wallet": "npx ts-node helper/wallet.info.ts",
     "coverage": "npx hardhat coverage",
-    "deploy": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts",
-    "deploy:network": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network",
-    "verify": "npx hardhat run scripts/verifyContracts.ts --network mainnet",
     "build": "tsup",
     "ts:export:abis": "npx ts-node ./scripts/exportAbis.ts && prettier --write \"exports/abis/**/*.ts\"",
     "publish": "npm publish --access public",
@@ -29,7 +26,6 @@
     "redeploy:network": "npx hardhat deploymode=base --reset --network",
     "deployPositions:network": "export deploymode=pos && npx hardhat deploy --network",
     "positions": "npx hardhat monitor-positions --network mainnet --sort created",
-    "contracts": "npx hardhat get-contracts",
     "monitor": "npx hardhat monitor-all --network mainnet"
   },
   "repository": {

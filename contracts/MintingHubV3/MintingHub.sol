@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -12,6 +11,7 @@ import {IPositionFactory} from "./interface/IPositionFactory.sol";
 import {IPosition} from "./interface/IPosition.sol";
 import {IWrappedNative} from "../interface/IWrappedNative.sol";
 import {Leadrate} from "../Leadrate.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {PositionRoller} from "./PositionRoller.sol";
 
@@ -532,18 +532,13 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         return amount;
     }
 
-    function emitPositionUpdate(uint256 _collateral, uint256 _price, uint256 _principal) external virtual validPos(msg.sender) {
+    function emitPositionUpdate(uint256 _collateral, uint256 _price, uint256 _principal) external validPos(msg.sender) {
         emit PositionUpdate(msg.sender, _collateral, _price, _principal);
     }
 
-    function emitPositionDenied(address denier, string calldata message) external virtual validPos(msg.sender) {
+    function emitPositionDenied(address denier, string calldata message) external validPos(msg.sender) {
         emit PositionDeniedByGovernance(msg.sender, denier, message);
     }
-
-    /**
-     * @dev Required for WETH.withdraw() callbacks.
-     */
-    receive() external payable {}
 
     /**
      * @dev See {IERC165-supportsInterface}.
@@ -553,4 +548,10 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
             interfaceId == type(IMintingHub).interfaceId ||
             super.supportsInterface(interfaceId);
     }
+
+    /**
+     * @dev Required for WETH.withdraw() callbacks.
+     */
+    receive() external payable {}
+
 }

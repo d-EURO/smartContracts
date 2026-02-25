@@ -2,11 +2,8 @@ import { ethers } from 'hardhat';
 import { parseUnits, formatUnits } from 'ethers';
 import fs from 'fs';
 import path from 'path';
-import dotenv from 'dotenv';
-import { getContractAddress } from '../../utils/deployments';
+import { ADDRESS } from '../../../exports/address.config';
 import { bridgeConfigs } from '../config/stablecoinBridgeConfig';
-
-dotenv.config();
 
 /**
  * Deploys a StablecoinBridge contract for a specified stablecoin.
@@ -37,7 +34,13 @@ async function deployBridge() {
       throw error;
     }
 
-    const dEuroAddress = getContractAddress('decentralizedEURO');
+    const network = await ethers.provider.getNetwork();
+    const chainId = Number(network.chainId);
+    const addresses = ADDRESS[chainId];
+    if (!addresses) {
+      throw new Error(`No addresses configured for chain ${chainId}`);
+    }
+    const dEuroAddress = addresses.decentralizedEURO;
     const dEURO = await ethers.getContractAt('DecentralizedEURO', dEuroAddress);
     const dEuroDecimals = await dEURO.decimals();
     const mintLimit = parseUnits(config.limitAmount, Number(dEuroDecimals));
@@ -82,7 +85,6 @@ async function deployBridge() {
     if (!receipt || receipt.status !== 1) throw new Error('Minter initialization failed');
     console.log('Bridge suggested as a minter');
 
-    const network = await ethers.provider.getNetwork();
     const networkName = network.name || `chain-${network.chainId}`;
     const timestamp = Math.floor(Date.now() / 1000);
     const deploymentInfo = {

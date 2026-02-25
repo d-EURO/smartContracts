@@ -8,61 +8,6 @@ import 'hardhat-contract-sizer';
 import { HardhatUserConfig } from 'hardhat/config';
 import { getChildFromSeed } from './helper/wallet';
 
-// Import tasks
-import './tasks/getContracts';
-
-// Lazy load monitoring tasks to avoid circular dependency with typechain
-// These tasks will only import their dependencies when actually executed
-import { task } from 'hardhat/config';
-
-// Define monitoring tasks with lazy loading
-task('monitor-positions', 'Monitor positions in the dEuro Protocol')
-  .addOptionalParam('sort', 'Column to sort by')
-  .setAction(async (args, hre) => {
-    const { monitorPositionsAction } = await import('./tasks/monitorPositions');
-    return monitorPositionsAction(args, hre);
-  });
-
-task('monitor-bridges', 'Monitor bridges in the dEuro Protocol')
-  .setAction(async (args, hre) => {
-    const { monitorBridgesAction } = await import('./tasks/monitorBridges');
-    return monitorBridgesAction(args, hre);
-  });
-
-task('monitor-deuro', 'Monitor the dEuro token')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async (args, hre) => {
-    const { monitorDecentralizedEuroAction } = await import('./tasks/monitorDecentralizedEuro');
-    return monitorDecentralizedEuroAction(args, hre);
-  });
-
-task('monitor-equity', 'Monitor the Equity contract')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async (args, hre) => {
-    const { monitorEquityAction } = await import('./tasks/monitorEquity');
-    return monitorEquityAction(args, hre);
-  });
-
-task('monitor-deps', 'Monitor the DEPS Wrapper')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async (args, hre) => {
-    const { monitorDEPSWrapperAction } = await import('./tasks/monitorDEPSWrapper');
-    return monitorDEPSWrapperAction(args, hre);
-  });
-
-task('monitor-savings', 'Monitor the Savings Gateway')
-  .addFlag('includeEventTxs', 'Include detailed transaction events')
-  .setAction(async (args, hre) => {
-    const { monitorSavingsGatewayAction } = await import('./tasks/monitorSavingsGateway');
-    return monitorSavingsGatewayAction(args, hre);
-  });
-
-task('monitor-all', 'Monitor all dEuro Protocol contracts')
-  .setAction(async (args, hre) => {
-    const { monitorAllAction } = await import('./tasks/monitorAll');
-    return monitorAllAction(args, hre);
-  });
-
 import dotenv from 'dotenv';
 dotenv.config();
 
