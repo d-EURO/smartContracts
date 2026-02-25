@@ -12,7 +12,6 @@ export interface PositionsConfig {
     riskPremiumPPM: number;
     liqPrice: string;
     reservePPM: number;
-    frontendCode?: string;
     deploy?: boolean;
   }[];
 }

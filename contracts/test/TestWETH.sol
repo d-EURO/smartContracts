@@ -5,7 +5,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 /**
  * @title TestWETH
- * @notice Test WETH implementation for testing CoinLendingGateway
+ * @notice Test WETH implementation for testing native coin wrapping
  */
 contract TestWETH is ERC20 {
     error InsufficientBalance();

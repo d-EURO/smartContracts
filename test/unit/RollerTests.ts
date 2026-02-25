@@ -66,12 +66,14 @@ describe("Roller Tests", () => {
     const rollerFactory = await ethers.getContractFactory("PositionRoller");
     roller = await rollerFactory.deploy(deuro.getAddress());
 
+    const weth = await (await ethers.getContractFactory('TestWETH')).deploy();
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
       await deuro.getAddress(),
-      await savings.getAddress(),
+      20000n,
       await roller.getAddress(),
       await positionFactory.getAddress(),
+      await weth.getAddress(),
     );
 
     // test coin
@@ -453,7 +455,8 @@ describe("Roller Tests", () => {
       );
     });
 
-    it("should fail to rollFully if owner balance insufficient to cover interest", async () => {
+    it("should rollFully even if owner has zero dEURO (flash loan covers it)", async () => {
+      const snapshotId = await ethers.provider.send('evm_snapshot', []);
       await evm_increaseTime(3 * 86400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
@@ -464,17 +467,17 @@ describe("Roller Tests", () => {
       const b1 = await deuro.balanceOf(owner.address);
       expect(b1).to.be.equal(0);
 
-      const debt = await pos1.getDebt();
       const collBal = await coin.balanceOf(await pos1.getAddress());
       await coin.approve(await roller.getAddress(), collBal);
-      await deuro.approve(await roller.getAddress(), debt + floatToDec18(1)); // add 1 to cover timestamp difference
-      const tx = roller.rollFully(
+      await deuro.approve(await roller.getAddress(), ethers.MaxUint256);
+      // Flash loan mechanism covers interest gap, so roll succeeds even with 0 dEURO balance
+      await roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
       );
-      expect(tx).to.be.revertedWithoutReason;
+      expect(await pos1.getDebt()).to.be.equal(0, "source position should be fully repaid");
 
-      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
+      await ethers.provider.send('evm_revert', [snapshotId]);
     });
 
     it("rollFully check interests and rolled amount", async () => {
@@ -677,6 +680,7 @@ describe("Roller Tests", () => {
       // this additionally required collateral will be missing. Consequently, the target collateral is capped at the source collateral
       // and the minted amount will be less than the principal of the source position. If the owner does not have sufficient funds
       // repaying the flash loan will fail as he receives less dEURO than he has to repay (target principal < source principal).
+      const snapshotId = await ethers.provider.send('evm_snapshot', []);
       await evm_increaseTime(3 * 86_400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
       const ownerInitBal = await deuro.balanceOf(owner.address);
@@ -685,29 +689,21 @@ describe("Roller Tests", () => {
       expect(b1).to.be.equal(floatToDec18(1));
 
       // decrease collateral price from 6_000 dEURO/coin to 500 dEURO/coin
-      await pos2.adjustPrice(500n * 10n ** 18n); 
-      const sourcePrice = await pos1.price();                                        
-      const targetPrice = await pos2.price();                                        
+      await pos2.adjustPrice(500n * 10n ** 18n);
+      const sourcePrice = await pos1.price();
+      const targetPrice = await pos2.price();
       expect(targetPrice).to.be.lessThan(sourcePrice);
 
-      const p1 = await pos1.principal();                                             
-      const i1 = await pos1.getInterest();
-      const collBal = await coin.balanceOf(await pos1.getAddress());                 
-      let usableAmount = await pos1.getUsableMint(p1);                               
-      let mintAmount = await pos2.getMintAmount(usableAmount);                       
-      let depositAmount = (mintAmount * 10n ** 18n + targetPrice - 1n) / targetPrice;
-      depositAmount = depositAmount > collBal ? collBal : depositAmount;             
-      mintAmount = depositAmount * targetPrice / 10n ** 18n;                         
-
-      await coin.approve(await roller.getAddress(), p1);
-      await deuro.approve(await roller.getAddress(), p1 + (i1 + floatToDec18(1))); // add 1 to cover timestamp difference
+      const collBal = await coin.balanceOf(await pos1.getAddress());
+      await coin.approve(await roller.getAddress(), collBal);
+      await deuro.approve(await roller.getAddress(), ethers.MaxUint256);
       const tx = roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
       );
-      expect(tx).to.be.revertedWithoutReason;
+      await expect(tx).to.be.reverted;
 
-      await deuro.connect(bob).transfer(owner.address, ownerInitBal); // refund deuro for testing
+      await ethers.provider.send('evm_revert', [snapshotId]);
     });
 
     it("rollFully with higher target collateral price (less collateral required for target)", async () => {
@@ -787,7 +783,7 @@ describe("Roller Tests", () => {
     let pos2FixedAnnualRate: bigint;
 
     beforeEach("give owner and alice a position", async () => {
-      prevRate = await savings.currentRatePPM();
+      prevRate = await mintingHub.currentRatePPM();
 
       // ---------------------------------------------------------------------------
       // give OWNER a position
@@ -837,11 +833,11 @@ describe("Roller Tests", () => {
 
       // ---------------------------------------------------------------------------
       // change leadrate
-      await savings.proposeChange(newRate, []);
+      await mintingHub.proposeChange(newRate, []);
       await evm_increaseTime(7 * 86_400 + 60);
-      expect(await savings.currentRatePPM()).to.be.eq(prevRate);
-      await savings.applyChange();
-      expect(await savings.currentRatePPM()).to.be.eq(newRate);
+      expect(await mintingHub.currentRatePPM()).to.be.eq(prevRate);
+      await mintingHub.applyChange();
+      expect(await mintingHub.currentRatePPM()).to.be.eq(newRate);
       expect(prevRate).to.not.equal(newRate);
     });
 

@@ -26,7 +26,7 @@ The source code can be found in the [contracts](contracts) folder. The following
 | FrontendGateway.sol    | A module that rewards frontend providers for referrals into the dEURO Ecosystem   |
 | MintingHubGateway.sol  | Plugin for oracle-free collateralized minting with rewards for frontend providers |
 | SavingsGateway.sol     | A module to pay out interest to ZCHF holders and reward frontend providers        |
-| CoinLendingGateway.sol | Gateway for native coin (ETH/MATIC) lending with custom liquidation prices        |
+| SavingsVaultDEURO.sol  | ERC-4626 vault wrapper for the Savings module                                     |
 
 # Code basis and changes after the fork
 
@@ -67,7 +67,11 @@ In contrast to Frankencoin, dEURO does not use the minting module v1 at all
 
 ## Minting module v2
 
-Interest is no longer paid when a position is opened but is credited as a debt on an ongoing basis and only has to be paid when a position is closed or modified. 
+Interest is no longer paid when a position is opened but is credited as a debt on an ongoing basis and only has to be paid when a position is closed or modified.
+
+## Minting module v3
+
+Native ETH/WETH support across MintingHub, Position, and PositionRoller. Leadrate integrated directly into MintingHub. Interest is now charged only on the usable mint (excluding reserve contribution). A reference position mechanism allows cooldown-free price increases.
 
 ## Front-end gateway
 It is possible to use the SmartContracts through a gateway and thus obtain a refferal commission. This module is completely new. 
@@ -92,7 +96,7 @@ It is possible to use the SmartContracts through a gateway and thus obtain a ref
 "test": "npx hardhat test",
 "coverage": "npx hardhat coverage",
 
-"deploy": "npx hardhat ignition deploy",
+"deploy": "npx hardhat run scripts/deployment/deploy/<script>.ts --network <network>",
 "verify": "npx hardhat verify",
 
 "build": "tsup",
@@ -178,92 +182,9 @@ USE_FORK=true BRIDGE_KEY=EUROP npx hardhat run scripts/deployment/deploy/deployB
 
 Bridge keys and configurations are defined in `scripts/deployment/config/stablecoinBridgeConfig.ts`
 
-### 5. Write Deployment Scripts (via ignition deploy and verify)
+### 5.1 Manual Verify
 
-> Deployment modules are located in /ignition/modules. Deploy your contracts:
-
-```Bash
-# deploy and verify a contract (increase deployment-id)
-npm run deploy ignition/modules/MODULE --network polygon --verify --deployment-id MODULE_ID_01
-
-# deploy and verify all contracts
-npm run deploy -- --network polygon --verify
-```
-
-This will:
-
-- Compile and deploy contracts
-- Verify on Etherscan and Sourcify
-- Generate deployment artifacts in /ignition/deployments
-
-Verify:
-
-- verifies contract on etherscan
-- verifies contract on sourcify
-
-Key deployment files:
-
-- deployed_addresses.json: Contains contract addresses
-- journal.json: Detailed deployment logs
-
-- creates deployment artifacts in /ignition`/deployments` directory
-- creates ./ignition/deployments/[deployment]/`deployed_addresses.json`
-- creates ./ignition/deployments/[deployment]/`journal.jsonl`
-- creates constructor-args in /ignition`/constructor-args` directory, as JS module export
-
-### 5.1 Example
-
-```Bash
-✔ Confirm deploy to network polygon (137)? … yes
-{
-  message: 'Config Info: Deploying Module with accounts',
-  admin: '0xb687FE7E47774B22F10Ca5E747496d81827167E3',
-  executor: '0xBdae8D35EDe5bc5174E805DcBe3F7714d142DAAb',
-  member: '0x2ACf17C04F1d8BE7E9D5529894DCee86bf2fcdC3'
-}
-Constructor Args
-[
-  '0xb687FE7E47774B22F10Ca5E747496d81827167E3',
-  '0xBdae8D35EDe5bc5174E805DcBe3F7714d142DAAb',
-  '0x2ACf17C04F1d8BE7E9D5529894DCee86bf2fcdC3'
-]
-Hardhat Ignition 🚀
-
-Deploying [ MembershipModule ]
-
-Batch #1
-  Executed MembershipModule#Membership
-
-Batch #2
-  Executed MembershipModule#Storage
-
-[ MembershipModule ] successfully deployed 🚀
-
-Deployed Addresses
-
-MembershipModule#Membership - 0x72950A0A9689fCA941Ddc9E1a58dcD3fb792E3D2
-MembershipModule#Storage - 0x8A7e8091e71cCB7D1EbDd773C26AD82AAd323328
-
-Verifying deployed contracts
-
-Verifying contract "contracts/Membership.sol:Membership" for network polygon...
-Contract contracts/Membership.sol:Membership already verified on network polygon:
-  - https://polygonscan.com/address/0x72950A0A9689fCA941Ddc9E1a58dcD3fb792E3D2#code
-
-Verifying contract "contracts/Storage.sol:Storage" for network polygon...
-Contract contracts/Storage.sol:Storage already verified on network polygon:
-  - https://polygonscan.com/address/0x8A7e8091e71cCB7D1EbDd773C26AD82AAd323328#code
-
-✨  Done in 69.96s.
-```
-
-### 5.2 Manual Verify
-
-`npx hardhat verify --network polygon --constructor-args ./ignition/constructor-args/$FILE.js $ADDRESS`
-
-or manually include unrelated contracts
-
-`npx hardhat ignition verify $DEPLOYMENT --include-unrelated-contracts`
+`npx hardhat verify --network polygon --constructor-args $CONSTRUCTOR_ARGS_FILE $ADDRESS`
 
 ### 6 Prepare NPM Package Support
 

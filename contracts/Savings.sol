@@ -19,6 +19,8 @@ contract Savings is Leadrate {
     IERC20 public immutable deuro;
 
     mapping(address => Account) public savings;
+    mapping(address => bool) public nonCompounding;
+    mapping(address => uint192) public claimableInterest;
 
     struct Account {
         uint192 saved;
@@ -26,8 +28,9 @@ contract Savings is Leadrate {
     }
 
     event Saved(address indexed account, uint192 amount);
-    event InterestCollected(address indexed account, uint256 interest);
+    event InterestCollected(address indexed account, uint256 interest, bool compounded);
     event Withdrawn(address indexed account, uint192 amount);
+    event InterestClaimed(address indexed account, uint192 amount);
 
     // The module is considered disabled if the interest is zero or about to become zero within three days.
     error ModuleDisabled();
@@ -53,16 +56,20 @@ contract Savings is Leadrate {
         return refresh(owner).saved;
     }
 
-    function refresh(address accountOwner) virtual internal returns (Account storage) {
+    function refresh(address accountOwner) internal returns (Account storage) {
         Account storage account = savings[accountOwner];
         uint64 ticks = currentTicks();
         if (ticks > account.ticks) {
             uint192 earnedInterest = calculateInterest(account, ticks);
             if (earnedInterest > 0) {
-                // collect interest as you go and trigger accounting event
                 (IDecentralizedEURO(address(deuro))).distributeProfits(address(this), earnedInterest);
-                account.saved += earnedInterest;
-                emit InterestCollected(accountOwner, earnedInterest);
+                bool compounded = !nonCompounding[accountOwner];
+                if (compounded) {
+                    account.saved += earnedInterest;
+                } else {
+                    claimableInterest[accountOwner] += earnedInterest;
+                }
+                emit InterestCollected(accountOwner, earnedInterest, compounded);
             }
             account.ticks = ticks;
         }
@@ -96,6 +103,16 @@ contract Savings is Leadrate {
      * Save 'amount'.
      */
     function save(uint192 amount) public {
+        save(msg.sender, amount);
+    }
+
+    /**
+     * Save 'amount' and set the compounding preference.
+     * The flag is applied before settling pending interest, so any unsettled
+     * interest from the previous period is settled under the NEW mode.
+     */
+    function save(uint192 amount, bool compound) public {
+        nonCompounding[msg.sender] = !compound;
         save(msg.sender, amount);
     }
 
@@ -137,5 +154,16 @@ contract Savings is Leadrate {
         deuro.transfer(target, amount);
         emit Withdrawn(msg.sender, amount);
         return amount;
+    }
+
+    function claimInterest(address target) public returns (uint192) {
+        refresh(msg.sender);
+        uint192 interest = claimableInterest[msg.sender];
+        if (interest > 0) {
+            claimableInterest[msg.sender] = 0;
+            deuro.transfer(target, interest);
+            emit InterestClaimed(msg.sender, interest);
+        }
+        return interest;
     }
 }

@@ -1,0 +1,266 @@
+import fs from 'fs';
+import path from 'path';
+import { ethers } from 'hardhat';
+import hre from 'hardhat';
+import { migrationV3Config, migrationV3Params } from '../config/migrationV3Config';
+
+/**
+ * @description Deploys V3 migration contracts (PositionFactory, PositionRoller, Savings, MintingHub, SavingsVaultDEURO)
+ *              and registers Savings + MintingHub as minters on dEURO.
+ * @usage npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network <network>
+ */
+async function main() {
+  const [deployer] = await ethers.getSigners();
+  const network = await ethers.provider.getNetwork();
+  const networkName = hre.network.name;
+
+  const config = migrationV3Config[networkName];
+  if (!config) {
+    console.error(`Network ${networkName} not supported. Supported networks: ${Object.keys(migrationV3Config).join(', ')}`);
+    process.exit(1);
+  }
+
+  console.log(`Connected to ${networkName} (chainId: ${network.chainId})`);
+  console.log(`Using deployer: ${deployer.address}`);
+  console.log(`Using dEURO: ${config.decentralizedEURO}`);
+  console.log(`Using WETH: ${config.weth}`);
+
+  // Read on-chain minter application parameters
+  const dEURO = await ethers.getContractAt('DecentralizedEURO', config.decentralizedEURO);
+  const minFee = await dEURO.MIN_FEE();
+  const minApplicationPeriod = await dEURO.MIN_APPLICATION_PERIOD();
+  const totalFee = minFee * 3n; // Three suggestMinter calls
+
+  console.log(`\nOn-chain MIN_FEE: ${ethers.formatEther(minFee)} dEURO`);
+  console.log(`On-chain MIN_APPLICATION_PERIOD: ${Number(minApplicationPeriod) / 86400} days (${minApplicationPeriod}s)`);
+
+  // Pre-deployment check: deployer has enough dEURO for minter fees
+  const deployerBalance = await dEURO.balanceOf(deployer.address);
+  console.log(`Deployer dEURO balance: ${ethers.formatEther(deployerBalance)}`);
+  if (deployerBalance < totalFee) {
+    console.error(`Insufficient dEURO balance. Need ${ethers.formatEther(totalFee)}, have ${ethers.formatEther(deployerBalance)}`);
+    process.exit(1);
+  }
+
+  // --- 1. Deploy PositionFactory ---
+  console.log('\n1/7 Deploying PositionFactory...');
+  const PositionFactory = await ethers.getContractFactory('PositionFactory');
+  const positionFactory = await PositionFactory.deploy();
+  const positionFactoryDeployTxHash = positionFactory.deploymentTransaction()?.hash;
+  console.log(`    PositionFactory deployment tx: ${positionFactoryDeployTxHash}`);
+  await positionFactory.waitForDeployment();
+  const positionFactoryAddress = await positionFactory.getAddress();
+  console.log(`    PositionFactory deployed to: ${positionFactoryAddress}`);
+
+  // --- 2. Deploy PositionRoller ---
+  console.log('2/7 Deploying PositionRoller...');
+  const PositionRoller = await ethers.getContractFactory('PositionRoller');
+  const positionRoller = await PositionRoller.deploy(config.decentralizedEURO);
+  const positionRollerDeployTxHash = positionRoller.deploymentTransaction()?.hash;
+  console.log(`    PositionRoller deployment tx: ${positionRollerDeployTxHash}`);
+  await positionRoller.waitForDeployment();
+  const positionRollerAddress = await positionRoller.getAddress();
+  console.log(`    PositionRoller deployed to: ${positionRollerAddress}`);
+
+  // --- 3. Deploy Savings ---
+  console.log('3/7 Deploying Savings...');
+  const Savings = await ethers.getContractFactory('Savings');
+  const savings = await Savings.deploy(config.decentralizedEURO, migrationV3Params.initialSavingsRatePPM);
+  const savingsDeployTxHash = savings.deploymentTransaction()?.hash;
+  console.log(`    Savings deployment tx: ${savingsDeployTxHash}`);
+  await savings.waitForDeployment();
+  const savingsAddress = await savings.getAddress();
+  console.log(`    Savings deployed to: ${savingsAddress}`);
+
+  // --- 4. Deploy MintingHub ---
+  console.log('4/7 Deploying MintingHub...');
+  const MintingHub = await ethers.getContractFactory('MintingHub');
+  const mintingHub = await MintingHub.deploy(
+    config.decentralizedEURO,
+    migrationV3Params.initialLendingRatePPM,
+    positionRollerAddress,
+    positionFactoryAddress,
+    config.weth,
+  );
+  const mintingHubDeployTxHash = mintingHub.deploymentTransaction()?.hash;
+  console.log(`    MintingHub deployment tx: ${mintingHubDeployTxHash}`);
+  await mintingHub.waitForDeployment();
+  const mintingHubAddress = await mintingHub.getAddress();
+  console.log(`    MintingHub deployed to: ${mintingHubAddress}`);
+
+  // --- 5. Deploy SavingsVaultDEURO ---
+  console.log('5/7 Deploying SavingsVaultDEURO...');
+  const SavingsVaultDEURO = await ethers.getContractFactory('SavingsVaultDEURO');
+  const savingsVault = await SavingsVaultDEURO.deploy(
+    config.decentralizedEURO,
+    savingsAddress,
+    migrationV3Params.savingsVaultName,
+    migrationV3Params.savingsVaultSymbol,
+  );
+  const savingsVaultDeployTxHash = savingsVault.deploymentTransaction()?.hash;
+  console.log(`    SavingsVaultDEURO deployment tx: ${savingsVaultDeployTxHash}`);
+  await savingsVault.waitForDeployment();
+  const savingsVaultAddress = await savingsVault.getAddress();
+  console.log(`    SavingsVaultDEURO deployed to: ${savingsVaultAddress}`);
+
+  // --- 6. Approve dEURO for minter fees ---
+  console.log('6/7 Approving dEURO for minter application fees...');
+  const approveTx = await dEURO.approve(config.decentralizedEURO, totalFee);
+  console.log(`    Approve tx: ${approveTx.hash}`);
+  const approveReceipt = await approveTx.wait();
+  if (!approveReceipt || approveReceipt.status !== 1) {
+    throw new Error('dEURO approval transaction failed');
+  }
+  console.log(`    Approved ${ethers.formatEther(totalFee)} dEURO`);
+
+  // --- 7a. suggestMinter for Savings ---
+  console.log('7/7a Registering Savings as minter...');
+  const suggestSavingsTx = await dEURO.suggestMinter(savingsAddress, minApplicationPeriod, minFee, 'Savings');
+  console.log(`    suggestMinter(Savings) tx: ${suggestSavingsTx.hash}`);
+  const suggestSavingsReceipt = await suggestSavingsTx.wait();
+  if (!suggestSavingsReceipt || suggestSavingsReceipt.status !== 1) {
+    throw new Error('suggestMinter(Savings) transaction failed');
+  }
+  console.log(`    suggestMinter(Savings) submitted`);
+
+  // --- 7b. suggestMinter for MintingHub ---
+  console.log('7/7b Registering MintingHub as minter...');
+  const suggestMintingHubTx = await dEURO.suggestMinter(mintingHubAddress, minApplicationPeriod, minFee, 'MintingHub');
+  console.log(`    suggestMinter(MintingHub) tx: ${suggestMintingHubTx.hash}`);
+  const suggestMintingHubReceipt = await suggestMintingHubTx.wait();
+  if (!suggestMintingHubReceipt || suggestMintingHubReceipt.status !== 1) {
+    throw new Error('suggestMinter(MintingHub) transaction failed');
+  }
+  console.log(`    suggestMinter(MintingHub) submitted`);
+
+  // --- 7c. suggestMinter for PositionRoller ---
+  console.log('7/7c Registering PositionRoller as minter...');
+  const suggestRollerTx = await dEURO.suggestMinter(positionRollerAddress, minApplicationPeriod, minFee, 'PositionRoller');
+  console.log(`    suggestMinter(PositionRoller) tx: ${suggestRollerTx.hash}`);
+  const suggestRollerReceipt = await suggestRollerTx.wait();
+  if (!suggestRollerReceipt || suggestRollerReceipt.status !== 1) {
+    throw new Error('suggestMinter(PositionRoller) transaction failed');
+  }
+  console.log(`    suggestMinter(PositionRoller) submitted`);
+
+  // --- Save deployment info ---
+  const timestamp = Math.floor(Date.now() / 1000);
+  const positionFactoryConstructorArgs: any[] = [];
+  const positionRollerConstructorArgs = [config.decentralizedEURO];
+  const savingsConstructorArgs = [config.decentralizedEURO, migrationV3Params.initialSavingsRatePPM];
+  const mintingHubConstructorArgs = [
+    config.decentralizedEURO,
+    migrationV3Params.initialLendingRatePPM,
+    positionRollerAddress,
+    positionFactoryAddress,
+    config.weth,
+  ];
+  const savingsVaultConstructorArgs = [
+    config.decentralizedEURO,
+    savingsAddress,
+    migrationV3Params.savingsVaultName,
+    migrationV3Params.savingsVaultSymbol,
+  ];
+
+  const deploymentInfo = {
+    network: networkName,
+    chainId: Number(network.chainId),
+    deployer: deployer.address,
+    existingContracts: {
+      decentralizedEURO: config.decentralizedEURO,
+      weth: config.weth,
+    },
+    contracts: {
+      positionFactory: { address: positionFactoryAddress, constructorArgs: positionFactoryConstructorArgs },
+      positionRoller: { address: positionRollerAddress, constructorArgs: positionRollerConstructorArgs },
+      savings: { address: savingsAddress, constructorArgs: savingsConstructorArgs },
+      mintingHub: { address: mintingHubAddress, constructorArgs: mintingHubConstructorArgs },
+      savingsVaultDEURO: { address: savingsVaultAddress, constructorArgs: savingsVaultConstructorArgs },
+    },
+    minterSuggestions: {
+      savings: {
+        applicationPeriod: Number(minApplicationPeriod),
+        fee: minFee.toString(),
+      },
+      mintingHub: {
+        applicationPeriod: Number(minApplicationPeriod),
+        fee: minFee.toString(),
+      },
+      positionRoller: {
+        applicationPeriod: Number(minApplicationPeriod),
+        fee: minFee.toString(),
+      },
+    },
+    transactions: {
+      positionFactoryDeploy: positionFactoryDeployTxHash,
+      positionRollerDeploy: positionRollerDeployTxHash,
+      savingsDeploy: savingsDeployTxHash,
+      mintingHubDeploy: mintingHubDeployTxHash,
+      savingsVaultDeploy: savingsVaultDeployTxHash,
+      approve: approveTx.hash,
+      suggestMinterSavings: suggestSavingsTx.hash,
+      suggestMinterMintingHub: suggestMintingHubTx.hash,
+      suggestMinterPositionRoller: suggestRollerTx.hash,
+    },
+    timestamp,
+  };
+
+  const deploymentDir = path.join(__dirname, '../../deployments');
+  if (!fs.existsSync(deploymentDir)) {
+    fs.mkdirSync(deploymentDir, { recursive: true });
+  }
+
+  const filename = `v3-migration-${networkName}-${timestamp}.json`;
+  fs.writeFileSync(path.join(deploymentDir, filename), JSON.stringify(deploymentInfo, null, 2));
+  console.log(`\nDeployment info saved to: scripts/deployments/${filename}`);
+
+  // --- Etherscan verification on live networks ---
+  if (networkName !== 'hardhat' && networkName !== 'localhost') {
+    console.log('\nWaiting for block confirmations before verification...');
+    const lastDeployTx = savingsVault.deploymentTransaction();
+    if (lastDeployTx) {
+      await lastDeployTx.wait(5);
+    }
+
+    const contractsToVerify = [
+      { name: 'PositionFactory', address: positionFactoryAddress, constructorArguments: positionFactoryConstructorArgs },
+      { name: 'PositionRoller', address: positionRollerAddress, constructorArguments: positionRollerConstructorArgs },
+      { name: 'Savings', address: savingsAddress, constructorArguments: savingsConstructorArgs },
+      { name: 'MintingHub', address: mintingHubAddress, constructorArguments: mintingHubConstructorArgs },
+      { name: 'SavingsVaultDEURO', address: savingsVaultAddress, constructorArguments: savingsVaultConstructorArgs },
+    ];
+
+    for (const contract of contractsToVerify) {
+      console.log(`Verifying ${contract.name}...`);
+      try {
+        await hre.run('verify:verify', {
+          address: contract.address,
+          constructorArguments: contract.constructorArguments,
+        });
+        console.log(`  ${contract.name} verified successfully`);
+      } catch (error: any) {
+        if (error.message.includes('Already Verified')) {
+          console.log(`  ${contract.name} is already verified`);
+        } else {
+          console.error(`  ${contract.name} verification failed:`, error.message);
+        }
+      }
+    }
+  }
+
+  // --- Summary ---
+  console.log('\n=== V3 Migration Deployment Summary ===');
+  console.log(`PositionFactory:    ${positionFactoryAddress}`);
+  console.log(`PositionRoller:     ${positionRollerAddress}`);
+  console.log(`Savings:            ${savingsAddress}`);
+  console.log(`MintingHub:         ${mintingHubAddress}`);
+  console.log(`SavingsVaultDEURO:  ${savingsVaultAddress}`);
+  console.log(`\nMinter suggestions submitted. Approval after ${Number(minApplicationPeriod) / 86400} days.`);
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error('Deployment error:', error);
+    process.exit(1);
+  });

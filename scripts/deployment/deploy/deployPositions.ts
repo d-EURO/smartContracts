@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat';
+import { zeroAddress } from 'viem';
 import { config } from '../config/positionsConfig';
-import { getContractAddress } from '../../utils/deployments'; // Flashbots deployment
-// import { await getFlashbotDeploymentAddress } from '../../ignition/utils/addresses'; // Hardhat Ignition
+import { ADDRESS } from '../../../exports/address.config';
 import fs from 'fs';
 import path from 'path';
 
@@ -19,7 +19,6 @@ interface DeployedPosition {
     challengeSeconds: number;
     riskPremium: number;
     reservePPM: number;
-    frontendCode: string;
   };
   txHash: string;
 }
@@ -27,26 +26,35 @@ interface DeployedPosition {
 // Deploy positions
 async function main() {
   const [deployer] = await ethers.getSigners();
+  const network = await ethers.provider.getNetwork();
+  const chainId = Number(network.chainId);
+  const addresses = ADDRESS[chainId];
+  if (!addresses) {
+    throw new Error(`No addresses configured for chain ${chainId}`);
+  }
   console.log('\nDeployer:          ', deployer.address);
 
   // Load config file
-  const mintingHubGatewayAddress = await getContractAddress('mintingHubGateway');
-  const dEuroAddress = await getContractAddress('decentralizedEURO');
+  const mintingHubAddress = addresses.mintingHub;
+  if (mintingHubAddress === zeroAddress) {
+    throw new Error('MintingHub address not configured in address.config.ts. Run deployV3Migration.ts first.');
+  }
+  const dEuroAddress = addresses.decentralizedEURO;
   const openingFee = ethers.parseEther(config.openingFee); // dEURO has 18 decimals
   const positionsToDeploy = config.positions.filter((p) => p.deploy);
-  console.log('MintingHubGateway: ', mintingHubGatewayAddress);
+  console.log('MintingHub:        ', mintingHubAddress);
   console.log('DecentralizedEURO: ', dEuroAddress);
   console.log(`\nFound ${positionsToDeploy.length} positions to deploy.`);
 
   // Get contracts
   const dEuro = await ethers.getContractAt('DecentralizedEURO', dEuroAddress);
   const dEuroConnected = dEuro.connect(deployer);
-  const mintingHubGateway = await ethers.getContractAt('MintingHubGateway', mintingHubGatewayAddress);
-  const mintingHubGatewayConnected = mintingHubGateway.connect(deployer);
+  const mintingHub = await ethers.getContractAt('MintingHub', mintingHubAddress);
+  const mintingHubConnected = mintingHub.connect(deployer);
 
-  // Before proceding, check MintingHubGateway is deployed (sanity check)
-  if ((await ethers.provider.getCode(mintingHubGatewayAddress)) === '0x') {
-    throw new Error(`MintingHubGateway contract not deployed at address: ${mintingHubGatewayAddress}`);
+  // Before proceeding, check MintingHub is deployed (sanity check)
+  if ((await ethers.provider.getCode(mintingHubAddress)) === '0x') {
+    throw new Error(`MintingHub contract not deployed at address: ${mintingHubAddress}`);
   }
 
   // Store deployed positions data
@@ -77,27 +85,25 @@ async function main() {
       console.log(`- Expiration: ${new Date(Date.now() + position.expirationSeconds * 1000).toISOString()}`);
 
       // Collateral
-      const currentCollateralAllowance = await collateralToken.allowance(deployer.address, mintingHubGatewayAddress);
+      const currentCollateralAllowance = await collateralToken.allowance(deployer.address, mintingHubAddress);
       if (currentCollateralAllowance < initialCollateral) {
         console.log(`- Approving collateral token transfer...`);
-        const collateralApproveTx = await collateralToken.approve(mintingHubGatewayAddress, initialCollateral);
+        const collateralApproveTx = await collateralToken.approve(mintingHubAddress, initialCollateral);
         await collateralApproveTx.wait();
         console.log(`  ✓ Collateral approval confirmed (tx: ${collateralApproveTx.hash})`);
       }
 
       // dEURO
-      const currentDEuroAllowance = await dEuroConnected.allowance(deployer.address, mintingHubGatewayAddress);
+      const currentDEuroAllowance = await dEuroConnected.allowance(deployer.address, mintingHubAddress);
       if (currentDEuroAllowance < openingFee) {
         console.log(`- Approving dEURO fee payment...`);
-        const dEuroApproveTx = await dEuroConnected.approve(mintingHubGatewayAddress, openingFee);
+        const dEuroApproveTx = await dEuroConnected.approve(mintingHubAddress, openingFee);
         await dEuroApproveTx.wait();
         console.log(`  ✓ dEURO approval confirmed (tx: ${dEuroApproveTx.hash})`);
       }
 
       // Open position
-      const tx = await mintingHubGateway[
-        'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)'
-      ](
+      const tx = await mintingHub.openPosition(
         position.collateralAddress,
         minCollateral,
         initialCollateral,
@@ -108,7 +114,6 @@ async function main() {
         position.riskPremiumPPM,
         liqPrice,
         position.reservePPM,
-        position.frontendCode ?? ethers.ZeroHash,
       );
 
       console.log(`TX hash: ${tx.hash}`);
@@ -116,7 +121,7 @@ async function main() {
       // Connect to the position
       const receipt = await tx.wait();
       const event = receipt?.logs
-        .map((log) => mintingHubGatewayConnected.interface.parseLog({ topics: [...log.topics], data: log.data }))
+        .map((log) => mintingHubConnected.interface.parseLog({ topics: [...log.topics], data: log.data }))
         .find((parsedLog) => parsedLog?.name === 'PositionOpened');
 
       if (!event) {
@@ -141,7 +146,6 @@ async function main() {
           challengeSeconds: position.challengeSeconds,
           riskPremium: position.riskPremiumPPM,
           reservePPM: position.reservePPM,
-          frontendCode: position.frontendCode ?? ethers.ZeroHash,
         },
         txHash: tx.hash,
       });
@@ -183,7 +187,6 @@ async function main() {
  * > npx hardhat node --no-deploy
  * > npm run deploy -- --network localhost
  * > npx hardhat run scripts/deployment/deploy/deployPositions.ts --network localhost
- * You may need to delete the ignition deployment artifacts to avoid errors.
  */
 main().catch((error) => {
   console.error(error);
