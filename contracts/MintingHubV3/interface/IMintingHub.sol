@@ -33,8 +33,6 @@ interface IMintingHub {
 
     function buyExpiredCollateral(IPosition pos, uint256 upToAmount, bool receiveAsNative) external returns (uint256);
 
-    function clone(address owner, address parent, uint256 _initialCollateral, uint256 _initialMint, uint40 expiration) external payable returns (address);
-
     function clone(address owner, address parent, uint256 _initialCollateral, uint256 _initialMint, uint40 expiration, uint256 _liqPrice) external payable returns (address);
 
     function emitPositionUpdate(uint256 _collateral, uint256 _price, uint256 _principal) external;

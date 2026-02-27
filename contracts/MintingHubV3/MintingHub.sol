@@ -145,8 +145,8 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
                 bytes memory /*lowLevelData*/
             ) {}
             if (_initialCollateral < _minCollateral) revert InsufficientCollateral();
-            // must start with at least 5000 deur worth of collateral
-            if (_minCollateral * _liqPrice < 5000 ether * 10 ** 18) revert InsufficientCollateral();
+            // must start with at least 500 deur worth of collateral
+            if (_minCollateral * _liqPrice < 500 ether * 10 ** 18) revert InsufficientCollateral();
         }
         IPosition pos = IPosition(
             POSITION_FACTORY.createNewPosition(
@@ -176,25 +176,6 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
 
         emit PositionOpened(msg.sender, address(pos), address(pos), _collateralAddress);
         return address(pos);
-    }
-
-    function clone(
-        address parent,
-        uint256 _initialCollateral,
-        uint256 _initialMint,
-        uint40 expiration
-    ) public payable returns (address) {
-        return clone(msg.sender, parent, _initialCollateral, _initialMint, expiration, 0);
-    }
-
-    function clone(
-        address owner,
-        address parent,
-        uint256 _initialCollateral,
-        uint256 _initialMint,
-        uint40 expiration
-    ) public payable returns (address) {
-        return clone(owner, parent, _initialCollateral, _initialMint, expiration, 0);
     }
 
     /**

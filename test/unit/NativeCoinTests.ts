@@ -251,11 +251,13 @@ describe("Native Coin Tests", () => {
       await parent.connect(owner).withdrawCollateral(owner.address, floatToDec18(100));
 
       const expiration = await parent.expiration();
-      const tx = await mintingHub.connect(alice)["clone(address,uint256,uint256,uint40)"](
+      const tx = await mintingHub.connect(alice)["clone(address,address,uint256,uint256,uint40,uint256)"](
+        alice.address,
         await parent.getAddress(),
         cloneCollateral,
         0n,
         expiration,
+        0,
         { value: cloneCollateral },
       );
       const cloneAddr = await getPositionAddressFromTX(tx);
@@ -269,11 +271,13 @@ describe("Native Coin Tests", () => {
 
       const expiration = await volPos.expiration();
       await expect(
-        mintingHub.connect(alice)["clone(address,uint256,uint256,uint40)"](
+        mintingHub.connect(alice)["clone(address,address,uint256,uint256,uint40,uint256)"](
+          alice.address,
           await volPos.getAddress(),
           cloneCollateral,
           0n,
           expiration,
+          0,
           { value: cloneCollateral },
         ),
       ).to.be.revertedWithCustomError(mintingHub, "NativeOnlyForWETH");
@@ -287,11 +291,13 @@ describe("Native Coin Tests", () => {
 
       const expiration = await parent.expiration();
       await expect(
-        mintingHub.connect(alice)["clone(address,uint256,uint256,uint40)"](
+        mintingHub.connect(alice)["clone(address,address,uint256,uint256,uint40,uint256)"](
+          alice.address,
           await parent.getAddress(),
           cloneCollateral,
           0n,
           expiration,
+          0,
           { value: cloneCollateral + 1n },
         ),
       ).to.be.revertedWithCustomError(mintingHub, "ValueMismatch");
