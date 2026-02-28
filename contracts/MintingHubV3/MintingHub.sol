@@ -86,17 +86,26 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         _;
     }
 
-    constructor(address _deur, uint24 _initialRatePPM, address _roller, address _factory, address _weth)
+    constructor(address _deur, uint24 _initialRatePPM, address payable _roller, address _factory, address _weth)
         Leadrate(IReserve(IDecentralizedEURO(_deur).reserve()), _initialRatePPM)
     {
         DEURO = IDecentralizedEURO(_deur);
         POSITION_FACTORY = IPositionFactory(_factory);
-        ROLLER = PositionRoller(payable(_roller));
         WETH = _weth;
+        ROLLER = PositionRoller(_roller);
     }
 
     function RATE() public view returns (ILeadrate) {
         return ILeadrate(address(this));
+    }
+
+    // Events for centralized position monitoring
+    function emitPositionUpdate(uint256 _collateral, uint256 _price, uint256 _principal) external validPos(msg.sender) {
+        emit PositionUpdate(msg.sender, _collateral, _price, _principal);
+    }
+
+    function emitPositionDenied(address denier, string calldata message) external validPos(msg.sender) {
+        emit PositionDeniedByGovernance(msg.sender, denier, message);
     }
 
     /**
@@ -201,7 +210,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
             if (address(collateral) != WETH) revert NativeOnlyForWETH();
             if (msg.value != _initialCollateral) revert ValueMismatch();
             IWrappedNative(WETH).deposit{value: msg.value}();
-            IERC20(WETH).transfer(pos, _initialCollateral);
+            collateral.transfer(pos, _initialCollateral);
         } else {
             collateral.transferFrom(msg.sender, pos, _initialCollateral);
         }
@@ -232,12 +241,13 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         // the challenger should set minimumPrice to market price
         uint256 liqPrice = position.virtualPrice();
         if (liqPrice < minimumPrice) revert UnexpectedPrice();
+        address collateralAddr = address(position.collateral());
         if (msg.value > 0) {
-            if (address(position.collateral()) != WETH) revert NativeOnlyForWETH();
+            if (collateralAddr != WETH) revert NativeOnlyForWETH();
             if (msg.value != _collateralAmount) revert ValueMismatch();
             IWrappedNative(WETH).deposit{value: msg.value}();
         } else {
-            IERC20(position.collateral()).transferFrom(msg.sender, address(this), _collateralAmount);
+            IERC20(collateralAddr).transferFrom(msg.sender, address(this), _collateralAmount);
         }
         uint256 pos = challenges.length;
         challenges.push(Challenge(msg.sender, uint40(block.timestamp), position, _collateralAmount));
@@ -257,25 +267,28 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      *                                  (automatically reduced to the available amount)
      * @param postponeCollateralReturn  To postpone the return of the collateral to the challenger. Usually false.
      */
+    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnCollateralAsNative) external {
+        _bid(_challengeNumber, size, postponeCollateralReturn, returnCollateralAsNative);
+    }
+
+    /**
+     * @notice Post a bid in deur given an open challenge (backward compatible).
+     */
     function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn) external {
         _bid(_challengeNumber, size, postponeCollateralReturn, false);
     }
 
-    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnAsNative) external {
-        _bid(_challengeNumber, size, postponeCollateralReturn, returnAsNative);
-    }
-
-    function _bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnAsNative) internal {
+    function _bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnCollateralAsNative) internal {
         Challenge memory _challenge = challenges[_challengeNumber];
         (uint256 liqPrice, uint40 phase) = _challenge.position.challengeData();
         size = _challenge.size < size ? _challenge.size : size; // cannot bid for more than the size of the challenge
 
         if (block.timestamp <= _challenge.start + phase) {
-            _avertChallenge(_challenge, _challengeNumber, liqPrice, size, returnAsNative);
+            _avertChallenge(_challenge, _challengeNumber, liqPrice, size, returnCollateralAsNative);
             emit ChallengeAverted(address(_challenge.position), _challengeNumber, size);
         } else {
-            _returnChallengerCollateral(_challenge, _challengeNumber, size, postponeCollateralReturn, returnAsNative);
-            (uint256 transferredCollateral, uint256 offer) = _finishChallenge(_challenge, size, returnAsNative);
+            _returnChallengerCollateral(_challenge, _challengeNumber, size, postponeCollateralReturn, returnCollateralAsNative);
+            (uint256 transferredCollateral, uint256 offer) = _finishChallenge(_challenge, size, returnCollateralAsNative);
             emit ChallengeSucceeded(address(_challenge.position), _challengeNumber, offer, transferredCollateral, size);
         }
     }
@@ -408,12 +421,15 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
     /**
      * @notice Challengers can call this method to withdraw collateral whose return was postponed.
      */
-    function returnPostponedCollateral(address collateral, address target) external {
-        _returnPostponedCollateral(collateral, target, false);
-    }
-
     function returnPostponedCollateral(address collateral, address target, bool asNative) external {
         _returnPostponedCollateral(collateral, target, asNative);
+    }
+
+    /**
+     * @notice Challengers can call this method to withdraw collateral whose return was postponed (backward compatible).
+     */
+    function returnPostponedCollateral(address collateral, address target) external {
+        _returnPostponedCollateral(collateral, target, false);
     }
 
     function _returnPostponedCollateral(address collateral, address target, bool asNative) internal {
@@ -464,7 +480,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
             } else if (timePassed < 2 * challengePeriod) {
                 // from 1x liquidation price to 0 in second phase
                 uint256 timeLeft = 2 * challengePeriod - timePassed;
-                return (liqprice  * timeLeft) / challengePeriod;
+                return (liqprice * timeLeft) / challengePeriod;
             } else {
                 // get collateral for free after both phases passed
                 return 0;
@@ -479,16 +495,20 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      * To prevent dust either the remaining collateral needs to be bought or collateral with a value
      * of at least OPENING_FEE (1000 dEURO) needs to remain in the position for a different buyer
      */
-    function buyExpiredCollateral(IPosition pos, uint256 upToAmount) external validPos(address(pos)) returns (uint256) {
-        return _buyExpiredCollateral(pos, upToAmount, false);
-    }
-
     function buyExpiredCollateral(IPosition pos, uint256 upToAmount, bool receiveAsNative) external validPos(address(pos)) returns (uint256) {
         return _buyExpiredCollateral(pos, upToAmount, receiveAsNative);
     }
 
+    /**
+     * @notice Buy expired collateral (backward compatible).
+     */
+    function buyExpiredCollateral(IPosition pos, uint256 upToAmount) external validPos(address(pos)) returns (uint256) {
+        return _buyExpiredCollateral(pos, upToAmount, false);
+    }
+
     function _buyExpiredCollateral(IPosition pos, uint256 upToAmount, bool receiveAsNative) internal returns (uint256) {
-        uint256 max = pos.collateral().balanceOf(address(pos));
+        address collateralAddr = address(pos.collateral());
+        uint256 max = IERC20(collateralAddr).balanceOf(address(pos));
         uint256 amount = upToAmount > max ? max : upToAmount;
         uint256 forceSalePrice = expiredPurchasePrice(pos);
 
@@ -498,7 +518,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
             revert LeaveNoDust(max - amount);
         }
 
-        if (receiveAsNative && address(pos.collateral()) == WETH) {
+        if (receiveAsNative && collateralAddr == WETH) {
             DEURO.transferFrom(msg.sender, address(this), costs);
             DEURO.approve(address(pos), costs);
             pos.forceSale(address(this), amount, costs);
@@ -511,14 +531,6 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
 
         emit ForcedSale(address(pos), amount, forceSalePrice);
         return amount;
-    }
-
-    function emitPositionUpdate(uint256 _collateral, uint256 _price, uint256 _principal) external validPos(msg.sender) {
-        emit PositionUpdate(msg.sender, _collateral, _price, _principal);
-    }
-
-    function emitPositionDenied(address denier, string calldata message) external validPos(msg.sender) {
-        emit PositionDeniedByGovernance(msg.sender, denier, message);
     }
 
     /**

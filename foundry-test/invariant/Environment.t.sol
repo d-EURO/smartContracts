@@ -35,7 +35,7 @@ contract Environment is TestHelper {
         s_mintingHub = new MintingHub(
             address(s_deuro),
             5,
-            address(s_positionRoller),
+            payable(address(s_positionRoller)),
             address(s_positionFactory),
             address(0) // WETH not needed for tests
         );
