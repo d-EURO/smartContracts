@@ -5,7 +5,6 @@ import {IDecentralizedEURO} from "../interface/IDecentralizedEURO.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IMintingHub} from "./interface/IMintingHub.sol";
 import {IPosition} from "./interface/IPosition.sol";
-import {IReserve} from "../interface/IReserve.sol";
 import {IWrappedNative} from "../interface/IWrappedNative.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -80,7 +79,8 @@ contract PositionRoller {
         source.withdrawCollateral(msg.sender, collWithdraw);
         if (mint > 0) {
             IERC20 targetCollateral = IERC20(target.collateral());
-            if (Ownable(address(target)).owner() != msg.sender || expiration != target.expiration()) {
+            bool needsClone = Ownable(address(target)).owner() != msg.sender || expiration != target.expiration();
+            if (needsClone) {
                 targetCollateral.transferFrom(msg.sender, address(this), collDeposit); // get the new collateral
                 targetCollateral.approve(target.hub(), collDeposit); // approve the new collateral and clone:
                 target = _cloneTargetPosition(target, collDeposit, mint, expiration);
@@ -103,20 +103,6 @@ contract PositionRoller {
     }
 
     /**
-     * Clones the target position and mints the specified amount using the given collateral.
-     */
-    function _cloneTargetPosition (
-        IPosition target,
-        uint256 collDeposit,
-        uint256 mint,
-        uint40 expiration
-    ) internal returns (IPosition) {
-        return IPosition(
-            IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration, 0)
-        );
-    }
-
-    /**
      * @notice Roll a position using native coin (ETH) as additional collateral.
      */
     function rollFullyNative(IPosition source, IPosition target) external payable {
@@ -127,27 +113,6 @@ contract PositionRoller {
         (uint256 repay, uint256 collWithdraw, uint256 mint, uint256 collDeposit) =
             _calculateRollParams(source, target, msg.value);
         rollNative(source, repay, collWithdraw, target, mint, collDeposit, expiration);
-    }
-
-    function _calculateRollParams(
-        IPosition source,
-        IPosition target,
-        uint256 extraCollateral
-    ) internal view returns (uint256 repay, uint256 collWithdraw, uint256 mint, uint256 collDeposit) {
-        require(source.collateral() == target.collateral());
-        uint256 _principal = source.principal();
-        uint256 _interest = source.getInterest();
-        uint256 usableMint = source.getUsableMint(_principal) + _interest;
-        mint = target.getMintAmount(usableMint);
-        collWithdraw = IERC20(source.collateral()).balanceOf(address(source));
-        uint256 totalCollateral = collWithdraw + extraCollateral;
-        uint256 targetPrice = target.price();
-        collDeposit = (mint * 10 ** 18 + targetPrice - 1) / targetPrice;
-        if (collDeposit > totalCollateral) {
-            collDeposit = totalCollateral;
-            mint = (collDeposit * targetPrice) / 10 ** 18;
-        }
-        repay = _principal + _interest;
     }
 
     /**
@@ -176,7 +141,8 @@ contract PositionRoller {
 
         if (mint > 0) {
             IERC20 targetCollateral = IERC20(target.collateral());
-            if (Ownable(address(target)).owner() != msg.sender || expiration != target.expiration()) {
+            bool needsClone = Ownable(address(target)).owner() != msg.sender || expiration != target.expiration();
+            if (needsClone) {
                 targetCollateral.approve(target.hub(), collDeposit);
                 target = _cloneTargetPosition(target, collDeposit, mint, expiration);
             } else {
@@ -202,10 +168,43 @@ contract PositionRoller {
         emit Roll(address(source), collWithdraw, repay, address(target), collDeposit, mint);
     }
 
+    function _calculateRollParams(
+        IPosition source,
+        IPosition target,
+        uint256 extraCollateral
+    ) internal view returns (uint256 repay, uint256 collWithdraw, uint256 mint, uint256 collDeposit) {
+        require(source.collateral() == target.collateral());
+        uint256 principal = source.principal();
+        uint256 interest = source.getInterest();
+        uint256 usableMint = source.getUsableMint(principal) + interest;
+        uint256 mintAmount = target.getMintAmount(usableMint);
+        uint256 collateralAvailable = IERC20(source.collateral()).balanceOf(address(source));
+        uint256 totalAvailable = collateralAvailable + extraCollateral;
+        uint256 targetPrice = target.price();
+        uint256 depositAmount = (mintAmount * 10 ** 18 + targetPrice - 1) / targetPrice;
+        if (depositAmount > totalAvailable) {
+            depositAmount = totalAvailable;
+            mintAmount = (depositAmount * targetPrice) / 10 ** 18;
+        }
+        repay = principal + interest;
+        collWithdraw = collateralAvailable;
+        mint = mintAmount;
+        collDeposit = depositAmount;
+    }
+
     /**
-     * @dev Required for WETH.withdraw() callbacks and receiving excess native coin.
+     * Clones the target position and mints the specified amount using the given collateral.
      */
-    receive() external payable {}
+    function _cloneTargetPosition(
+        IPosition target,
+        uint256 collDeposit,
+        uint256 mint,
+        uint40 expiration
+    ) internal returns (IPosition) {
+        return IPosition(
+            IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration, 0)
+        );
+    }
 
     modifier own(IPosition pos) {
         if (Ownable(address(pos)).owner() != msg.sender) revert NotOwner(address(pos));
@@ -216,4 +215,9 @@ contract PositionRoller {
         if (deuro.getPositionParent(address(pos)) == address(0x0)) revert NotPosition(address(pos));
         _;
     }
+
+    /**
+     * @dev Required for WETH.withdraw() callbacks and receiving excess native coin.
+     */
+    receive() external payable {}
 }
