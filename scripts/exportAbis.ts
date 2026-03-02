@@ -60,6 +60,14 @@ const contractABI = [
   },
 ];
 
+// Ensure output directories exist before writing
+const dirs = ['shared', 'v2', 'v3', 'utils'].map((d) => path.join(ABIS_EXPORT_PATH, d));
+for (const dir of dirs) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
 contractABI.forEach((contract) => {
   // Read the JSON file
   fs.readFile(contract.from, 'utf8', (err, data) => {

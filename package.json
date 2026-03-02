@@ -5,6 +5,11 @@
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "files": [
+    "contracts/**/*.sol",
+    "dist/",
+    "exports/"
+  ],
   "directories": {
     "doc": "docs",
     "test": "tests"
@@ -25,6 +30,9 @@
     "redeploynotesttoken:network": "export deployoption=notesttoken && export deploymode=base && npx hardhat deploy --reset --network",
     "redeploy:network": "npx hardhat deploymode=base --reset --network",
     "deployPositions:network": "export deploymode=pos && npx hardhat deploy --network",
+    "deploy:v3": "npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network",
+    "deploy:v3:mainnet": "npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network mainnet",
+    "deploy:v3:fork": "USE_FORK=true npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network hardhat",
     "positions": "npx hardhat monitor-positions --network mainnet --sort created",
     "monitor": "npx hardhat monitor-all --network mainnet"
   },
@@ -63,8 +71,6 @@
     "viem": "^2.21.16"
   },
   "dependencies": {
-    "@deuro/eurocoin": "^1.0.13",
-    "@flashbots/ethers-provider-bundle": "^1.0.0",
     "hardhat-abi-exporter": "^2.10.0",
     "hardhat-contract-sizer": "^2.5.1",
     "prettier": "^3.3.3",

@@ -1,4 +1,5 @@
 import { ethers } from 'hardhat';
+import hre from 'hardhat';
 import { parseUnits, formatUnits } from 'ethers';
 import fs from 'fs';
 import path from 'path';
@@ -85,7 +86,7 @@ async function deployBridge() {
     if (!receipt || receipt.status !== 1) throw new Error('Minter initialization failed');
     console.log('Bridge suggested as a minter');
 
-    const networkName = network.name || `chain-${network.chainId}`;
+    const networkName = hre.network.name;
     const timestamp = Math.floor(Date.now() / 1000);
     const deploymentInfo = {
       network: networkName,

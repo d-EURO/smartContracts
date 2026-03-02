@@ -2,6 +2,7 @@ import '@nomicfoundation/hardhat-ethers';
 import '@nomicfoundation/hardhat-chai-matchers';
 import '@nomicfoundation/hardhat-verify';
 import '@nomicfoundation/hardhat-network-helpers';
+import '@typechain/hardhat';
 import 'hardhat-deploy';
 import 'hardhat-abi-exporter';
 import 'hardhat-contract-sizer';
@@ -11,8 +12,8 @@ import { getChildFromSeed } from './helper/wallet';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const seed = process.env.DEPLOYER_ACCOUNT_SEED;
-if (!seed) throw new Error('Failed to import the seed string from .env');
+// Graceful fallback: allow compilation and testing without deployment credentials
+const seed = process.env.DEPLOYER_ACCOUNT_SEED || 'test test test test test test test test test test test junk';
 const w0 = getChildFromSeed(seed, 0); // deployer
 const deployerPk = process.env.DEPLOYER_PRIVATE_KEY ?? w0.privateKey;
 const alchemyApiKey = process.env.ALCHEMY_API_KEY;
