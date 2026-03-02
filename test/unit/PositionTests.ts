@@ -215,7 +215,7 @@ describe("Position Tests", () => {
         ),
       ).to.be.revertedWithCustomError(mintingHub, "InsufficientCollateral");
     });
-    it("should revert creating position when minimal collateral is not worth of at least 5k dEURO", async () => {
+    it("should revert creating position when minimal collateral is not worth of at least 500 dEURO", async () => {
       await expect(
         mintingHub.openPosition(
           collateral,
@@ -226,7 +226,7 @@ describe("Position Tests", () => {
           duration,
           challengePeriod,
           fFees,
-          floatToDec18(4000),
+          floatToDec18(400),
           fReserve,
         ),
       ).to.be.revertedWithCustomError(mintingHub, "InsufficientCollateral");
@@ -372,7 +372,7 @@ describe("Position Tests", () => {
       expect(availableLimit).to.be.equal(0);
       let tx = mintingHub
         .connect(alice)
-        ["clone(address,uint256,uint256,uint40)"](positionAddr, fInitialCollateralClone, fMintAmount, expiration);
+        ["clone(address,address,uint256,uint256,uint40,uint256)"](alice.address, positionAddr, fInitialCollateralClone, fMintAmount, expiration, 0);
       await expect(tx).to.be.revertedWithCustomError(
         positionContract,
         "LimitExceeded",
@@ -430,11 +430,13 @@ describe("Position Tests", () => {
       await expect(
         mintingHub
           .connect(alice)
-          ["clone(address,uint256,uint256,uint40)"](
+          ["clone(address,address,uint256,uint256,uint40,uint256)"](
+            alice.address,
             owner.address,
             fInitialCollateralClone,
             fMintAmount,
             newExpiration,
+            0,
           ),
       ).to.be.revertedWithCustomError(mintingHub, "InvalidPos");
     });
@@ -446,11 +448,13 @@ describe("Position Tests", () => {
       await expect(
         mintingHub
           .connect(alice)
-          ["clone(address,uint256,uint256,uint40)"](
+          ["clone(address,address,uint256,uint256,uint40,uint256)"](
+            alice.address,
             positionAddr,
             fInitialCollateralClone,
             fMintAmount,
             expiration + 100n,
+            0,
           ),
       ).to.be.revertedWithCustomError(positionContract, "InvalidExpiration");
     });
@@ -483,7 +487,7 @@ describe("Position Tests", () => {
     it("should revert cloning position with insufficient initial collateral", async () => {
       let expiration = await positionContract.expiration();
       await expect(
-        mintingHub.connect(alice)["clone(address,uint256,uint256,uint40)"](positionAddr, 0, 0, expiration),
+        mintingHub.connect(alice)["clone(address,address,uint256,uint256,uint40,uint256)"](alice.address, positionAddr, 0, 0, expiration, 0),
       ).to.be.revertedWithCustomError(mintingHub, "InsufficientCollateral");
     });
     it("clone position", async () => {
@@ -496,11 +500,13 @@ describe("Position Tests", () => {
       let newExpiration = expiration - duration;
       let tx = await mintingHub
         .connect(alice)
-        ["clone(address,uint256,uint256,uint40)"](
+        ["clone(address,address,uint256,uint256,uint40,uint256)"](
+          alice.address,
           positionAddr,
           fInitialCollateralClone,
           fMintAmount,
           newExpiration,
+          0,
         );
       let rc = await tx.wait();
       const topic =
@@ -580,7 +586,7 @@ describe("Position Tests", () => {
       let price = await positionContract.price();
       let tx = mintingHub
         .connect(alice)
-        ["clone(address,uint256,uint256,uint40)"](positionAddr, fInitialCollateralClone, available, expiration);
+        ["clone(address,address,uint256,uint256,uint40,uint256)"](alice.address, positionAddr, fInitialCollateralClone, available, expiration, 0);
       await expect(tx).to.be.revertedWithCustomError(
         positionContract,
         "InsufficientCollateral",
@@ -588,11 +594,13 @@ describe("Position Tests", () => {
 
       let pendingTx = mintingHub
         .connect(alice)
-        ["clone(address,uint256,uint256,uint40)"](
+        ["clone(address,address,uint256,uint256,uint40,uint256)"](
+          alice.address,
           positionAddr,
           fInitialCollateralClone * 1000n,
           initialLimit,
           expiration,
+          0,
         );
       await expect(pendingTx).to.be.revertedWithCustomError(
         positionContract,
@@ -647,9 +655,9 @@ describe("Position Tests", () => {
       let principal = await positionContract.principal();
       let collateralBalance = await mockVOL.balanceOf(positionAddr);
       await dEURO.connect(owner).approve(positionAddr, principal);
-      await positionContract.adjust(principal, collateralBalance, currentPrice); // don't revert if price is the same
+      await positionContract.adjust(principal, collateralBalance, currentPrice, false); // don't revert if price is the same
       await expect(
-        positionContract.adjust(principal, collateralBalance, currentPrice / 2n),
+        positionContract.adjust(principal, collateralBalance, currentPrice / 2n, false),
       ).to.be.revertedWithCustomError(positionContract, "Expired");
     });
     it("should revert reducing limit from non hub", async () => {
@@ -698,11 +706,13 @@ describe("Position Tests", () => {
       await expect(
         mintingHub
           .connect(alice)
-          ["clone(address,uint256,uint256,uint40)"](
+          ["clone(address,address,uint256,uint256,uint40,uint256)"](
+            alice.address,
             positionAddr,
             fInitialCollateralClone,
             fMintAmount,
             expiration,
+            0,
           ),
       ).to.be.revertedWithCustomError(positionContract, "Expired");
       await ethers.provider.send('evm_revert', [snapshotId]);
@@ -1069,11 +1079,13 @@ describe("Position Tests", () => {
       );
       const expiration = await positionContract.expiration();
       await evm_increaseTimeTo(await positionContract.start());
-      tx = await mintingHub["clone(address,uint256,uint256,uint40)"](
+      tx = await mintingHub["clone(address,address,uint256,uint256,uint40,uint256)"](
+        owner.address,
         positionAddr,
         fInitialCollateral,
         initialLimit / 2n,
         expiration,
+        0,
       );
       rc = await tx.wait();
       log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);
@@ -1345,7 +1357,7 @@ describe("Position Tests", () => {
     });
     it("should revert adjusting position from non position owner", async () => {
       await expect(
-        positionContract.connect(alice).adjust(0, 0, 0),
+        positionContract.connect(alice).adjust(0, 0, 0, false),
       ).to.be.revertedWithCustomError(
         positionContract,
         "OwnableUnauthorizedAccount",
@@ -1357,7 +1369,7 @@ describe("Position Tests", () => {
       const colBalance = await mockVOL.balanceOf(positionAddr);
       const amount = floatToDec18(100);
       await mockVOL.approve(positionAddr, amount);
-      await positionContract.adjust(0, colBalance + amount, floatToDec18(1000));
+      await positionContract.adjust(0, colBalance + amount, floatToDec18(1000), false);
 
       const newColBalance = await mockVOL.balanceOf(positionAddr);
       expect(newColBalance - colBalance).to.be.equal(amount);
@@ -1366,7 +1378,7 @@ describe("Position Tests", () => {
       await evm_increaseTime(86400 * 8);
       const colBalance = await mockVOL.balanceOf(positionAddr);
       const amount = floatToDec18(100);
-      await positionContract.adjust(0, colBalance - amount, floatToDec18(1000));
+      await positionContract.adjust(0, colBalance - amount, floatToDec18(1000), false);
 
       const newColBalance = await mockVOL.balanceOf(positionAddr);
       expect(colBalance - newColBalance).to.be.equal(amount);
@@ -1379,7 +1391,7 @@ describe("Position Tests", () => {
       const amount = floatToDec18(100);
 
       const beforedEUROBal = await dEURO.balanceOf(owner.address);
-      await positionContract.adjust(minted + amount, colBalance, price);
+      await positionContract.adjust(minted + amount, colBalance, price, false);
       const afterdEUROBal = await dEURO.balanceOf(owner.address);
       const reservePPM = await positionContract.reserveContribution();
       const expecteddEUROReceived = amount - (amount * reservePPM) / 1000000n;
@@ -1391,11 +1403,11 @@ describe("Position Tests", () => {
       const colBalance = await mockVOL.balanceOf(positionAddr);
       const principal = await positionContract.principal();
       const amount = floatToDec18(100);
-      await positionContract.adjust(principal + amount, colBalance, price);
+      await positionContract.adjust(principal + amount, colBalance, price, false);
       expect(await positionContract.principal()).to.be.equal(principal + amount);
       const interest = await positionContract.getInterest();
       await dEURO.approve(positionAddr, amount + interest + floatToDec18(1));
-      await positionContract.adjust(principal, colBalance, price);
+      await positionContract.adjust(principal, colBalance, price, false);
       expect(await positionContract.principal()).to.be.equal(principal);
     });
     it("owner can adjust price", async () => {
@@ -1403,7 +1415,7 @@ describe("Position Tests", () => {
       const price = await positionContract.price();
       let minted = await positionContract.getDebt();
       let collbal = await positionContract.minimumCollateral();
-      await positionContract.adjust(minted, collbal, price * 2n);
+      await positionContract.adjust(minted, collbal, price * 2n, false);
       expect(await positionContract.price()).to.be.equal(price * 2n);
     });
     it("owner can repay debt partially", async () => {
@@ -1618,11 +1630,13 @@ describe("Position Tests", () => {
       await positionContract.assertCloneable();
       const cloneLimit = await positionContract.availableForClones();
       const expiration = await positionContract.expiration();
-      tx = await mintingHub["clone(address,uint256,uint256,uint40)"](
+      tx = await mintingHub["clone(address,address,uint256,uint256,uint40,uint256)"](
+        owner.address,
         positionAddr,
         fInitialCollateral,
         cloneLimit,
         expiration,
+        0,
       );
       rc = await tx.wait();
       log = rc?.logs.find((x) => x.topics.indexOf(topic) >= 0);

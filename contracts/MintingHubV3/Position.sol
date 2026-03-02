@@ -332,12 +332,8 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice "All in one" function to adjust the principal, the collateral amount,
      * and the price in one transaction.
      */
-    function adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice) external onlyOwner {
-        _adjustPosition(newPrincipal, newCollateral, newPrice, false, address(0));
-    }
-
     function adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative) external payable onlyOwner {
-        _adjustPosition(newPrincipal, newCollateral, newPrice, withdrawAsNative, address(0));
+        _adjust(newPrincipal, newCollateral, newPrice, address(0), withdrawAsNative);
     }
 
     /**
@@ -362,15 +358,11 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice "All in one" function with reference position support.
      */
-    function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition) external onlyOwner {
-        _adjustPosition(newPrincipal, newCollateral, newPrice, false, referencePosition);
-    }
-
     function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition, bool withdrawAsNative) external payable onlyOwner {
-        _adjustPosition(newPrincipal, newCollateral, newPrice, withdrawAsNative, referencePosition);
+        _adjust(newPrincipal, newCollateral, newPrice, referencePosition, withdrawAsNative);
     }
 
-    function _adjustPosition(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative, address referencePosition) internal {
+    function _adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition, bool withdrawAsNative) internal {
         if (msg.value > 0) {
             if (address(collateral) != IMintingHub(hub).WETH()) revert NativeOnlyForWETH();
             IWrappedNative(address(collateral)).deposit{value: msg.value}();

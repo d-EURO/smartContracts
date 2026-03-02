@@ -5,12 +5,14 @@ export * from "./address.config";
 export * from "./abis/shared/DecentralizedEURO";
 export * from "./abis/shared/Equity";
 export * from "./abis/shared/DEPSWrapper";
-export * from "./abis/shared/ERC20";
-export * from "./abis/shared/ERC20PermitLight";
-export * from "./abis/shared/Leadrate";
-export * from "./abis/shared/Ownable";
 export * from "./abis/shared/StablecoinBridge";
-export * from "./abis/shared/UniswapV3Pool";
+
+// Utility ABIs
+export * from "./abis/utils/ERC20";
+export * from "./abis/utils/ERC20PermitLight";
+export * from "./abis/utils/Leadrate";
+export * from "./abis/utils/Ownable";
+export * from "./abis/utils/UniswapV3Pool";
 
 // V2 (deployed on mainnet, permanent)
 export * from "./abis/v2/FrontendGateway";
