@@ -1,4 +1,5 @@
 import { ethers } from 'hardhat';
+import hre from 'hardhat';
 import { zeroAddress } from 'viem';
 import { config } from '../config/positionsConfig';
 import { ADDRESS } from '../../../exports/address.config';
@@ -158,7 +159,7 @@ async function main() {
   if (deployedPositions.length > 0) {
     console.log('\nSaving position deployment metadata to file...');
     const deploymentInfo = {
-      network: (await ethers.provider.getNetwork()).name,
+      network: hre.network.name,
       blockNumber: await ethers.provider.getBlockNumber(),
       deployer: deployer.address,
       positions: deployedPositions,

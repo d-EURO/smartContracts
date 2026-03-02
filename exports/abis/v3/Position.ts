@@ -348,29 +348,6 @@ export const PositionV3ABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "newPrincipal",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "newCollateral",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "newPrice",
-        "type": "uint256"
-      }
-    ],
-    "name": "adjust",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
         "name": "newPrice",
         "type": "uint256"
       }
@@ -429,34 +406,6 @@ export const PositionV3ABI = [
     "name": "adjustWithReference",
     "outputs": [],
     "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "newPrincipal",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "newCollateral",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "newPrice",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "referencePosition",
-        "type": "address"
-      }
-    ],
-    "name": "adjustWithReference",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {

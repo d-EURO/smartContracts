@@ -12,7 +12,7 @@ export const MintingHubV3ABI = [
         "type": "uint24"
       },
       {
-        "internalType": "address",
+        "internalType": "address payable",
         "name": "_roller",
         "type": "address"
       },
@@ -519,7 +519,7 @@ export const MintingHubV3ABI = [
       },
       {
         "internalType": "bool",
-        "name": "returnAsNative",
+        "name": "returnCollateralAsNative",
         "type": "bool"
       }
     ],
@@ -642,79 +642,6 @@ export const MintingHubV3ABI = [
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "parent",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_initialCollateral",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_initialMint",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint40",
-        "name": "expiration",
-        "type": "uint40"
-      }
-    ],
-    "name": "clone",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "parent",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_initialCollateral",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_initialMint",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint40",
-        "name": "expiration",
-        "type": "uint40"
-      }
-    ],
-    "name": "clone",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "payable",
     "type": "function"
   },
   {
