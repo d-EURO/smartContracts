@@ -2,12 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
 import {IMintingHub} from "./interface/IMintingHub.sol";
 import {IPosition} from "./interface/IPosition.sol";
-import {IReserve} from "../interface/IReserve.sol";
 import {IWrappedNative} from "../interface/IWrappedNative.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -55,7 +52,6 @@ contract PositionRoller {
      * Like rollFully, but with a custom expiration date for the new position.
      */
     function rollFullyWithExpiration(IPosition source, IPosition target, uint40 expiration) public {
-        require(source.collateral() == target.collateral());
         (uint256 repay, uint256 collWithdraw, uint256 mint, uint256 collDeposit) = _calculateRollParams(
             source,
             target,
@@ -96,7 +92,7 @@ contract PositionRoller {
             if (needsClone) {
                 targetCollateral.transferFrom(msg.sender, address(this), collDeposit);
                 targetCollateral.approve(target.hub(), collDeposit);
-                target = _cloneTargetPosition(target, source, collDeposit, mint, expiration);
+                target = _cloneTargetPosition(target, collDeposit, mint, expiration);
             } else {
                 // We can roll into the provided existing position.
                 // We do not verify whether the target position was created by the known minting hub in order
@@ -131,7 +127,6 @@ contract PositionRoller {
      * Like rollFullyNative, but with a custom expiration date for the new position.
      */
     function rollFullyNativeWithExpiration(IPosition source, IPosition target, uint40 expiration) public payable {
-        require(source.collateral() == target.collateral());
         (uint256 repay, uint256 collWithdraw, uint256 mint, uint256 collDeposit) = _calculateRollParams(
             source,
             target,
@@ -166,21 +161,21 @@ contract PositionRoller {
         uint256 collDeposit,
         uint40 expiration
     ) public payable valid(source) valid(target) own(source) {
-        address collateral = address(source.collateral());
+        IERC20 collateralToken = source.collateral();
 
         jusd.mint(address(this), repay); // take a flash loan
         uint256 used = source.repay(repay);
         source.withdrawCollateral(address(this), collWithdraw);
         if (msg.value > 0) {
-            IWrappedNative(collateral).deposit{value: msg.value}();
+            IWrappedNative(address(collateralToken)).deposit{value: msg.value}();
         }
 
         if (mint > 0) {
-            IERC20 targetCollateral = IERC20(collateral);
+            IERC20 targetCollateral = IERC20(target.collateral());
             bool needsClone = Ownable(address(target)).owner() != msg.sender || expiration != target.expiration();
             if (needsClone) {
                 targetCollateral.approve(target.hub(), collDeposit);
-                target = _cloneTargetPosition(target, source, collDeposit, mint, expiration);
+                target = _cloneTargetPosition(target, collDeposit, mint, expiration);
             } else {
                 targetCollateral.transfer(address(target), collDeposit);
                 target.mint(msg.sender, mint);
@@ -194,9 +189,9 @@ contract PositionRoller {
         jusd.burnFrom(msg.sender, repay); // repay the flash loan
 
         // Return excess as native coin
-        uint256 remaining = IERC20(collateral).balanceOf(address(this));
+        uint256 remaining = collateralToken.balanceOf(address(this));
         if (remaining > 0) {
-            IWrappedNative(collateral).withdraw(remaining);
+            IWrappedNative(address(collateralToken)).withdraw(remaining);
             (bool success, ) = msg.sender.call{value: remaining}("");
             if (!success) revert NativeTransferFailed();
         }
@@ -213,6 +208,7 @@ contract PositionRoller {
         IPosition target,
         uint256 extraCollateral
     ) internal view returns (uint256 repay, uint256 collWithdraw, uint256 mint, uint256 collDeposit) {
+        require(source.collateral() == target.collateral());
         uint256 principal = source.principal();
         uint256 interest = source.getInterest();
         uint256 usableMint = source.getUsableMint(principal) + interest;
@@ -221,13 +217,14 @@ contract PositionRoller {
         uint256 totalAvailable = collateralAvailable + extraCollateral;
         uint256 targetPrice = target.price();
         uint256 depositAmount = (mintAmount * 10 ** 18 + targetPrice - 1) / targetPrice;
-
         if (depositAmount > totalAvailable) {
             depositAmount = totalAvailable;
-            mintAmount = (depositAmount * target.price()) / 10 ** 18;
+            mintAmount = (depositAmount * targetPrice) / 10 ** 18;
         }
-
-        return (principal + interest, collateralAvailable, mintAmount, depositAmount);
+        repay = principal + interest;
+        collWithdraw = collateralAvailable;
+        mint = mintAmount;
+        collDeposit = depositAmount;
     }
 
     /**
@@ -235,31 +232,14 @@ contract PositionRoller {
      */
     function _cloneTargetPosition(
         IPosition target,
-        IPosition source,
         uint256 collDeposit,
         uint256 mint,
         uint40 expiration
     ) internal returns (IPosition) {
-        if (IERC165(target.hub()).supportsInterface(type(IMintingHubGateway).interfaceId)) {
-            bytes32 frontendCode = IMintingHubGateway(target.hub()).GATEWAY().getPositionFrontendCode(address(source));
-            return
-                IPosition(
-                    IMintingHubGateway(target.hub()).clone(
-                        msg.sender,
-                        address(target),
-                        collDeposit,
-                        mint,
-                        expiration,
-                        0, // inherit price from parent
-                        frontendCode // use the same frontend code
-                    )
-                );
-        } else {
-            return
-                IPosition(
-                    IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration, 0)
-                );
-        }
+        return
+            IPosition(
+                IMintingHub(target.hub()).clone(msg.sender, address(target), collDeposit, mint, expiration, 0)
+            );
     }
 
     modifier own(IPosition pos) {

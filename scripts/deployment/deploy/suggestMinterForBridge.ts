@@ -1,9 +1,6 @@
 import { ethers } from 'hardhat';
 import { formatUnits } from 'ethers';
-import dotenv from 'dotenv';
-import { getContractAddress } from '../../utils/deployments';
-
-dotenv.config();
+import { ADDRESS } from '../../../exports/address.config';
 
 /**
  * Suggests a deployed bridge as a minter for JUSD
@@ -25,7 +22,12 @@ async function suggestMinterForBridge() {
     console.log(`Description: ${description}`);
 
     // Get JUSD contract
-    const jusdAddress = getContractAddress('juiceDollar');
+    const chainId = Number((await ethers.provider.getNetwork()).chainId);
+    const addresses = ADDRESS[chainId];
+    if (!addresses) {
+      throw new Error(`No addresses configured for chain ${chainId}`);
+    }
+    const jusdAddress = addresses.juiceDollar;
     const JUSD = await ethers.getContractAt('JuiceDollar', jusdAddress);
     const jusdDecimals = await JUSD.decimals();
 

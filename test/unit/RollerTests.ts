@@ -69,7 +69,7 @@ describe("Roller Tests", () => {
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await mintingHubFactory.deploy(
       await jusd.getAddress(),
-      await savings.getAddress(),
+      20_000, // initialRatePPM (2%)
       await roller.getAddress(),
       await positionFactory.getAddress(),
       ethers.ZeroAddress,  // wcbtc - not used in these tests
@@ -454,7 +454,8 @@ describe("Roller Tests", () => {
       );
     });
 
-    it("should fail to rollFully if owner balance insufficient to cover interest", async () => {
+    it("should rollFully even if owner has zero JUSD (flash loan covers it)", async () => {
+      const snapshotId = await ethers.provider.send('evm_snapshot', []);
       await evm_increaseTime(14 * 86400 + 300);
       await pos1.mint(owner.address, floatToDec18(10_000));
 
@@ -465,17 +466,17 @@ describe("Roller Tests", () => {
       const b1 = await jusd.balanceOf(owner.address);
       expect(b1).to.be.equal(0);
 
-      const debt = await pos1.getDebt();
       const collBal = await coin.balanceOf(await pos1.getAddress());
       await coin.approve(await roller.getAddress(), collBal);
-      await jusd.approve(await roller.getAddress(), debt + floatToDec18(1)); // add 1 to cover timestamp difference
-      const tx = roller.rollFully(
+      await jusd.approve(await roller.getAddress(), ethers.MaxUint256);
+      // Flash loan mechanism covers interest gap, so roll succeeds even with 0 JUSD balance
+      await roller.rollFully(
         await pos1.getAddress(),
         await pos2.getAddress(),
       );
-      expect(tx).to.be.revertedWithoutReason;
+      expect(await pos1.getDebt()).to.be.equal(0, "source position should be fully repaid");
 
-      await jusd.connect(bob).transfer(owner.address, ownerInitBal); // refund jusd for testing
+      await ethers.provider.send('evm_revert', [snapshotId]);
     });
 
     it("rollFully check interests and rolled amount", async () => {
@@ -788,7 +789,7 @@ describe("Roller Tests", () => {
     let pos2FixedAnnualRate: bigint;
 
     beforeEach("give owner and alice a position", async () => {
-      prevRate = await savings.currentRatePPM();
+      prevRate = await mintingHub.currentRatePPM();
 
       // ---------------------------------------------------------------------------
       // give OWNER a position
@@ -838,11 +839,11 @@ describe("Roller Tests", () => {
 
       // ---------------------------------------------------------------------------
       // change leadrate
-      await savings.proposeChange(newRate, []);
+      await mintingHub.proposeChange(newRate, []);
       await evm_increaseTime(7 * 86_400 + 60);
-      expect(await savings.currentRatePPM()).to.be.eq(prevRate);
-      await savings.applyChange();
-      expect(await savings.currentRatePPM()).to.be.eq(newRate);
+      expect(await mintingHub.currentRatePPM()).to.be.eq(prevRate);
+      await mintingHub.applyChange();
+      expect(await mintingHub.currentRatePPM()).to.be.eq(newRate);
       expect(prevRate).to.not.equal(newRate);
     });
 

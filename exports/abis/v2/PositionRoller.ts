@@ -1,4 +1,4 @@
-export const PositionRollerABI = [
+export const PositionRollerV2ABI = [
   {
     inputs: [
       {

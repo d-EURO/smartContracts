@@ -4,7 +4,7 @@ pragma solidity ^0.8.10;
 import {TestHelper} from "../TestHelper.sol";
 import {Handler} from "./Handler.t.sol";
 import {Environment} from "./Environment.t.sol";
-import {Position} from "../../contracts/MintingHubV2/Position.sol";
+import {Position} from "../../contracts/MintingHubV3/Position.sol";
 import {JuiceDollar} from "../../contracts/JuiceDollar.sol";
 import {console} from "forge-std/Test.sol";
 
@@ -160,7 +160,7 @@ contract Invariants is TestHelper {
         uint256 totalSupply = jusd.totalSupply();
         uint256 totalBalances = 0;
         totalBalances += jusd.balanceOf(address(jusd.reserve()));
-        totalBalances += jusd.balanceOf(address(s_env.savingsGateway()));
+        totalBalances += jusd.balanceOf(address(s_env.savings()));
         for (uint256 i = 0; i < 5; i++) totalBalances += jusd.balanceOf(s_env.eoas(i));
         
         assertEq(totalBalances, totalSupply, "Total JUSD balances inconsistent with total supply");

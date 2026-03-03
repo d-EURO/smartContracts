@@ -1,8 +1,8 @@
-import { loadFileJSON } from './utils/deployments';
+import fs from 'fs';
+import path from 'path';
 import { run } from 'hardhat';
 import dotenv from 'dotenv';
 dotenv.config();
-
 
 async function main() {
   if (!process.env.DEPLOYMENT_FILE_PATH) {
@@ -10,7 +10,13 @@ async function main() {
     process.exit(1);
   }
 
-  const deployment = await loadFileJSON(process.env.DEPLOYMENT_FILE_PATH);
+  const resolvedPath = path.resolve(process.cwd(), process.env.DEPLOYMENT_FILE_PATH);
+  if (!fs.existsSync(resolvedPath)) {
+    console.error(`File not found: ${resolvedPath}`);
+    process.exit(1);
+  }
+
+  const deployment = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
   for (const [contractName, contractData] of Object.entries(deployment.contracts)) {
     const { address, constructorArgs } = contractData as { address: string; constructorArgs: any[] };
 
@@ -41,7 +47,6 @@ async function verifyContract(name: string, address: string, constructorArgs: an
     }
   }
 }
-
 
 main()
   .then(() => process.exit(0))

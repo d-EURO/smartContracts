@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IPosition} from "../MintingHubV2/interface/IPosition.sol";
+import {IPosition} from "../MintingHubV3/interface/IPosition.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 /**

@@ -56,7 +56,7 @@ contract Leadrate {
         if (currentRatePPM == nextRatePPM) revert NoPendingChange();
         uint40 timeNow = uint40(block.timestamp);
         if (timeNow < nextChange) revert ChangeNotReady();
-        ticksAnchor += (timeNow - anchorTime) * currentRatePPM;
+        ticksAnchor += uint64(timeNow - anchorTime) * currentRatePPM;
         anchorTime = timeNow;
         currentRatePPM = nextRatePPM;
         emit RateChanged(currentRatePPM);

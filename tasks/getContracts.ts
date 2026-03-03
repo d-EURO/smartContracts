@@ -1,55 +1,27 @@
-import { getFullDeployment } from '../scripts/utils/deployments';
-import { formatHash } from '../scripts/utils/utils';
-import { createTable, colors } from '../scripts/utils/table';
+import { ADDRESS } from '../exports/address.config';
 import { task } from 'hardhat/config';
 
-interface ContractData {
-  name: string;
-  address: string;
-  hyperlink: string;
-}
+task('get-contracts', 'Get JuiceDollar Protocol Contract Addresses').setAction(
+  async ({}, hre) => {
+    const chainId = Number((await hre.ethers.provider.getNetwork()).chainId);
+    const addresses = ADDRESS[chainId];
+    if (!addresses) {
+      console.error(`No addresses configured for chain ${chainId}`);
+      return;
+    }
 
-task('get-contracts', 'Get JuiceDollar Protocol Contract Addresses on Citrea').setAction(
-  async ({}) => {
-    const protocolDeployment = getFullDeployment();
-
-    console.log(`Network:     ${protocolDeployment.network}`);
-    console.log(`Deployer:    ${formatHash(protocolDeployment.deployer, true, 'address', false)}`);
-    console.log(`Timestamp:   ${new Date(protocolDeployment.timestamp * 1000).toLocaleString('de-DE')}`);
+    console.log(`Network:  ${hre.network.name} (chainId: ${chainId})`);
     console.log();
 
-    const contractsData: ContractData[] = Object.entries(protocolDeployment.contracts).map(
-      ([contractName, contractData]) => {
-        return {
-          name: contractName,
-          address: contractData.address,
-          hyperlink: formatHash(contractData.address, true, 'address', false),
-        };
-      },
-    );
+    const entries = Object.entries(addresses);
+    const maxNameLen = Math.max(...entries.map(([name]) => name.length));
 
-    const table = createTable<ContractData>()
-      .setColumns([
-        {
-          header: 'Contract Name',
-          width: 30,
-          align: 'left',
-          format: (row) => `${colors.bold}${row.name}${colors.reset}`,
-        },
-        {
-          header: 'Address',
-          width: 15,
-          align: 'left',
-          format: (row) => row.hyperlink,
-        },
-      ])
-      .setData(contractsData)
-      .setSorting('name', 'asc')
-      .showHeaderSeparator(true)
-      .setRowSpacing(false)
-      .setColumnSeparator('  ');
+    for (const [name, address] of entries.sort(([a], [b]) => a.localeCompare(b))) {
+      if (address) {
+        console.log(`  ${name.padEnd(maxNameLen)}  ${address}`);
+      }
+    }
 
-    table.print();
     console.log();
   },
 );

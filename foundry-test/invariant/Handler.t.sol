@@ -3,8 +3,8 @@ pragma solidity ^0.8.10;
 
 import {Environment} from "./Environment.t.sol";
 import {ActionUtils} from "./ActionUtils.sol";
-import {Position} from "../../contracts/MintingHubV2/Position.sol";
-import {MintingHub} from "../../contracts/MintingHubV2/MintingHub.sol";
+import {Position} from "../../contracts/MintingHubV3/Position.sol";
+import {MintingHub} from "../../contracts/MintingHubV3/MintingHub.sol";
 import {TestHelper} from "../TestHelper.sol";
 import {StatsCollector} from "../StatsCollector.sol";
 import {stdToml} from "forge-std/StdToml.sol";
@@ -114,9 +114,6 @@ contract Handler is StatsCollector {
         uint256 expInterestRepayment = pre.interest > remaining ? remaining : pre.interest;
         remaining -= expInterestRepayment;
         uint256 expPrincipalRepayment = pre.principal > remaining ? remaining : pre.principal;
-        // There may be discrepancies in the currentReserve commputed here and during the actual TX,
-        // therefore we cannot rely on expReserveContribution for the post conditions.
-        // uint256 expReserveContribution = s_env.jusd().calculateAssignedReserve(expPrincipalRepayment, position.reserveContribution());
         vm.startPrank(position.owner());
         s_env.jusd().approve(address(position), amount);
         try position.repay(amount) {
@@ -242,8 +239,8 @@ contract Handler is StatsCollector {
 
         // Execute challenge
         vm.startPrank(s_challenger);
-        s_env.collateralToken().approve(address(s_env.mintingHubGateway()), collateralAmount);
-        try s_env.mintingHubGateway().challenge(address(position), collateralAmount, minPrice) {
+        s_env.collateralToken().approve(address(s_env.mintingHub()), collateralAmount);
+        try s_env.mintingHub().challenge(address(position), collateralAmount, minPrice) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("challengePosition", collateralAmount, post);
 
@@ -279,7 +276,7 @@ contract Handler is StatsCollector {
         if (validIndex > s_challengesCount) return;
         if (block.timestamp == challenge.start) return; // do not allow avert in same TX as creation
 
-        Position position = Position(address(challenge.position));
+        Position position = Position(payable(address(challenge.position)));
         if (!position.bidChallengeAllowed()) return;
 
         (uint256 liqPrice, uint40 phase) = position.challengeData();
@@ -292,8 +289,8 @@ contract Handler is StatsCollector {
         s_env.mintJUSD(s_bidder, requiredJUSD);
         Snapshot memory pre = snapshot(position);
         vm.startPrank(s_bidder);
-        s_env.jusd().approve(address(s_env.mintingHubGateway()), requiredJUSD);
-        try s_env.mintingHubGateway().bid(uint32(validIndex), bidSize, postpone) {
+        s_env.jusd().approve(address(s_env.mintingHub()), requiredJUSD);
+        try s_env.mintingHub().bid(uint32(validIndex), bidSize, postpone) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("bidChallenge", bidSize, post);
 
@@ -353,8 +350,8 @@ contract Handler is StatsCollector {
 
         (uint256 lb, uint256 ub) = position.buyExpiredCollateralBounds();
         uint256 posBalanceCOL = position.collateral().balanceOf(address(position));
-        uint256 forceSalePrice = s_env.mintingHubGateway().expiredPurchasePrice(position);
-        uint256 dustAmount = forceSalePrice > 0 ? (s_env.mintingHubGateway().OPENING_FEE() * 1e18) / forceSalePrice : 0; // TODO: 0 division case handled correctly?
+        uint256 forceSalePrice = s_env.mintingHub().expiredPurchasePrice(position);
+        uint256 dustAmount = forceSalePrice > 0 ? (s_env.mintingHub().OPENING_FEE() * 1e18) / forceSalePrice : 0;
         upToAmount = bound(upToAmount, lb, ub);
         upToAmount = upToAmount < posBalanceCOL && posBalanceCOL - upToAmount < dustAmount ? posBalanceCOL : upToAmount;
 
@@ -363,9 +360,9 @@ contract Handler is StatsCollector {
         s_env.mintJUSD(s_bidder, requiredJUSD);
         Snapshot memory pre = snapshot(position);
         vm.startPrank(s_bidder);
-        // We must approve the Position contract, not the MintingHubGateway
+        // We must approve the Position contract, not the MintingHub
         s_env.jusd().approve(address(position), requiredJUSD);
-        try s_env.mintingHubGateway().buyExpiredCollateral(position, upToAmount) {
+        try s_env.mintingHub().buyExpiredCollateral(position, upToAmount) {
             Snapshot memory post = snapshot(position);
             if (SNAPSHOT_LOGGING) logSnapshot("buyExpiredCollateral", upToAmount, post);
 
@@ -378,7 +375,6 @@ contract Handler is StatsCollector {
             );
             if (pre.posBalanceCOL == 0)
                 assertEq(post.debt, 0, "buyExpiredCollateral: non-zero debt with zero collateral");
-            // TODO: Check that debt is repaid correctly
         } catch {
             recordRevert("buyExpiredCollateral");
         }
@@ -458,7 +454,7 @@ contract Handler is StatsCollector {
                 // JUSD
                 minterReserve: s_env.jusd().minterReserve(),
                 // MintingHub
-                mintingHubBalanceCOL: s_env.collateralToken().balanceOf(address(s_env.mintingHubGateway())),
+                mintingHubBalanceCOL: s_env.collateralToken().balanceOf(address(s_env.mintingHub())),
                 challengerBalanceCOL: s_env.collateralToken().balanceOf(s_challenger),
                 bidderBalanceCOL: s_env.collateralToken().balanceOf(s_bidder)
             });

@@ -17,7 +17,7 @@ import {
 import { ADDRESSES } from '../../constants/addresses';
 import JUICESWAP_V3_ROUTER_ABI from '../../constants/abi/UniswapV3Router.json'; // Using UniswapV3-compatible ABI for JuiceSwap
 import JUICESWAP_V3_FACTORY_ABI from '../../constants/abi/UniswapV3Factory.json'; // Using UniswapV3-compatible ABI for JuiceSwap
-import { getContractAddress } from '../../scripts/utils/deployments';
+import { ADDRESS, ChainAddress } from '../../exports/address.config';
 
 /**
  ******************************************************************************
@@ -29,8 +29,8 @@ import { getContractAddress } from '../../scripts/utils/deployments';
  * This script can be applied to any network where the JuiceDollar protocol
  * contracts are deployed and only requires the contract addresses to be provided.
  *
- * Contract addresses are fetched from the deployment JSON file using the
- * `getContractAddress` function.
+ * Contract addresses are fetched from the static ADDRESS registry in
+ * `exports/address.config.ts`, keyed by chain ID.
  *
  * How to run on a Citrea fork:
  * > FORK_TESTNET=true npx hardhat run test/integration/integrationTest.ts --network hardhat
@@ -120,18 +120,24 @@ async function fetchDeployedAddresses(): Promise<DeployedAddresses | null> {
   console.log('\nFetching deployed contract addresses...');
 
   try {
+    const chainId = Number((await ethers.provider.getNetwork()).chainId);
+    const chainAddresses = ADDRESS[chainId];
+    if (!chainAddresses) {
+      throw new Error(`No addresses configured for chain ${chainId}`);
+    }
+
     // Config for collateral and bridge to test
     const configPath = path.join(__dirname, './config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Config;
 
     const addresses = {
-      JUSD: await getContractAddress('juiceDollar'),
-      positionFactory: await getContractAddress('positionFactory'),
-      positionRoller: await getContractAddress('positionRoller'),
-      frontendGateway: await getContractAddress('frontendGateway'),
-      mintingHubGateway: await getContractAddress('mintingHubGateway'),
-      savingsGateway: await getContractAddress('savingsGateway'),
-      bridge: await getContractAddress(config.bridge),
+      JUSD: chainAddresses.juiceDollar,
+      positionFactory: chainAddresses.positionFactoryV2,
+      positionRoller: chainAddresses.rollerV2,
+      frontendGateway: chainAddresses.frontendGateway,
+      mintingHubGateway: chainAddresses.mintingHubGateway,
+      savingsGateway: chainAddresses.savingsGateway,
+      bridge: chainAddresses[config.bridge as keyof ChainAddress] as string,
       collateralToken: config.collateralToken,
     };
 

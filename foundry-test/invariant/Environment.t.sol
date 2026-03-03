@@ -1,26 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {Position} from "../../contracts/MintingHubV2/Position.sol";
+import {Position} from "../../contracts/MintingHubV3/Position.sol";
 import {JuiceDollar} from "../../contracts/JuiceDollar.sol";
 import {TestToken} from "../../contracts/test/TestToken.sol";
-import {PositionFactory} from "../../contracts/MintingHubV2/PositionFactory.sol";
-import {SavingsGateway} from "../../contracts/gateway/SavingsGateway.sol";
-import {FrontendGateway} from "../../contracts/gateway/FrontendGateway.sol";
-import {MintingHubGateway} from "../../contracts/gateway/MintingHubGateway.sol";
-import {PositionRoller} from "../../contracts/MintingHubV2/PositionRoller.sol";
+import {PositionFactory} from "../../contracts/MintingHubV3/PositionFactory.sol";
+import {Savings} from "../../contracts/Savings.sol";
+import {PositionRoller} from "../../contracts/MintingHubV3/PositionRoller.sol";
 import {TestHelper} from "../TestHelper.sol";
-import {MintingHub} from "../../contracts/MintingHubV2/MintingHub.sol";
-import {IPosition} from "../../contracts/MintingHubV2/interface/IPosition.sol";
+import {MintingHub} from "../../contracts/MintingHubV3/MintingHub.sol";
+import {IPosition} from "../../contracts/MintingHubV3/interface/IPosition.sol";
 
 contract Environment is TestHelper {
     JuiceDollar internal s_jusd;
     TestToken internal s_collateralToken;
-    MintingHubGateway internal s_mintingHubGateway;
+    MintingHub internal s_mintingHub;
     PositionRoller internal s_positionRoller;
     PositionFactory internal s_positionFactory;
-    FrontendGateway internal s_frontendGateway;
-    SavingsGateway internal s_savingsGateway;
+    Savings internal s_savings;
     Position[] internal s_positions;
     address[] internal s_eoas; // EOAs
     address internal s_deployer;
@@ -30,21 +27,19 @@ contract Environment is TestHelper {
         s_collateralToken = new TestToken("Collateral", "COL", 18);
         s_positionRoller = new PositionRoller(address(s_jusd));
         s_positionFactory = new PositionFactory();
-        s_frontendGateway = new FrontendGateway(address(s_jusd));
-        s_savingsGateway = new SavingsGateway(s_jusd, 5, address(s_frontendGateway));
-        s_mintingHubGateway = new MintingHubGateway(
+        s_savings = new Savings(s_jusd, 5);
+        s_mintingHub = new MintingHub(
             address(s_jusd),
-            address(s_savingsGateway),
-            address(s_positionRoller),
+            5,
+            payable(address(s_positionRoller)),
             address(s_positionFactory),
-            address(s_frontendGateway)
+            address(0) // no WCBTC in tests
         );
 
         // initialize contracts
         s_deployer = msg.sender;
         vm.label(s_deployer, "Deployer");
-        s_frontendGateway.init(address(s_savingsGateway), address(s_mintingHubGateway));
-        s_jusd.initialize(address(s_mintingHubGateway), "Make MintingHubGateway minter");
+        s_jusd.initialize(address(s_mintingHub), "Make MintingHub minter");
         s_jusd.initialize(s_deployer, "Make Invariants contract minter");
         increaseBlocks(1);
 
@@ -77,17 +72,16 @@ contract Environment is TestHelper {
         uint24 riskPremium = 10_000; // risk premium
         uint256 liqPrice = 5000 * 10 ** (36 - s_collateralToken.decimals()); // liquidation price
         uint24 reservePPM = 100_000; // reserve PPM
-        bytes32 frontendCode = bytes32(keccak256(abi.encodePacked(owner))); // frontend code
 
         // Mint opening fee and collateral
-        uint256 openingFee = s_mintingHubGateway.OPENING_FEE();
+        uint256 openingFee = s_mintingHub.OPENING_FEE();
         mintCOL(owner, initialCollateral);
         mintJUSD(owner, openingFee);
 
         vm.startPrank(owner);
-        s_jusd.approve(address(s_mintingHubGateway), openingFee); // approve open fee
-        s_collateralToken.approve(address(s_mintingHubGateway), initialCollateral); // approve collateral
-        address position = s_mintingHubGateway.openPosition( // open position
+        s_jusd.approve(address(s_mintingHub), openingFee); // approve open fee
+        s_collateralToken.approve(address(s_mintingHub), initialCollateral); // approve collateral
+        address position = s_mintingHub.openPosition(
                 collateral,
                 minCollateral,
                 initialCollateral,
@@ -97,11 +91,10 @@ contract Environment is TestHelper {
                 challengePeriod,
                 riskPremium,
                 liqPrice,
-                reservePPM,
-                frontendCode
+                reservePPM
             );
         vm.stopPrank();
-        s_positions.push(Position(position));
+        s_positions.push(Position(payable(position)));
     }
 
     /// Getters
@@ -113,8 +106,8 @@ contract Environment is TestHelper {
         return s_collateralToken;
     }
 
-    function mintingHubGateway() public view returns (MintingHubGateway) {
-        return s_mintingHubGateway;
+    function mintingHub() public view returns (MintingHub) {
+        return s_mintingHub;
     }
 
     function positionRoller() public view returns (PositionRoller) {
@@ -125,12 +118,8 @@ contract Environment is TestHelper {
         return s_positionFactory;
     }
 
-    function frontendGateway() public view returns (FrontendGateway) {
-        return s_frontendGateway;
-    }
-
-    function savingsGateway() public view returns (SavingsGateway) {
-        return s_savingsGateway;
+    function savings() public view returns (Savings) {
+        return s_savings;
     }
 
     function getPosition(uint256 index) public view returns (Position) {
@@ -153,7 +142,7 @@ contract Environment is TestHelper {
 
         for (uint32 i = 0; i < maxIndex; i++) {
             uint32 idx = (index + i) % maxIndex;
-            (address challenger, uint40 start, IPosition pos, uint256 size) = s_mintingHubGateway.challenges(idx);
+            (address challenger, uint40 start, IPosition pos, uint256 size) = s_mintingHub.challenges(idx);
             if (pos != IPosition(address(0))) {
                 challenge = MintingHub.Challenge(challenger, start, pos, size);
                 return (idx, challenge);

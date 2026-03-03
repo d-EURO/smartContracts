@@ -78,7 +78,7 @@ describe("Native cBTC Challenge & Liquidation Tests", () => {
     const MintingHubFactory = await ethers.getContractFactory("MintingHub");
     mintingHub = await MintingHubFactory.deploy(
       JUSD.getAddress(),
-      savings.getAddress(),
+      0, // initialRatePPM (0%)
       roller.getAddress(),
       positionFactory.getAddress(),
       wcbtc.getAddress()

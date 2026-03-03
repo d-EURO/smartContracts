@@ -50,7 +50,7 @@ describe("Basic Tests", () => {
     const mintingHubFactory = await ethers.getContractFactory("MintingHub");
     await mintingHubFactory.deploy(
       await JUSD.getAddress(),
-      await savings.getAddress(),
+      50_000, // initialRatePPM (5%)
       await roller.getAddress(),
       await positionFactory.getAddress(),
       ethers.ZeroAddress,  // wcbtc - not used in these tests
@@ -324,5 +324,97 @@ describe("Basic Tests", () => {
       const allowanceVal2 = await JUSD.allowance(owner.address, alice.address);
       expect(allowanceVal2).to.eq(newAmount);
     });
+  });
+});
+
+describe("StablecoinBridge Emergency Stop", () => {
+  let owner: HardhatEthersSigner;
+  let alice: HardhatEthersSigner;
+
+  let localJUSD: JuiceDollar;
+  let localEquity: Equity;
+  let emergencyBridge: StablecoinBridge;
+  let emergencyXUSD: TestToken;
+  let emergencyBridgeAddr: string;
+
+  const limit = 100_000n * DECIMALS;
+  const weeks = 30;
+
+  before(async () => {
+    [owner, alice] = await ethers.getSigners();
+
+    // Fresh JUSD so we can initialize
+    const JuiceDollarFactory =
+      await ethers.getContractFactory("JuiceDollar");
+    localJUSD = await JuiceDollarFactory.deploy(10 * 86400);
+    localEquity = await ethers.getContractAt("Equity", await localJUSD.reserve());
+
+    const XUSDFactory = await ethers.getContractFactory("TestToken");
+    emergencyXUSD = await XUSDFactory.deploy("EmergencyUSD", "EUSD", 18);
+    const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
+    emergencyBridge = await bridgeFactory.deploy(
+      await emergencyXUSD.getAddress(),
+      await localJUSD.getAddress(),
+      limit,
+      weeks,
+    );
+    emergencyBridgeAddr = await emergencyBridge.getAddress();
+    await localJUSD.initialize(emergencyBridgeAddr, "Emergency Bridge");
+
+    // Mint some EUSD
+    await emergencyXUSD.mint(owner.address, floatToDec18(50_000));
+    await emergencyXUSD.mint(alice.address, floatToDec18(50_000));
+
+    // Bootstrap: mint JUSD via bridge, invest in equity for voting power
+    const mintAmount = floatToDec18(20_000);
+    await emergencyXUSD.approve(emergencyBridgeAddr, mintAmount);
+    await emergencyBridge.mint(mintAmount);
+    await localJUSD.approve(localEquity, floatToDec18(10_000));
+    await localEquity.invest(floatToDec18(10_000), 0);
+
+    // Wait for voting power to accumulate (90+ days)
+    await evm_increaseTime(91 * 86400);
+  });
+
+  it("should allow minting before emergency stop", async () => {
+    const amount = floatToDec18(1000);
+    await emergencyXUSD.approve(emergencyBridgeAddr, amount);
+    await emergencyBridge.mint(amount);
+  });
+
+  it("should reject emergency stop from unqualified caller", async () => {
+    await expect(
+      emergencyBridge.connect(alice).emergencyStop([], "depeg detected"),
+    ).to.be.revertedWithCustomError(emergencyBridge, "NotQualified");
+  });
+
+  it("should allow emergency stop from qualified holder", async () => {
+    expect(await emergencyBridge.stopped()).to.be.false;
+    await expect(emergencyBridge.emergencyStop([], "source stablecoin depegged"))
+      .to.emit(emergencyBridge, "EmergencyStopped");
+    expect(await emergencyBridge.stopped()).to.be.true;
+  });
+
+  it("should prevent minting after emergency stop", async () => {
+    const amount = floatToDec18(100);
+    await emergencyXUSD.approve(emergencyBridgeAddr, amount);
+    await expect(
+      emergencyBridge.mint(amount),
+    ).to.be.revertedWithCustomError(emergencyBridge, "Stopped");
+  });
+
+  it("should still allow burning after emergency stop", async () => {
+    const amount = floatToDec18(100);
+    const balBefore = await emergencyXUSD.balanceOf(owner.address);
+    await localJUSD.approve(emergencyBridgeAddr, amount);
+    await emergencyBridge.burn(amount);
+    const balAfter = await emergencyXUSD.balanceOf(owner.address);
+    expect(balAfter - balBefore).to.be.equal(amount);
+  });
+
+  it("should reject double emergency stop", async () => {
+    await expect(
+      emergencyBridge.emergencyStop([], "again"),
+    ).to.be.revertedWithCustomError(emergencyBridge, "AlreadyStopped");
   });
 });

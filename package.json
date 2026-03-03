@@ -1,6 +1,6 @@
 {
   "name": "@juicedollar/jusd",
-  "version": "3.0.1",
+  "version": "4.0.0",
   "description": "JuiceDollar (JUSD) - Oracle-free, Bitcoin-collateralized stablecoin on Citrea. Decentralized minting with democratic governance.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -22,13 +22,13 @@
     "prepare": "hardhat compile",
     "wallet": "npx ts-node helper/wallet.info.ts",
     "coverage": "npx hardhat coverage",
-    "deploy": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts",
     "node:fork:testnet": "FORK_TESTNET=true npx hardhat node",
     "node:fork:mainnet": "FORK_MAINNET=true npx hardhat node",
-    "deploy:fork:testnet": "FORK_TESTNET=true npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network hardhat",
-    "deploy:fork:mainnet": "FORK_MAINNET=true npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network hardhat",
-    "deploy:mainnet": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network citrea",
-    "deploy:testnet": "npx hardhat run scripts/deployment/deploy/deployProtocol.ts --network citreaTestnet",
+    "deploy:v3": "npx hardhat run scripts/deployment/deploy/deployV3Migration.ts",
+    "deploy:v3:mainnet": "npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network citrea",
+    "deploy:v3:testnet": "npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network citreaTestnet",
+    "deploy:v3:fork:testnet": "FORK_TESTNET=true npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network hardhat",
+    "deploy:v3:fork:mainnet": "FORK_MAINNET=true npx hardhat run scripts/deployment/deploy/deployV3Migration.ts --network hardhat",
     "genesis:fork:mainnet": "FORK_MAINNET=true npx hardhat run scripts/genesis/createGenesisPosition.ts --network hardhat",
     "genesis:mainnet": "npx hardhat run scripts/genesis/createGenesisPosition.ts --network citrea",
     "verify": "npx hardhat run scripts/verifyContracts.ts --network citrea",
@@ -43,9 +43,7 @@
     "test:fork:testnet": "FORK_TESTNET=true npx hardhat test --network hardhat",
     "test:fork:mainnet": "FORK_MAINNET=true npx hardhat test --network hardhat",
     "deployPositions:network": "export deploymode=pos && npx hardhat deploy --network",
-    "positions": "npx hardhat monitor-positions --network citrea --sort created",
-    "contracts": "npx hardhat get-contracts",
-    "monitor": "npx hardhat monitor-all --network citrea"
+    "contracts": "npx hardhat get-contracts"
   },
   "repository": {
     "type": "git",

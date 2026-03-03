@@ -1,59 +1,38 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Position} from "../MintingHubV2/Position.sol";
-import {MintingHubGateway} from "../gateway/MintingHubGateway.sol";
-import {IMintingHubGateway} from "../gateway/interface/IMintingHubGateway.sol";
+import {Position} from "../MintingHubV3/Position.sol";
+import {MintingHub} from "../MintingHubV3/MintingHub.sol";
 import {IJuiceDollar} from "../interface/IJuiceDollar.sol";
 import {TestToken} from "./TestToken.sol";
-import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 
 contract PositionExpirationTest {
-    MintingHubGateway public hub;
+    MintingHub public hub;
     TestToken public col;
     IJuiceDollar public jusd;
-    bytes32 public frontendCode;
 
     constructor(address payable hub_) {
-        hub = MintingHubGateway(hub_);
+        hub = MintingHub(hub_);
         col = new TestToken("Some Collateral", "COL", uint8(0));
         jusd = hub.JUSD();
     }
 
-    function openPositionFor(address owner, bytes32 frontendCode_) public returns (address) {
-        frontendCode = frontendCode_;
+    function openPositionFor(address owner) public returns (address) {
         col.mint(address(this), 100);
         col.approve(address(hub), 100);
         jusd.approve(address(hub), hub.OPENING_FEE());
-        address pos;
-        if (IERC165(hub).supportsInterface(type(IMintingHubGateway).interfaceId)) {
-            pos = hub.openPosition(
-                address(col),
-                10,
-                100 /* collateral */,
-                1000000 * 10 ** 18,
-                14 days,
-                30 days,
-                1 days,
-                50000,
-                1000 * 10 ** 36 /* price */,
-                200000,
-                frontendCode
-            );
-        } else {
-            pos = hub.openPosition(
-                address(col),
-                10,
-                100 /* collateral */,
-                1000000 * 10 ** 18,
-                14 days,
-                30 days,
-                1 days,
-                50000,
-                1000 * 10 ** 36 /* price */,
-                200000
-            );
-        }
+        address pos = hub.openPosition(
+            address(col),
+            10,
+            100 /* collateral */,
+            1000000 * 10 ** 18,
+            14 days,
+            30 days,
+            1 days,
+            50000,
+            1000 * 10 ** 36 /* price */,
+            200000
+        );
         Position(payable(pos)).transferOwnership(owner);
         return pos;
     }

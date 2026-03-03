@@ -11,7 +11,7 @@ import { ADDRESSES } from '../../constants/addresses';
 // ============================================================================
 interface ProtocolJson {
   contracts: {
-    mintingHubGateway: { address: string };
+    mintingHub: { address: string };
     juiceDollar: { address: string };
     equity: { address: string };
   };
@@ -36,7 +36,7 @@ const WCBTC_ABI = [
   'function balanceOf(address account) external view returns (uint256)',
 ];
 
-const MINTING_HUB_GATEWAY_ABI = [
+const MINTING_HUB_ABI = [
   `function openPosition(
     address _collateralAddress,
     uint256 _minCollateral,
@@ -47,8 +47,7 @@ const MINTING_HUB_GATEWAY_ABI = [
     uint40 _challengeSeconds,
     uint24 _riskPremium,
     uint256 _liqPrice,
-    uint24 _reservePPM,
-    bytes32 _frontendCode
+    uint24 _reservePPM
   ) external payable returns (address)`,
   'event PositionOpened(address indexed owner, address indexed position, address original, address collateral)',
 ];
@@ -130,12 +129,12 @@ async function preflightChecks(
   }
   console.log('  [OK] Genesis position not yet created');
 
-  // 2. Verify MintingHubGateway is deployed
-  const mintingHubCode = await signer.provider.getCode(protocolData.contracts.mintingHubGateway.address);
+  // 2. Verify MintingHub is deployed
+  const mintingHubCode = await signer.provider.getCode(protocolData.contracts.mintingHub.address);
   if (mintingHubCode === '0x') {
-    throw new Error(`MintingHubGateway not deployed at ${protocolData.contracts.mintingHubGateway.address}`);
+    throw new Error(`MintingHub not deployed at ${protocolData.contracts.mintingHub.address}`);
   }
-  console.log('  [OK] MintingHubGateway deployed');
+  console.log('  [OK] MintingHub deployed');
 
   // 3. Check JUSD balance (need >= 1000 JUSD for opening fee)
   const jusd = new ethers.Contract(protocolData.contracts.juiceDollar.address, JUSD_ABI, signer);
@@ -197,7 +196,7 @@ async function main() {
   console.log(`Loaded protocol.json from: ${protocolFilePath}`);
 
   // Get contract addresses from protocol.json
-  const mintingHubGatewayAddress = protocolData.contracts.mintingHubGateway.address;
+  const mintingHubAddress = protocolData.contracts.mintingHub.address;
   const juiceDollarAddress = protocolData.contracts.juiceDollar.address;
 
   // Get WcBTC address from ADDRESSES constant (same as deployProtocol.ts)
@@ -208,7 +207,7 @@ async function main() {
     throw new Error(`WcBTC address not found for chainId ${addressChainId}`);
   }
 
-  console.log(`MintingHubGateway: ${mintingHubGatewayAddress}`);
+  console.log(`MintingHub: ${mintingHubAddress}`);
   console.log(`JuiceDollar: ${juiceDollarAddress}`);
   console.log(`WcBTC: ${wcbtcAddress}\n`);
 
@@ -255,15 +254,15 @@ async function main() {
   console.log(`  [OK] Wrapped ${ethers.formatEther(collateralAmount)} cBTC to WcBTC\n`);
 
   // ============================================================================
-  // Step 2: Approve WcBTC for MintingHubGateway (same as deployProtocol.ts lines 946-959)
+  // Step 2: Approve WcBTC for MintingHub (same as deployProtocol.ts lines 946-959)
   // ============================================================================
-  console.log('--- Step 2: Approve WcBTC for MintingHubGateway ---\n');
+  console.log('--- Step 2: Approve WcBTC for MintingHub ---\n');
 
   console.log(`  Approving ${ethers.formatEther(collateralAmount)} WcBTC...`);
 
   const approveWcbtcTx = await deployer.sendTransaction({
     to: wcbtcAddress,
-    data: wcbtcContract.interface.encodeFunctionData('approve', [mintingHubGatewayAddress, collateralAmount]),
+    data: wcbtcContract.interface.encodeFunctionData('approve', [mintingHubAddress, collateralAmount]),
     gasLimit: ethers.parseUnits(deploymentConstants.contractCallGasLimit, 'wei'),
     maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
     maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
@@ -275,7 +274,7 @@ async function main() {
   if (!approveWcbtcReceipt || approveWcbtcReceipt.status !== 1) {
     throw new Error('Failed to approve WcBTC');
   }
-  console.log('  [OK] WcBTC approved for MintingHubGateway\n');
+  console.log('  [OK] WcBTC approved for MintingHub\n');
 
   // ============================================================================
   // Step 3: Approve JUSD for Opening Fee (same as deployProtocol.ts lines 962-975)
@@ -288,7 +287,7 @@ async function main() {
 
   const approveJusdTx = await deployer.sendTransaction({
     to: juiceDollarAddress,
-    data: jusd.interface.encodeFunctionData('approve', [mintingHubGatewayAddress, openingFee]),
+    data: jusd.interface.encodeFunctionData('approve', [mintingHubAddress, openingFee]),
     gasLimit: ethers.parseUnits(deploymentConstants.contractCallGasLimit, 'wei'),
     maxFeePerGas: ethers.parseUnits(gasConfig.maxFeePerGas, 'gwei'),
     maxPriorityFeePerGas: ethers.parseUnits(gasConfig.maxPriorityFeePerGas, 'gwei'),
@@ -307,8 +306,7 @@ async function main() {
   // ============================================================================
   console.log('--- Step 4: Open Genesis Position ---\n');
 
-  const mintingHub = new ethers.Contract(mintingHubGatewayAddress, MINTING_HUB_GATEWAY_ABI, deployer);
-  const frontendCode = ethers.ZeroHash; // No frontend code
+  const mintingHub = new ethers.Contract(mintingHubAddress, MINTING_HUB_ABI, deployer);
 
   console.log('  Position Parameters:');
   console.log(`    Collateral: WcBTC (${wcbtcAddress})`);
@@ -323,9 +321,9 @@ async function main() {
   console.log(`    Reserve: ${genesisParams.reservePPM / 10000}%\n`);
 
   const openPositionTx = await deployer.sendTransaction({
-    to: mintingHubGatewayAddress,
+    to: mintingHubAddress,
     data: mintingHub.interface.encodeFunctionData(
-      'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24,bytes32)',
+      'openPosition(address,uint256,uint256,uint256,uint40,uint40,uint40,uint24,uint256,uint24)',
       [
         wcbtcAddress,                          // collateral address
         genesisParams.minCollateral,           // min collateral
@@ -337,7 +335,6 @@ async function main() {
         genesisParams.riskPremiumPPM,          // risk premium
         genesisParams.liquidationPrice,        // liquidation price
         genesisParams.reservePPM,              // reserve PPM
-        frontendCode,                          // frontend code
       ]
     ),
     gasLimit: ethers.parseUnits(deploymentConstants.openPositionGasLimit, 'wei'),
@@ -464,7 +461,7 @@ async function main() {
     address: positionAddress,
     constructorArgs: [
       deployerAddress,                       // owner
-      mintingHubGatewayAddress,              // hub
+      mintingHubAddress,              // hub
       juiceDollarAddress,                    // jusd
       wcbtcAddress,                          // collateral
       genesisParams.minCollateral,

@@ -1,4 +1,4 @@
-export const SavingsVaultJUSDABI = [
+export const SavingsVaultJUSDV2ABI = [
   {
     inputs: [
       {

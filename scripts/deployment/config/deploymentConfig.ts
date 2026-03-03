@@ -61,7 +61,7 @@ export interface ContractsParams {
   juiceDollar: {
     minApplicationPeriod: number;
   };
-  savingsGateway: {
+  savings: {
     initialRatePPM: number;
   };
   bridges: {
@@ -84,7 +84,7 @@ export const contractsParams = {
   juiceDollar: {
     minApplicationPeriod: 1209600,
   },
-  savingsGateway: {
+  savings: {
     initialRatePPM: 100000,
   },
   bridges: {
