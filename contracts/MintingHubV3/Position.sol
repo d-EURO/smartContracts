@@ -910,6 +910,7 @@ contract Position is Ownable, IPosition, MathUtil {
      */
     receive() external payable {
         if (msg.sender != address(collateral)) {
+            if (address(collateral) != IMintingHub(hub).WETH()) revert NativeOnlyForWETH();
             IWrappedNative(address(collateral)).deposit{value: msg.value}();
         }
     }
