@@ -20,6 +20,10 @@ import {PositionRoller} from "./PositionRoller.sol";
  * @notice The central hub for creating, cloning, and challenging collateralized DecentralizedEURO positions.
  * @dev Only one instance of this contract is required, whereas every new position comes with a new position
  * contract. Pending challenges are stored as structs in an array.
+ *
+ * Unsupported collateral token types (enforced via governance):
+ * - Fee-on-transfer tokens: break collateral accounting (actual balance < recorded amount)
+ * - Rebasing tokens: break challenge accounting (challengedAmount becomes stale after rebase)
  */
 contract MintingHub is IMintingHub, ERC165, Leadrate {
     /**
@@ -113,11 +117,6 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      * @dev For a successful call, you must set an allowance for the collateral token, allowing
      * the minting hub to transfer the initial collateral amount to the newly created position and to
      * withdraw the fees.
-     *
-     * Unsupported collateral token types (not validated on-chain, must be enforced via governance):
-     * - Fee-on-transfer tokens: break collateral accounting (actual balance < recorded amount)
-     * - Rebasing tokens: break challenge accounting (challengedAmount becomes stale after rebase)
-     * - ERC-777 / ERC-1363 tokens with transfer hooks: no reentrancy guards on collateral paths
      *
      * @param _collateralAddress  address of collateral token
      * @param _minCollateral      minimum collateral required to prevent dust amounts
@@ -292,11 +291,6 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
             _avertChallenge(_challenge, _challengeNumber, liqPrice, size, returnCollateralAsNative);
             emit ChallengeAverted(address(_challenge.position), _challengeNumber, size);
         } else {
-            // Note: _returnChallengerCollateral sends ETH (if asNative) before _finishChallenge settles
-            // the position. This creates a reentrancy window where the challenger could re-enter before
-            // notifyChallengeSucceeded runs. Acceptable because: the challenge is deleted/resized in storage
-            // before the ETH send, and _finishChallenge operates on a memory copy of the challenge.
-            // Consider reordering (storage update → _finishChallenge → collateral return) if this is tightened.
             _returnChallengerCollateral(_challenge, _challengeNumber, size, postponeCollateralReturn, returnCollateralAsNative);
             (uint256 transferredCollateral, uint256 offer) = _finishChallenge(_challenge, size, returnCollateralAsNative);
             emit ChallengeSucceeded(address(_challenge.position), _challengeNumber, offer, transferredCollateral, size);

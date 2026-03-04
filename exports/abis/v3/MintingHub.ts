@@ -480,9 +480,9 @@ export const MintingHubV3ABI = [
   {
     "inputs": [
       {
-        "internalType": "uint32",
+        "internalType": "uint256",
         "name": "_challengeNumber",
-        "type": "uint32"
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
@@ -503,9 +503,9 @@ export const MintingHubV3ABI = [
   {
     "inputs": [
       {
-        "internalType": "uint32",
+        "internalType": "uint256",
         "name": "_challengeNumber",
-        "type": "uint32"
+        "type": "uint256"
       },
       {
         "internalType": "uint256",
@@ -904,9 +904,9 @@ export const MintingHubV3ABI = [
   {
     "inputs": [
       {
-        "internalType": "uint32",
+        "internalType": "uint256",
         "name": "challengeNumber",
-        "type": "uint32"
+        "type": "uint256"
       }
     ],
     "name": "price",
