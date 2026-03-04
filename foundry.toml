@@ -11,11 +11,12 @@ fs_permissions = [{ access = "read", path = "./"}]
 threads = 5
 
 [fuzz]
-runs = 100
+runs = 10000
 
 [invariant]
-runs = 100
-fail_on_revert = false
+runs = 1000
+depth = 50
+fail_on_revert = true
 
 [profile.logging]
 stats = false
