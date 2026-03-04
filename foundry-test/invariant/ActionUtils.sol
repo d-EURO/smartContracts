@@ -88,6 +88,10 @@ library ActionUtils {
         return (1, maxAmount);
     }
 
+    function cloneAllowed(Position self) public view returns (bool) {
+        return !inCooldown(self) && !challenged(self) && !expired(self) && !closed(self);
+    }
+
     function expirePositionAllowed(Position self) public view returns (bool) {
         return !expired(self) && !closed(self);
     }

@@ -5,12 +5,19 @@ import {TestHelper} from "../TestHelper.sol";
 import {Handler} from "./Handler.t.sol";
 import {Environment} from "./Environment.t.sol";
 import {Position} from "../../contracts/MintingHubV3/Position.sol";
+import {MintingHub} from "../../contracts/MintingHubV3/MintingHub.sol";
 import {DecentralizedEURO} from "../../contracts/DecentralizedEURO.sol";
+import {Equity} from "../../contracts/Equity.sol";
+import {Savings} from "../../contracts/Savings.sol";
+import {StablecoinBridge} from "../../contracts/StablecoinBridge.sol";
 import {console} from "forge-std/Test.sol";
 
 contract Invariants is TestHelper {
     Environment internal s_env;
     Handler internal s_handler;
+
+    uint64 internal s_lastMintingHubTicks;
+    uint64 internal s_lastSavingsTicks;
 
     /// @notice Set up dEURO environment
     function setUp() public {
@@ -19,7 +26,7 @@ contract Invariants is TestHelper {
         s_handler = new Handler(address(s_env));
 
         // create the handler selectors to the fuzzings targets
-        bytes4[] memory selectors = new bytes4[](11);
+        bytes4[] memory selectors = new bytes4[](22);
         /// Position
         selectors[0] = Handler.mintTo.selector;
         selectors[1] = Handler.repay.selector;
@@ -34,6 +41,22 @@ contract Invariants is TestHelper {
         selectors[8] = Handler.challengePosition.selector;
         selectors[9] = Handler.bidChallenge.selector;
         selectors[10] = Handler.buyExpiredCollateral.selector;
+        /// Savings
+        selectors[11] = Handler.saveDEURO.selector;
+        selectors[12] = Handler.withdrawSavings.selector;
+        selectors[13] = Handler.claimSavingsInterest.selector;
+        selectors[14] = Handler.refreshSavings.selector;
+        /// Equity
+        selectors[15] = Handler.investEquity.selector;
+        selectors[16] = Handler.redeemEquity.selector;
+        /// StablecoinBridge
+        selectors[17] = Handler.bridgeMint.selector;
+        selectors[18] = Handler.bridgeBurn.selector;
+        /// Multi-position
+        selectors[19] = Handler.clonePosition.selector;
+        /// Governance
+        selectors[20] = Handler.proposeLeadrateChange.selector;
+        selectors[21] = Handler.applyLeadrateChange.selector;
 
         targetSelector(FuzzSelector({addr: address(s_handler), selectors: selectors}));
         targetContract(address(s_handler));
@@ -158,12 +181,20 @@ contract Invariants is TestHelper {
     function invariant_totalSupplyConsistency() public view {
         DecentralizedEURO deuro = s_env.deuro();
         uint256 totalSupply = deuro.totalSupply();
-        
+
         uint256 totalBalances = 0;
         totalBalances += deuro.balanceOf(address(deuro.reserve()));
         totalBalances += deuro.balanceOf(address(s_env.savings()));
+        totalBalances += deuro.balanceOf(address(s_env.bridge()));
+        totalBalances += deuro.balanceOf(address(s_env.mintingHub()));
         for (uint256 i = 0; i < 5; i++) totalBalances += deuro.balanceOf(s_env.eoas(i));
-        
+
+        // Include all positions (originals + clones)
+        Position[] memory positions = s_env.getPositions();
+        for (uint256 i = 0; i < positions.length; i++) {
+            totalBalances += deuro.balanceOf(address(positions[i]));
+        }
+
         assertEq(totalBalances, totalSupply, "Total dEURO balances inconsistent with total supply");
     }
 
@@ -174,6 +205,120 @@ contract Invariants is TestHelper {
             Position pos = positions[i];
             assertGe(pos.fixedAnnualRatePPM(), pos.riskPremiumPPM(), "Fixed rate below risk premium");
         }
+    }
+
+    /// @dev MISS-1: Reserve balance must always cover the minter reserve (system solvency)
+    function invariant_reserveSolvency() public view {
+        DecentralizedEURO deuro = s_env.deuro();
+        uint256 reserveBalance = deuro.balanceOf(address(deuro.reserve()));
+        uint256 minterReserve = deuro.minterReserve();
+        assertGe(reserveBalance, minterReserve, "MISS-1: Reserve balance below minter reserve (system insolvent)");
+    }
+
+    /// @dev MISS-2: Equity accounting identity
+    function invariant_equityIdentity() public view {
+        DecentralizedEURO deuro = s_env.deuro();
+        uint256 reserveBalance = deuro.balanceOf(address(deuro.reserve()));
+        uint256 minterReserve = deuro.minterReserve();
+        uint256 equity = deuro.equity();
+
+        if (reserveBalance > minterReserve) {
+            assertEq(equity, reserveBalance - minterReserve, "MISS-2: Equity identity violated");
+        } else {
+            assertEq(equity, 0, "MISS-2: Equity should be 0 when reserve depleted");
+        }
+    }
+
+    /// @dev MISS-5: PositionRoller holds zero dEURO between transactions (flash loan net-to-zero)
+    function invariant_rollerNetZero() public view {
+        uint256 rollerBalance = s_env.deuro().balanceOf(address(s_env.positionRoller()));
+        assertEq(rollerBalance, 0, "MISS-5: PositionRoller holds dEURO (flash loan not repaid)");
+    }
+
+    /// @dev MISS-7: nDEPS total supply cannot exceed uint96 max
+    function invariant_ndepsSupplyCap() public view {
+        Equity equity = Equity(address(s_env.deuro().reserve()));
+        assertLe(equity.totalSupply(), type(uint96).max, "MISS-7: nDEPS supply exceeds uint96 max");
+    }
+
+    /// @dev Savings solvency: contract holds enough dEURO to cover all saved + claimable interest
+    function invariant_savingsSolvency() public view {
+        Savings sav = s_env.savings();
+        DecentralizedEURO deuro = s_env.deuro();
+        uint256 savingsBalance = deuro.balanceOf(address(sav));
+
+        uint256 totalObligations = 0;
+        for (uint256 i = 0; i < 5; i++) {
+            address actor = s_env.eoas(i);
+            (uint192 saved,) = sav.savings(actor);
+            uint192 claimable = sav.claimableInterest(actor);
+            totalObligations += uint256(saved) + uint256(claimable);
+        }
+
+        assertGe(savingsBalance, totalObligations, "Savings insolvent: balance < saved + claimable");
+    }
+
+    /// @dev Bridge backing: EUR token balance must cover outstanding minted dEURO
+    function invariant_bridgeBacking() public view {
+        StablecoinBridge br = s_env.bridge();
+        uint256 eurBalance = s_env.eurToken().balanceOf(address(br));
+        uint256 minted = br.minted();
+        assertGe(eurBalance, minted, "Bridge not fully backed: EUR balance < minted");
+    }
+
+    /// @dev Bridge limit: minted must not exceed limit
+    function invariant_bridgeLimit() public view {
+        StablecoinBridge br = s_env.bridge();
+        assertLe(br.minted(), br.limit(), "Bridge minted exceeds limit");
+    }
+
+    /// @dev MISS-4: Savings interest calculation is correct and capped by equity.
+    ///      Independently recalculates expected interest and cross-checks against
+    ///      the contract's accruedInterest(). Catches formula bugs, cap bypass,
+    ///      and uint192 truncation issues.
+    function invariant_savingsInterestCapped() public view {
+        Savings sav = s_env.savings();
+        DecentralizedEURO deuro = s_env.deuro();
+        uint256 equity = deuro.equity();
+
+        for (uint256 i = 0; i < 5; i++) {
+            address actor = s_env.eoas(i);
+            uint192 accrued = sav.accruedInterest(actor);
+
+            // Cap check (enforced by calculateInterest, verified independently)
+            assertLe(uint256(accrued), equity, "MISS-4: Accrued interest exceeds equity");
+
+            // Independent calculation cross-check
+            (uint192 saved, uint64 accountTicks) = sav.savings(actor);
+            if (saved > 0 && accountTicks > 0) {
+                uint64 curTicks = sav.currentTicks();
+                if (curTicks > accountTicks) {
+                    uint256 tickDelta = uint256(curTicks - accountTicks);
+                    uint256 expectedInterest = (tickDelta * uint256(saved)) / 1_000_000 / 365 days;
+                    uint256 cappedExpected = expectedInterest > equity ? equity : expectedInterest;
+                    assertEq(
+                        uint256(accrued),
+                        cappedExpected,
+                        "MISS-4: Interest calculation mismatch"
+                    );
+                }
+            }
+        }
+    }
+
+    /// @dev MISS-6: Leadrate ticks are monotonically non-decreasing
+    function invariant_leadrateTicksMonotonic() public {
+        MintingHub hub = s_env.mintingHub();
+        Savings sav = s_env.savings();
+
+        uint64 hubTicks = hub.currentTicks();
+        uint64 savTicks = sav.currentTicks();
+
+        assertGe(hubTicks, s_lastMintingHubTicks, "MISS-6: MintingHub ticks decreased");
+        assertGe(savTicks, s_lastSavingsTicks, "MISS-6: Savings ticks decreased");
+
+        s_lastMintingHubTicks = hubTicks;
+        s_lastSavingsTicks = savTicks;
     }
 
     function invariant_summary() public view {

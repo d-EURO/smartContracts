@@ -279,7 +279,7 @@ describe("Native Challenge Tests", () => {
       await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidCost);
 
       const ethBefore = await ethers.provider.getBalance(alice.address);
-      const tx = await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](
+      const tx = await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](
         num, challengeSize, false, true,
       );
       const receipt = await tx.wait();
@@ -299,7 +299,7 @@ describe("Native Challenge Tests", () => {
       await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidCost);
 
       const wethBefore = await weth.balanceOf(alice.address);
-      await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](
+      await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](
         num, challengeSize, false, false,
       );
       const wethAfter = await weth.balanceOf(alice.address);
@@ -313,7 +313,7 @@ describe("Native Challenge Tests", () => {
       await evm_increaseTime(1);
 
       const ethBefore = await ethers.provider.getBalance(bob.address);
-      const tx = await mintingHub.connect(bob)["bid(uint32,uint256,bool,bool)"](
+      const tx = await mintingHub.connect(bob)["bid(uint256,uint256,bool,bool)"](
         num, challengeSize, false, true,
       );
       const receipt = await tx.wait();
@@ -345,7 +345,7 @@ describe("Native Challenge Tests", () => {
       await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidAmount * 2n);
 
       const ethBefore = await ethers.provider.getBalance(alice.address);
-      const tx = await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](
+      const tx = await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](
         num, challengeSize, false, true,
       );
       const receipt = await tx.wait();
@@ -368,7 +368,7 @@ describe("Native Challenge Tests", () => {
       await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidAmount * 2n);
 
       const ethBefore = await ethers.provider.getBalance(bob.address);
-      await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](
+      await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](
         num, challengeSize, false, true,
       );
       const ethAfter = await ethers.provider.getBalance(bob.address);
@@ -389,7 +389,7 @@ describe("Native Challenge Tests", () => {
       await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidAmount * 2n);
 
       // Bid with postpone=true
-      await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](
+      await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](
         num, challengeSize, true, false,
       );
 
@@ -422,7 +422,7 @@ describe("Native Challenge Tests", () => {
       await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidAmount * 2n);
 
       const aliceWethBefore = await weth.balanceOf(alice.address);
-      await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](
+      await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](
         num, challengeSize, false, false,
       );
       const aliceWethAfter = await weth.balanceOf(alice.address);
@@ -522,7 +522,7 @@ describe("Native Challenge Tests", () => {
       const bidAmount = (auctionPrice * challengeSize) / DECIMALS;
       await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidAmount * 2n);
 
-      await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](num, challengeSize, true, false);
+      await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](num, challengeSize, true, false);
 
       const wethAddr = await weth.getAddress();
       const pending = await mintingHub.pendingReturns(wethAddr, bob.address);
@@ -554,7 +554,7 @@ describe("Native Challenge Tests", () => {
       const bidAmount = (auctionPrice * challengeSize) / DECIMALS;
       await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidAmount * 2n);
 
-      await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](num, challengeSize, true, false);
+      await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](num, challengeSize, true, false);
 
       const wethAddr = await weth.getAddress();
       const pending = await mintingHub.pendingReturns(wethAddr, bob.address);
@@ -584,7 +584,7 @@ describe("Native Challenge Tests", () => {
       const bidAmount = (auctionPrice * challengeSize) / DECIMALS;
       await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidAmount * 2n);
 
-      await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](num, challengeSize, true, false);
+      await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](num, challengeSize, true, false);
 
       const wethAddr = await weth.getAddress();
       const pending = await mintingHub.pendingReturns(wethAddr, bob.address);
@@ -680,7 +680,7 @@ describe("Native Challenge Tests", () => {
 
       // Alice bids with returnAsNative=true, challenger (charles) gets collateral back
       const ethBefore = await ethers.provider.getBalance(charles.address);
-      await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](num, challengeSize, false, true);
+      await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](num, challengeSize, false, true);
       const ethAfter = await ethers.provider.getBalance(charles.address);
 
       expect(ethAfter).to.be.gt(ethBefore);
@@ -701,7 +701,7 @@ describe("Native Challenge Tests", () => {
       const bidAmount = (auctionPrice * challengeSize) / DECIMALS;
       await dEURO.connect(alice).approve(await mintingHub.getAddress(), bidAmount * 2n);
 
-      await mintingHub.connect(alice)["bid(uint32,uint256,bool,bool)"](num, challengeSize, true, false);
+      await mintingHub.connect(alice)["bid(uint256,uint256,bool,bool)"](num, challengeSize, true, false);
 
       await expect(
         mintingHub.connect(bob)["returnPostponedCollateral(address,address,bool)"](

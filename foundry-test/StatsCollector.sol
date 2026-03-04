@@ -96,6 +96,15 @@ contract StatsCollector is TestHelper {
         printActionStatistics("passCooldown");
         printActionStatistics("expirePosition");
         printActionStatistics("warpTime");
+        printActionStatistics("saveDEURO");
+        printActionStatistics("withdrawSavings");
+        printActionStatistics("claimSavingsInterest");
+        printActionStatistics("refreshSavings");
+        printActionStatistics("investEquity");
+        printActionStatistics("redeemEquity");
+        printActionStatistics("bridgeMint");
+        printActionStatistics("bridgeBurn");
+        printActionStatistics("clonePosition");
         console.log("");
 
         // Print basic statistics

@@ -27,4 +27,4 @@ tst.ts
 package-lock.json
 /abi
 /out
-/lib
+static_analysis_semgrep_1/
