@@ -11,7 +11,7 @@ contract TestMathUtil is MathUtil {
     }
 
     // make it a transaction so we can measure gas costs in our tests
-    function cubicRoot(uint256 a, bool recordResult) external {
+    function fifthRoot(uint256 a, bool recordResult) external {
         uint256 r = _fifthRoot(a);
         if (recordResult) {
             result = r;

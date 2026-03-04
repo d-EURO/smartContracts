@@ -1,9 +1,6 @@
 import { ethers } from 'hardhat';
 import { formatUnits } from 'ethers';
-import dotenv from 'dotenv';
-import { getContractAddress } from '../../utils/deployments';
-
-dotenv.config();
+import { ADDRESS } from '../../../exports/address.config';
 
 /**
  * Suggests a deployed bridge as a minter for dEURO
@@ -26,7 +23,13 @@ async function suggestMinterForBridge() {
     console.log(`Description: ${description}`);
 
     // Get dEURO contract
-    const dEuroAddress = getContractAddress('decentralizedEURO');
+    const network = await ethers.provider.getNetwork();
+    const chainId = Number(network.chainId);
+    const addresses = ADDRESS[chainId];
+    if (!addresses) {
+      throw new Error(`No addresses configured for chain ${chainId}`);
+    }
+    const dEuroAddress = addresses.decentralizedEURO;
     const dEURO = await ethers.getContractAt('DecentralizedEURO', dEuroAddress);
     const dEuroDecimals = await dEURO.decimals();
 

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.10;
 
 import {TestHelper} from "./TestHelper.sol";
-import {Position} from "../contracts/MintingHubV2/Position.sol";
+import {Position} from "../contracts/MintingHubV3/Position.sol";
 import {console} from "forge-std/Test.sol";
 
 /**
@@ -96,6 +96,15 @@ contract StatsCollector is TestHelper {
         printActionStatistics("passCooldown");
         printActionStatistics("expirePosition");
         printActionStatistics("warpTime");
+        printActionStatistics("saveDEURO");
+        printActionStatistics("withdrawSavings");
+        printActionStatistics("claimSavingsInterest");
+        printActionStatistics("refreshSavings");
+        printActionStatistics("investEquity");
+        printActionStatistics("redeemEquity");
+        printActionStatistics("bridgeMint");
+        printActionStatistics("bridgeBurn");
+        printActionStatistics("clonePosition");
         console.log("");
 
         // Print basic statistics
