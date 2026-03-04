@@ -27,6 +27,5 @@ tst.ts
 package-lock.json
 /abi
 /out
-/lib
 audits/V3/security-review/
 static_analysis_semgrep_1/
