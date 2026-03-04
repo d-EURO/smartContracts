@@ -318,7 +318,7 @@ describe("Native cBTC Challenge & Liquidation Tests", () => {
       await JUSD.connect(bidder).approve(mintingHub.getAddress(), floatToDec18(1_000_000));
 
       // Bid with returnCollateralAsNative=true
-      await mintingHub.connect(bidder)["bid(uint32,uint256,bool,bool)"](
+      await mintingHub.connect(bidder)["bid(uint256,uint256,bool,bool)"](
         challengeNumber,
         bidSize,
         false, // postponeCollateralReturn
@@ -378,7 +378,7 @@ describe("Native cBTC Challenge & Liquidation Tests", () => {
 
       // Bidder bids with returnCollateralAsNative=true
       await JUSD.connect(bidder).approve(mintingHub.getAddress(), floatToDec18(1_000_000));
-      const bidTx = await mintingHub.connect(bidder)["bid(uint32,uint256,bool,bool)"](
+      const bidTx = await mintingHub.connect(bidder)["bid(uint256,uint256,bool,bool)"](
         challengeNumber,
         challengeAmount,
         false, // postponeCollateralReturn
@@ -442,7 +442,7 @@ describe("Native cBTC Challenge & Liquidation Tests", () => {
 
       // Bidder averts with returnCollateralAsNative=true
       await JUSD.connect(bidder).approve(mintingHub.getAddress(), floatToDec18(1_000_000));
-      const bidTx = await mintingHub.connect(bidder)["bid(uint32,uint256,bool,bool)"](
+      const bidTx = await mintingHub.connect(bidder)["bid(uint256,uint256,bool,bool)"](
         challengeNumber,
         challengeAmount,
         false, // postponeCollateralReturn
@@ -506,7 +506,7 @@ describe("Native cBTC Challenge & Liquidation Tests", () => {
 
       // Bidder bids with 3-arg version (no asNative flag, defaults to false)
       await JUSD.connect(bidder).approve(mintingHub.getAddress(), floatToDec18(1_000_000));
-      await mintingHub.connect(bidder)["bid(uint32,uint256,bool)"](
+      await mintingHub.connect(bidder)["bid(uint256,uint256,bool)"](
         challengeNumber,
         challengeAmount,
         false // postponeCollateralReturn
@@ -569,7 +569,7 @@ describe("Native cBTC Challenge & Liquidation Tests", () => {
 
       // Bid with postponed collateral return
       await JUSD.connect(bidder).approve(mintingHub.getAddress(), floatToDec18(1_000_000));
-      await mintingHub.connect(bidder)["bid(uint32,uint256,bool)"](
+      await mintingHub.connect(bidder)["bid(uint256,uint256,bool)"](
         challengeNumber,
         challengeAmount,
         true // postponeCollateralReturn
@@ -648,7 +648,7 @@ describe("Native cBTC Challenge & Liquidation Tests", () => {
 
       // Bid with postponed collateral return
       await JUSD.connect(bidder).approve(mintingHub.getAddress(), floatToDec18(1_000_000));
-      await mintingHub.connect(bidder)["bid(uint32,uint256,bool)"](
+      await mintingHub.connect(bidder)["bid(uint256,uint256,bool)"](
         challengeNumber,
         challengeAmount,
         true

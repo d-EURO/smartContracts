@@ -20,6 +20,10 @@ import {PositionRoller} from "./PositionRoller.sol";
  * @notice The central hub for creating, cloning, and challenging collateralized JuiceDollar positions.
  * @dev Only one instance of this contract is required, whereas every new position comes with a new position
  * contract. Pending challenges are stored as structs in an array.
+ *
+ * Unsupported collateral token types (enforced via governance):
+ * - Fee-on-transfer tokens: break collateral accounting (actual balance < recorded amount)
+ * - Rebasing tokens: break challenge accounting (challengedAmount becomes stale after rebase)
  */
 contract MintingHub is IMintingHub, ERC165, Leadrate {
     /**
@@ -299,7 +303,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      *                                  challenger refund and bidder acquisition are returned as native.
      */
     function bid(
-        uint32 _challengeNumber,
+        uint256 _challengeNumber,
         uint256 size,
         bool postponeCollateralReturn,
         bool returnCollateralAsNative
@@ -310,12 +314,12 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
     /**
      * @notice Post a bid in JUSD given an open challenge (backward compatible version).
      */
-    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn) external {
+    function bid(uint256 _challengeNumber, uint256 size, bool postponeCollateralReturn) external {
         _bid(_challengeNumber, size, postponeCollateralReturn, false);
     }
 
     function _bid(
-        uint32 _challengeNumber,
+        uint256 _challengeNumber,
         uint256 size,
         bool postponeCollateralReturn,
         bool returnCollateralAsNative
@@ -400,7 +404,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
 
     function _avertChallenge(
         Challenge memory _challenge,
-        uint32 number,
+        uint256 number,
         uint256 liqPrice,
         uint256 size,
         bool asNative
@@ -436,7 +440,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      */
     function _returnChallengerCollateral(
         Challenge memory _challenge,
-        uint32 number,
+        uint256 number,
         uint256 amount,
         bool postpone,
         bool asNative
@@ -481,7 +485,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      * @dev The price comes with (36 - collateral.decimals()) digits, so multiplying it with the raw collateral amount
      * always yields a price with 36 digits, or 18 digits after dividing by 10**18 again.
      */
-    function price(uint32 challengeNumber) public view returns (uint256) {
+    function price(uint256 challengeNumber) public view returns (uint256) {
         Challenge memory _challenge = challenges[challengeNumber];
         if (_challenge.challenger == address(0x0)) {
             return 0;

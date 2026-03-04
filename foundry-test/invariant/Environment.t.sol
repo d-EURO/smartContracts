@@ -10,6 +10,8 @@ import {PositionRoller} from "../../contracts/MintingHubV3/PositionRoller.sol";
 import {TestHelper} from "../TestHelper.sol";
 import {MintingHub} from "../../contracts/MintingHubV3/MintingHub.sol";
 import {IPosition} from "../../contracts/MintingHubV3/interface/IPosition.sol";
+import {Equity} from "../../contracts/Equity.sol";
+import {StablecoinBridge} from "../../contracts/StablecoinBridge.sol";
 
 contract Environment is TestHelper {
     JuiceDollar internal s_jusd;
@@ -18,6 +20,9 @@ contract Environment is TestHelper {
     PositionRoller internal s_positionRoller;
     PositionFactory internal s_positionFactory;
     Savings internal s_savings;
+    StablecoinBridge internal s_bridge;
+    TestToken internal s_eurToken;
+    Equity internal s_equity;
     Position[] internal s_positions;
     address[] internal s_eoas; // EOAs
     address internal s_deployer;
@@ -41,6 +46,11 @@ contract Environment is TestHelper {
         vm.label(s_deployer, "Deployer");
         s_jusd.initialize(address(s_mintingHub), "Make MintingHub minter");
         s_jusd.initialize(s_deployer, "Make Invariants contract minter");
+        s_jusd.initialize(address(s_savings), "Make Savings minter");
+        s_eurToken = new TestToken("EUR Stablecoin", "EURS", 18);
+        s_bridge = new StablecoinBridge(address(s_eurToken), address(s_jusd), 10_000_000e18, 520); // 10yr horizon
+        s_jusd.initialize(address(s_bridge), "Make StablecoinBridge minter");
+        s_equity = Equity(address(s_jusd.reserve()));
         increaseBlocks(1);
 
         // create EOAs
@@ -59,6 +69,14 @@ contract Environment is TestHelper {
         // create positions
         createPosition(alice);
         increaseTime(14 days); // >= initPeriod
+
+        // bootstrap equity so invest/redeem are testable
+        uint256 equityBootstrap = 100_000e18;
+        vm.startPrank(s_deployer);
+        s_jusd.mint(s_deployer, equityBootstrap);
+        s_equity.invest(equityBootstrap, 0);
+        vm.stopPrank();
+        increaseTime(91 days); // past MIN_HOLDING_DURATION for equity redemption
     }
 
     function createPosition(address owner) internal {
@@ -122,6 +140,18 @@ contract Environment is TestHelper {
         return s_savings;
     }
 
+    function bridge() public view returns (StablecoinBridge) {
+        return s_bridge;
+    }
+
+    function eurToken() public view returns (TestToken) {
+        return s_eurToken;
+    }
+
+    function equity() public view returns (Equity) {
+        return s_equity;
+    }
+
     function getPosition(uint256 index) public view returns (Position) {
         return s_positions[index % s_positions.length];
     }
@@ -152,6 +182,10 @@ contract Environment is TestHelper {
         return (maxIndex + 1, challenge);
     }
 
+    function deployer() public view returns (address) {
+        return s_deployer;
+    }
+
     function eoas(uint256 index) public view returns (address) {
         return s_eoas[index % s_eoas.length];
     }
@@ -174,5 +208,18 @@ contract Environment is TestHelper {
             s_collateralToken.mint(to, amount - toBalance);
             vm.stopPrank();
         }
+    }
+
+    function mintEUR(address to, uint256 amount) public {
+        uint256 toBalance = s_eurToken.balanceOf(to);
+        if (toBalance < amount) {
+            vm.startPrank(s_deployer);
+            s_eurToken.mint(to, amount - toBalance);
+            vm.stopPrank();
+        }
+    }
+
+    function addPosition(Position pos) public {
+        s_positions.push(pos);
     }
 }

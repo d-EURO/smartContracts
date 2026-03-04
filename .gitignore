@@ -10,6 +10,7 @@ artifacts*/
 cache
 coverage
 coverage.json
+gasReporterOutput.json
 .idea
 *.iml
 /dist
@@ -27,5 +28,4 @@ tst.ts
 package-lock.json
 /abi
 /out
-/lib
 /.claude

@@ -341,7 +341,7 @@ describe("Savings Optional Compounding Tests", () => {
       await ethers.provider.send("evm_revert", [snapshotId]);
     });
 
-    it("save(amount, true) switches to compounding; prior non-compounding interest preserved", async () => {
+    it("save(amount, true) switches to compounding; prior non-compounding interest preserved in claimable", async () => {
       const saveAmount = floatToDec18(10_000);
 
       // Withdraw any residual state from previous tests
@@ -361,28 +361,29 @@ describe("Savings Optional Compounding Tests", () => {
       const pendingInterest = await savings["accruedInterest(address)"](bob.address);
       expect(pendingInterest).to.be.gt(0n);
 
-      // Switch to compounding — flag is set before refresh runs,
-      // so the pending interest gets compounded into saved
+      // Switch to compounding — pending interest settles under OLD mode (non-compounding),
+      // so it goes to claimableInterest, not saved
       await savings.connect(bob)["save(uint192,bool)"](0, true);
       expect(await savings.nonCompounding(bob.address)).to.eq(false);
 
       const accountAfterSwitch = await savings.savings(bob.address);
-      expect(accountAfterSwitch.saved).to.be.gt(saveAmount);
-      // Interest went to saved, not claimable
-      expect(await savings.claimableInterest(bob.address)).to.eq(0n);
+      expect(accountAfterSwitch.saved).to.eq(saveAmount);
+      // Interest settled under old non-compounding mode goes to claimable
+      expect(await savings.claimableInterest(bob.address)).to.be.gt(0n);
 
-      // Interest earned from here should also compound
+      // Interest earned from here should compound under new mode
       await evm_increaseTime(180 * 86_400);
       await savings.refreshBalance(bob.address);
 
       const account = await savings.savings(bob.address);
-      expect(account.saved).to.be.gt(accountAfterSwitch.saved);
+      expect(account.saved).to.be.gt(saveAmount);
 
       // Clean up
       await savings.connect(bob).withdraw(bob.address, account.saved * 2n);
+      await savings.connect(bob).claimInterest(bob.address);
     });
 
-    it("save(amount, false) switches to non-compounding; pending interest goes to claimable", async () => {
+    it("save(amount, false) switches to non-compounding; pending interest compounded under old mode", async () => {
       const saveAmount = floatToDec18(10_000);
 
       // Withdraw any residual state from previous tests
@@ -405,27 +406,28 @@ describe("Savings Optional Compounding Tests", () => {
       // Nothing in claimable yet (compounding mode adds to saved)
       expect(await savings.claimableInterest(alice.address)).to.eq(0n);
 
-      // Switch to non-compounding — flag is set before refresh runs,
-      // so the pending interest goes to claimableInterest instead of saved
+      // Switch to non-compounding — pending interest settles under OLD mode (compounding),
+      // so it gets compounded into saved
       await savings.connect(alice)["save(uint192,bool)"](0, false);
       expect(await savings.nonCompounding(alice.address)).to.eq(true);
 
-      // Principal unchanged (pending interest NOT added to saved)
-      expect((await savings.savings(alice.address)).saved).to.eq(saveAmount);
+      const savedAfterSwitch = (await savings.savings(alice.address)).saved;
+      // Interest was compounded under old compounding mode into saved
+      expect(savedAfterSwitch).to.be.gt(saveAmount);
+      // No claimable interest (compounding mode adds to saved, not claimable)
+      expect(await savings.claimableInterest(alice.address)).to.eq(0n);
 
-      // Pending interest routed to claimable
-      const claimable = await savings.claimableInterest(alice.address);
-      expect(claimable).to.be.gt(0n);
-
-      // Interest earned from here should also go to claimable
+      // Interest earned from here should go to claimable under new non-compounding mode
       await evm_increaseTime(180 * 86_400);
       await savings.refreshBalance(alice.address);
 
-      expect((await savings.savings(alice.address)).saved).to.eq(saveAmount);
-      expect(await savings.claimableInterest(alice.address)).to.be.gt(claimable);
+      // Saved unchanged under non-compounding mode
+      expect((await savings.savings(alice.address)).saved).to.eq(savedAfterSwitch);
+      // New interest goes to claimable
+      expect(await savings.claimableInterest(alice.address)).to.be.gt(0n);
 
       // Clean up
-      await savings.connect(alice).withdraw(alice.address, saveAmount * 2n);
+      await savings.connect(alice).withdraw(alice.address, savedAfterSwitch * 2n);
       await savings.connect(alice).claimInterest(alice.address);
     });
 
