@@ -28,10 +28,10 @@ interface IMintingHub {
         uint256 minimumPrice
     ) external payable returns (uint256);
 
-    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn) external;
+    function bid(uint256 _challengeNumber, uint256 size, bool postponeCollateralReturn) external;
 
     function bid(
-        uint32 _challengeNumber,
+        uint256 _challengeNumber,
         uint256 size,
         bool postponeCollateralReturn,
         bool returnCollateralAsNative

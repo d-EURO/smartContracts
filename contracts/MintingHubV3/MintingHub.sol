@@ -114,6 +114,11 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      * the minting hub to transfer the initial collateral amount to the newly created position and to
      * withdraw the fees.
      *
+     * Unsupported collateral token types (not validated on-chain, must be enforced via governance):
+     * - Fee-on-transfer tokens: break collateral accounting (actual balance < recorded amount)
+     * - Rebasing tokens: break challenge accounting (challengedAmount becomes stale after rebase)
+     * - ERC-777 / ERC-1363 tokens with transfer hooks: no reentrancy guards on collateral paths
+     *
      * @param _collateralAddress  address of collateral token
      * @param _minCollateral      minimum collateral required to prevent dust amounts
      * @param _initialCollateral  amount of initial collateral to be deposited
@@ -267,18 +272,18 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      *                                  (automatically reduced to the available amount)
      * @param postponeCollateralReturn  To postpone the return of the collateral to the challenger. Usually false.
      */
-    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnCollateralAsNative) external {
+    function bid(uint256 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnCollateralAsNative) external {
         _bid(_challengeNumber, size, postponeCollateralReturn, returnCollateralAsNative);
     }
 
     /**
      * @notice Post a bid in deur given an open challenge (backward compatible).
      */
-    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn) external {
+    function bid(uint256 _challengeNumber, uint256 size, bool postponeCollateralReturn) external {
         _bid(_challengeNumber, size, postponeCollateralReturn, false);
     }
 
-    function _bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnCollateralAsNative) internal {
+    function _bid(uint256 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnCollateralAsNative) internal {
         Challenge memory _challenge = challenges[_challengeNumber];
         (uint256 liqPrice, uint40 phase) = _challenge.position.challengeData();
         size = _challenge.size < size ? _challenge.size : size; // cannot bid for more than the size of the challenge
@@ -287,6 +292,11 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
             _avertChallenge(_challenge, _challengeNumber, liqPrice, size, returnCollateralAsNative);
             emit ChallengeAverted(address(_challenge.position), _challengeNumber, size);
         } else {
+            // Note: _returnChallengerCollateral sends ETH (if asNative) before _finishChallenge settles
+            // the position. This creates a reentrancy window where the challenger could re-enter before
+            // notifyChallengeSucceeded runs. Acceptable because: the challenge is deleted/resized in storage
+            // before the ETH send, and _finishChallenge operates on a memory copy of the challenge.
+            // Consider reordering (storage update → _finishChallenge → collateral return) if this is tightened.
             _returnChallengerCollateral(_challenge, _challengeNumber, size, postponeCollateralReturn, returnCollateralAsNative);
             (uint256 transferredCollateral, uint256 offer) = _finishChallenge(_challenge, size, returnCollateralAsNative);
             emit ChallengeSucceeded(address(_challenge.position), _challengeNumber, offer, transferredCollateral, size);
@@ -334,7 +344,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         return (collateral, offer);
     }
 
-    function _avertChallenge(Challenge memory _challenge, uint32 number, uint256 liqPrice, uint256 size, bool asNative) internal {
+    function _avertChallenge(Challenge memory _challenge, uint256 number, uint256 liqPrice, uint256 size, bool asNative) internal {
         require(block.timestamp != _challenge.start); // do not allow to avert the challenge in the same transaction, see CS-ZCHF-037
         if (msg.sender == _challenge.challenger) {
             // allow challenger to cancel challenge without paying themselves
@@ -363,7 +373,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      */
     function _returnChallengerCollateral(
         Challenge memory _challenge,
-        uint32 number,
+        uint256 number,
         uint256 amount,
         bool postpone,
         bool asNative
@@ -408,7 +418,7 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      * @dev The price comes with (36 - collateral.decimals()) digits, so multiplying it with the raw collateral amount
      * always yields a price with 36 digits, or 18 digits after dividing by 10**18 again.
      */
-    function price(uint32 challengeNumber) public view returns (uint256) {
+    function price(uint256 challengeNumber) public view returns (uint256) {
         Challenge memory _challenge = challenges[challengeNumber];
         if (_challenge.challenger == address(0x0)) {
             return 0;
