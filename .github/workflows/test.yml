@@ -6,7 +6,7 @@ on:
     branches: [dev, main]
 
 jobs:
-  tests:
+  hardhat-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,3 +22,19 @@ jobs:
         run: npm run compile
       - name: Run Tests
         run: CI=true npm test
+
+  foundry-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Install dependencies
+        run: forge install
+      - name: Run Foundry tests
+        run: forge test -vvv
+        env:
+          FOUNDRY_INVARIANT_RUNS: 256
+          FOUNDRY_INVARIANT_DEPTH: 50
