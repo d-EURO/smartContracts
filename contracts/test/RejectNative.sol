@@ -4,7 +4,7 @@ pragma solidity ^0.8.24;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IMintingHubBid {
-    function bid(uint32 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnAsNative) external;
+    function bid(uint256 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnAsNative) external;
     function buyExpiredCollateral(address pos, uint256 upToAmount, bool receiveAsNative) external returns (uint256);
     function returnPostponedCollateral(address collateral, address target, bool asNative) external;
 }
@@ -15,7 +15,7 @@ interface IMintingHubBid {
  *         Used to test NativeTransferFailed error paths.
  */
 contract RejectNative {
-    function callBid(address hub, uint32 number, uint256 size) external {
+    function callBid(address hub, uint256 number, uint256 size) external {
         IMintingHubBid(hub).bid(number, size, false, true);
     }
 
