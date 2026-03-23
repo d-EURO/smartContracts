@@ -1,0 +1,73 @@
+{
+  "network": "citrea",
+  "chainId": 4114,
+  "deployer": "0x0D8a52331Df8E76db948de76907aD6fcCfeEc76c",
+  "existingContracts": {
+    "juiceDollar": "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+    "wcbtc": "0x3100000000000000000000000000000000000006"
+  },
+  "contracts": {
+    "positionFactory": {
+      "address": "0x37E45AceF1E1fEF03697440682329FFc84e9310E",
+      "constructorArgs": []
+    },
+    "positionRoller": {
+      "address": "0x7E2Bc47C49E73340bB7d00bB1E972125cF76A54d",
+      "constructorArgs": [
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C"
+      ]
+    },
+    "savings": {
+      "address": "0x6347a7Ec9Cf3D04CD853425a9857513C600EaA94",
+      "constructorArgs": [
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+        100000
+      ]
+    },
+    "mintingHub": {
+      "address": "0x0f0164a5D9556C64bA879622C71732f3525C183A",
+      "constructorArgs": [
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+        100000,
+        "0x7E2Bc47C49E73340bB7d00bB1E972125cF76A54d",
+        "0x37E45AceF1E1fEF03697440682329FFc84e9310E",
+        "0x3100000000000000000000000000000000000006"
+      ]
+    },
+    "savingsVaultJUSD": {
+      "address": "0xD6d874968882d01fff6712e639f3F7e19bDA6523",
+      "constructorArgs": [
+        "0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C",
+        "0x6347a7Ec9Cf3D04CD853425a9857513C600EaA94",
+        "Savings Vault JUSD",
+        "svJUSD"
+      ]
+    }
+  },
+  "minterSuggestions": {
+    "savings": {
+      "applicationPeriod": 1209600,
+      "fee": "1000000000000000000000"
+    },
+    "mintingHub": {
+      "applicationPeriod": 1209600,
+      "fee": "1000000000000000000000"
+    },
+    "positionRoller": {
+      "applicationPeriod": 1209600,
+      "fee": "1000000000000000000000"
+    }
+  },
+  "transactions": {
+    "positionFactoryDeploy": "0x9a5172a379e347b7666f841fd8cfac56bc470ed2a2ba5af0b96d350fab0f255a",
+    "positionRollerDeploy": "0xc2aa9a23647f6859099ee973963493769785102ba71d04cea5ee71137df4a178",
+    "savingsDeploy": "0x285e83de8e18554e6598961916c2aee69cc653d7d8354ec9330e0c5d2f2aa43f",
+    "mintingHubDeploy": "0x3a4fd2c650a16a8ffc5e0883dc8f9e6e3a0f428dc60e23b6dfbbc1d10beeffa3",
+    "savingsVaultDeploy": "0x022b21328f73618775a6edf55193fb4493577310dfae19584a07005e6b423235",
+    "approve": "0xe43bf3722f4dfd057b129cc2eed18619e417c3478dc1e56eff872be886d88e1c",
+    "suggestMinterSavings": "0x87965e2153551ab573287a5d6f6c80dd79707aa47f7c1e2ac5229b6c285b7024",
+    "suggestMinterMintingHub": "0xaf137cb88939caab46a222dc5876a814de14e2955f05ef552caec36a98f483a0",
+    "suggestMinterPositionRoller": "0x200f142bf2856ce8bd1dec786a7439165b9ea83092273e9e7332dfa4b3bc9845"
+  },
+  "timestamp": 1774264147
+}

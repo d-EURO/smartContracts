@@ -14,7 +14,7 @@ export interface ChainAddress {
   positionFactoryV2: Address;
   genesisPosition: Address;
 
-  // V3 (to be populated after deployment)
+  // V3
   savings: Address;
   mintingHub: Address;
   savingsVaultV3: Address;
@@ -49,12 +49,12 @@ export const ADDRESS: Record<number, ChainAddress> = {
     rollerV2: '0xC1b97398c06B9C6a49Fd9dCFAC8907700301e9Ac',
     positionFactoryV2: '0x107eDf5f030d724bD0C73f88A300bEA09AE581e2',
     genesisPosition: '0xe8c97614Ac1A5Ac0e8aB2d0e04b4B315817ecb36',
-    // V3 (to be populated after deployment)
-    savings: zeroAddress,
-    mintingHub: zeroAddress,
-    savingsVaultV3: zeroAddress,
-    rollerV3: zeroAddress,
-    positionFactoryV3: zeroAddress,
+    // V3
+    savings: '0x6347a7Ec9Cf3D04CD853425a9857513C600EaA94',
+    mintingHub: '0x0f0164a5D9556C64bA879622C71732f3525C183A',
+    savingsVaultV3: '0xD6d874968882d01fff6712e639f3F7e19bDA6523',
+    rollerV3: '0x7E2Bc47C49E73340bB7d00bB1E972125cF76A54d',
+    positionFactoryV3: '0x37E45AceF1E1fEF03697440682329FFc84e9310E',
     // Bridges
     bridgeStartUSD: '0x51ff8141D731676Fb21aE1E5D5A88c04511994dD',
     bridgeUSDC: '0x920DB0aDf6fEe2D69401e9f68D60319177dCa20F',
