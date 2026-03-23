@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {Position} from "../../contracts/MintingHubV2/Position.sol";
+import {Position} from "../../contracts/MintingHubV3/Position.sol";
 import {TestToken} from "../../contracts/test/TestToken.sol";
-import {MintingHubGateway} from "../../contracts/gateway/MintingHubGateway.sol";
 
 library ActionUtils {
     function mintToAllowed(Position self) public view returns (bool) {
@@ -87,6 +86,10 @@ library ActionUtils {
     function buyExpiredCollateralBounds(Position self) public view returns (uint256 lb, uint256 ub) {
         uint256 maxAmount = self.collateral().balanceOf(address(self));
         return (1, maxAmount);
+    }
+
+    function cloneAllowed(Position self) public view returns (bool) {
+        return !inCooldown(self) && !challenged(self) && !expired(self) && !closed(self);
     }
 
     function expirePositionAllowed(Position self) public view returns (bool) {

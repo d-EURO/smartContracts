@@ -1,29 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {Position} from "../../contracts/MintingHubV2/Position.sol";
+import {Position} from "../../contracts/MintingHubV3/Position.sol";
 import {DecentralizedEURO} from "../../contracts/DecentralizedEURO.sol";
 import {TestToken} from "../../contracts/test/TestToken.sol";
-import {PositionFactory} from "../../contracts/MintingHubV2/PositionFactory.sol";
-import {SavingsGateway} from "../../contracts/gateway/SavingsGateway.sol";
+import {PositionFactory} from "../../contracts/MintingHubV3/PositionFactory.sol";
+import {Savings} from "../../contracts/Savings.sol";
 import {DEPSWrapper} from "../../contracts/utils/DEPSWrapper.sol";
-import {FrontendGateway} from "../../contracts/gateway/FrontendGateway.sol";
-import {MintingHubGateway} from "../../contracts/gateway/MintingHubGateway.sol";
-import {PositionRoller} from "../../contracts/MintingHubV2/PositionRoller.sol";
+import {MintingHub} from "../../contracts/MintingHubV3/MintingHub.sol";
+import {PositionRoller} from "../../contracts/MintingHubV3/PositionRoller.sol";
 import {Equity} from "../../contracts/Equity.sol";
+import {StablecoinBridge} from "../../contracts/StablecoinBridge.sol";
 import {TestHelper} from "../TestHelper.sol";
-import {MintingHub} from "../../contracts/MintingHubV2/MintingHub.sol";
-import {IPosition} from "../../contracts/MintingHubV2/interface/IPosition.sol";
+import {IPosition} from "../../contracts/MintingHubV3/interface/IPosition.sol";
 
 contract Environment is TestHelper {
     DecentralizedEURO internal s_deuro;
     TestToken internal s_collateralToken;
-    MintingHubGateway internal s_mintingHubGateway;
+    MintingHub internal s_mintingHub;
     PositionRoller internal s_positionRoller;
     PositionFactory internal s_positionFactory;
     DEPSWrapper internal s_depsWrapper;
-    FrontendGateway internal s_frontendGateway;
-    SavingsGateway internal s_savingsGateway;
+    Savings internal s_savings;
+    StablecoinBridge internal s_bridge;
+    TestToken internal s_eurToken;
+    Equity internal s_equity;
     Position[] internal s_positions;
     address[] internal s_eoas; // EOAs
     address internal s_deployer;
@@ -34,22 +35,25 @@ contract Environment is TestHelper {
         s_positionRoller = new PositionRoller(address(s_deuro));
         s_positionFactory = new PositionFactory();
         s_depsWrapper = new DEPSWrapper(Equity(address(s_deuro.reserve())));
-        s_frontendGateway = new FrontendGateway(address(s_deuro), address(s_depsWrapper));
-        s_savingsGateway = new SavingsGateway(s_deuro, 5, address(s_frontendGateway));
-        s_mintingHubGateway = new MintingHubGateway(
+        s_savings = new Savings(s_deuro, 5);
+        s_mintingHub = new MintingHub(
             address(s_deuro),
-            address(s_savingsGateway),
-            address(s_positionRoller),
+            5,
+            payable(address(s_positionRoller)),
             address(s_positionFactory),
-            address(s_frontendGateway)
+            address(0) // WETH not needed for tests
         );
 
         // initialize contracts
         s_deployer = msg.sender;
         vm.label(s_deployer, "Deployer");
-        s_frontendGateway.init(address(s_savingsGateway), address(s_mintingHubGateway));
-        s_deuro.initialize(address(s_mintingHubGateway), "Make MintingHubGateway minter");
+        s_deuro.initialize(address(s_mintingHub), "Make MintingHub minter");
         s_deuro.initialize(s_deployer, "Make Invariants contract minter");
+        s_deuro.initialize(address(s_savings), "Make Savings minter");
+        s_eurToken = new TestToken("EUR Stablecoin", "EURS", 18);
+        s_bridge = new StablecoinBridge(address(s_eurToken), address(s_deuro), 10_000_000e18, 520); // 10yr horizon
+        s_deuro.initialize(address(s_bridge), "Make StablecoinBridge minter");
+        s_equity = Equity(address(s_deuro.reserve()));
         increaseBlocks(1);
 
         // create EOAs
@@ -68,6 +72,14 @@ contract Environment is TestHelper {
         // create positions
         createPosition(alice);
         increaseTime(5 days); // >= initPeriod
+
+        // bootstrap equity so invest/redeem are testable
+        uint256 equityBootstrap = 100_000e18;
+        vm.startPrank(s_deployer);
+        s_deuro.mint(s_deployer, equityBootstrap);
+        s_equity.invest(equityBootstrap, 0);
+        vm.stopPrank();
+        increaseTime(91 days); // past MIN_HOLDING_DURATION for equity redemption
     }
 
     function createPosition(address owner) internal {
@@ -81,17 +93,16 @@ contract Environment is TestHelper {
         uint24 riskPremium = 10_000; // risk premium
         uint256 liqPrice = 5000 * 10 ** (36 - s_collateralToken.decimals()); // liquidation price
         uint24 reservePPM = 100_000; // reserve PPM
-        bytes32 frontendCode = bytes32(keccak256(abi.encodePacked(owner))); // frontend code
 
         // Mint opening fee and collateral
-        uint256 openingFee = s_mintingHubGateway.OPENING_FEE();
+        uint256 openingFee = s_mintingHub.OPENING_FEE();
         mintCOL(owner, initialCollateral);
         mintDEURO(owner, openingFee);
 
         vm.startPrank(owner);
-        s_deuro.approve(address(s_mintingHubGateway), openingFee); // approve open fee
-        s_collateralToken.approve(address(s_mintingHubGateway), initialCollateral); // approve collateral
-        address position = s_mintingHubGateway.openPosition( // open position
+        s_deuro.approve(address(s_mintingHub), openingFee); // approve open fee
+        s_collateralToken.approve(address(s_mintingHub), initialCollateral); // approve collateral
+        address position = s_mintingHub.openPosition( // open position
                 collateral,
                 minCollateral,
                 initialCollateral,
@@ -101,11 +112,10 @@ contract Environment is TestHelper {
                 challengePeriod,
                 riskPremium,
                 liqPrice,
-                reservePPM,
-                frontendCode
+                reservePPM
             );
         vm.stopPrank();
-        s_positions.push(Position(position));
+        s_positions.push(Position(payable(position)));
     }
 
     /// Getters
@@ -117,8 +127,8 @@ contract Environment is TestHelper {
         return s_collateralToken;
     }
 
-    function mintingHubGateway() public view returns (MintingHubGateway) {
-        return s_mintingHubGateway;
+    function mintingHub() public view returns (MintingHub) {
+        return s_mintingHub;
     }
 
     function positionRoller() public view returns (PositionRoller) {
@@ -133,12 +143,20 @@ contract Environment is TestHelper {
         return s_depsWrapper;
     }
 
-    function frontendGateway() public view returns (FrontendGateway) {
-        return s_frontendGateway;
+    function savings() public view returns (Savings) {
+        return s_savings;
     }
 
-    function savingsGateway() public view returns (SavingsGateway) {
-        return s_savingsGateway;
+    function bridge() public view returns (StablecoinBridge) {
+        return s_bridge;
+    }
+
+    function eurToken() public view returns (TestToken) {
+        return s_eurToken;
+    }
+
+    function equity() public view returns (Equity) {
+        return s_equity;
     }
 
     function getPosition(uint256 index) public view returns (Position) {
@@ -161,7 +179,7 @@ contract Environment is TestHelper {
 
         for (uint32 i = 0; i < maxIndex; i++) {
             uint32 idx = (index + i) % maxIndex;
-            (address challenger, uint40 start, IPosition pos, uint256 size) = s_mintingHubGateway.challenges(idx);
+            (address challenger, uint40 start, IPosition pos, uint256 size) = s_mintingHub.challenges(idx);
             if (pos != IPosition(address(0))) {
                 challenge = MintingHub.Challenge(challenger, start, pos, size);
                 return (idx, challenge);
@@ -169,6 +187,10 @@ contract Environment is TestHelper {
         }
 
         return (maxIndex + 1, challenge);
+    }
+
+    function deployer() public view returns (address) {
+        return s_deployer;
     }
 
     function eoas(uint256 index) public view returns (address) {
@@ -193,5 +215,18 @@ contract Environment is TestHelper {
             s_collateralToken.mint(to, amount - toBalance);
             vm.stopPrank();
         }
+    }
+
+    function mintEUR(address to, uint256 amount) public {
+        uint256 toBalance = s_eurToken.balanceOf(to);
+        if (toBalance < amount) {
+            vm.startPrank(s_deployer);
+            s_eurToken.mint(to, amount - toBalance);
+            vm.stopPrank();
+        }
+    }
+
+    function addPosition(Position pos) public {
+        s_positions.push(pos);
     }
 }

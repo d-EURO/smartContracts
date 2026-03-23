@@ -26,7 +26,7 @@ The source code can be found in the [contracts](contracts) folder. The following
 | FrontendGateway.sol    | A module that rewards frontend providers for referrals into the dEURO Ecosystem   |
 | MintingHubGateway.sol  | Plugin for oracle-free collateralized minting with rewards for frontend providers |
 | SavingsGateway.sol     | A module to pay out interest to ZCHF holders and reward frontend providers        |
-| CoinLendingGateway.sol | Gateway for native coin (ETH/MATIC) lending with custom liquidation prices        |
+| SavingsVaultDEURO.sol  | ERC-4626 vault wrapper for the Savings module                                     |
 
 # Code basis and changes after the fork
 
@@ -67,7 +67,11 @@ In contrast to Frankencoin, dEURO does not use the minting module v1 at all
 
 ## Minting module v2
 
-Interest is no longer paid when a position is opened but is credited as a debt on an ongoing basis and only has to be paid when a position is closed or modified. 
+Interest is no longer paid when a position is opened but is credited as a debt on an ongoing basis and only has to be paid when a position is closed or modified.
+
+## Minting module v3
+
+Native ETH/WETH support across MintingHub, Position, and PositionRoller. Leadrate integrated directly into MintingHub. Interest is now charged only on the usable mint (excluding reserve contribution). A reference position mechanism allows cooldown-free price increases.
 
 ## Front-end gateway
 It is possible to use the SmartContracts through a gateway and thus obtain a refferal commission. This module is completely new. 
@@ -92,7 +96,7 @@ It is possible to use the SmartContracts through a gateway and thus obtain a ref
 "test": "npx hardhat test",
 "coverage": "npx hardhat coverage",
 
-"deploy": "npx hardhat ignition deploy",
+"deploy": "npx hardhat run scripts/deployment/deploy/<script>.ts --network <network>",
 "verify": "npx hardhat verify",
 
 "build": "tsup",
@@ -178,92 +182,9 @@ USE_FORK=true BRIDGE_KEY=EUROP npx hardhat run scripts/deployment/deploy/deployB
 
 Bridge keys and configurations are defined in `scripts/deployment/config/stablecoinBridgeConfig.ts`
 
-### 5. Write Deployment Scripts (via ignition deploy and verify)
+### 5.1 Manual Verify
 
-> Deployment modules are located in /ignition/modules. Deploy your contracts:
-
-```Bash
-# deploy and verify a contract (increase deployment-id)
-npm run deploy ignition/modules/MODULE --network polygon --verify --deployment-id MODULE_ID_01
-
-# deploy and verify all contracts
-npm run deploy -- --network polygon --verify
-```
-
-This will:
-
-- Compile and deploy contracts
-- Verify on Etherscan and Sourcify
-- Generate deployment artifacts in /ignition/deployments
-
-Verify:
-
-- verifies contract on etherscan
-- verifies contract on sourcify
-
-Key deployment files:
-
-- deployed_addresses.json: Contains contract addresses
-- journal.json: Detailed deployment logs
-
-- creates deployment artifacts in /ignition`/deployments` directory
-- creates ./ignition/deployments/[deployment]/`deployed_addresses.json`
-- creates ./ignition/deployments/[deployment]/`journal.jsonl`
-- creates constructor-args in /ignition`/constructor-args` directory, as JS module export
-
-### 5.1 Example
-
-```Bash
-✔ Confirm deploy to network polygon (137)? … yes
-{
-  message: 'Config Info: Deploying Module with accounts',
-  admin: '0xb687FE7E47774B22F10Ca5E747496d81827167E3',
-  executor: '0xBdae8D35EDe5bc5174E805DcBe3F7714d142DAAb',
-  member: '0x2ACf17C04F1d8BE7E9D5529894DCee86bf2fcdC3'
-}
-Constructor Args
-[
-  '0xb687FE7E47774B22F10Ca5E747496d81827167E3',
-  '0xBdae8D35EDe5bc5174E805DcBe3F7714d142DAAb',
-  '0x2ACf17C04F1d8BE7E9D5529894DCee86bf2fcdC3'
-]
-Hardhat Ignition 🚀
-
-Deploying [ MembershipModule ]
-
-Batch #1
-  Executed MembershipModule#Membership
-
-Batch #2
-  Executed MembershipModule#Storage
-
-[ MembershipModule ] successfully deployed 🚀
-
-Deployed Addresses
-
-MembershipModule#Membership - 0x72950A0A9689fCA941Ddc9E1a58dcD3fb792E3D2
-MembershipModule#Storage - 0x8A7e8091e71cCB7D1EbDd773C26AD82AAd323328
-
-Verifying deployed contracts
-
-Verifying contract "contracts/Membership.sol:Membership" for network polygon...
-Contract contracts/Membership.sol:Membership already verified on network polygon:
-  - https://polygonscan.com/address/0x72950A0A9689fCA941Ddc9E1a58dcD3fb792E3D2#code
-
-Verifying contract "contracts/Storage.sol:Storage" for network polygon...
-Contract contracts/Storage.sol:Storage already verified on network polygon:
-  - https://polygonscan.com/address/0x8A7e8091e71cCB7D1EbDd773C26AD82AAd323328#code
-
-✨  Done in 69.96s.
-```
-
-### 5.2 Manual Verify
-
-`npx hardhat verify --network polygon --constructor-args ./ignition/constructor-args/$FILE.js $ADDRESS`
-
-or manually include unrelated contracts
-
-`npx hardhat ignition verify $DEPLOYMENT --include-unrelated-contracts`
+`npx hardhat verify --network polygon --constructor-args $CONSTRUCTOR_ARGS_FILE $ADDRESS`
 
 ### 6 Prepare NPM Package Support
 
@@ -382,11 +303,8 @@ module.exports = nextConfig;
 
 ### MintingHub.sol
 
-- `_finishChallenge`: The `Position.notifyChallengeSucceeded` call now returns both the required prinicipal `repayment` amount and `interest` payment amount necessry to liquidate the challenged collateral. In `_finishChallenge`, the `interest` amount is then added separately to the funds taken from the `msg.sender` (liquidator/bidder): `DEURO.transferFrom(msg.sender, address(this), offer + interest);`. Both the challenger reward payout and subsequent principal repayment is done using the `repayment` funds. Even in the case of insufficient funds and a system loss, the `interest` funds remain untouched, as they are dedicated solely to the required interest payment which is done at the very end: `DEURO.collectProfits(address(this), interest);`.
-Also note that an additionl `maxInterest` function parameter was added to `_finishChallenge`. This sets a limit on the `interest` amount that can be charged, resulting in a `revert` if exceeded.
-The updates to this function cleanly separate principal and interest logic. For more details on the required `repayment` and `interest` amounts, refer to `Position.notifyChallengeSucceeded` below.
-- `_calculateOffer`: New helper function used by `_finishChallenge` (basic code refactoring).
-- `buyExpiredCollateral`: Similar to the update to `_finishChallenge`, we make a clean separation of funds used for the `principal` repayment and funds used for the `interest` payment. That is, `propInterest` becomes a new parameter which is passed to the `Position.forceSale` function call. The purpose of `propInterest` is to ensure that the liquidator covers a proportional part of the outstanding interest to the amount of the expired collateral they wish to buy. See `Position.forceSale` below for more details.
+- `_finishChallenge`: The `Position.notifyChallengeSucceeded` call now returns both the required principal `repayment` amount and `interest` payment amount. The bidder pays only the `offer` (unit price × collateral): `DEURO.transferFrom(msg.sender, address(this), offer)`. After deducting the challenger reward, the remaining funds cover both `repayment` and `interest` from the same pool. If `fundsAvailable > repayment + interest`, the surplus is split between reserve profits and the position owner. If insufficient, `coverLoss` draws from the reserve. Interest is collected at the end via `DEURO.collectProfits(address(this), interest)`.
+- `buyExpiredCollateral`: The buyer pays `forceSalePrice * amount`. The `proceeds` are passed to `Position.forceSale(buyer, amount, proceeds)` which handles interest repayment and principal repayment from the same pool internally.
 
 ### Position.sol
 
@@ -402,9 +320,7 @@ The updates to this function cleanly separate principal and interest logic. For 
 - `_mint`: Updated to manage interest accrual and the syncing of the interest rate to the lead rate.
 - `_notifyRepaid`: Refactored, including sanity check.
 - `_notifyInterestPaid`: Refactored, including sanity check.
-- `forceSale`: As mentioned in `MintingHub.buyExpiredCollateral` above, the `forceSale` function was equipped with a fourth function parameter `propInterest` which specifies the amount to be used to pay off the proportional amount of `interest` to the expired collateral being acquired. This is done in the line `_repayInterest(buyer, propInterest);`. Subsequently, the `proceeds` are used to repay the `principal` using the `_repayPrincipalNet` function (see `Position._repayPrincipalNet` below for more details). This function only returns a remaining amount, if the entire `principal` has been repaid. In the case of such a remainder, it is used to pay off any remaining `interest`, `proceeds = _repayInterest(buyer, proceeds);`.
-The order of first repaying the `principal` before paying of any remaining `interest` with the `proceeds` is important to guarantee that in the case of a shortfall, is is not due to a "misspending" of the `proceeds` funds on the outstanding `interest`.
-Finally, in the case that no collateral remains, any remainining `principal` is repayed at the expense of the system (as no more `proceeds` remain). If this isn't the case, the remaining `proceeds` are transferred to the position `owner` as profit.
+- `forceSale`: The function signature is `forceSale(address buyer, uint256 colAmount, uint256 proceeds)`. Interest repayment and principal repayment are handled from the `proceeds` pool. Interest is repaid first, then the principal is repaid using `_repayPrincipalNet`. If `proceeds` exceed what's needed, the surplus goes to the position owner. If no collateral remains after the sale, any outstanding principal is covered by the system via `coverLoss`.
 - `_payDownDebt`: Refactored
 - `_repayInterest`: New helper function to pay off outstanding interest by some `amount`. Returns the remainder in the case that `amount` exceeds the outstanding `interest`.
 - `_repayPrincipal`: New helper function to repay principal by some _exact_ `amount` using `burnFromWithReserve`. Returns the remaining funds.

@@ -25,7 +25,6 @@ scripts/test-*.ts
 .vscode/settings.json
 tst.ts
 package-lock.json
-.DS_Store
 /abi
 /out
-/lib
+static_analysis_semgrep_1/

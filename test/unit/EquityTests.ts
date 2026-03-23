@@ -261,7 +261,7 @@ describe("Equity Tests", () => {
       const beforeBal = await dEURO.balanceOf(alice.address);
       await expect(
         equity.redeemExpected(alice.address, redemptionAmount, proceeds),
-      ).to.be.emit(equity, "Trade");
+      ).to.emit(equity, "Trade");
       const afterBal = await dEURO.balanceOf(alice.address);
       expect(afterBal - beforeBal).to.be.equal(proceeds);
     });

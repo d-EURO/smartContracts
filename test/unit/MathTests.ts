@@ -57,7 +57,7 @@ describe("Math Tests", () => {
         const number = numbers[k];
         const result = number ** (1 / 5);
         const fNumber = floatToDec18(number);
-        const tx = await MathContract.cubicRoot(fNumber, true);
+        const tx = await MathContract.fifthRoot(fNumber, true);
         await expect(tx).to.not.be.reverted;
         const fResult = await MathContract.result();
         expectResult(result, fResult);

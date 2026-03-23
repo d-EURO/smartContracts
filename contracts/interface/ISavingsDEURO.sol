@@ -10,8 +10,9 @@ interface ISavingsDEURO {
 	// ---------------------------------------------------------------------------------------
 
 	event Saved(address indexed account, uint192 amount);
-	event InterestCollected(address indexed account, uint256 interest);
+	event InterestCollected(address indexed account, uint256 interest, bool compounded);
 	event Withdrawn(address indexed account, uint192 amount);
+	event InterestClaimed(address indexed account, uint192 amount);
 
 	// ---------------------------------------------------------------------------------------
 
@@ -39,6 +40,8 @@ interface ISavingsDEURO {
 
 	function save(address owner, uint192 amount) external;
 
+	function save(uint192 amount, bool compound) external;
+
 	function withdraw(address target, uint192 amount) external returns (uint256);
 
 	function adjust(uint192 targetAmount) external;
@@ -46,4 +49,12 @@ interface ISavingsDEURO {
 	function refreshMyBalance() external returns (uint192);
 
 	function refreshBalance(address owner) external returns (uint192);
+
+	// ---------------------------------------------------------------------------------------
+
+	function nonCompounding(address account) external view returns (bool);
+
+	function claimableInterest(address account) external view returns (uint192);
+
+	function claimInterest(address target) external returns (uint192);
 }
