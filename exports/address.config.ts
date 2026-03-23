@@ -1,5 +1,5 @@
 import { mainnet } from "viem/chains";
-import { Address, zeroAddress } from "viem";
+import { Address } from "viem";
 
 export interface ChainAddress {
   // Shared (version-independent)
@@ -62,12 +62,12 @@ export const ADDRESS: Record<number, ChainAddress> = {
     positionFactoryV2: "0x167144d66AC1D02EAAFCa3649ef3305ea31Ee5A8",
     savingsVaultV2: "0x1e9f008B1C538bE32F190516735bF1C634B4FA40",
 
-    // V3 (populate after running deployV3Migration.ts)
-    savings: zeroAddress,
-    mintingHub: zeroAddress,
-    savingsVaultV3: zeroAddress,
-    rollerV3: zeroAddress,
-    positionFactoryV3: zeroAddress,
+    // V3
+    savings: "0x760233b90e45d186A9A98E911B115F7F4B90d3D9",
+    mintingHub: "0x66AcC54a0C64255137b8993CB4972B0901684f7B",
+    savingsVaultV3: "0x75Beb37A3C86eE4c38931E2a9319E078da612979",
+    rollerV3: "0x5C22d5b752b2121faE7F6f0069252B03B2F7c5CD",
+    positionFactoryV3: "0x3a3985a96b1B51E6d914bc7C9e89fD6Ba6dEfE81",
 
     // Bridges
     bridgeEURT: "0x2353D16869F717BFCD22DaBc0ADbf4Dca62C609f",

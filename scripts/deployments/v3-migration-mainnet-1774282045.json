@@ -1,0 +1,73 @@
+{
+  "network": "mainnet",
+  "chainId": 1,
+  "deployer": "0xDEE7865bcF766009A3D3B92b782029d1f9626b45",
+  "existingContracts": {
+    "decentralizedEURO": "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+    "weth": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+  },
+  "contracts": {
+    "positionFactory": {
+      "address": "0x3a3985a96b1B51E6d914bc7C9e89fD6Ba6dEfE81",
+      "constructorArgs": []
+    },
+    "positionRoller": {
+      "address": "0x5C22d5b752b2121faE7F6f0069252B03B2F7c5CD",
+      "constructorArgs": [
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea"
+      ]
+    },
+    "savings": {
+      "address": "0x760233b90e45d186A9A98E911B115F7F4B90d3D9",
+      "constructorArgs": [
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+        80000
+      ]
+    },
+    "mintingHub": {
+      "address": "0x66AcC54a0C64255137b8993CB4972B0901684f7B",
+      "constructorArgs": [
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+        80000,
+        "0x5C22d5b752b2121faE7F6f0069252B03B2F7c5CD",
+        "0x3a3985a96b1B51E6d914bc7C9e89fD6Ba6dEfE81",
+        "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+      ]
+    },
+    "savingsVaultDEURO": {
+      "address": "0x75Beb37A3C86eE4c38931E2a9319E078da612979",
+      "constructorArgs": [
+        "0xbA3f535bbCcCcA2A154b573Ca6c5A49BAAE0a3ea",
+        "0x760233b90e45d186A9A98E911B115F7F4B90d3D9",
+        "Savings Vault dEURO",
+        "svdEURO"
+      ]
+    }
+  },
+  "minterSuggestions": {
+    "savings": {
+      "applicationPeriod": 1209600,
+      "fee": "1000000000000000000000"
+    },
+    "mintingHub": {
+      "applicationPeriod": 1209600,
+      "fee": "1000000000000000000000"
+    },
+    "positionRoller": {
+      "applicationPeriod": 1209600,
+      "fee": "1000000000000000000000"
+    }
+  },
+  "transactions": {
+    "positionFactoryDeploy": "0xce97133412e0f8c0f09e5a46ca7b32cc960e7ff6aa98384a01d0f32443a8543e",
+    "positionRollerDeploy": "0x9972c9b3c291368e750cc7b67a5eeffbdd8ef4017cf9974386659406ed430669",
+    "savingsDeploy": "0x0fd996b5a5c4a7274198c63248024a6dccd134402c2b88ba0d818dda23278eef",
+    "mintingHubDeploy": "0xa3e142caf208931de9b86100ccba6eaa01a369c1a89b5a1f3b2644ec527c19e6",
+    "savingsVaultDeploy": "0x0007415f547530ae5ff884556fe79a4564bc535ac5ce5c74ece001ab0b7c9d69",
+    "approve": "0x7be62b678fac14749daab5da6e59e9114b6558bbe85a921fb6aff34799af18e6",
+    "suggestMinterSavings": "0xf138fb8de72ac7172b822b449bf3d46874ef79f80c6f4d71ac1bf214c2a9c1ee",
+    "suggestMinterMintingHub": "0xd1d2f7d6cc3ecd5868a1e371b2a60dd4c06764dd4de1c0b95f98dbc0fa8c51eb",
+    "suggestMinterPositionRoller": "0x50f1a221462f128233dc6ea1d3268777b5d824da4b1176daee5d44f182c1d9ee"
+  },
+  "timestamp": 1774282045
+}
