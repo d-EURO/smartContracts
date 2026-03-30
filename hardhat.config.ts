@@ -40,10 +40,16 @@ task('compile').setAction(async (args, hre, runSuper) => {
 import dotenv from 'dotenv';
 dotenv.config();
 
-// Get deployer mnemonic (optional - only required when deploying)
-// Allows compilation without deployment credentials
+// Get deployer credentials (optional - only required when deploying)
+// Supports either DEPLOYER_PRIVATE_KEY or DEPLOYER_MNEMONIC
 // Uses standard Hardhat test mnemonic as fallback for local development
+const deployerPrivateKey = process.env.DEPLOYER_PRIVATE_KEY;
 const deployerMnemonic = process.env.DEPLOYER_MNEMONIC || "test test test test test test test test test test test junk";
+const deployerAccounts = deployerPrivateKey ? [deployerPrivateKey] : { mnemonic: deployerMnemonic };
+// Hardhat network requires { privateKey, balance } objects instead of plain strings
+const hardhatAccounts = deployerPrivateKey
+  ? [{ privateKey: deployerPrivateKey, balance: "10000000000000000000000" }]
+  : { mnemonic: deployerMnemonic };
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -66,7 +72,7 @@ const config: HardhatUserConfig = {
       allowUnlimitedContractSize: true,
       // Use deployer mnemonic when forking, default Hardhat accounts otherwise
       accounts: (process.env.FORK_TESTNET || process.env.FORK_MAINNET)
-        ? { mnemonic: deployerMnemonic }
+        ? hardhatAccounts
         : undefined,
       forking: process.env.FORK_TESTNET ? {
         url: process.env.CITREA_TESTNET_RPC || "https://rpc.testnet.citreascan.com",
@@ -100,7 +106,7 @@ const config: HardhatUserConfig = {
       chainId: 4114,
       gas: 'auto',
       gasPrice: 'auto',
-      accounts: { mnemonic: deployerMnemonic },
+      accounts: deployerAccounts,
       timeout: 300_000,
     },
     citreaTestnet: {
@@ -108,7 +114,7 @@ const config: HardhatUserConfig = {
       chainId: 5115,
       gas: 'auto',
       gasPrice: 'auto',
-      accounts: { mnemonic: deployerMnemonic },
+      accounts: deployerAccounts,
       timeout: 300_000,
     },
   },

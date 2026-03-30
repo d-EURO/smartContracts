@@ -1,0 +1,13 @@
+{
+  "network": "citrea",
+  "chainId": 4114,
+  "blockNumber": 5387247,
+  "deployer": "0x27e47efaaa4926D8d6953ED6f09dAD03596504f9",
+  "teamMinterAddress": "0xECAb92AFD48f70d6F693c2AA7101de6Dff5c6393",
+  "config": {
+    "totalTeamTokens": "50000000"
+  },
+  "deploymentTxHash": "0xef91a5d864b49494b8ba3754c13fbaa27c7d438179dbdca23f30f4beeb9d1ede",
+  "minterSetupTxHash": "0x45b95111d011058d5664fee329c19f8248ba6ed19600d87a2c6345cbbcd80c97",
+  "timestamp": 1774875077
+}
