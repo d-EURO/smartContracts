@@ -38,6 +38,15 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
     uint256 public constant CHALLENGER_REWARD = 20000; // 2%
     uint256 public constant EXPIRED_PRICE_FACTOR = 10;
 
+    /**
+     * @notice Lower bound (floor) of the `expiredPurchasePrice` decay path, expressed in
+     * parts per million of the position's liquidation price. The force-sale price never
+     * falls below `liqprice * EXPIRED_PRICE_FLOOR_PPM / 1_000_000`. This caps the maximum
+     * loss the equity reserve can absorb per cycle when no competing searcher bids on the
+     * decay path.
+     */
+    uint32 public constant EXPIRED_PRICE_FLOOR_PPM = 300_000; // 30% of liqprice
+
     IPositionFactory private immutable POSITION_FACTORY; // position contract to clone
 
     IDecentralizedEURO public immutable DEURO; // currency
@@ -90,9 +99,13 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         _;
     }
 
-    constructor(address _deur, uint24 _initialRatePPM, address payable _roller, address _factory, address _weth)
-        Leadrate(IReserve(IDecentralizedEURO(_deur).reserve()), _initialRatePPM)
-    {
+    constructor(
+        address _deur,
+        uint24 _initialRatePPM,
+        address payable _roller,
+        address _factory,
+        address _weth
+    ) Leadrate(IReserve(IDecentralizedEURO(_deur).reserve()), _initialRatePPM) {
         DEURO = IDecentralizedEURO(_deur);
         POSITION_FACTORY = IPositionFactory(_factory);
         WETH = _weth;
@@ -271,7 +284,12 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      *                                  (automatically reduced to the available amount)
      * @param postponeCollateralReturn  To postpone the return of the collateral to the challenger. Usually false.
      */
-    function bid(uint256 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnCollateralAsNative) external {
+    function bid(
+        uint256 _challengeNumber,
+        uint256 size,
+        bool postponeCollateralReturn,
+        bool returnCollateralAsNative
+    ) external {
         _bid(_challengeNumber, size, postponeCollateralReturn, returnCollateralAsNative);
     }
 
@@ -282,7 +300,12 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         _bid(_challengeNumber, size, postponeCollateralReturn, false);
     }
 
-    function _bid(uint256 _challengeNumber, uint256 size, bool postponeCollateralReturn, bool returnCollateralAsNative) internal {
+    function _bid(
+        uint256 _challengeNumber,
+        uint256 size,
+        bool postponeCollateralReturn,
+        bool returnCollateralAsNative
+    ) internal {
         Challenge memory _challenge = challenges[_challengeNumber];
         (uint256 liqPrice, uint40 phase) = _challenge.position.challengeData();
         size = _challenge.size < size ? _challenge.size : size; // cannot bid for more than the size of the challenge
@@ -291,8 +314,18 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
             _avertChallenge(_challenge, _challengeNumber, liqPrice, size, returnCollateralAsNative);
             emit ChallengeAverted(address(_challenge.position), _challengeNumber, size);
         } else {
-            _returnChallengerCollateral(_challenge, _challengeNumber, size, postponeCollateralReturn, returnCollateralAsNative);
-            (uint256 transferredCollateral, uint256 offer) = _finishChallenge(_challenge, size, returnCollateralAsNative);
+            _returnChallengerCollateral(
+                _challenge,
+                _challengeNumber,
+                size,
+                postponeCollateralReturn,
+                returnCollateralAsNative
+            );
+            (uint256 transferredCollateral, uint256 offer) = _finishChallenge(
+                _challenge,
+                size,
+                returnCollateralAsNative
+            );
             emit ChallengeSucceeded(address(_challenge.position), _challengeNumber, offer, transferredCollateral, size);
         }
     }
@@ -338,7 +371,13 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         return (collateral, offer);
     }
 
-    function _avertChallenge(Challenge memory _challenge, uint256 number, uint256 liqPrice, uint256 size, bool asNative) internal {
+    function _avertChallenge(
+        Challenge memory _challenge,
+        uint256 number,
+        uint256 liqPrice,
+        uint256 size,
+        bool asNative
+    ) internal {
         require(block.timestamp != _challenge.start); // do not allow to avert the challenge in the same transaction, see CS-ZCHF-037
         if (msg.sender == _challenge.challenger) {
             // allow challenger to cancel challenge without paying themselves
@@ -448,7 +487,13 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         }
     }
 
-    function _returnCollateral(IERC20 collateral, address recipient, uint256 amount, bool postpone, bool asNative) internal {
+    function _returnCollateral(
+        IERC20 collateral,
+        address recipient,
+        uint256 amount,
+        bool postpone,
+        bool asNative
+    ) internal {
         if (postpone) {
             // Postponing helps in case the challenger was blacklisted or otherwise cannot receive at the moment.
             pendingReturns[address(collateral)][recipient] += amount;
@@ -467,7 +512,12 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      *
      * The price starts at 10x the liquidation price at the expiration time, linearly declines to
      * 1x liquidation price over the course of one challenge period, and then linearly declines
-     * less steeply to 0 over the course of another challenge period.
+     * less steeply to `EXPIRED_PRICE_FLOOR_PPM` of the liquidation price over the course of
+     * another challenge period. After both phases the price stays at the floor permanently.
+     *
+     * The floor caps the equity-reserve loss per force-sale cycle at the asymmetric portion of
+     * the position's principal (typically ~70%). Without it, the decay continues to zero and a
+     * caller who controls the position's expiration can drain the reserve unchecked.
      */
     function expiredPurchasePrice(IPosition pos) public view returns (uint256) {
         uint256 liqprice = pos.virtualPrice();
@@ -477,17 +527,19 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
         } else {
             uint256 challengePeriod = pos.challengePeriod();
             uint256 timePassed = block.timestamp - expiration;
+            uint256 floorPrice = (liqprice * EXPIRED_PRICE_FLOOR_PPM) / 1_000_000;
             if (timePassed <= challengePeriod) {
                 // from 10x liquidation price to 1x in first phase
                 uint256 timeLeft = challengePeriod - timePassed;
                 return liqprice + (((EXPIRED_PRICE_FACTOR - 1) * liqprice * timeLeft) / challengePeriod);
             } else if (timePassed < 2 * challengePeriod) {
-                // from 1x liquidation price to 0 in second phase
+                // from 1x liquidation price down to floorPrice in second phase
+                uint256 spread = liqprice - floorPrice;
                 uint256 timeLeft = 2 * challengePeriod - timePassed;
-                return (liqprice * timeLeft) / challengePeriod;
+                return floorPrice + (spread * timeLeft) / challengePeriod;
             } else {
-                // get collateral for free after both phases passed
-                return 0;
+                // permanent floor after both phases passed
+                return floorPrice;
             }
         }
     }
@@ -499,7 +551,11 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
      * To prevent dust either the remaining collateral needs to be bought or collateral with a value
      * of at least OPENING_FEE (1000 dEURO) needs to remain in the position for a different buyer
      */
-    function buyExpiredCollateral(IPosition pos, uint256 upToAmount, bool receiveAsNative) external validPos(address(pos)) returns (uint256) {
+    function buyExpiredCollateral(
+        IPosition pos,
+        uint256 upToAmount,
+        bool receiveAsNative
+    ) external validPos(address(pos)) returns (uint256) {
         return _buyExpiredCollateral(pos, upToAmount, receiveAsNative);
     }
 
@@ -540,15 +596,12 @@ contract MintingHub is IMintingHub, ERC165, Leadrate {
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId) public view override virtual returns (bool) {
-        return
-            interfaceId == type(IMintingHub).interfaceId ||
-            super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == type(IMintingHub).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /**
      * @dev Required for WETH.withdraw() callbacks.
      */
     receive() external payable {}
-
 }

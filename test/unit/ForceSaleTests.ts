@@ -152,11 +152,33 @@ describe("ForceSale Tests", () => {
       expect(eP2).to.be.lessThanOrEqual(p);
     });
 
-    it("expect 0 price after 2nd period", async () => {
+    it("expect floor price after 2nd period", async () => {
       const period = await position.challengePeriod();
       await evm_increaseTime(103n * 86_400n + 2n * period); // post 2nd period
       const eP3 = await mintingHub.expiredPurchasePrice(position);
-      expect(eP3).to.be.equal(0n);
+      const liq = await position.virtualPrice();
+      const floorPpm = await mintingHub.EXPIRED_PRICE_FLOOR_PPM();
+      const expected = (liq * BigInt(floorPpm)) / 1_000_000n;
+      expect(eP3).to.be.equal(expected);
+    });
+
+    it("decay never falls below floor in 2nd phase", async () => {
+      const period = await position.challengePeriod();
+      const liq = await position.virtualPrice();
+      const floorPpm = await mintingHub.EXPIRED_PRICE_FLOOR_PPM();
+      const floorPrice = (liq * BigInt(floorPpm)) / 1_000_000n;
+
+      // jump to the start of phase 2 (expiration + challengePeriod)
+      const phase2Start = (await position.expiration()) + period + 1n;
+      await evm_increaseTimeTo(phase2Start);
+
+      // sample five points across phase 2 and confirm each stays within [floor, 1x liq]
+      for (let i = 0; i < 5; i++) {
+        await evm_increaseTime(period / 5n);
+        const ePi = await mintingHub.expiredPurchasePrice(position);
+        expect(ePi).to.be.greaterThanOrEqual(floorPrice);
+        expect(ePi).to.be.lessThanOrEqual(liq);
+      }
     });
   });
 
@@ -428,6 +450,95 @@ describe("ForceSale Tests", () => {
       await dEURO.approve(positionContract.getAddress(), floatToDec18(1_000_000));
       await mintingHub.buyExpiredCollateral(positionContract, fInitialCollateral);
       expect(await position.getDebt()).to.be.equal(0n);
+    });
+  });
+
+  describe("clone minimum lifetime", () => {
+    // The clone-with-short-expiration vector that was exploited in TX
+    // 0x1accee7d... on 2026-04-25. A clone must have at least 2 * challengePeriod
+    // of remaining lifetime; otherwise the caller can mint, wait for full decay,
+    // and force-sale the same collateral back to themselves cheaply.
+    beforeEach(async () => {
+      // make sure the parent position is past its cooldown so cloning is allowed
+      await evm_increaseTimeTo((await position.cooldown()) + 60n);
+    });
+
+    const cloneSig =
+      "clone(address,address,uint256,uint256,uint40,uint256)" as const;
+
+    it("rejects clone with expiration in the past", async () => {
+      const now = BigInt((await getTimeStamp()) ?? 0);
+      await coin.connect(alice).approve(mintingHub.getAddress(), floatToDec18(1));
+      const tx = (mintingHub.connect(alice) as any)[cloneSig](
+        alice.address,
+        await position.getAddress(),
+        floatToDec18(1),
+        floatToDec18(100),
+        now - 1n,
+        0,
+      );
+      await expect(tx).to.be.revertedWithCustomError(position, "InvalidExpiration");
+    });
+
+    it("rejects clone with lifetime below 2 * challengePeriod", async () => {
+      const cp = await position.challengePeriod();
+      const now = BigInt((await getTimeStamp()) ?? 0);
+      const tooShort = now + 2n * cp - 60n; // one minute short of the minimum
+      await coin.connect(alice).approve(mintingHub.getAddress(), floatToDec18(1));
+      const tx = (mintingHub.connect(alice) as any)[cloneSig](
+        alice.address,
+        await position.getAddress(),
+        floatToDec18(1),
+        floatToDec18(100),
+        tooShort,
+        0,
+      );
+      await expect(tx).to.be.revertedWithCustomError(position, "InvalidExpiration");
+    });
+
+    it("rejects the 36-second clone replicating the 2026-04-25 exploit", async () => {
+      const now = BigInt((await getTimeStamp()) ?? 0);
+      await coin.connect(alice).approve(mintingHub.getAddress(), floatToDec18(1));
+      const tx = (mintingHub.connect(alice) as any)[cloneSig](
+        alice.address,
+        await position.getAddress(),
+        floatToDec18(1),
+        floatToDec18(100),
+        now + 36n,
+        0,
+      );
+      await expect(tx).to.be.revertedWithCustomError(position, "InvalidExpiration");
+    });
+
+    it("accepts clone with lifetime exactly at the minimum", async () => {
+      const cp = await position.challengePeriod();
+      const now = BigInt((await getTimeStamp()) ?? 0);
+      const minOk = now + 2n * cp + 5n; // five-second buffer for the next block timestamp
+      await coin.connect(alice).approve(mintingHub.getAddress(), floatToDec18(1));
+      const tx = await (mintingHub.connect(alice) as any)[cloneSig](
+        alice.address,
+        await position.getAddress(),
+        floatToDec18(1),
+        floatToDec18(100),
+        minOk,
+        0,
+      );
+      const receipt = await tx.wait();
+      expect(receipt?.status).to.equal(1);
+    });
+
+    it("still rejects clone with expiration after the parent's expiration", async () => {
+      const parentExp = await position.expiration();
+      await coin.connect(alice).approve(mintingHub.getAddress(), floatToDec18(1));
+      const tx = (mintingHub.connect(alice) as any)[cloneSig](
+        alice.address,
+        await position.getAddress(),
+        floatToDec18(1),
+        floatToDec18(100),
+        parentExp + 1n,
+        0,
+      );
+      await expect(tx).to.be.revertedWithCustomError(position, "InvalidExpiration");
     });
   });
 });

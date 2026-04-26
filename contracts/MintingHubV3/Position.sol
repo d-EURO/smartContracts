@@ -222,10 +222,16 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * Initialization method for clones.
      * Can only be called once. Should be called immediately after creating the clone.
+     *
+     * The clone must have a minimum economic lifetime of at least `2 * challengePeriod`.
+     * Without this lower bound a caller could open a clone with `block.timestamp + 1` as
+     * expiration, immediately mint, wait out the decay window, and force-sale the same
+     * collateral back at the decay floor — a drain vector on the equity reserve.
      */
     function initialize(address parent, uint40 _expiration) external onlyHub {
         if (expiration != 0) revert AlreadyInitialized();
-        if (_expiration < block.timestamp || _expiration > Position(original).expiration()) revert InvalidExpiration(); // expiration must not be later than original
+        if (_expiration > Position(original).expiration()) revert InvalidExpiration(); // expiration must not be later than original
+        if (_expiration < block.timestamp + 2 * uint256(challengePeriod)) revert InvalidExpiration();
         expiration = _expiration;
         price = Position(payable(parent)).price();
         _fixRateToLeadrate(Position(payable(parent)).riskPremiumPPM());
@@ -332,7 +338,12 @@ contract Position is Ownable, IPosition, MathUtil {
      * @notice "All in one" function to adjust the principal, the collateral amount,
      * and the price in one transaction.
      */
-    function adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, bool withdrawAsNative) external payable onlyOwner {
+    function adjust(
+        uint256 newPrincipal,
+        uint256 newCollateral,
+        uint256 newPrice,
+        bool withdrawAsNative
+    ) external payable onlyOwner {
         _adjust(newPrincipal, newCollateral, newPrice, address(0), withdrawAsNative);
     }
 
@@ -358,11 +369,23 @@ contract Position is Ownable, IPosition, MathUtil {
     /**
      * @notice "All in one" function with reference position support.
      */
-    function adjustWithReference(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition, bool withdrawAsNative) external payable onlyOwner {
+    function adjustWithReference(
+        uint256 newPrincipal,
+        uint256 newCollateral,
+        uint256 newPrice,
+        address referencePosition,
+        bool withdrawAsNative
+    ) external payable onlyOwner {
         _adjust(newPrincipal, newCollateral, newPrice, referencePosition, withdrawAsNative);
     }
 
-    function _adjust(uint256 newPrincipal, uint256 newCollateral, uint256 newPrice, address referencePosition, bool withdrawAsNative) internal {
+    function _adjust(
+        uint256 newPrincipal,
+        uint256 newCollateral,
+        uint256 newPrice,
+        address referencePosition,
+        bool withdrawAsNative
+    ) internal {
         if (msg.value > 0) {
             if (address(collateral) != IMintingHub(hub).WETH()) revert NativeOnlyForWETH();
             IWrappedNative(address(collateral)).deposit{value: msg.value}();
@@ -477,7 +500,7 @@ contract Position is Ownable, IPosition, MathUtil {
 
     /**
      * @notice Computes the virtual price of the collateral in dEURO, which is the minimum collateral
-     * price required to cover the entire debt with interest overcollateralization, lower bounded by the floor price. 
+     * price required to cover the entire debt with interest overcollateralization, lower bounded by the floor price.
      * Returns the challenged price if a challenge is active.
      * @param colBalance The collateral balance of the position.
      * @param floorPrice The minimum price of the collateral in dEURO.
@@ -485,9 +508,9 @@ contract Position is Ownable, IPosition, MathUtil {
     function _virtualPrice(uint256 colBalance, uint256 floorPrice) internal view returns (uint256) {
         if (challengedAmount > 0) return challengedPrice;
         if (colBalance == 0) return floorPrice;
-        
+
         uint256 virtPrice = (_getCollateralRequirement() * ONE_DEC18) / colBalance;
-        return virtPrice < floorPrice ? floorPrice: virtPrice;
+        return virtPrice < floorPrice ? floorPrice : virtPrice;
     }
 
     /**
@@ -525,7 +548,9 @@ contract Position is Ownable, IPosition, MathUtil {
 
         if (timestamp > lastAccrual && principal > 0) {
             uint256 delta = timestamp - lastAccrual;
-            newInterest += (principal * (1_000_000 - reserveContribution) * fixedAnnualRatePPM * delta) / (365 days * 1_000_000 * 1_000_000);
+            newInterest +=
+                (principal * (1_000_000 - reserveContribution) * fixedAnnualRatePPM * delta) /
+                (365 days * 1_000_000 * 1_000_000);
         }
 
         return newInterest;
@@ -554,7 +579,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function getDebt() public view returns (uint256) {
         return _getDebt();
     }
-    
+
     /**
      * @notice Public function to calculate current debt with overcollateralized interest
      * @return The total debt including overcollateralized interest
@@ -732,7 +757,10 @@ contract Position is Ownable, IPosition, MathUtil {
         _emitUpdate(balance, price, principal);
     }
 
-    function _withdrawCollateralAsNative(address target, uint256 amount) internal noCooldown noChallenge returns (uint256) {
+    function _withdrawCollateralAsNative(
+        address target,
+        uint256 amount
+    ) internal noCooldown noChallenge returns (uint256) {
         if (amount > 0) {
             IWrappedNative(address(collateral)).withdraw(amount);
             (bool success, ) = target.call{value: amount}("");
@@ -772,7 +800,7 @@ contract Position is Ownable, IPosition, MathUtil {
     function _checkCollateral(uint256 collateralReserve, uint256 atPrice) internal view {
         uint256 relevantCollateral = collateralReserve < minimumCollateral ? 0 : collateralReserve;
         uint256 collateralRequirement = _getCollateralRequirement();
-        
+
         if (relevantCollateral * atPrice < collateralRequirement * ONE_DEC18) {
             revert InsufficientCollateral(relevantCollateral * atPrice, collateralRequirement * ONE_DEC18);
         }

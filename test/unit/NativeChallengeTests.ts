@@ -84,7 +84,7 @@ describe("Native Challenge Tests", () => {
     // Bootstrap dEURO
     const testTokenFactory = await ethers.getContractFactory("TestToken");
     mockXEUR = await testTokenFactory.deploy("CryptoFranc", "XEUR", 18);
-    const limit = floatToDec18(1_000_000);
+    const limit = floatToDec18(5_000_000);
     const bridgeFactory = await ethers.getContractFactory("StablecoinBridge");
     bridge = await bridgeFactory.deploy(
       await mockXEUR.getAddress(),
@@ -99,12 +99,19 @@ describe("Native Challenge Tests", () => {
 
     await evm_increaseTime(60);
 
+    // Alice gets a larger initial allocation so the "buy ALL" test path is
+    // affordable under EXPIRED_PRICE_FLOOR_PPM (which keeps the late-phase
+    // force-sale price above zero).
     const mintAmount = floatToDec18(200_000);
-    for (const signer of [owner, alice, bob, charles]) {
+    const aliceMintAmount = floatToDec18(2_000_000);
+    for (const signer of [owner, bob, charles]) {
       await mockXEUR.mint(signer.address, mintAmount);
       await mockXEUR.connect(signer).approve(await bridge.getAddress(), mintAmount);
       await bridge.connect(signer).mint(mintAmount);
     }
+    await mockXEUR.mint(alice.address, aliceMintAmount);
+    await mockXEUR.connect(alice).approve(await bridge.getAddress(), aliceMintAmount);
+    await bridge.connect(alice).mint(aliceMintAmount);
 
     // VOL tokens for non-WETH tests
     mockVOL = await testTokenFactory.deploy("Volatile Token", "VOL", 18);
