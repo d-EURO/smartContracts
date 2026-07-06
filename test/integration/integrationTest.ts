@@ -33,10 +33,10 @@ import { ADDRESS, ChainAddress } from '../../exports/address.config';
  * `exports/address.config.ts`, keyed by chain ID.
  *
  * How to run on a Citrea fork:
- * > FORK_TESTNET=true npx hardhat run test/integration/integrationTest.ts --network hardhat
+ * > FORK_MAINNET=true npx hardhat run test/integration/integrationTest.ts --network hardhat
  * > # Or with a persistent forked node:
- * > npm run node:fork:testnet   # Terminal 1
- * > npx hardhat run test/integration/integrationTest.ts --network forkTestnet   # Terminal 2
+ * > npm run node:fork:mainnet   # Terminal 1
+ * > npx hardhat run test/integration/integrationTest.ts --network forkMainnet   # Terminal 2
  */
 
 interface Contracts {

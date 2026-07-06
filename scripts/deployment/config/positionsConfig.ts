@@ -4,7 +4,6 @@
 //
 // NOTE: Update collateralAddress when deploying to different networks:
 // - Mainnet (4114): 0x3100000000000000000000000000000000000006
-// - Testnet (5115): 0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93
 
 export interface PositionsConfig {
   openingFee: string;

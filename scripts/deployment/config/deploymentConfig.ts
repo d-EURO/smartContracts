@@ -14,20 +14,16 @@ export function getGasConfig(networkName: string): GasConfig {
       maxFeePerGas: '10',
       maxPriorityFeePerGas: '1',
     },
-    citrea: {                                                                                                                                   
-      maxFeePerGas: '0.002',                                                                                                                    
-      maxPriorityFeePerGas: '0.0005',                                                                                                           
-    }, 
-    citreaTestnet: {
-      maxFeePerGas: '0.01',
-      maxPriorityFeePerGas: '0.001',
+    citrea: {
+      maxFeePerGas: '0.002',
+      maxPriorityFeePerGas: '0.0005',
     },
   };
 
   if (!configs[networkName]) {
-    console.warn(`Unknown network "${networkName}", falling back to citreaTestnet gas config`);
+    console.warn(`Unknown network "${networkName}", falling back to citrea gas config`);
   }
-  return configs[networkName] || configs.citreaTestnet;
+  return configs[networkName] || configs.citrea;
 }
 
 export const deploymentConstants = {

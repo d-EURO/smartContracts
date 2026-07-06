@@ -84,7 +84,7 @@ JuiceDollar (Current repository)
 **Deployment Networks:**
 - **Frankencoin-ZCHF**: Ethereum Mainnet (native currency: ETH)
 - **dEURO**: Ethereum Mainnet (native currency: ETH) | Testnet: Sepolia
-- **JuiceDollar**: Citrea Mainnet (native currency: cBTC) | Testnet: Citrea Testnet
+- **JuiceDollar**: Citrea Mainnet (native currency: cBTC)
 
 d-EURO forked from Frankencoin at commit [a2ce625](https://github.com/Frankencoin-ZCHF/FrankenCoin/commit/a2ce625c554bbd3465a31e7d8b7360a054339dd2) (December 2, 2024), introducing significant protocol improvements. JuiceDollar continues this evolution with deployment on Citrea, using cBTC as the native currency.
 
@@ -177,18 +177,17 @@ npx tsc-watch --onCompilationComplete "npx hardhat test ./test/RollerTests.ts"
 ### Target Networks
 
 - **Mainnet**: Citrea (native currency: cBTC)
-- **Testnet**: Citrea Testnet
 
 ### Manual Deployment (Hardhat Deploy)
 
-Deploy to Citrea Testnet:
+Deploy to Citrea Mainnet:
 
 ```bash
-hh deploy --network citreaTestnet --tags MockTokens
-hh deploy --network citreaTestnet --tags JuiceDollar
-hh deploy --network citreaTestnet --tags PositionFactory
-hh deploy --network citreaTestnet --tags MintingHub
-hh deploy --network citreaTestnet --tags positions
+hh deploy --network citrea --tags MockTokens
+hh deploy --network citrea --tags JuiceDollar
+hh deploy --network citrea --tags PositionFactory
+hh deploy --network citrea --tags MintingHub
+hh deploy --network citrea --tags positions
 ```
 
 **Testing on local fork:**

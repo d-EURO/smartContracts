@@ -1,5 +1,5 @@
 {
   "collateralToken": "0x0000000000000000000000000000000000000000",
   "bridge": "bridgeStartUSD",
-  "_comment": "Update collateralToken with actual Citrea testnet token address for testing"
+  "_comment": "Update collateralToken with actual Citrea token address for testing"
 }

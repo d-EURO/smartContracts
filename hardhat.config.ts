@@ -68,30 +68,21 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      chainId: process.env.FORK_TESTNET ? 5115 : process.env.FORK_MAINNET ? 4114 : 31337,
+      chainId: process.env.FORK_MAINNET ? 4114 : 31337,
       allowUnlimitedContractSize: true,
       // Use deployer mnemonic when forking, default Hardhat accounts otherwise
-      accounts: (process.env.FORK_TESTNET || process.env.FORK_MAINNET)
+      accounts: process.env.FORK_MAINNET
         ? hardhatAccounts
         : undefined,
-      forking: process.env.FORK_TESTNET ? {
-        url: process.env.CITREA_TESTNET_RPC || "https://rpc.testnet.citreascan.com",
-        enabled: true,
-      } : process.env.FORK_MAINNET ? {
+      forking: process.env.FORK_MAINNET ? {
         url: process.env.CITREA_MAINNET_RPC || "https://rpc.citreascan.com",
         enabled: true,
       } : undefined,
       chains: {
-        5115: { hardforkHistory: { shanghai: 0 } },
         4114: { hardforkHistory: { shanghai: 0 } },
       },
     },
     // Localhost networks for persistent forked nodes (optional use)
-    forkTestnet: {
-      url: "http://127.0.0.1:8545",
-      chainId: 5115,
-      timeout: 300_000,
-    },
     forkMainnet: {
       url: "http://127.0.0.1:8545",
       chainId: 4114,
@@ -109,14 +100,6 @@ const config: HardhatUserConfig = {
       accounts: deployerAccounts,
       timeout: 300_000,
     },
-    citreaTestnet: {
-      url: process.env.CITREA_TESTNET_RPC || 'https://rpc.testnet.citreascan.com',
-      chainId: 5115,
-      gas: 'auto',
-      gasPrice: 'auto',
-      accounts: deployerAccounts,
-      timeout: 300_000,
-    },
   },
   namedAccounts: {
     deployer: {
@@ -126,7 +109,6 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       citrea: 'no-api-key-needed',
-      citreaTestnet: 'no-api-key-needed',
     },
     customChains: [
       {
@@ -135,14 +117,6 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: "https://citreascan.com/api",
           browserURL: "https://citreascan.com"
-        }
-      },
-      {
-        network: "citreaTestnet",
-        chainId: 5115,
-        urls: {
-          apiURL: "https://testnet.citreascan.com/api",
-          browserURL: "https://testnet.citreascan.com"
         }
       }
     ]

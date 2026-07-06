@@ -22,7 +22,7 @@ async function main() {
   }
 
   // Get config for current network
-  const networkKey = network === 'citrea' ? 'citrea' : network === 'citreaTestnet' ? 'citreaTestnet' : 'hardhat';
+  const networkKey = network === 'citrea' ? 'citrea' : 'hardhat';
   const config = migrationV3Config[networkKey];
   const params = migrationV3Params;
 

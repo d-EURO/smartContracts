@@ -3,10 +3,6 @@ export const migrationV3Config = {
     juiceDollar: '0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C',
     wcbtc: '0x3100000000000000000000000000000000000006',
   },
-  citreaTestnet: {
-    juiceDollar: '0x6a850a548fdd050e8961223ec8FfCDfacEa57E39',
-    wcbtc: '0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93',
-  },
   hardhat: {
     juiceDollar: '0x0987D3720D38847ac6dBB9D025B9dE892a3CA35C',
     wcbtc: '0x3100000000000000000000000000000000000006',

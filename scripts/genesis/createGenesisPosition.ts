@@ -173,7 +173,7 @@ async function main() {
   const networkName = hre.network.name;
   const chainId = Number(networkInfo.chainId);
   const isLocal = networkName === 'hardhat' || networkName === 'localhost';
-  const isForkNetwork = process.env.FORK_MAINNET === 'true' || process.env.FORK_TESTNET === 'true';
+  const isForkNetwork = process.env.FORK_MAINNET === 'true';
 
   console.log(`Deployer: ${deployerAddress}`);
   console.log(`Network: ${networkName}`);
@@ -181,7 +181,7 @@ async function main() {
   console.log(`Mode: ${isLocal ? (isForkNetwork ? 'FORK' : 'LOCAL') : 'MAINNET'}\n`);
 
   // Setup paths - when forking, use the forked network's deployment folder
-  const networkFolder = isForkNetwork ? (process.env.FORK_MAINNET ? 'citrea' : 'citreaTestnet') : networkName;
+  const networkFolder = isForkNetwork ? 'citrea' : networkName;
   const deploymentDir = path.join(__dirname, '..', '..', 'deployments', networkFolder);
   const protocolFilePath = path.join(deploymentDir, 'protocol.json');
 
@@ -200,8 +200,8 @@ async function main() {
   const juiceDollarAddress = protocolData.contracts.juiceDollar.address;
 
   // Get WcBTC address from ADDRESSES constant (same as deployProtocol.ts)
-  // For forks, use the mainnet/testnet chainId for address lookup
-  const addressChainId = isForkNetwork ? (process.env.FORK_MAINNET ? 4114 : 5115) : chainId;
+  // For forks, use the mainnet chainId for address lookup
+  const addressChainId = isForkNetwork ? 4114 : chainId;
   const wcbtcAddress = ADDRESSES[addressChainId]?.WCBTC;
   if (!wcbtcAddress) {
     throw new Error(`WcBTC address not found for chainId ${addressChainId}`);

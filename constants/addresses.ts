@@ -20,12 +20,6 @@ export const ADDRESSES: Record<
     USDT_E: '0x9f3096Bac87e7F03DC09b0B416eB0DF837304dc4',
     CT_USD: '0x8D82c4E3c936C7B5724A382a9c5a4E6Eb7aB6d5D',
   },
-  // Citrea Testnet (chainId 5115)
-  5115: {
-    WCBTC: '0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93',
-    JUICESWAP_ROUTER: '',
-    JUICESWAP_FACTORY: '',
-  },
   1337: {
     // localhost - addresses will be set dynamically via environment variables during testing
     WCBTC: '',
